@@ -203,6 +203,11 @@ impl AppState {
         };
         refresh_maps(&mut target);
         process::check_identity(id)?;
+        log::info!(
+            "target selected pid={} start_time_ticks={}",
+            id.pid,
+            id.start_time_ticks
+        );
         inner.target = Some(target.clone());
         inner.maps_at = Some(Instant::now());
         self.publish(&inner);
@@ -223,6 +228,7 @@ impl AppState {
     pub fn start_collector(self: &Arc<Self>) -> std::thread::JoinHandle<()> {
         let state = self.clone();
         std::thread::spawn(move || {
+            log::info!("process collector started");
             while !state.stopped.load(Ordering::Relaxed) {
                 let start = Instant::now();
                 {
@@ -235,16 +241,31 @@ impl AppState {
                             Ok(o) => {
                                 history::push(&mut target.history, &o);
                                 target.observation = Some(o);
-                                target.error = None;
+                                if target.error.take().is_some() {
+                                    log::info!(
+                                        "observation recovered pid={}",
+                                        target.summary.identity.pid
+                                    );
+                                }
                                 if refresh {
                                     refresh_maps(target);
                                 }
                             }
                             Err(e) => {
-                                target.error = Some(format!("{e:#}"));
+                                let error = format!("{e:#}");
+                                if target.error.as_ref() != Some(&error) {
+                                    log::warn!(
+                                        "observation failed pid={}: {error}",
+                                        target.summary.identity.pid
+                                    );
+                                }
+                                target.error = Some(error);
                                 target.exited = process::check_identity(target.summary.identity)
                                     .err()
                                     .is_some_and(|e| e.to_string().starts_with("Process exited"));
+                                if target.exited {
+                                    log::info!("target exited pid={}", target.summary.identity.pid);
+                                }
                             }
                         }
                         if refresh {
@@ -261,6 +282,7 @@ impl AppState {
                     );
                 }
             }
+            log::info!("process collector stopped");
         })
     }
 }
@@ -272,13 +294,19 @@ fn refresh_maps(target: &mut Target) {
     }) {
         Ok(maps) => {
             target.maps = maps;
-            target.maps_error = None;
+            if target.maps_error.take().is_some() {
+                log::info!("memory maps recovered pid={}", id.pid);
+            }
             target.maps_captured_at = Some(process::timestamp_ms());
             target.rollup = maps::rollup(id.pid);
         }
         Err(e) => {
             target.maps.clear();
-            target.maps_error = Some(process::permission_help("memory maps", e));
+            let error = process::permission_help("memory maps", e);
+            if target.maps_error.as_ref() != Some(&error) {
+                log::warn!("memory maps failed pid={}: {error}", id.pid);
+            }
+            target.maps_error = Some(error);
             target.rollup = None;
         }
     }

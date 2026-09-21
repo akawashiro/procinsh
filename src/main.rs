@@ -17,7 +17,21 @@ struct Cli {
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> std::process::ExitCode {
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
+        .target(env_logger::Target::Stderr)
+        .format_timestamp_millis()
+        .init();
+    match run().await {
+        Ok(()) => std::process::ExitCode::SUCCESS,
+        Err(error) => {
+            log::error!("{error:#}");
+            std::process::ExitCode::FAILURE
+        }
+    }
+}
+
+async fn run() -> Result<()> {
     let cli = Cli::parse();
     ensure!(
         cli.interval >= Duration::from_millis(100) && cli.interval <= Duration::from_secs(60),
@@ -32,26 +46,37 @@ async fn main() -> Result<()> {
         .context("could not bind HTTP listener")?;
     let address = listener.local_addr()?;
     if !address.ip().is_loopback() {
-        eprintln!(
+        log::warn!(
             "Warning: remote access exposes process memory. Use only on a trusted network; no authentication is provided."
         );
     }
+    let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+        .context("could not install SIGTERM handler")?;
     let collector = state.start_collector();
     let shutdown_state = state.clone();
-    println!("procinsh is running:\nhttp://{address}");
-    let result = axum::serve(
-        listener,
-        procinsh::server::router(state.clone(), address),
-    )
-    .with_graceful_shutdown(async move {
-        let mut terminate =
-            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-                .expect("SIGTERM handler");
-        tokio::select! { _ = tokio::signal::ctrl_c() => {}, _ = terminate.recv() => {} }
-        shutdown_state.stop();
-    })
-    .await;
+    log::info!(
+        "procinsh {} listening on http://{address} interval={:?}",
+        env!("CARGO_PKG_VERSION"),
+        cli.interval
+    );
+    let result = axum::serve(listener, procinsh::server::router(state.clone(), address))
+        .with_graceful_shutdown(async move {
+            tokio::select! {
+                result = tokio::signal::ctrl_c() => {
+                    match result {
+                        Ok(()) => log::info!("received SIGINT; shutting down"),
+                        Err(error) => log::error!("SIGINT handler failed: {error}"),
+                    }
+                },
+                _ = terminate.recv() => log::info!("received SIGTERM; shutting down"),
+            }
+            shutdown_state.stop();
+        })
+        .await;
     state.stop();
-    collector.join().ok();
+    collector
+        .join()
+        .map_err(|_| anyhow::anyhow!("process collector thread panicked"))?;
+    log::info!("procinsh stopped");
     result.context("HTTP server failed")
 }

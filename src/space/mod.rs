@@ -118,9 +118,12 @@ impl Space {
             return;
         }
         let space = self.clone();
-        std::thread::spawn(move || activity::run(space));
+        spawn_worker("activity", move || activity::run(space));
         let space = self.clone();
-        std::thread::spawn(move || {
+        spawn_worker("topology", move || {
+            log::info!("SPACE topology worker started");
+            let mut previous_warnings = Vec::new();
+            let mut metrics_error = None;
             let resolver = resolver::Resolver::new();
             let mut discovery = crate::process::discovery::Discovery::default();
             let mut full = Instant::now() - Duration::from_secs(10);
@@ -134,6 +137,21 @@ impl Space {
                 }
                 if full.elapsed() >= Duration::from_secs(5) {
                     let mut data = topology::collect(&mut discovery);
+                    if data.warnings != previous_warnings {
+                        if data.warnings.is_empty() {
+                            log::info!("SPACE topology recovered");
+                        } else {
+                            for warning in &data.warnings {
+                                log::warn!("SPACE topology: {warning}");
+                            }
+                        }
+                        previous_warnings = data.warnings.clone();
+                    }
+                    log::debug!(
+                        "SPACE topology collected nodes={} edges={}",
+                        data.nodes.len(),
+                        data.edges.len()
+                    );
                     for edge in &mut data.edges {
                         if let Some(socket) = &mut edge.socket {
                             if socket.network_peer {
@@ -147,14 +165,27 @@ impl Space {
                     full = Instant::now();
                     tick = Instant::now();
                 } else if tick.elapsed() >= Duration::from_secs(1) {
-                    if let Ok(summaries) = discovery.collect() {
-                        let metrics:Vec<_>=summaries.iter().map(|s|json!({"identity":s.identity,"cpu_percent":s.cpu_percent,"rss_bytes":s.rss_bytes})).collect();
-                        space.send("metrics", json!(metrics));
+                    match discovery.collect() {
+                        Ok(summaries) => {
+                            if metrics_error.take().is_some() {
+                                log::info!("SPACE metrics recovered");
+                            }
+                            let metrics:Vec<_>=summaries.iter().map(|s|json!({"identity":s.identity,"cpu_percent":s.cpu_percent,"rss_bytes":s.rss_bytes})).collect();
+                            space.send("metrics", json!(metrics));
+                        }
+                        Err(error) => {
+                            let error = format!("{error:#}");
+                            if metrics_error.as_ref() != Some(&error) {
+                                log::warn!("SPACE metrics: {error}");
+                            }
+                            metrics_error = Some(error);
+                        }
                     }
                     tick = Instant::now();
                 }
                 std::thread::sleep(Duration::from_millis(100));
             }
+            log::info!("SPACE topology worker stopped");
         });
     }
 }
@@ -225,4 +256,63 @@ mod tests {
         assert_eq!(space.density(), 0);
         assert!(space.memory_targets().is_empty());
     }
+}
+
+/// Remembers only operational states, not continuously changing counters.
+#[derive(Default)]
+struct StatusLog(std::collections::HashMap<&'static str, String>);
+impl StatusLog {
+    fn changes(&mut self, status: &serde_json::Value) -> Vec<(&'static str, String)> {
+        let mut changes = Vec::new();
+        for key in ["ipc", "cpu", "files", "memory"] {
+            if let Some(value) = status[key].as_str() {
+                if self.0.get(key).is_none_or(|old| old != value) {
+                    self.0.insert(key, value.to_owned());
+                    changes.push((key, value.to_owned()));
+                }
+            }
+        }
+        changes
+    }
+    fn observe(&mut self, status: &serde_json::Value) {
+        for (key, value) in self.changes(status) {
+            if value.starts_with("unavailable:") || value.starts_with("error:") {
+                log::warn!("SPACE {key}: {value}");
+            } else {
+                log::info!("SPACE {key}: {value}");
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod logging_tests {
+    use super::*;
+    #[test]
+    fn logs_changes_recovery_and_recurrence_without_repeating_errors() {
+        let mut log = StatusLog::default();
+        let error = json!({"memory":"unavailable: permission denied", "lost":1});
+        assert_eq!(log.changes(&error).len(), 1);
+        assert!(log.changes(&error).is_empty());
+        assert!(
+            log.changes(&json!({"memory":"unavailable: permission denied", "lost":2}))
+                .is_empty()
+        );
+        assert_eq!(
+            log.changes(&json!({"memory":"unavailable: unsupported"}))
+                .len(),
+            1
+        );
+        assert_eq!(log.changes(&json!({"memory":"sampling"})).len(), 1);
+        assert_eq!(log.changes(&error).len(), 1);
+    }
+}
+
+fn spawn_worker(name: &'static str, work: impl FnOnce() + Send + 'static) {
+    std::thread::spawn(move || {
+        if let Err(panic) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(work)) {
+            log::error!("SPACE {name} worker panicked");
+            std::panic::resume_unwind(panic);
+        }
+    });
 }

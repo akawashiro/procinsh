@@ -20,6 +20,7 @@ use std::{convert::Infallible, net::SocketAddr, sync::Arc, time::Duration};
 struct ApiError(StatusCode, String);
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
+        log::debug!("API error status={} detail={}", self.0, self.1);
         (self.0, Json(json!({"error":self.1}))).into_response()
     }
 }
@@ -76,7 +77,30 @@ pub fn router(state: Arc<AppState>, address: SocketAddr) -> Router {
         .route("/api/target/sample",get(|| async { (StatusCode::NOT_IMPLEMENTED,Json(json!({"error":"Continuous perf sampling is planned for v0.2.0. Use a coherent snapshot."}))) }))
         .route("/api/target/events",get(events))
         .layer(middleware::from_fn(move |request, next| guard_http(request,next,address)))
+        .layer(middleware::from_fn(log_request))
         .with_state(state)
+}
+
+async fn log_request(request: Request, next: Next) -> Response {
+    let method = request.method().clone();
+    let path = request.uri().path().to_owned();
+    let started = std::time::Instant::now();
+    let response = next.run(request).await;
+    let status = response.status();
+    if status.is_server_error() {
+        log::error!(
+            "HTTP {method} {path:?} status={} elapsed_ms={}",
+            status.as_u16(),
+            started.elapsed().as_millis()
+        );
+    } else {
+        log::debug!(
+            "HTTP {method} {path:?} status={} elapsed_ms={}",
+            status.as_u16(),
+            started.elapsed().as_millis()
+        );
+    }
+    response
 }
 
 async fn guard_http(request: Request, next: Next, address: SocketAddr) -> Response {
@@ -140,6 +164,11 @@ async fn clear(State(s): State<Arc<AppState>>, Json(id): Json<ProcessId>) -> Api
     blocking(move || {
         let mut inner = s.lock();
         selected(&inner.target, id, false)?;
+        log::info!(
+            "target cleared pid={} start_time_ticks={}",
+            id.pid,
+            id.start_time_ticks
+        );
         inner.target = None;
         s.publish(&inner);
         Ok(Json(Value::Null))

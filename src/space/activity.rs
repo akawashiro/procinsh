@@ -293,9 +293,12 @@ pub fn run(space: Arc<Space>) {
     let mut memory = std::collections::HashMap::new();
     let mut comm = std::collections::HashMap::new();
     let mut samples = [Sample::default(); 4096];
+    let mut logged = super::StatusLog::default();
+    log::info!("SPACE activity worker started");
     while !space.stopped() {
         let density = space.density();
         if density == 0 {
+            logged.observe(&json!({"ipc":"idle", "cpu":"idle", "files":"idle", "memory":"idle"}));
             bpf = None;
             files = None;
             perf.clear();
@@ -308,6 +311,7 @@ pub fn run(space: Arc<Space>) {
             continue;
         }
         if current != density {
+            log::info!("SPACE observation active density={density}");
             perf.clear();
             threads_at = Instant::now() - Duration::from_secs(1);
             let period = match density {
@@ -355,9 +359,10 @@ pub fn run(space: Arc<Space>) {
             unresolved = 0;
         }
         if let Some(sensor) = &files {
-            if let Err(error) = sensor.poll() {
-                space.status.lock().unwrap()["files"] = json!(format!("error: {error:#}"));
-            }
+            space.status.lock().unwrap()["files"] = match sensor.poll() {
+                Ok(()) => json!("observing"),
+                Err(error) => json!(format!("error: {error:#}")),
+            };
         }
         let requested = space.memory_targets();
         if requested != targets || threads_at.elapsed() >= Duration::from_millis(250) {
@@ -366,6 +371,9 @@ pub fn run(space: Arc<Space>) {
             perf.retain(|key, _| threads.contains(key));
             memory.retain(|(id, _, _, _), _| targets.contains(id));
             let mut failure = None;
+            // Use a stable representative error so HashSet iteration cannot flood logs.
+            let mut threads: Vec<_> = threads.into_iter().collect();
+            threads.sort_by_key(|(owner, tid, start)| (owner.pid, *tid, *start));
             for thread in threads {
                 if perf.contains_key(&thread) {
                     continue;
@@ -375,7 +383,7 @@ pub fn run(space: Arc<Space>) {
                         perf.insert(thread, handle);
                     }
                     Err(error) => {
-                        failure = Some(format!("unavailable: {error:#}"));
+                        failure.get_or_insert_with(|| format!("unavailable: {error:#}"));
                     }
                 }
             }
@@ -396,6 +404,8 @@ pub fn run(space: Arc<Space>) {
             if consumed < 0 {
                 let e = std::io::Error::from_raw_os_error(-consumed);
                 space.status.lock().unwrap()["ipc"] = json!(format!("error: {e}"));
+            } else {
+                space.status.lock().unwrap()["ipc"] = json!("observing");
             }
             for e in b.queue.lock().unwrap().drain(..) {
                 let Some(n) = nodes.get(&(e.pid as i32)) else {
@@ -496,7 +506,10 @@ pub fn run(space: Arc<Space>) {
             let ipc:Vec<_>=comm.drain().map(|((id,resource,write),(bytes,count))|json!({"process_id":id,"resource":resource,"write":write,"bytes":bytes,"count":count})).collect();
             let cpu = if let Some(bpf) = &mut bpf {
                 match bpf.cpu_activity(super::monotonic_ns(), &topology) {
-                    Ok(activity) => activity,
+                    Ok(activity) => {
+                        space.status.lock().unwrap()["cpu"] = json!("observing");
+                        activity
+                    }
                     Err(error) => {
                         space.status.lock().unwrap()["cpu"] = json!(format!("error: {error:#}"));
                         Vec::new()
@@ -534,8 +547,10 @@ pub fn run(space: Arc<Space>) {
             space.send("activity",json!({"captured_at":crate::process::timestamp_ms(),"window_ms":last.elapsed().as_millis(),"files":file_events,"memory":mem,"ipc":ipc,"cpu":cpu,"invalidated":invalidated.keys().collect::<Vec<_>>(),"status":*status}));
             last = Instant::now();
         }
+        logged.observe(&space.status.lock().unwrap());
         std::thread::sleep(Duration::from_millis(10));
     }
+    log::info!("SPACE activity worker stopped");
 }
 
 #[cfg(test)]

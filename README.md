@@ -21,6 +21,19 @@ cargo build --release --locked
 
 必要なら `cargo install --path . --locked` で `procinsh` コマンドとしてインストールできます。更新間隔は **100ms～60s、標準1s**。履歴は直近60秒、smaps は選択中のプロセスのみ約5秒間隔で取得します。
 
+## ログ
+
+標準エラーに時刻・レベル・モジュール名付きで出力します。既定は `info` で、起動・終了、対象プロセスの変更、収集機能の状態変化とエラーを記録します。同じ収集エラーの繰り返しは抑制します。
+
+```sh
+cargo build --locked
+sudo ./target/debug/procinsh --listen 127.0.0.1:9090
+sudo env RUST_LOG=procinsh=debug ./target/debug/procinsh --listen 127.0.0.1:9090
+sudo env RUST_LOG=info,procinsh::space=debug ./target/debug/procinsh --listen 127.0.0.1:9090
+```
+
+`sudo env` で実行するプロセスに `RUST_LOG` を渡します。`debug` では HTTP メソッド・パス・ステータス・応答生成時間と API エラー詳細も出力します。SSE の時間は接続開始時の応答までです。クエリ・トークン・本文・観測したメモリや環境変数の値はログに含めません。`RUST_LOG=off` でアプリケーションのログを無効化できます。
+
 ## 操作
 
 1. Process Explorer で名前・PID・コマンドを検索し、CPU / RSS / PID で並べ替えます。
@@ -127,6 +140,7 @@ ELF の segment offset を使って PIE / ASLR を解決し、関数名・関数
 cargo fmt --check
 cargo clippy --all-targets -- -D warnings
 cargo test --locked
+python3 tests/logging-checks.py
 
 # ブラウザ操作の結合テスト（Node.js 22+ / Google Chrome）
 cargo build
