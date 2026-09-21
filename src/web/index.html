@@ -10,7 +10,7 @@
   <main>
     <div id="error" role="alert" hidden></div>
     <section id="explorer">
-      <div class="heading"><div><p class="eyebrow">SYSTEM / OVERVIEW</p><h1>Process Explorer</h1><p class="muted">Select a running process to inspect its internal state.</p></div><div><a href="/space" class="text-button">ENTER SPACE</a></div></div>
+      <div class="heading"><a href="/space" class="text-button">ENTER SPACE</a></div>
       <div class="toolbar"><input type="search" id="search" placeholder="Search name, PID, or command…" aria-label="Search processes"><label>Sort <select id="sort"><option value="cpu">CPU ↓</option><option value="rss">RSS ↓</option><option value="pid">PID ↑</option></select></label><span id="process-count" class="muted"></span></div>
       <div class="panel scroll"><table><thead><tr><th>PID</th><th>USER</th><th>CPU</th><th>RSS</th><th>THREADS</th><th>STATE</th><th>NAME / COMMAND</th></tr></thead><tbody id="process-list"></tbody></table></div>
     </section>
