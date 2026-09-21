@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    name: Format
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal --component rustfmt
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+  build:
+    name: Build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal
+      - name: Install native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential clang llvm pkg-config libelf-dev zlib1g-dev \
+            linux-tools-common linux-tools-generic
+      - name: Configure bpftool and check kernel BTF
+        shell: bash
+        run: |
+          # Use the packaged binary directly: the wrapper requires tools matching
+          # the runner's kernel, which may differ from the installed generic kernel.
+          shopt -s nullglob
+          bpftools=(/usr/lib/linux-tools/*/bpftool)
+          if (( ${#bpftools[@]} == 0 )); then
+            echo "::error::No packaged bpftool binary found"
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/procinsh-bin"
+          ln -s "${bpftools[0]}" "$RUNNER_TEMP/procinsh-bin/bpftool"
+          echo "$RUNNER_TEMP/procinsh-bin" >> "$GITHUB_PATH"
+          test -r /sys/kernel/btf/vmlinux
+          "$RUNNER_TEMP/procinsh-bin/bpftool" version
+      - name: Build
+        run: cargo build --locked --all-targets
