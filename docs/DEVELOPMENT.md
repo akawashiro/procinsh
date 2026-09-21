@@ -74,15 +74,13 @@ JSON のプロセス識別子は `{ "pid": 123, "start_time_ticks": 456 }` で�
 | `GET /api/target/events` | SSE の `observation` イベント |
 | `GET /api/space/status` | センサー状態と収集統計 |
 | `GET /api/space/snapshot` | 最新の構造 |
-| `POST /api/space/leases` | 閲覧開始・更新 |
-| `DELETE /api/space/leases` | `{ "token": "..." }` で閲覧終了 |
-| `GET /api/space/events?token=TOKEN` | SPACE の SSE |
+| `GET /api/space/events` | SPACE の SSE |
 
 詳細 GET（process/threads/maps/memory/fds/environment/auxv/signals）には `pid` と `start_time_ticks` のクエリが必要です。対象未選択は404、選択不一致は409です。要求時に対象の生存を確認するAPIでは終了・PID再利用を410で返しますが、保持済みの process/threads/maps は終了後も取得できます。memory の `address` は10進または `0x` 付き16進、`length` は既定256・範囲1～65536です。不正なアドレス・範囲は400、その他の観測処理の失敗は原則422、ブロッキングタスクの失敗は500です。
 
 詳細 SSE の `observation` は対象の最新状態または null です。SPACE の SSE は `topology`（構造）、`metrics`（CPU/RSS）、`activity`（活動集計）、`gap`（欠落フレーム数）を配信します。いずれも接続時に初期状態を送ります。
 
-lease の JSON は省略可能な `token` だけを受け付け、未知のフィールドは拒否します。`{}` で新規作成、`{"token":"..."}` で既存セッションを更新します。応答は `token`、`expires_in`（30秒）です。期限切れ・未知のトークンでの更新やセッション数上限超過は422です。DELETE は未知のトークンでも `{"ok":true}` を返します。SPACE SSE は登録されていないトークンを403で拒否します。
+SPACE の SSE は接続そのものを閲覧セッションとして扱い、token は不要です。同時接続は最大32本で、上限超過は429、アプリ終了後の新規接続は503です。
 
 `activity.files` は `{process_id, resource, path, write, bytes, count}` の配列です。`path` は取得不能なら null、`resource` は device/inode/generation を含む識別子です。状態には `files`、`files_lost`、`files_coverage` などを含みます。
 
@@ -157,14 +155,14 @@ RUSTFLAGS="-C force-frame-pointers=yes" cargo build
 
 - `GET /api/space/status`：保持しているセンサー状態・収集統計を返します。
 - `GET /api/space/snapshot`：保持している最新の構造を返します。status と snapshot のGET自体は収集を開始しません。
-- `POST /api/space/leases`：期限切れのセッションを除き、新規トークンを発行するか既存セッションの更新時刻を更新します。期限は30秒、最大32セッションです。初回には収集ワーカーを起動します。
-- `DELETE /api/space/leases`：指定トークンを削除します。最後の lease がなくなるとワーカーが休止状態に入り、センサーを解放します。ワーカースレッドはアプリ終了まで残ります。
+- `GET /api/space/events`：接続数を上限確認と同時に加算し、初回に収集ワーカーを起動します。レスポンスのストリームがRAIIガードを所有し、未読のレスポンスも含めて終了・破棄時に接続数を減らします。
+最後の接続がなくなると、ワーカーが次に状態を確認した時点で収集を休止してセンサーを解放します。ワーカースレッドはアプリ終了まで残り、再接続で収集を再開します。ネットワーク断ではサーバーの切断検出が遅れる場合があり、収集停止までの時間に上限は設けていません。
 
 構造収集は約5秒、CPU/RSS の更新は約1秒です。全体 FD 走査は100,000 FD・4秒、各 PID のマッピングは4096件、接続図は約20,000接続を上限とします。プロセスの親子・マップ・pipe/socket・ネットワーク接続先を非停止で探索し、取得不能・打ち切り・欠落を状態として扱います。ネットワーク接続先の名前解決結果はキャッシュします。
 
 ### SPACE の活動収集と SSE
 
-`GET /api/space/events?token=TOKEN` は登録されたトークンを確認し、broadcast channel を購読します。最初に保持済みの構造を `topology` として返し、その後は構造・メトリクス・活動を配信します。トークン削除やアプリ終了を検出すると接続を終了します。
+`GET /api/space/events` は閲覧者を登録して broadcast channel を購読します。最初に保持済みの構造を `topology` として返し、その後は構造・メトリクス・活動を配信します。切断・配信終了で登録を解除し、アプリ終了時にはストリームを終了します。
 
 購読側が遅延した場合は `gap` と最新の `topology` を送り、失われた活動を再生しません。keep-alive は10秒間隔です。活動は最大10Hzで集計・配信します。
 
@@ -216,9 +214,7 @@ RUSTFLAGS="-C force-frame-pointers=yes" cargo build
 
 | 利用API | 呼び出すタイミングと用途 |
 |---|---|
-| `POST /api/space/leases` | 表示開始時に `{}` で作成し、取得直後と以後10秒ごとにトークンで更新 |
-| `GET /api/space/events?token=TOKEN` | lease 取得後に購読し、構造・メトリクス・活動を受信 |
-| `DELETE /api/space/leases` | 非表示・離脱・セッション再作成時に解放 |
+| `GET /api/space/events` | 表示開始・再表示時に接続し、構造・メトリクス・活動を受信。接続中だけ閲覧者として登録 |
 
 初期構造も SSE から取得するため、`GET /api/space/status` と `GET /api/space/snapshot` は直接呼びません。通常画面の target API も呼びません。グラフ上の選択はブラウザ内だけで管理し、詳細へのリンクは `/process/{pid}` に移動します。
 
@@ -229,7 +225,7 @@ Three.js でプロセスの親子関係、仮想アドレス空間、接続先�
 - `activity`：CPU の発光、IPC・ネットワークの流れ、ファイル I/O の表示を更新します。CPU の発光は実行中に強まり、活動が途絶えると約500msで減衰します。ファイル表示は最終アクセスから30秒、各プロセス32個・全体512個まで保持します。
 - `gap`：描画中の粒子をクリアし、続く構造イベントを反映します。
 
-タブ非表示・ページ離脱時は SSE と更新タイマーを止め、lease を解放して活動表示をクリアします。再表示時は lease を作り直します。作成失敗はエラーを表示して3秒後に再試行し、更新失敗は現在のセッションを停止して再作成します。SSE の再接続は EventSource に任せます。
+タブ非表示・ページ離脱時は SSE と再接続タイマーを止め、活動表示をクリアします。再表示時は接続し直します。接続エラーでは現在の EventSource を閉じ、エラーを表示して、表示中に限り3秒後に新しい接続を作ります。自動再接続との二重実行を避け、古い接続からのイベントは無視します。接続成功時にエラー表示を消します。
 
 ## 権限とログ
 
@@ -274,7 +270,7 @@ cargo clippy --all-targets --locked -- -D warnings
 
 CI はフォーマット確認、TypeScript の型チェックとビルド、Rust の全ターゲットのビルド、Clippy、Rust テスト、ログ検証、SPACE モデル検証を実行します。ブラウザと実機センサーのテストは別途実行します。
 
-Rust テストは `/proc` の解析、PID 再利用、メモリ読み取り、ptrace の解除、シンボル、HTTP、SPACE の構造・lease・集計を検証します。ログテストは既定レベル、debug、off、標準エラー、SIGTERM、ポート競合、クエリ非出力を検証します。プロセス観測を拒否するサンドボックスでは一部テストが失敗するため、テスト対象への ptrace/process_vm_readv とローカル通信が許可された環境が必要です。
+Rust テストは `/proc` の解析、PID 再利用、メモリ読み取り、ptrace の解除、シンボル、HTTP、SPACE の構造・SSE接続管理・集計を検証します。ログテストは既定レベル、debug、off、標準エラー、SIGTERM、ポート競合、クエリ非出力を検証します。プロセス観測を拒否するサンドボックスでは一部テストが失敗するため、テスト対象への ptrace/process_vm_readv とローカル通信が許可された環境が必要です。
 
 ### ブラウザテスト
 
