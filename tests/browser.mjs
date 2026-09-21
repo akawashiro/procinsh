@@ -65,6 +65,7 @@ try {
     await waitFor(`!document.getElementById('inspector').hidden && document.getElementById('identity').textContent.includes('PID ${pid} /')`, 'process selection');
   }
   await choose(recursive.pid);
+  assert.equal(await evaluate("document.getElementById('target-status').hidden"), true);
   assert.equal(await evaluate("document.querySelector('header #back').hidden"), false);
   assert.equal(await evaluate("document.querySelector('header #back').textContent"), 'Back to process list');
   assert.equal(await evaluate('document.title'), await evaluate("'procinsh / ' + document.getElementById('target-name').textContent"));
@@ -105,6 +106,7 @@ try {
   await evaluate("document.getElementById('auto-snapshot').click()");
   threads.kill('SIGTERM');
   await waitFor("document.getElementById('target-status').textContent.includes('Process exited')", 'process exit');
+  assert.equal(await evaluate("document.getElementById('target-status').hidden"), false);
   assert.equal(await evaluate("document.getElementById('auto-snapshot').checked"), false);
   // An open SSE connection must not hang graceful shutdown.
   app.kill('SIGTERM'); await until(() => app.exitCode !== null, 'shutdown with active SSE', 5000);

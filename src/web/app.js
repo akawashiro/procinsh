@@ -192,7 +192,8 @@ function renderTarget() {
   const p = target.summary, o = target.observation;
   $('target-name').textContent = p.name; $('identity').textContent = `PID ${p.identity.pid} / START ${p.identity.start_time_ticks} / ${p.username ?? p.uid ?? 'N/A'}`;
   $('command').textContent = p.command_line?.join(' ') || p.executable || 'N/A';
-  $('target-status').textContent = target.exited ? '● Process exited' : '● Monitoring'; $('target-status').classList.toggle('exited', target.exited);
+  $('target-status').hidden = !target.exited;
+  $('target-status').textContent = target.exited ? '● Process exited' : ''; $('target-status').classList.toggle('exited', target.exited);
   $('target-error').hidden = !target.error; $('target-error').textContent = target.error || '';
   snapshotControls();
   for (const kind of detailKinds) $(`${kind}-refresh`).disabled = target.exited || processDetails[kind].busy;
