@@ -26,8 +26,12 @@ export async function checkAutoSnapshot({evaluate, waitFor, delay, choose, other
   await toggle();
   assert.equal(await evaluate("document.getElementById('snapshot').disabled"), true);
   await waitFor('window.snapshotTest.completed >= 3', 'repeated automatic snapshots');
+  await idle();
+  assert.equal(await checked(), true);
+  assert.equal(await evaluate("document.getElementById('snapshot').disabled"), true, 'manual capture stays disabled between automatic captures');
   await waitFor("document.querySelector('#disassembly .current-instruction')?.cells[1].textContent === Array.from(document.querySelectorAll('#registers tr')).find(r => r.cells[0].textContent === 'RIP')?.cells[1].textContent", 'automatic disassembly matches RIP');
   await toggle(); await idle();
+  assert.equal(await evaluate("document.getElementById('snapshot').disabled"), false, 'manual capture is enabled after auto capture stops');
   let count = await calls(); await delay(1200); assert.equal(await calls(), count, 'OFF must stop requests');
 
   await evaluate("window.snapshotTest.mode = 'hold'"); await toggle();
