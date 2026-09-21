@@ -47,36 +47,113 @@ async fn blocking<T: Send + 'static>(
 
 pub fn router(state: Arc<AppState>, address: SocketAddr) -> Router {
     Router::new()
-        .route("/",get(|| async { Html(include_str!("../web/index.html")) }))
-        .route("/process/{pid}",get(|| async { Html(include_str!("../web/index.html")) }))
-        .route("/app.js",get(|| async { ([(header::CONTENT_TYPE,"text/javascript; charset=utf-8")],include_str!("../../dist/web/app.js")) }))
-        .route("/style.css",get(|| async { ([(header::CONTENT_TYPE,"text/css; charset=utf-8")],include_str!("../web/style.css")) }))
-        .route("/space",get(|| async { Html(include_str!("../web/space.html")) }))
-        .route("/space.js",get(|| async { ([(header::CONTENT_TYPE,"text/javascript; charset=utf-8")],include_str!("../../dist/web/space.js")) }))
-        .route("/space-model.js",get(|| async { ([(header::CONTENT_TYPE,"text/javascript; charset=utf-8")],include_str!("../../dist/web/space-model.js")) }))
-        .route("/space.css",get(|| async { ([(header::CONTENT_TYPE,"text/css; charset=utf-8")],include_str!("../web/space.css")) }))
-        .route("/vendor/three.module.js",get(|| async { ([(header::CONTENT_TYPE,"text/javascript; charset=utf-8")],include_str!("../web/vendor/three.module.js")) }))
-        .route("/vendor/three.core.js",get(|| async { ([(header::CONTENT_TYPE,"text/javascript; charset=utf-8")],include_str!("../web/vendor/three.core.js")) }))
-        .route("/vendor/OrbitControls.js",get(|| async { ([(header::CONTENT_TYPE,"text/javascript; charset=utf-8")],include_str!("../web/vendor/OrbitControls.js")) }))
-        .route("/api/space/status",get(crate::space::http::status))
-        .route("/api/space/snapshot",get(crate::space::http::snapshot))
-        .route("/api/space/events",get(crate::space::http::events))
-        .route("/api/space/leases",post(crate::space::http::lease).delete(crate::space::http::release))
-        .route("/api/config",get(config))
-        .route("/api/processes",get(processes))
-        .route("/api/target",get(target).post(select).delete(clear))
-        .route("/api/target/process",get(stats))
-        .route("/api/target/threads",get(threads))
-        .route("/api/target/maps",get(maps))
-        .route("/api/target/memory",get(memory))
-        .route("/api/target/environment",get(environment))
-        .route("/api/target/auxv",get(auxv))
-        .route("/api/target/fds",get(fds))
-        .route("/api/target/signals",get(signals))
-        .route("/api/target/snapshot",post(snapshot))
-        .route("/api/target/sample",get(|| async { (StatusCode::NOT_IMPLEMENTED,Json(json!({"error":"Continuous perf sampling is planned for v0.2.0. Use a coherent snapshot."}))) }))
-        .route("/api/target/events",get(events))
-        .layer(middleware::from_fn(move |request, next| guard_http(request,next,address)))
+        .route(
+            "/",
+            get(|| async { Html(include_str!("../web/index.html")) }),
+        )
+        .route(
+            "/process/{pid}",
+            get(|| async { Html(include_str!("../web/index.html")) }),
+        )
+        .route(
+            "/app.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("../../dist/web/app.js"),
+                )
+            }),
+        )
+        .route(
+            "/style.css",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/css; charset=utf-8")],
+                    include_str!("../web/style.css"),
+                )
+            }),
+        )
+        .route(
+            "/space",
+            get(|| async { Html(include_str!("../web/space.html")) }),
+        )
+        .route(
+            "/space.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("../../dist/web/space.js"),
+                )
+            }),
+        )
+        .route(
+            "/space-model.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("../../dist/web/space-model.js"),
+                )
+            }),
+        )
+        .route(
+            "/space.css",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/css; charset=utf-8")],
+                    include_str!("../web/space.css"),
+                )
+            }),
+        )
+        .route(
+            "/vendor/three.module.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("../web/vendor/three.module.js"),
+                )
+            }),
+        )
+        .route(
+            "/vendor/three.core.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("../web/vendor/three.core.js"),
+                )
+            }),
+        )
+        .route(
+            "/vendor/OrbitControls.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("../web/vendor/OrbitControls.js"),
+                )
+            }),
+        )
+        .route("/api/space/status", get(crate::space::http::status))
+        .route("/api/space/snapshot", get(crate::space::http::snapshot))
+        .route("/api/space/events", get(crate::space::http::events))
+        .route(
+            "/api/space/leases",
+            post(crate::space::http::lease).delete(crate::space::http::release),
+        )
+        .route("/api/config", get(config))
+        .route("/api/processes", get(processes))
+        .route("/api/target", get(target).post(select).delete(clear))
+        .route("/api/target/process", get(stats))
+        .route("/api/target/threads", get(threads))
+        .route("/api/target/maps", get(maps))
+        .route("/api/target/memory", get(memory))
+        .route("/api/target/environment", get(environment))
+        .route("/api/target/auxv", get(auxv))
+        .route("/api/target/fds", get(fds))
+        .route("/api/target/signals", get(signals))
+        .route("/api/target/snapshot", post(snapshot))
+        .route("/api/target/events", get(events))
+        .layer(middleware::from_fn(move |request, next| {
+            guard_http(request, next, address)
+        }))
         .layer(middleware::from_fn(log_request))
         .with_state(state)
 }

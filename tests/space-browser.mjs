@@ -51,12 +51,10 @@ try {
   await cdp('Runtime.enable'); await cdp('Log.enable'); await cdp('Page.enable');
   await cdp('Emulation.setDeviceMetricsOverride', {width: 1440, height: 1100, deviceScaleFactor: 1, mobile: false});
   await cdp('Page.addScriptToEvaluateOnNewDocument', {source: `
-    window.spaceTestSources=[];window.spaceTestLeases=[];window.spaceTestActivities=[];
-    const nativeFetch=window.fetch;
-    window.fetch=(url,options)=>{if(url==='/api/space/leases'&&options?.method==='POST')window.spaceTestLeases.push(JSON.parse(options.body));return nativeFetch(url,options);};
+    window.spaceTestSources=[];
     const NativeEventSource=window.EventSource;
     window.EventSource=class extends NativeEventSource {
-      constructor(...args){super(...args);window.spaceTestSources.push(this);this.addEventListener('activity',event=>window.spaceTestActivities.push(JSON.parse(event.data)));}
+      constructor(...args){super(...args);window.spaceTestSources.push(this);}
     };
   `});
   await cdp('Page.navigate', {url: url+'/space'});
@@ -86,11 +84,7 @@ try {
   await evaluate(`document.getElementById('search').value='${app.pid}'; document.getElementById('search').dispatchEvent(new Event('input')); document.getElementById('search').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter'}));`);
   assert.match(await evaluate("document.getElementById('pid').textContent"),new RegExp(String(app.pid)));
   assert.equal(await evaluate("document.getElementById('inspect').getAttribute('href')"), `/process/${app.pid}`);
-  assert.equal(await evaluate("document.getElementById('memory-status')"),null,'memory sampling status is removed');
-  assert.equal(await evaluate("document.getElementById('density')"),null,'memory sampling density is removed');
-  assert.ok(await evaluate("window.spaceTestLeases.length > 0 && window.spaceTestLeases.every(lease => !('selected_process' in lease) && !('density' in lease))"),'selection is local and never requests memory sampling');
   await evaluate("document.getElementById('close').click()");
-  assert.ok(await evaluate("window.spaceTestLeases.every(lease => !('selected_process' in lease))"), 'clearing selection does not send a sampling target');
   assert.equal(await evaluate("document.getElementById('regions')"),null,'address-space list is removed from process details');
   await evaluate(`(async()=>{
     window.spaceTestSources.forEach(source=>source.close());
@@ -193,12 +187,6 @@ try {
   assert.ok(focusedPan>1&&closePan/focusedPan>.75&&closePan/focusedPan<1.25,'close-up panning preserves usable world-space speed');
 
   await evaluate(`import('/space.js').then(m=>m.renderTopology(${JSON.stringify(snapshot)}))`);
-  await waitFor('window.spaceTestActivities.length > 0', 'activity frames');
-  assert.ok(await evaluate("window.spaceTestActivities.every(frame => !('memory' in frame) && !('invalidated' in frame))"),'activity stream has no memory samples');
-  const status = await (await fetch(url+'/api/space/status')).json();
-  assert.equal('memory' in status,false,'no memory collector status');
-  assert.equal('memory_threads' in status,false,'no sampled threads');
-  assert.equal('period' in status,false,'no sampling period');
   await evaluate("document.getElementById('reset').click()");
   await delay(800);
   const png=await cdp('Page.captureScreenshot',{format:'png'});await writeFile('target/browser-space.png',Buffer.from(png.data,'base64'));
@@ -220,7 +208,7 @@ try {
   await cdp('Page.navigate',{url});
   await until(async()=> (await (await fetch(url+'/api/space/status')).json()).active===false,'observer stop');
   assert.deepEqual(errors.filter(e=>!/favicon.ico/.test(e)),[]);
-  console.log('Space browser checks passed: WebGL, topology, minimal tools, connection details/states/links, CPU base glow/fade, stale identity, selection without memory sampling, no target mutation, mobile, observation shutdown.');
+  console.log('Space browser checks passed: WebGL, topology, minimal tools, connection details/states/links, CPU base glow/fade, stale identity, process selection, no target mutation, mobile, observation shutdown.');
 
 } finally {
   socket?.close();

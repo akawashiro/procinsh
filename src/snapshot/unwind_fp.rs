@@ -30,7 +30,6 @@ impl StackFrame {
     }
 }
 
-// The reader is injected so the same walker can later consume captured perf stack bytes.
 pub fn walk(
     rip: u64,
     rsp: u64,

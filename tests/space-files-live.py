@@ -117,7 +117,6 @@ try:
             time.sleep(.2)
         else:
             raise AssertionError(('file sensor/topology did not become ready', status))
-        assert 'memory' not in status, status
         child.stdin.write('go\n')
         child.stdin.flush()
         expected = json.loads(child.stdout.readline())
@@ -145,7 +144,7 @@ try:
                 time.sleep(.1)
             assert api('/api/space/status')['files'] == 'idle'
         print('File I/O live checks passed:', actual,
-              '(scalar/positioned/vectored I/O, short reads, EOF/errors, immediate close/unlink, no memory sampling, shutdown)')
+              '(scalar/positioned/vectored I/O, short reads, EOF/errors, immediate close/unlink, shutdown)')
 finally:
     if lease:
         api('/api/space/leases', {'token': lease['token']}, 'DELETE')

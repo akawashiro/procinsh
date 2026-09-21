@@ -52,11 +52,10 @@ fn leases_are_independent_and_stop_collectors() {
     let s = Arc::new(Space::default());
     assert!(
         serde_json::from_value::<LeaseRequest>(serde_json::json!({
-            "selected_process": {"pid": 1, "start_time_ticks": 1}
+            "unknown_field": true
         }))
         .is_err()
     );
-    assert!(serde_json::from_value::<LeaseRequest>(serde_json::json!({"density": 2})).is_err());
     assert!(serde_json::from_value::<LeaseRequest>(serde_json::json!({})).is_ok());
     assert!(
         s.lease(LeaseRequest {

@@ -27,12 +27,11 @@ try:
         snapshot=api('/api/space/snapshot')
         if any(n['identity']['pid']==pid for n in snapshot['nodes']):break
         time.sleep(.3)
-    assert 'memory' not in status,status
     time.sleep(1)
     status=api('/api/space/status')
     assert status['cpu']=='observing' and status['ipc']=='observing',status
     p.stdin.write('go\n');p.stdin.flush();time.sleep(6)
-    assert frames and all('memory' not in f and 'invalidated' not in f for f in frames)
+    assert frames
     ipc=[e for f in frames for e in f['ipc'] if e['process_id']['pid']==pid and e['write'] and e['bytes']>0]
     from collections import defaultdict
     sends=defaultdict(lambda:[0,0]);receives=defaultdict(lambda:[0,0])
@@ -50,7 +49,7 @@ try:
     assert pipe_sends and len(socket_sends)==3 and all(v==[384,2] for v in socket_sends),sends
     assert len(socket_receives)==3 and all(v==[384,2] for v in socket_receives),receives
     assert any(k.startswith('pipe:') and v==[256,1] for k,v in receives.items()),receives
-    print('Live sensors passed: no memory sampling; scheduler runtime/current CPU; pipe/UNIX/TCP/UDP send and receive; exact bytes/counts; MSG_PEEK and failed send excluded')
+    print('Live sensors passed: scheduler runtime/current CPU; pipe/UNIX/TCP/UDP send and receive; exact bytes/counts; MSG_PEEK and failed send excluded')
 
 finally:
     if lease:api('/api/space/leases',{'token':lease['token']},'DELETE')
