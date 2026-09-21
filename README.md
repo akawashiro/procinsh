@@ -1,6 +1,8 @@
 # ProcInSh - Process in the Shell
 
-ProcInSh is a web-based process inspector for Linux.
+A web-based process inspector for Linux.
+Like [Ghost in the Shell](https://en.wikipedia.org/wiki/Ghost_in_the_Shell), you can wander through process space with your ghost.
+Now, where shall I go? The process space is vast.
 
 ## Screenshot
 
