@@ -1,24 +1,24 @@
 # ProcInSh - Process in the Shell
 
-Linux x86-64 用の Web ベースのプロセスインスペクタです。
+A web-based process inspector for Linux x86-64.
 
-## ビルド
+## Build
 
-Rust stable、C コンパイラ、clang（BPF backend）、bpftool、libelf 開発ファイル、実行カーネルの BTF が必要です。
+Requires stable Rust, a C compiler, clang with the BPF backend, bpftool, libelf development files, and BTF information for the running kernel.
 
 ```sh
 cargo build --release --locked
 ```
 
-## 起動
+## Run
 
 ```sh
 sudo ./target/release/procinsh --listen 127.0.0.1:9090
 ```
 
-ブラウザで http://127.0.0.1:9090 を開きます。終了は `Ctrl+C` です。
+Open http://127.0.0.1:9090 in your browser. Press `Ctrl+C` to stop.
 
-詳細ログを出す場合:
+To enable debug logging:
 
 ```sh
 sudo env RUST_LOG=procinsh=debug ./target/release/procinsh --listen 127.0.0.1:9090
