@@ -56,6 +56,7 @@ try {
   await cdp('Page.navigate', {url});
   await waitFor("document.querySelectorAll('#process-list tr').length > 2", 'process explorer');
   assert.equal(await evaluate("document.getElementById('inspector').hidden"), true);
+  assert.equal(await evaluate('document.title'), 'procinsh / list');
   async function choose(pid) {
     await evaluate(`document.getElementById('search').value = '${pid}'; document.getElementById('search').dispatchEvent(new Event('input'));`);
     await waitFor(`Array.from(document.querySelectorAll('#process-list tr')).some(r => r.cells[0].textContent === '${pid}')`, 'process search');
@@ -63,6 +64,7 @@ try {
     await waitFor(`!document.getElementById('inspector').hidden && document.getElementById('identity').textContent.includes('PID ${pid} /')`, 'process selection');
   }
   await choose(recursive.pid);
+  assert.equal(await evaluate('document.title'), await evaluate("'procinsh / ' + document.getElementById('target-name').textContent"));
   await checkAutoSnapshot({evaluate, waitFor, delay, choose, otherPid: threads.pid, originalPid: recursive.pid});
   await checkProcessDetails({evaluate, waitFor, delay, choose, otherPid: threads.pid, originalPid: recursive.pid});
   await checkDescriptors({evaluate, waitFor, delay, choose, originalPid: recursive.pid, ipcPid: ipc.pid, peerPid});

@@ -173,12 +173,12 @@ function resetCapture() {
   $('memory').textContent = ''; $('address').value = ''; $('memory-info').textContent = 'Click an address in a mapping or register to read memory.';
 }
 function acceptTarget(next) {
-  if (!next) { target = null; resetCapture(); $('explorer').hidden = false; $('inspector').hidden = true; history.replaceState(null, '', '/'); document.title = 'procinsh · Process Explorer'; refresh(); return; }
+  if (!next) { target = null; resetCapture(); $('explorer').hidden = false; $('inspector').hidden = true; history.replaceState(null, '', '/'); document.title = 'procinsh / list'; refresh(); return; }
   if (!same(identity(), next.summary.identity)) resetCapture();
   target = next; $('explorer').hidden = true; $('inspector').hidden = false;
   if (target.exited && autoSnapshotTimer !== null) stopAutoSnapshot('Auto capture OFF · Process exited');
   history.replaceState(null, '', `/process/${identity().pid}`);
-  document.title = `${target.summary.name} · procinsh`;
+  document.title = `procinsh / ${target.summary.name}`;
   renderTarget();
 }
 async function back(event) {
