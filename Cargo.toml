@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2024"
 description = "A local, read-only Linux x86-64 process inspector"
 license = "MIT"
+repository = "https://github.com/akawashiro/procinsh"
+readme = "README.md"
 
 [dependencies]
 log = "0.4"
