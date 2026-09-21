@@ -66,7 +66,7 @@ try {
   await checkAutoSnapshot({evaluate, waitFor, delay, choose, otherPid: threads.pid, originalPid: recursive.pid});
   await checkProcessDetails({evaluate, waitFor, delay, choose, otherPid: threads.pid, originalPid: recursive.pid});
   await checkDescriptors({evaluate, waitFor, delay, choose, originalPid: recursive.pid, ipcPid: ipc.pid, peerPid});
-  await waitFor("document.querySelectorAll('#maps tr').length > 5 && document.getElementById('connection').textContent.includes('Live')", 'SSE and memory maps');
+  await waitFor("document.querySelectorAll('#maps tr').length > 5", 'memory maps');
   await evaluate("document.getElementById('snapshot').click()");
   await waitFor("document.querySelectorAll('#registers tr').length === 18", 'register snapshot');
   assert.match(await evaluate("document.getElementById('call-stack').textContent"), /foo/);

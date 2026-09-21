@@ -339,10 +339,9 @@ async function start() {
     } else acceptTarget(initial);
     const events = new EventSource('/api/target/events');
     events.addEventListener('observation', event => { try { acceptTarget(JSON.parse(event.data)); } catch (e) { error(e); } });
-    events.onopen = () => { $('connection').textContent = `● Live · ${config.interval_ms}ms`; };
-    events.onerror = () => { $('connection').textContent = 'Reconnecting…'; if (autoSnapshotTimer !== null) stopAutoSnapshot('Auto capture OFF · Disconnected'); };
+    events.onerror = () => { if (autoSnapshotTimer !== null) stopAutoSnapshot('Auto capture OFF · Disconnected'); };
     setInterval(refresh, Math.max(1000, config.interval_ms)); setInterval(snapshotAge, 1000);
-  } catch (e) { error(e); $('connection').textContent = 'Disconnected'; }
+  } catch (e) { error(e); }
 }
 start();
 
