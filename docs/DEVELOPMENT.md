@@ -1,274 +1,217 @@
-# procinsh
+# ProcInSh 開発ドキュメント
 
-Linux x86-64 用の、ローカル Web ベースのプロセスインスペクタです。PLAN.md の **v0.1.0 / M0–M5** を実装しています。
+ProcInSh は Linux x86-64 のプロセスを観測する Web アプリケーションです。Rust の HTTP サーバーが `/proc`、ptrace、eBPF、AMD IBS から情報を取得し、ブラウザに配信します。プロセスのメモリやレジスタを書き換える機能はありません。ただし、ptrace スナップショットの取得中は対象の全スレッドを一時停止します。
 
-## 起動
+この文書は現在の実装構成、動作、API、開発・検証手順を説明します。以下のコマンドはリポジトリのルートで実行します。
 
-Rust stable（検証環境: 1.95）と Linux x86-64 が必要です。
+## ビルドと実行環境
 
-```sh
-cargo build --release --locked
-./target/release/procinsh
-```
+Rust edition は 2024 です。`rust-toolchain.toml` は stable と rustfmt・clippy を指定しています。ビルドには C コンパイラ、`ar`、BPF backend を持つ clang、bpftool、libelf 開発ファイル、実行カーネルの `/sys/kernel/btf/vmlinux` が必要です。
 
-ブラウザで **http://127.0.0.1:8080** を開きます。HTML / CSS / JavaScript はバイナリに埋め込まれており、Node.js や外部 CDN は実行時に不要です。
-
-```sh
-./target/release/procinsh --pid 12345
-./target/release/procinsh --pid 12345 --interval 250ms
-./target/release/procinsh --listen 127.0.0.1:9090
-```
-
-必要なら `cargo install --path . --locked` で `procinsh` コマンドとしてインストールできます。更新間隔は **100ms～60s、標準1s**。履歴は直近60秒、smaps は選択中のプロセスのみ約5秒間隔で取得します。
-
-## ログ
-
-標準エラーに時刻・レベル・モジュール名付きで出力します。既定は `info` で、起動・終了、対象プロセスの変更、収集機能の状態変化とエラーを記録します。同じ収集エラーの繰り返しは抑制します。
+`build.rs` は bpftool で BTF から `vmlinux.h` を生成し、`libbpf-cargo` で CPU/IPC とファイル I/O の BPF オブジェクトをビルドします。IBS の C 実装は `libprocinsh_ibs.a` としてリンクします。通常の `cargo build` でもこの処理を実行するため、BPF を画面で利用しない場合もビルド依存は必要です。
 
 ```sh
 cargo build --locked
 sudo ./target/debug/procinsh --listen 127.0.0.1:9090
+
+# リリースビルド
+cargo build --release --locked
+```
+
+ブラウザで http://127.0.0.1:9090 を開きます。HTML/CSS/JavaScript と Three.js（revision 180）はバイナリに埋め込みます。実行時の Node.js、フロントエンドのビルド、外部 CDN は不要です。Web アセットの変更を反映するには Rust バイナリを再ビルドします。SPACE の描画には WebGL2 が必要です。
+
+| CLI オプション | 動作 |
+|---|---|
+| `--listen ADDRESS` | 待受アドレス。既定は `127.0.0.1:8080` |
+| `--pid PID` | 起動時に詳細監視の対象を選択 |
+| `--interval DURATION` | 詳細監視の更新間隔。既定は `1s`、範囲は `100ms`～`60s` |
+| `--help` / `--version` | ヘルプ / バージョン表示 |
+
+SIGINT（Ctrl+C）または SIGTERM で収集停止と HTTP サーバーの終了処理を行います。起動・サーバーの致命的な失敗は非ゼロ終了です。
+
+## 実装構成
+
+| 場所 | 役割 |
+|---|---|
+| `src/main.rs` | CLI、ロガー初期化、待受、終了処理 |
+| `src/server/` | Axum のルーティング、入力・アクセス検証、HTTP ログ、詳細監視の SSE |
+| `src/state/` | 選択対象、定期観測、60秒の履歴、最新状態の配信 |
+| `src/process/` | `/proc` の解析、PID 識別、プロセス・スレッド・メモリ・FD・ソケット・シグナル情報 |
+| `src/snapshot/` | ptrace による停止・レジスタ取得、frame pointer unwind、逆アセンブル |
+| `src/symbol/` | ELF/DWARF によるシンボル・ソース位置の解決 |
+| `src/space/` | 全プロセスの構造、閲覧セッション、BPF/IBS 収集、名前解決、SPACE API |
+| `src/web/` | 通常画面、SPACE 画面、描画モデル、同梱 Three.js |
+| `tests/` | Rust・ブラウザ・ログ・実機センサーのテストと C fixture |
+
+Tokio/Axum が HTTP と SSE を処理し、ブロッキングする詳細 API は `spawn_blocking` に渡します。定期観測と SPACE の収集は OS スレッドで動きます。詳細監視は `AppState`、SPACE は独立した `Space` に状態を保持します。
+
+## プロセス詳細の観測
+
+`/` にプロセス一覧、`/process/{pid}` に詳細画面を表示します。対象の識別子は `{pid, start_time_ticks}` です。PID の再利用や選択変更を検出し、別のプロセスの情報と混同しないように検証します。詳細監視の対象はサーバー全体で1つで、複数タブも選択を共有します。
+
+定期観測は CPU、RSS/VMS、fault、I/O、context switch、スレッドなどを収集し、直近60秒の履歴を保持します。CPU 使用率は1コアを100%とし、差分のない初回は N/A です。maps/smaps は選択対象について約5秒間隔で更新します。通常の `/proc` 読み取りは対象を停止しないため、各フィールドの取得時点は厳密には一致しません。
+
+詳細画面で追加取得する情報は次のとおりです。
+
+- メモリ：`process_vm_readv` で読み取り、hex/ASCII 表示。最大64 KiBで、部分読み取りを区別します。
+- FD：pipe/FIFO/socket の方向、接続候補、共有所有者を表示。UNIX peer は socket diagnostic、TCP/UDP は対象の network namespace の情報から探索します。データを消費する読み取りは行いません。探索は3秒・100,000 FD・一致8192 FDを上限とし、不完全な結果を区別します。
+- 環境変数：`environ` を最大1 MiB読み取り、重複名、空値、値中の `=` を維持します。通常は exec 時の環境領域で、起動後の変更すべてを反映するものではありません。
+- 補助ベクトル：ELF の32/64 bitを判別して auxv を最大64 KiB読み取り、既知・未知のタグを表示します。文字列参照は最大4096バイトで、読めなくても数値を保持します。big-endian ELF は対象外です。
+- シグナル：プロセスとスレッドの保留・ブロック・無視・ハンドラ登録のマスクを表示します。最大4096スレッド・2秒で打ち切ります。受信履歴や送信元を追跡せず、シグナルを送信する機能はありません。
+
+環境変数、auxv、FD、シグナルのパネルは必要時に取得・再取得し、通常の定期配信とは分けています。文字列は HTML として解釈せず表示します。
+
+### スナップショット、スタック、逆アセンブル
+
+スナップショットは `PTRACE_SEIZE` と `PTRACE_INTERRUPT` で全スレッドの停止を確認してから、レジスタ・マップ・スタック・命令バイトを取得します。追加スレッドを再列挙し、4096スレッド・16回の安定化試行・停止待ち2秒を上限とします。取得にも2秒の処理予算がありますが、カーネル内でブロックする syscall の実時間を保証するものではありません。
+
+RAII と専用 OS スレッドの終了で detach を扱い、既存の job-control stop と signal delivery を維持します。自分自身のスナップショットは拒否します。シンボル解決と命令デコードは対象の再開後に行います。
+
+スタックは RBP をたどる最大256フレームの unwind です。ELF/DWARF から PIE/ASLR を考慮して関数、行、inline frame を解決し、ファイルの device/inode/size/mtime でキャッシュします。解決できない場合は生アドレスを表示します。frame pointer のないコードや signal trampoline を含む任意のスタックを完全に復元するものではありません。
+
+```sh
+# 観測対象の C/C++ プログラム
+cc -g -fno-omit-frame-pointer -fno-optimize-sibling-calls target.c -o target
+
+# 観測対象の Rust プロジェクトで実行
+RUSTFLAGS="-C force-frame-pointers=yes" cargo build
+```
+
+逆アセンブルは停止中の RIP から最大256バイトを取得し、`iced-x86` で最大32命令を Intel 構文で表示します。実メモリを使うため JIT のコードも対象ですが、32-bit compatibility mode は対象外です。Memory Viewer はスナップショット保存値ではなく、要求時点のメモリを読みます。
+
+画面の自動スナップショットは既定 OFF、ON にすると1秒間隔で要求します。処理を重複させず、対象変更、タブ非表示、対象終了、取得失敗で停止します。毎回対象を一時停止する点は手動取得と同じです。
+
+## SPACE の観測
+
+`/space` はプロセスの親子関係、仮想アドレス空間、pipe/socket の接続、ネットワーク接続先、ファイル I/O を3D表示します。プロセス内のアドレスの隙間を圧縮し、高さを正規化するため、プロセス間の同じ高さは同じアドレスを意味しません。
+
+構造の収集は約5秒、CPU/RSS の更新は約1秒、活動集計の配信は最大10Hzです。全体 FD 走査は100,000 FD・4秒、各 PID のマッピングは4096件、接続図は約20,000接続を上限とします。探索は非停止で、取得不能・打ち切り・欠落を状態として扱います。
+
+| センサー | 観測内容と制約 |
+|---|---|
+| CPU | CO-RE eBPF の `sched_switch` で実行時間と実行中 CPU を集計。描画は実行中に発光し、終了後約500msで減衰 |
+| IPC | pipe read/write と socket の送受信結果を観測。ペイロードは読まず、MSG_PEEK は加算しない。splice/sendfile、一部 io_uring、帰属不明のワーカーは対象外 |
+| ファイル I/O | 独立した BPF で VFS の read/write、ベクトル I/O の成功バイト数と回数を観測。ページキャッシュ経由も含む。mmap、io_uring、splice/sendfile、物理ディスク転送量は対象外 |
+| メモリ | AMD `ibs_op` を `perf_event_open` で選択プロセスの各スレッドに設定。ユーザー空間のデータアドレスを4 KiBページに集計。サンプルがないことは未アクセスを意味しない |
+
+メモリ観測の密度1/2/3は初期周期1,000,000/250,000/100,000カウントです。欠落時は周期を最大1,000,000まで増やします。exec/MMAP2 後はマップ更新まで古いアドレス情報による発光を抑制します。
+
+ファイルのパスは操作時に取得し、取得できない場合は device/inode 等の識別子を使います。画面は最終アクセスから30秒、各プロセス32個・全体512個まで保持します。IPC の共有 FD や複数所有者は一意な通信相手と区別します。
+
+閲覧は lease で管理します。ブラウザは10秒ごとに更新し、期限は30秒、最大32セッションです。タブ非表示やページ離脱で解放し、最後の lease がなくなるとセンサーを解放して収集を休止します。ワーカースレッドはアプリ終了まで残ります。複数閲覧者の密度は最大値を採用し、メモリ観測対象は各 lease の `selected_process` の集合です。通常画面の選択とは独立しています。
+
+BPF のフックや IBS が利用できない場合はセンサーごとに理由を表示し、利用可能な情報の収集を継続します。必要なカーネル機能・権限・CPU 機能はセンサーごとに異なります。
+
+## HTTP API
+
+JSON のプロセス識別子は `{ "pid": 123, "start_time_ticks": 456 }` です。アドレスは JavaScript の整数精度を保つため16進文字列で返します。
+
+| Method / path | 内容 |
+|---|---|
+| `GET /api/config` | バージョン、更新間隔、履歴秒数 |
+| `GET /api/processes` | プロセス一覧 |
+| `GET /api/target` | 選択対象、最新観測、履歴、マップ。未選択は null |
+| `POST /api/target` | 識別子の JSON で対象を選択 |
+| `DELETE /api/target` | 識別子の JSON で対象を解除 |
+| `GET /api/target/process` | 最新のプロセス観測 |
+| `GET /api/target/threads` | スレッド観測 |
+| `GET /api/target/maps` | maps/smaps、rollup、取得時刻 |
+| `GET /api/target/memory` | `address` と `length` で指定するメモリ |
+| `GET /api/target/fds` | FD、接続候補、共有所有者 |
+| `GET /api/target/environment` | 環境変数 |
+| `GET /api/target/auxv` | 補助ベクトル |
+| `GET /api/target/signals` | プロセス・スレッドのシグナル情報 |
+| `POST /api/target/snapshot` | 識別子の JSON でスナップショット取得 |
+| `GET /api/target/events` | SSE の `observation` イベント |
+| `GET /api/target/sample` | 501 Not Implemented を返す |
+| `GET /api/space/status` | センサー状態と収集統計 |
+| `GET /api/space/snapshot` | 最新の構造 |
+| `POST /api/space/leases` | 閲覧開始・更新 |
+| `DELETE /api/space/leases` | `{ "token": "..." }` で閲覧終了 |
+| `GET /api/space/events?token=TOKEN` | SPACE の SSE |
+
+詳細 GET（process/threads/maps/memory/fds/environment/auxv/signals）には `pid` と `start_time_ticks` のクエリが必要です。対象未選択は404、選択不一致は409、対象終了は410、無効なメモリ範囲は400で返します。
+
+詳細 SSE は最新状態を watch channel で配信し、接続時にも現在の値を送ります。SPACE は `topology`、`metrics`、`activity` を配信します。購読側が遅延した場合は `gap` と現在の構造を送り、古い活動を再生しません。
+
+lease の JSON は `density`（1～3）、省略可能な `token` と `selected_process` を受け付けます。`token` を省略すると新規作成、指定すると既存セッションを更新します。応答は `token`、`density`、`expires_in` です。
+
+`activity.files` は `{process_id, resource, path, write, bytes, count}` の配列です。`path` は取得不能なら null、`resource` は device/inode/generation を含む識別子です。状態には `files`、`files_lost`、`files_coverage` などを含みます。
+
+## 権限とログ
+
+`ptrace` と `process_vm_readv` は所有者、dumpable 属性、Yama、`CAP_SYS_PTRACE`、seccomp などの制約を受けます。BPF/IBS はカーネル側の対応と観測権限も必要です。権限やカーネル設定の自動変更、sudo の自動実行はしません。
+
+待受は既定で loopback です。Host/Origin/Fetch Metadata を検証し、API レスポンスに `Cache-Control: no-store` を付けます。認証機能はありません。外部アドレスで待ち受けると警告を出すため、公開範囲を管理する必要があります。
+
+`deploy/procinsh-capabilities.conf` は systemd の `[Service]` 用断片で、`CAP_SYS_PTRACE CAP_DAC_READ_SEARCH CAP_BPF CAP_PERFMON` を AmbientCapabilities と CapabilityBoundingSet に指定しています。完全な service unit は同梱していません。
+
+ログは `log` と `env_logger` を使い、標準エラーに時刻・レベル・モジュール名を出します。既定は `info` です。
+
+- `info`：起動・終了、対象の選択・解除・終了、収集状態と復旧。
+- `warn`：観測失敗、センサー利用不可。同じ状態・エラーの連続出力を抑制。
+- `error`：致命的な実行失敗、ワーカー異常、HTTP 500系。
+- `debug`：HTTP のメソッド・パス・ステータス・応答生成時間、API エラー詳細、構造収集件数。
+
+```sh
 sudo env RUST_LOG=procinsh=debug ./target/debug/procinsh --listen 127.0.0.1:9090
 sudo env RUST_LOG=info,procinsh::space=debug ./target/debug/procinsh --listen 127.0.0.1:9090
 ```
 
-`sudo env` で実行するプロセスに `RUST_LOG` を渡します。`debug` では HTTP メソッド・パス・ステータス・応答生成時間と API エラー詳細も出力します。SSE の時間は接続開始時の応答までです。クエリ・トークン・本文・観測したメモリや環境変数の値はログに含めません。`RUST_LOG=off` でアプリケーションのログを無効化できます。
-
-## 操作
-
-1. Process Explorer で名前・PID・コマンドを検索し、CPU / RSS / PID で並べ替えます。
-2. プロセス名をクリックすると、CPU・RSS / VMS・fault・context switch・I/O・全スレッドのライブ表示が開きます。
-3. スレッドを選択し **Coherent Snapshot を取得** を押すと、全スレッドを一時停止してレジスタ・マップ・frame pointer のスタックを取得します。
-4. レジスタやマップのアドレスをクリックすると、その時点のメモリを hex / ASCII で読み取ります。アドレスを手入力することもできます。標準256バイト、最大64 KiBです。
-5. **← Processes** で一覧に戻り、別のプロセスへ切り替えます。
-
-Registers の **自動取得（1秒）** を ON にすると即座に取得し、その後は1秒ごとにレジスタと Call Stack を更新します。初期状態は OFF です。取得中は次の回をスキップし、同じタブからの取得を重ねません。選択中のスレッドを維持し、最新の観測とスナップショットの両方から消えた場合は生存中の先頭スレッドへ移ります。
-
-OFF にすると次回以降を停止します。実行中の取得は停止解除まで完了させ、同じ対象なら最後の結果を表示します。対象切り替え、一覧へ戻る操作、対象終了、タブ非表示、取得・接続エラーでも OFF になり、自動再開はしません。エラー時は最後に成功した結果を保持します。設定はタブごとで保存されず、ブラウザのタイマーのため厳密な毎秒実行ではありません。**毎回、対象の全スレッドを一時停止します**。通常の観測間隔 `--interval` とは別の設定で、ptrace 権限は手動取得と同様に必要です。
-
-CPU は1コアを100%とするため、マルチスレッドでは100%を超えます。最初の観測では差分を計算できないため CPU / rate は N/A です。プロセスの context switch は生存中のスレッドを合計し、rate は同じ TID + starttime のスレッドの差分から算出します。観測間に終了したスレッドの最後の差分は含められません。username は `/etc/passwd` を参照し、取得できない場合は UID を表示します。
-
-詳細監視の対象はサーバー全体で常に1つです。複数タブも同じ選択を共有します。識別子は **PID + `/proc/PID/stat` の starttime**。終了した対象を同じ PID の別プロセスへ自動接続しません。
-
-通常の `/proc` 観測は非停止で、各フィールドは厳密には同時点ではありません。スナップショットは取得時刻と経過時間を表示します。Memory Viewer はスナップショットとは別時点の現在メモリです。partial read は取得できたバイトだけ表示します。
-
-## Pipe / Socket と接続先 PID
-
-詳細画面の **Pipe / Socket · 接続先プロセス** を開くと、対象の pipe・FIFO・socket の FD 番号、inode、読み書き方向、プロトコル、状態、ローカル／リモートアドレスを表示します。FD / PID / 名前 / アドレスで検索でき、「再取得」で更新します。**相手の PID をクリックすると、そのプロセスの Inspector へ直接移動**します。PID と starttime を渡すため、相手が終了・再利用された場合は別プロセスへ接続しません。
-
-- pipe / FIFO: 同じ inode（FIFO は device も一致）を持つ FD を探索し、読み書き方向が対応するものを相手として表示します。同じ方向または方向不明の FD は共有者として別枠に表示します。
-- UNIX socket: `NETLINK_SOCK_DIAG` の `UNIX_DIAG_PEER` で実際の接続先 inode を取得し、その FD を持つ PID を探します。同じ socket を fork / dup 等で共有するプロセスは接続先と区別します。
-- TCP / UDP（IPv4 / IPv6）: 対象の network namespace の `/proc/PID/net/` を参照し、逆向きのアドレス・ポートが一致するローカル socket を候補として表示します。待受 socket を接続済みの相手と混同しません。UDP の候補は永続的な接続関係を保証しません。
-
-複数の相手 FD が見つかる場合は列挙します。リモートホスト、未接続、終了済み、アクセス権不足等で PID が分からない場合も、取得できたアドレス等は表示します。UNIX socket の peer 取得は inspector と同じ network namespace に限定し、異なる namespace へ入るための権限は追加しません。他の socket family は inode / 共有者を表示し、接続先が不明ならその旨を表示します。
-
-この一覧は非停止の一時点の探索結果で、取得中にも FD は開閉されます。全プロセスの FD を探索するため自動更新には含めず、探索予算3秒・最大100,000 FD・一致8192 FDを上限とし、到達時や権限不足時は不完全な一覧であることを表示します。対象の一覧は最大4096項目、各行の相手・共有者の表示にも上限を設けます。pipe / socket の内容を読み取ったり消費したりはしません。
-
-参照: [proc_pid_fd(5)](https://www.man7.org/linux/man-pages/man5/proc_pid_fd.5.html)、[sock_diag(7)](https://www.man7.org/linux/man-pages/man7/sock_diag.7.html)。
-
-## 環境変数と補助ベクトル
-
-詳細画面下部の **Environment · 環境変数**、**Auxiliary Vector · 補助ベクトル** を開くと、それぞれ `/proc/PID/environ`、`/proc/PID/auxv` を読み取ります。必要なときだけ取得し、「再取得」で更新します。SSE やスナップショットの自動取得には含めません。取得時刻を表示し、対象切り替え時に結果を消去します。
-
-環境変数は名前・値で検索できます。`=` を含む値、空の値、同名の複数エントリを維持し、HTML として解釈せず文字として表示します。不正な UTF-8 は置換文字にして注記します。`environ` は通常 exec 時の環境領域であり、起動後の `setenv()` 等による変更を完全には反映しません。取得上限は1 MiBです。
-
-auxv は ELF の word size（32 / 64 bit）を確認し、`AT_ENTRY`、`AT_PHDR`、`AT_BASE`、`AT_PAGESZ`、`AT_UID`、`AT_SECURE`、`AT_HWCAP`、`AT_RANDOM`、`AT_EXECFN`、`AT_SYSINFO_EHDR` 等を名前・説明・16進値・10進値で表示します。未知のタグも値を保持します。アドレスは Memory Viewer にリンクし、`AT_EXECFN` / `AT_PLATFORM` / `AT_BASE_PLATFORM` の文字列は取得時のメモリから最大4096バイトまで読み取ります。文字列だけが読めない場合も auxv の数値は表示します。auxv の取得上限は64 KiBで、big-endian ELF は対象外です。
-
-どちらも非停止の読み取りで、PID + starttime を検証します。権限不足は各パネルに表示し、通常監視は継続します。環境変数には秘密情報も含まれ得るため、既存のメモリ閲覧と同じアクセス権限で扱います。
-
-参照: [proc_pid_environ(5)](https://man7.org/linux/man-pages/man5/proc_pid_environ.5.html)、[proc_pid_auxv(5)](https://www.man7.org/linux/man-pages/man5/proc_pid_auxv.5.html)、[getauxval(3)](https://www.man7.org/linux/man-pages/man3/getauxval.3.html)。
-
-## スタックとシンボル
-
-**Disassembly** パネルは選択スレッドの RIP から最大32命令を、x86-64 / Intel 構文で表示します。アドレス、命令バイト、逆アセンブル結果を並べ、RIP の行を強調します。手動・自動スナップショットとスレッド選択に連動し、取得時刻と経過時間も表示します。
-
-命令バイトはレジスタと同じ停止中に `process_vm_readv` で最大256バイト（RIP が含まれるマップの末尾まで）取得し、対象の再開後に `iced-x86` でデコードします。JIT や変更済みコードも実メモリの取得結果を使います。命令境界が確定している RIP を起点に前方のみを表示し、過去の実行履歴や分岐後の実行順は示しません。読み取り失敗、途中で切れた命令、無効な命令はパネル内に表示し、レジスタやスタックの取得結果は維持します。32-bit compatibility mode は対象外です。アドレスをクリックすると、別時点の現在メモリを Memory Viewer で開きます。
-
-デバッグ情報と frame pointer を有効にして対象をビルドしてください。
-
-```sh
-# C / C++
-cc -g -fno-omit-frame-pointer -fno-optimize-sibling-calls target.c -o target
-
-# Rust
-RUSTFLAGS="-C force-frame-pointers=yes" cargo build
-```
-
-ELF の segment offset を使って PIE / ASLR を解決し、関数名・関数内オフセット・ソースファイル・行・inline frame を表示します。解析結果はファイルの device / inode / size / mtime でキャッシュします。読み込めない ELF / DWARF は生アドレスにフォールバックします。
-
-スタックは最大256フレーム。RBP の整列、範囲、単調増加、実行可能な戻り先を検証し、停止理由を表示します。frame pointer が省略されたライブラリ、signal trampoline、最適化された任意バイナリの完全な unwind は対象外です。対象の実行ファイルが削除済みで `/proc/PID/map_files` 等にもアクセスできない場合はシンボルを解決できません。
-
-スナップショットは `PTRACE_SEIZE` → `PTRACE_INTERRUPT` → 全スレッドの停止確認後に取得します。追加スレッドを再列挙し、4096スレッド / 16回の安定化試行 / 停止待ち2秒を上限とします。取得にも2秒の処理予算を設けています（カーネル内でブロックした syscall の実時間の上限は保証できません）。RAII で detach を試み、専用 OS スレッドを終了して残った tracee のカーネルによる detach も確保します。対象の再開後にシンボルを解決します。既存の job-control stop と signal delivery を維持し、inspector 自身のスナップショットは拒否します。
-
-## 権限とアクセス
-
-`ptrace` / `process_vm_readv` はプロセス所有者、dumpable 属性、Yama `kernel.yama.ptrace_scope`、`CAP_SYS_PTRACE`、seccomp 等に制約されます。失敗しても通常監視は継続でき、UI に原因候補を表示します。権限やカーネル設定を自動変更せず、sudo も自動実行しません。
-
-通常は `127.0.0.1` のみに bind します。Host / Origin / Fetch Metadata を検証し、別サイトからのリクエストを拒否します。メモリレスポンスはキャッシュしません。
-
-```sh
-# 明示的な外部公開（認証機能なし）
-./target/release/procinsh --listen 0.0.0.0:8080
-```
-
-外部公開時は数値IPでアクセスしてください。プロセスのメモリには秘密情報が含まれるため、信頼できるネットワーク内でのみ利用してください。
-
-## API
-
-| Method / path | 内容 |
-|---|---|
-| `GET /api/config` | バージョン、更新間隔 |
-| `GET /api/processes` | 軽量なプロセス一覧 |
-| `GET /api/target` | 選択対象、最新観測、履歴、マップ（未選択は null） |
-| `POST /api/target` | JSON の `{ "pid": 123, "start_time_ticks": 456 }` で選択 |
-| `DELETE /api/target` | 同じ識別子の JSON で選択解除 |
-| `GET /api/target/process` | 最新の ProcessObservation |
-| `GET /api/target/threads` | 全スレッドの観測 |
-| `GET /api/target/maps` | maps / smaps と rollup、取得時刻 |
-| `GET /api/target/memory` | `address=0x...&length=256` のメモリ |
-| `GET /api/target/fds` | pipe / FIFO / socket と接続先・共有者の PID + starttime |
-| `GET /api/target/environment` | 環境変数の名前・値、取得時刻 |
-| `GET /api/target/auxv` | 補助ベクトルの名前・値・文字列、取得時刻 |
-| `POST /api/target/snapshot` | 識別子の JSON を渡して coherent snapshot |
-| `GET /api/target/events` | SSE の `observation` イベント。再接続時は最新状態を送信 |
-
-`process` / `threads` / `maps` / `memory` / `environment` / `auxv` / `fds` の GET には、一覧から取得した `pid` と `start_time_ticks` をクエリに含めてください。選択の切り替えと並行した古いリクエストは409、対象終了は410、無効なメモリ範囲は400です。アドレスは JavaScript の整数精度を維持するため **16進文字列**で返します。
+`RUST_LOG=off` はアプリケーションのログを抑制します。HTTP アクセスログにはクエリ、トークン、本文を含めず、観測したメモリや環境変数の値も記録しません。SSE の応答時間は接続開始時の応答までです。
 
 ## 検証
 
+ビルドと fixture の準備後に実行します。Rust 結合テストの一部も fixture をビルドしますが、`tests/space.rs` の単独実行には事前準備が必要です。
+
 ```sh
-cargo fmt --check
-cargo clippy --all-targets -- -D warnings
+cargo build --locked
+sh tests/targets/build.sh
 cargo test --locked
 python3 tests/logging-checks.py
+node tests/space-model.mjs
 
-# ブラウザ操作の結合テスト（Node.js 22+ / Google Chrome）
-cargo build
-sh tests/targets/build.sh
-node tests/browser.mjs
-# Chrome のパスが異なる場合
-CHROME=/usr/bin/chromium node tests/browser.mjs
+# フォーマット・静的解析
+cargo fmt --check
+cargo clippy --all-targets --locked -- -D warnings
+
+# IBS レコードの C パーサー
+cc -O2 -Wall -Wextra -Werror tests/ibs-parser.c -o target/ibs-parser
+./target/ibs-parser
 ```
 
-Rust の結合テストは `cc` で専用の子プロセスをビルド・起動します。テスト環境は `ptrace` と `process_vm_readv` を許可している必要があります。ブラウザテストは一時プロファイルとテスト対象だけを起動し、完了時に終了します。画面は `target/browser-inspector.png` に保存します。
+Rust テストは `/proc` の解析、PID 再利用、メモリ読み取り、ptrace の解除、シンボル、HTTP、SPACE の構造・lease・集計を検証します。ログテストは既定レベル、debug、off、標準エラー、SIGTERM、ポート競合、クエリ非出力を検証します。プロセス観測を拒否するサンドボックスでは一部テストが失敗するため、テスト対象への ptrace/process_vm_readv とローカル通信が許可された環境が必要です。
 
-`tests/targets/` に busy_loop / sleeping / threads（スレッド増減を含む）/ allocator / recursive / mmap_test / ipc（pipe・UNIX・TCP・UDP の親子プロセス）があります。手動確認には以下を使えます。
+### ブラウザテスト
+
+Node.js 22以降と Google Chrome または Chromium が必要です。npm 依存はなく、DevTools Protocol を使用します。
 
 ```sh
-sh tests/targets/build.sh
+node tests/browser.mjs
+node tests/space-browser.mjs
+
+# ブラウザのパスを指定する場合
+CHROME=/usr/bin/chromium node tests/browser.mjs
+CHROME=/usr/bin/chromium node tests/space-browser.mjs
+```
+
+通常画面は検索・選択・SSE・スナップショット・詳細パネル・終了処理を、SPACE は WebGL、配置、選択、ネットワークとファイルの描画を検証します。ブラウザテストは一時サーバーとブラウザプロファイルを作り、終了時に片付けます。画面・モデルの検証と実機センサーの検証は別です。
+
+### 実機センサーテスト
+
+BPF と perf の観測権限を持つサーバーに対して実行します。CPU/IPC/メモリの検証には AMD IBS の対応も必要です。センサー利用不可を成功扱いにはしません。
+
+```sh
+python3 tests/space-live.py http://127.0.0.1:9090
+python3 tests/space-files-live.py http://127.0.0.1:9090
+```
+
+ファイル I/O のテストは IBS を使いません。URL を省略した場合は一時サーバーを起動・終了しますが、そのサーバーにも観測権限が必要です。
+
+`tests/targets/` の C fixture には計算、sleep、スレッド増減、メモリ確保、再帰、mmap、IPC、活動計測用のプログラムがあります。手動観測には次を使えます。
+
+```sh
 tests/targets/bin/recursive --allow-inspector
 ```
 
-テスト専用の `--allow-inspector` は、この fixture だけを同じユーザーの sibling inspector から観測可能にします。カーネル全体の Yama 設定は変更しません。fixture は120秒で自動終了します。
-
-## 今後の範囲
-
-PLAN.md に従い、continuous perf sampling、sampled register / stack、集約、flame graph は v0.2.0 以降です。`/api/target/sample` は501を返します。`--sample-frequency`、`-- ./target`、DWARF unwind、メモリ／レジスタ書き換え、他OS／ARMは実装していません。
-
-実装時の参照: [Linux ptrace](https://man7.org/linux/man-pages/man2/ptrace.2.html)、[addr2line Loader](https://docs.rs/addr2line/0.24.2/addr2line/struct.Loader.html)。
-
-### シグナル情報
-
-プロセス詳細の「Signals · シグナル」を開くと `/proc/PID/status` と
-`/proc/PID/task/TID/status` を読み取ります。「再取得」で更新できます。
-プロセス共有の保留 (`ShdPnd`)、無視 (`SigIgn`)、ハンドラ登録 (`SigCgt`)、
-各スレッドの保留 (`SigPnd`) とブロック (`SigBlk`) を16進マスクとシグナル名で表示します。
-`SigQ` は対象の実 UID 全体のキュー数と対象プロセスのリソース上限で、対象プロセスだけの件数ではありません。
-リアルタイムシグナルは Linux カーネルの番号32–64を表示し、libc の `SIGRTMIN` は推測しません。
-非停止の逐次読み取りのためスレッド間で取得時刻は異なり、受信履歴・送信元・ハンドラアドレスは含みません。
-シグナルの送信や設定変更は行いません。最大4096スレッド・2秒で打ち切り、取得失敗は表示します。
-API: `GET /api/target/signals?pid=PID&start_time_ticks=START_TIME`（選択中のプロセス識別子が必要）。
-
-フィールドの意味: [proc_pid_status(5)](https://man7.org/linux/man-pages/man5/proc_pid_status.5.html)。
-
-### SPACE: 全プロセスの3D観測
-
-`/space`（一覧の **ENTER SPACE**）は全プロセスの仮想アドレス空間と
-pipe/socket 接続と通常ファイルの読み書きを表示します。ドラッグで回転、右ドラッグでパン、ホイールでズーム。
-プロセスは親子関係の階層ツリーに配置し、地面付近の薄い線で親子を結びます。
-直方体を選択すると祖先と直接の子を強調し、ダブルクリックでフォーカスします。
-検索欄の Enter でもフォーカスできます。通信ケーブルのホバーで接続種別と直近の観測量、
-クリックで両端のプロセスとFDを表示します。
-
-Z 軸はアドレス順で、マッピング内部は線形、隙間は圧縮します。
-各プロセスの高さは正規化しており、プロセス間の同じ高さは同じアドレスではありません。
-遠くの領域は最大64層にまとめて描画します。
-TCP/UDP の候補と共有 FD は破線で区別します。同じプロセスの重複 FD はまとめ、
-共有所有者は代表との線で表現して全組合せの線を作りません。複数所有者などで相手を一意に
-絞れない通信は、実行したプロセスのポートだけが発光します。
-
-発光の根拠は実測のみです。
-
-- CPU: CO-RE eBPF の `sched_switch` で、各スレッドが実際に CPU 上で実行された時間と
-  現在実行中の CPU をプロセスごとに集計します。実行中は直方体の底面が強く発光し、
-  CPU から離れた後は約500msで減衰します。実行可能状態や約1秒の CPU 使用率は発光の根拠にしません。
-- IPC: CO-RE eBPF の fexit で pipe の read/write、`sock_send_length` /
-  `sock_recv_length` トレースポイントで socket の送受信結果を観測。MSG_PEEK は通信量に含めません。
-  FIFO ラッパーは匿名 pipe 関数を呼ぶため重複フックを置きません。
-  ペイロードを読み取らず、操作時点の inode/device とプロセス開始時刻で帰属を検証します。
-  splice/sendfile と一部の io_uring 経路は網羅しません。カーネル/IO ワーカーは帰属不明として除外します。
-- ファイルI/O: 独立した CO-RE eBPF で `vfs_read/write` と `vfs_readv/writev` の
-  成功した実バイト数を観測。pread/pwrite・位置指定ベクトルI/Oとページキャッシュ経由も含みます。
-  ネストしたVFS呼び出しは外側だけ計上し、EOF・失敗した操作は加算しません。
-  ファイル名は操作中に取得するため、直後にclose/unlinkされても表示できます。
-  パスは呼び出し元のmount namespaceにおける名前で、取得不能ならdevice/inodeの識別子を表示します。
-  mmap・io_uring・splice/sendfile・カーネル/IOワーカー・物理ディスク転送量は対象外です。
-  プロセス下側の板がファイルを表し、READはプロセスへ、WRITEはファイルへ白い丸が流れます。
-  選択するとパスと観測したREAD/WRITE別のバイト数・回数を表示します。
-  最終アクセスから30秒間、各プロセス32個・全体512個まで表示し、古い目印から除外します。
-  ファイル監視の起動失敗はCPU/IPC・メモリ監視に影響しません。
-- メモリ: AMD `ibs_op` を選択プロセスの各スレッドに `perf_event_open` で取得。
-  ユーザー空間のサンプルのデータアドレスを4KiBページに集計します。
-  低負荷/標準/高密度は初期周期1,000,000/250,000/100,000カウント。
-  perf 欠落発生時は周期を最大1,000,000まで増やし、実効周期を表示します。
-  IPをデータアドレスとして使わず、無効・未解決アドレスは発光しません。
-  MMAP2/exec通知後はマップ再取得まで発光を抑制します。
-  サンプルのない場所にアクセスがなかったとは判断できません。
-
-構造は約5秒、CPU/RSSは約1秒、CPU・IPC・ファイルI/O・メモリの活動集計は最大10Hzで更新します。
-全体FD走査は1回に100,000FD/4秒、各PIDは4,096マッピング、接続図は約20,000接続が上限です。
-時間切れ・権限不足・キュー欠落・未解決は画面に表示します。
-構造走査は非停止なので、スナップショット時点が完全に一致するわけではありません。
-
-観測は3D画面の閲覧中のみ動きます。最後の閲覧セッション終了後に停止します。
-セッションは10秒更新/30秒期限で、複数閲覧者がいると最も高い要求密度を共有します。
-通常のプロセス詳細の選択・ptraceスナップショットとは独立しています。
-
-ビルドには clang（BPF backend）、bpftool、実行カーネルの BTF、libelf 開発ファイル、Cコンパイラが必要です。
-Three.js 0.180.0 は同梱で、実行時に外部 CDN へ接続しません。
-現在の Linux 7.0 / Ryzen 9 5950X を主対象とします。BTF関数やIBSが非対応の場合は
-構造のみ表示し、取得できないセンサーの理由を表示します。
-
-サービス権限を追加する設定は `deploy/procinsh-capabilities.conf` です。
-既存の `CAP_SYS_PTRACE CAP_DAC_READ_SEARCH` に `CAP_BPF CAP_PERFMON` を追加します。
-
-```sh
-sudo install -m 0644 deploy/procinsh-capabilities.conf /run/systemd/system/procinsh-lan.service.d/capabilities.conf
-sudo systemctl daemon-reload
-sudo systemctl restart procinsh-lan.service
-```
-
-この `/run` の設定はOS再起動まで有効です。
-
-API: `GET /api/space/status`, `GET /api/space/snapshot`,
-`POST /api/space/leases` (`{density:1|2|3, token?:string}`),
-`DELETE /api/space/leases` (`{token:string}`),
-`GET /api/space/events?token=TOKEN` (SSE)。
-activity の `files` 配列は `{process_id, resource, path, write, bytes, count}`。
-`path` は取得不能ならnull、`resource` はdevice/inode/generationを含む識別子です。
-`status.files` は監視状態、`files_lost` は収集開始からの欠落数、`files_coverage` は監視範囲です。
-SSE が間に合わない場合は `gap` と現在の構造を返し、古い活動の再生はしません。
-
-検証:
-
-```sh
-node tests/space-model.mjs
-node tests/space-browser.mjs
-# センサー権限を付けたサービスに対して実行。権限不足を成功扱いにしません。
-python3 tests/space-live.py http://127.0.0.1:8080
-# ファイルI/Oのみの実機検証。IBS不要。URL省略時は一時サーバーを起動・終了します。
-python3 tests/space-files-live.py http://127.0.0.1:8080
-```
-
-参考: [AMD IBS](https://man7.org/linux/man-pages/man1/perf-amd-ibs.1.html)、
-[BPF ring buffer](https://docs.kernel.org/bpf/ringbuf.html)。
+`--allow-inspector` は当該 fixture の ptrace 許可を設定するテスト専用オプションです。システム全体の Yama 設定は変更しません。
