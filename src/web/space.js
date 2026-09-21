@@ -4,7 +4,7 @@ import {RecentFiles,fileKey,fileLayout,processColors,remoteLabel,key,layoutMaps,
 const $=id=>document.getElementById(id), canvas=$('world'),labelCanvas=$('labels'),labelContext=labelCanvas.getContext('2d');
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 let renderScale=Math.min(devicePixelRatio,1.5),slowFrames=0;let renderer;
-try {renderer=new T.WebGLRenderer({canvas,antialias:false,alpha:false});}catch(e){$('failure').hidden=false;$('failure').textContent='WebGL2 is unavailable. Use Back to top to return to the process list.';throw e;}
+try {renderer=new T.WebGLRenderer({canvas,antialias:false,alpha:false});}catch(e){$('failure').hidden=false;$('failure').textContent='WebGL2 is unavailable. Use Back to process list to return to the process list.';throw e;}
 renderer.setPixelRatio(renderScale);renderer.setSize(innerWidth,innerHeight);renderer.setClearColor(0x03090e);renderer.outputColorSpace=T.SRGBColorSpace;
 const scene=new T.Scene();scene.fog=new T.FogExp2(0x03090e,.0015);
 const camera=new T.PerspectiveCamera(45,innerWidth/innerHeight,.1,1500);camera.up.set(0,0,1);camera.position.set(65,-85,70);
