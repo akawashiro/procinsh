@@ -1,6 +1,9 @@
 # ProcInSh - Process in the Shell
 
-A web-based process inspector for Linux x86-64.
+ProcInSh is a web-based process inspector for Linux.
+
+## Screenshot
+
 ![Screenshot of space view](./space_screenshot.png)
 
 [screenmovie.webm](https://github.com/user-attachments/assets/7e964874-7e5a-46a9-8bb3-0c33defc9f42)
