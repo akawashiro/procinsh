@@ -64,10 +64,11 @@ try {
   const first=snapshot.nodes[0].identity;
   await waitFor(`import('/space.js').then(m=>Boolean(m.processPosition('${first.pid}:${first.start_time_ticks}')))`, 'rendered space topology');
   assert.equal(await evaluate("document.documentElement.lang"),'en');
+  assert.equal(await evaluate("document.querySelector('header #brand').textContent"),'procinsh');
   assert.equal(await evaluate("document.querySelector('.counts')"),null,'process counts are removed');
   assert.equal(await evaluate("document.querySelector('.telemetry')"),null,'sensor status is removed');
-  assert.equal(await evaluate("document.querySelector('header a').textContent"),'Back to top');
-  assert.equal(await evaluate("document.querySelector('header a').getAttribute('href')"),'/');
+  assert.equal(await evaluate("document.querySelector('header #back').textContent"),'Back to top');
+  assert.equal(await evaluate("document.querySelector('header #back').getAttribute('href')"),'/');
   assert.equal(await evaluate("document.querySelector('footer')"),null,'footer content is moved into the header');
   assert.match(await evaluate("document.querySelector('header').textContent"),/CODE[\s\S]*HEAP[\s\S]*CPU[\s\S]*WRITE[\s\S]*DRAG · ORBIT/);
   assert.ok(await evaluate("document.querySelector('header').getBoundingClientRect().height<=42"),'header is compact');
