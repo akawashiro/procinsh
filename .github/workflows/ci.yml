@@ -18,7 +18,8 @@ jobs:
         with:
           persist-credentials: false
       - name: Install Rust
-        run: rustup toolchain install stable --profile minimal --component rustfmt
+        # rustup reads the version and components from rust-toolchain.toml.
+        run: rustup show active-toolchain
       - name: Check formatting
         run: cargo fmt --all --check
 
@@ -31,7 +32,8 @@ jobs:
         with:
           persist-credentials: false
       - name: Install Rust
-        run: rustup toolchain install stable --profile minimal --component clippy
+        # rustup reads the version and components from rust-toolchain.toml.
+        run: rustup show active-toolchain
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:

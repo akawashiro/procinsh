@@ -13,7 +13,10 @@ _Now, where shall I go? The process space is vast._
 
 ## Build
 
-Requires Node.js 22 or newer with npm, stable Rust, a C compiler, clang with the BPF backend, bpftool, libelf development files, and BTF information for the running kernel.
+Requires Node.js 22 or newer with npm, Rust via rustup, a C compiler, clang with the BPF backend, bpftool, libelf development files, and BTF information for the running kernel.
+
+The Rust version and components are pinned in `rust-toolchain.toml`, shared by
+local development and CI. rustup installs them automatically when needed.
 
 ```sh
 npm ci
