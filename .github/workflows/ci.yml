@@ -23,7 +23,7 @@ jobs:
         run: cargo fmt --all --check
 
   build:
-    name: Build
+    name: Build and test
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -31,12 +31,16 @@ jobs:
         with:
           persist-credentials: false
       - name: Install Rust
-        run: rustup toolchain install stable --profile minimal
+        run: rustup toolchain install stable --profile minimal --component clippy
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Install native dependencies
         run: |
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends \
-            build-essential clang llvm pkg-config libelf-dev zlib1g-dev \
+            build-essential clang llvm pkg-config libelf-dev zlib1g-dev python3 \
             linux-tools-common linux-tools-generic
       - name: Configure bpftool and check kernel BTF
         shell: bash
@@ -56,3 +60,11 @@ jobs:
           "$RUNNER_TEMP/procinsh-bin/bpftool" version
       - name: Build
         run: cargo build --locked --all-targets
+      - name: Check Clippy
+        run: cargo clippy --all-targets --locked -- -D warnings
+      - name: Run Rust tests
+        run: cargo test --locked
+      - name: Check logging
+        run: python3 tests/logging-checks.py
+      - name: Check space model
+        run: node tests/space-model.mjs
