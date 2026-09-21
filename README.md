@@ -2,6 +2,7 @@
 
 A web-based process inspector for Linux x86-64.
 ![Screenshot of space view](./space_screenshot.png)
+![Movie](./screenmovie.webm)
 
 ## Build
 
