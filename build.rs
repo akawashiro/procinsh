@@ -1,5 +1,15 @@
 use std::{env, path::PathBuf, process::Command};
 fn main() {
+    let root = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap());
+    for asset in ["app.js", "space.js", "space-model.js"] {
+        let path = root.join("dist/web").join(asset);
+        println!("cargo:rerun-if-changed={}", path.display());
+        assert!(
+            path.is_file(),
+            "Missing web asset {}. Run `npm ci && npm run build:web` before building with Cargo.",
+            path.display()
+        );
+    }
     println!("cargo:rerun-if-changed=src/space/activity.bpf.c");
     println!("cargo:rerun-if-changed=src/space/ibs.c");
     println!("cargo:rerun-if-changed=src/space/files.bpf.c");

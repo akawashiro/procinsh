@@ -36,6 +36,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: npm
+      - name: Install web dependencies
+        run: npm ci
+      - name: Check TypeScript
+        run: npm run typecheck
+      - name: Build web assets
+        run: npm run build:web
       - name: Install native dependencies
         run: |
           sudo apt-get update

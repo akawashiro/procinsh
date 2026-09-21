@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {layoutMaps,addressZ,edgeDirection,ipcParticlePlan,cpuGlowLevel,treeLayout,stableLayout} from '../src/web/space-model.js';
+import {layoutMaps,addressZ,edgeDirection,ipcParticlePlan,cpuGlowLevel,treeLayout,stableLayout} from '../dist/web/space-model.js';
 const regions=layoutMaps([{start:'0xffffffffff600000',end:'0xffffffffff601000'},{start:'0x1000',end:'0x3000'},{start:'0x7fff00000000',end:'0x7fff00001000'}]);
 assert.equal(regions[0].start,'0x1000');assert.equal(addressZ(regions,'0x3000'),null);
 assert.ok(addressZ(regions,'0xffffffffff600001')>addressZ(regions,'0x7fff00000001'));
@@ -74,7 +74,7 @@ assert.equal(stableCycle.size,3);
 assert.ok([...stableCycle.values()].every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)));
 console.log('Stable layout checks passed: additions, exits, reparenting, PID reuse, vacant slots, cycles, and 1000 newcomers.');
 
-const {networkGroups,networkLayout,connectionState}=await import('../src/web/space-model.js');
+const {networkGroups,networkLayout,connectionState}=await import('../dist/web/space-model.js');
 const netEdge=(id,remote='203.0.113.1:443',pid=1,protocol='TCP')=>({id,a:{process_id:{pid,start_time_ticks:1},resource:`socket:${id}`,fd:Number(id)||1},b:null,shared:false,socket:{protocol,state:'ESTABLISHED',remote,local:'127.0.0.1:5000',network_peer:true}});
 const connections=[netEdge('1'),netEdge('2'),netEdge('3','[2001:db8::1]:443'),netEdge('4','203.0.113.1:443',2),netEdge('5','203.0.113.1:443',1,'UDP')];
 const groups=networkGroups(connections);
@@ -97,16 +97,16 @@ assert.equal(edgeDirection(connections[0],{...connections[0].a,write:true}),1);
 assert.equal(edgeDirection(connections[0],{...connections[0].a,write:false}),-1);
 console.log('Network model checks passed: grouping, IPv6, classification, stable placement, and direction.');
 
-const {remoteLabel}=await import('../src/web/space-model.js');
+const {remoteLabel}=await import('../dist/web/space-model.js');
 assert.equal(remoteLabel({remote:'[2001:db8::1]:443',remote_hostname:'example.test'}),'example.test:443');
 assert.equal(remoteLabel({remote:'192.0.2.1:80'}),'192.0.2.1:80');
 
-const {processColors}=await import('../src/web/space-model.js');
+const {processColors}=await import('../dist/web/space-model.js');
 assert.equal(processColors({uid:1000,euid:1000}).real,processColors({uid:1000,euid:1000}).effective);
 assert.notEqual(processColors({uid:1000,euid:0}).real,processColors({uid:1000,euid:0}).effective);
 assert.equal(processColors({}).real,'#889299');
 
-const {RecentFiles,fileKey,fileLayout}=await import('../src/web/space-model.js');
+const {RecentFiles,fileKey,fileLayout}=await import('../dist/web/space-model.js');
 {
   const files=new RecentFiles(),owner={pid:1,start_time_ticks:1},live=new Set(['1:1']);
   const event={process_id:owner,resource:'file:8:1:42:0',path:'/tmp/example',write:false,bytes:7,count:1};

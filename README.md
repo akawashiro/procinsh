@@ -13,10 +13,41 @@ _Now, where shall I go? The process space is vast._
 
 ## Build
 
-Requires stable Rust, a C compiler, clang with the BPF backend, bpftool, libelf development files, and BTF information for the running kernel.
+Requires Node.js 22 or newer with npm, stable Rust, a C compiler, clang with the BPF backend, bpftool, libelf development files, and BTF information for the running kernel.
 
 ```sh
+npm ci
+npm run build:web
 cargo build --release --locked
+```
+
+The web UI is written in TypeScript in `src/web/`. `npm run build:web` checks
+types and compiles the UI into `dist/web/`, which Cargo embeds into the binary.
+Generated JavaScript is not committed. Re-run the web build before Cargo whenever
+you edit TypeScript; Cargo does not invoke npm or install dependencies for you.
+Node.js and npm are not needed to run the resulting binary.
+
+For web development checks:
+
+```sh
+npm run typecheck
+npm run build:web
+node tests/space-model.mjs
+```
+
+API contracts live in `src/web/api-types.ts` and must be kept aligned with the
+Rust JSON responses (including nullability and hex-string addresses). They are
+compile-time types, not runtime validators. The bundled Three.js r180 runtime
+is unchanged; its matching type definitions are build-only dependencies.
+
+Browser regression checks require Chrome, the debug binary, and C fixtures:
+
+```sh
+npm run build:web
+cargo build --locked
+bash tests/targets/build.sh
+node tests/browser.mjs
+node tests/space-browser.mjs
 ```
 
 ## Run
