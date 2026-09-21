@@ -1,16 +1,16 @@
 """Run against a service with CAP_BPF and CAP_PERFMON. Fails if sensors are unavailable."""
-import json, urllib.request, urllib.parse, subprocess, threading, time, sys
+import json, urllib.request, subprocess, threading, time, sys
+from sse import Stream
 base=sys.argv[1] if len(sys.argv)>1 else 'http://127.0.0.1:8080'
 opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
 def api(path,body=None,method=None):
     req=urllib.request.Request(base+path,data=None if body is None else json.dumps(body).encode(),headers={'Content-Type':'application/json'},method=method)
     with opener.open(req,timeout=15) as r:return json.load(r)
 p=subprocess.Popen(['tests/targets/bin/activity'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True)
-lease=None;response=None
+response=None;thread=None
 try:
     pid,peer,address,size=p.stdout.readline().split();pid=int(pid);peer=int(peer);address=int(address,16);size=int(size)
-    lease=api('/api/space/leases',{});token=lease['token']
-    response=opener.open(base+'/api/space/events?'+urllib.parse.urlencode({'token':token}),timeout=20)
+    response=Stream(base+'/api/space/events')
     frames=[]
     def consume():
         try:
@@ -52,6 +52,6 @@ try:
     print('Live sensors passed: scheduler runtime/current CPU; pipe/UNIX/TCP/UDP send and receive; exact bytes/counts; MSG_PEEK and failed send excluded')
 
 finally:
-    if lease:api('/api/space/leases',{'token':lease['token']},'DELETE')
+    if response:response.close(thread)
     if p.poll() is None:p.terminate()
     p.wait(timeout=5)

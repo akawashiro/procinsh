@@ -134,10 +134,6 @@ pub fn router(state: Arc<AppState>, address: SocketAddr) -> Router {
         .route("/api/space/status", get(crate::space::http::status))
         .route("/api/space/snapshot", get(crate::space::http::snapshot))
         .route("/api/space/events", get(crate::space::http::events))
-        .route(
-            "/api/space/leases",
-            post(crate::space::http::lease).delete(crate::space::http::release),
-        )
         .route("/api/config", get(config))
         .route("/api/processes", get(processes))
         .route("/api/target", get(target).post(select).delete(clear))

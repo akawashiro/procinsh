@@ -1,7 +1,4 @@
-use procinsh::{
-    process,
-    space::{LeaseRequest, Space, topology},
-};
+use procinsh::space::topology;
 use std::{
     io::{BufRead, BufReader},
     process::{Command, Stdio},
@@ -47,41 +44,104 @@ fn topology_finds_pipe_and_unix_peers_and_bounds_work() {
                 && e.b.as_ref().is_some_and(|b| b.process_id.pid == parent)))));
     assert!(topology.inspected_fds <= 100_000);
 }
-#[test]
-fn leases_are_independent_and_stop_collectors() {
-    let s = Arc::new(Space::default());
-    assert!(
-        serde_json::from_value::<LeaseRequest>(serde_json::json!({
-            "unknown_field": true
-        }))
-        .is_err()
+#[tokio::test]
+async fn sse_connections_own_viewer_lifetimes() {
+    use axum::{
+        body::{Body, HttpBody},
+        http::{Request, StatusCode},
+    };
+    use procinsh::state::AppState;
+    use tower::ServiceExt;
+    let state = Arc::new(AppState::new(Duration::from_secs(1)));
+    let app = procinsh::server::router(state.clone(), "127.0.0.1:8080".parse().unwrap());
+    let request = |path: &str| {
+        Request::builder()
+            .uri(path)
+            .header("host", "127.0.0.1:8080")
+            .body(Body::empty())
+            .unwrap()
+    };
+    for path in ["/api/space/status", "/api/space/snapshot"] {
+        assert_eq!(
+            app.clone().oneshot(request(path)).await.unwrap().status(),
+            StatusCode::OK
+        );
+        assert!(!state.space.active());
+    }
+    for method in ["POST", "DELETE"] {
+        let mut req = request("/api/space/leases");
+        *req.method_mut() = method.parse().unwrap();
+        assert_eq!(
+            app.clone().oneshot(req).await.unwrap().status(),
+            StatusCode::NOT_FOUND
+        );
+    }
+    let mut responses = Vec::new();
+    for _ in 0..32 {
+        let response = app
+            .clone()
+            .oneshot(request("/api/space/events"))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        responses.push(response);
+    }
+    assert!(state.space.active());
+    assert_eq!(
+        app.clone()
+            .oneshot(request("/api/space/events"))
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::TOO_MANY_REQUESTS
     );
-    assert!(serde_json::from_value::<LeaseRequest>(serde_json::json!({})).is_ok());
-    assert!(
-        s.lease(LeaseRequest {
-            token: Some("unknown".into()),
-        })
-        .is_err()
-    );
-    let a = s.lease(LeaseRequest { token: None }).unwrap();
-    let b = s.lease(LeaseRequest { token: None }).unwrap();
-    assert_ne!(a.token, b.token);
-    let renewed = s
-        .lease(LeaseRequest {
-            token: Some(a.token.clone()),
-        })
+    // Unpolled response bodies must also release their registration.
+    drop(responses.pop());
+    let response = app
+        .clone()
+        .oneshot(request("/api/space/events"))
+        .await
         .unwrap();
-    assert_eq!(renewed.token, a.token);
-    assert_eq!(renewed.expires_in, 30);
-    assert!(s.active());
-    s.release(&b.token);
-    assert!(s.active());
-    s.release(&a.token);
-    assert!(!s.active());
-    s.stop();
-    std::thread::sleep(Duration::from_millis(150));
-    assert!(s.stopped());
-    assert!(process::identity(std::process::id() as i32).is_ok());
+    assert_eq!(response.status(), StatusCode::OK);
+    let mut body = response.into_body();
+    let frame = std::future::poll_fn(|cx| std::pin::Pin::new(&mut body).poll_frame(cx))
+        .await
+        .unwrap()
+        .unwrap()
+        .into_data()
+        .unwrap();
+    assert!(
+        std::str::from_utf8(&frame)
+            .unwrap()
+            .contains("event: topology")
+    );
+    responses.clear();
+    assert!(state.space.active());
+    drop(body);
+    assert!(!state.space.active());
+    let response = app
+        .clone()
+        .oneshot(request("/api/space/events"))
+        .await
+        .unwrap();
+    assert!(state.space.active());
+    state.stop();
+    assert_eq!(
+        app.clone()
+            .oneshot(request("/api/space/events"))
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::SERVICE_UNAVAILABLE
+    );
+    tokio::time::timeout(
+        Duration::from_secs(3),
+        axum::body::to_bytes(response.into_body(), usize::MAX),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    assert!(!state.space.active());
 }
 
 #[test]

@@ -3,11 +3,8 @@ mod files;
 pub mod http;
 mod resolver;
 pub mod topology;
-use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{
-    collections::HashMap,
-    io::Read,
     sync::{
         Arc, Mutex, RwLock,
         atomic::{AtomicBool, Ordering},
@@ -15,21 +12,17 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::sync::broadcast;
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct LeaseRequest {
-    pub token: Option<String>,
+/// Owned by an HTTP response stream, including before its first poll.
+pub(super) struct Viewer {
+    space: Arc<Space>,
 }
-#[derive(Serialize)]
-pub struct LeaseResponse {
-    pub token: String,
-    pub expires_in: u32,
-}
-struct Lease {
-    updated: Instant,
+impl Drop for Viewer {
+    fn drop(&mut self) {
+        *self.space.viewers.lock().unwrap() -= 1;
+    }
 }
 pub struct Space {
-    leases: Mutex<HashMap<String, Lease>>,
+    viewers: Mutex<usize>,
     pub status: Mutex<Value>,
     pub snapshot: RwLock<Arc<topology::Topology>>,
     pub events: broadcast::Sender<String>,
@@ -40,7 +33,7 @@ impl Default for Space {
     fn default() -> Self {
         let (events, _) = broadcast::channel(16);
         Self {
-            leases: Mutex::new(HashMap::new()),
+            viewers: Mutex::new(0),
             status: Mutex::new(json!({"active":false,"ipc":"idle","cpu":"idle","files":"idle"})),
             snapshot: RwLock::new(Arc::new(topology::Topology::default())),
             events,
@@ -54,40 +47,27 @@ impl Space {
         self.stop.load(Ordering::Relaxed)
     }
     pub fn stop(&self) {
+        let _viewers = self.viewers.lock().unwrap();
         self.stop.store(true, Ordering::Relaxed);
     }
     pub fn active(&self) -> bool {
-        let mut leases = self.leases.lock().unwrap();
-        leases.retain(|_, l| l.updated.elapsed() < Duration::from_secs(30));
-        !leases.is_empty()
+        !self.stopped() && *self.viewers.lock().unwrap() > 0
     }
-    pub fn lease(self: &Arc<Self>, request: LeaseRequest) -> anyhow::Result<LeaseResponse> {
-        let mut leases = self.leases.lock().unwrap();
-        leases.retain(|_, l| l.updated.elapsed() < Duration::from_secs(30));
-        let token = if let Some(token) = request.token {
-            anyhow::ensure!(leases.contains_key(&token), "lease expired");
-            token
-        } else {
-            anyhow::ensure!(leases.len() < 32, "Too many viewers");
-            let mut bytes = [0u8; 16];
-            std::fs::File::open("/dev/urandom")?.read_exact(&mut bytes)?;
-            bytes.iter().map(|b| format!("{b:02x}")).collect()
+    pub(super) fn viewer(self: &Arc<Self>) -> Result<Viewer, axum::http::StatusCode> {
+        let mut viewers = self.viewers.lock().unwrap();
+        if self.stopped() {
+            return Err(axum::http::StatusCode::SERVICE_UNAVAILABLE);
+        }
+        if *viewers >= 32 {
+            return Err(axum::http::StatusCode::TOO_MANY_REQUESTS);
+        }
+        *viewers += 1;
+        let viewer = Viewer {
+            space: self.clone(),
         };
-        leases.insert(
-            token.clone(),
-            Lease {
-                updated: Instant::now(),
-            },
-        );
-        drop(leases);
+        drop(viewers);
         self.start();
-        Ok(LeaseResponse {
-            token,
-            expires_in: 30,
-        })
-    }
-    pub fn release(&self, token: &str) {
-        self.leases.lock().unwrap().remove(token);
+        Ok(viewer)
     }
     pub fn send(&self, event: &str, data: Value) {
         let _ = self
@@ -180,33 +160,6 @@ pub fn monotonic_ns() -> u64 {
     ts.tv_sec as u64 * 1_000_000_000 + ts.tv_nsec as u64
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn leases_are_independent_and_expire() {
-        let space = Space::default();
-        space.leases.lock().unwrap().insert(
-            "a".into(),
-            Lease {
-                updated: Instant::now(),
-            },
-        );
-        space.leases.lock().unwrap().insert(
-            "b".into(),
-            Lease {
-                updated: Instant::now(),
-            },
-        );
-        assert!(space.active());
-        space.release("b");
-        assert!(space.active());
-        space.leases.lock().unwrap().get_mut("a").unwrap().updated =
-            Instant::now() - Duration::from_secs(31);
-        assert!(!space.active());
-    }
-}
-
 /// Remembers only operational states, not continuously changing counters.
 #[derive(Default)]
 struct StatusLog(std::collections::HashMap<&'static str, String>);
@@ -234,9 +187,36 @@ impl StatusLog {
     }
 }
 
+fn spawn_worker(name: &'static str, work: impl FnOnce() + Send + 'static) {
+    std::thread::spawn(move || {
+        if let Err(panic) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(work)) {
+            log::error!("SPACE {name} worker panicked");
+            std::panic::resume_unwind(panic);
+        }
+    });
+}
+
 #[cfg(test)]
 mod logging_tests {
     use super::*;
+    #[tokio::test]
+    async fn shutdown_drops_stream_registration() {
+        let state = Arc::new(crate::state::AppState::new(Duration::from_secs(1)));
+        let response = http::events(axum::extract::State(state.clone()))
+            .await
+            .unwrap();
+        assert_eq!(*state.space.viewers.lock().unwrap(), 1);
+        state.stop();
+        tokio::time::timeout(
+            Duration::from_secs(3),
+            axum::body::to_bytes(response.into_body(), usize::MAX),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(*state.space.viewers.lock().unwrap(), 0);
+    }
+
     #[test]
     fn logs_changes_recovery_and_recurrence_without_repeating_errors() {
         let mut log = StatusLog::default();
@@ -255,13 +235,4 @@ mod logging_tests {
         assert_eq!(log.changes(&json!({"cpu":"observing"})).len(), 1);
         assert_eq!(log.changes(&error).len(), 1);
     }
-}
-
-fn spawn_worker(name: &'static str, work: impl FnOnce() + Send + 'static) {
-    std::thread::spawn(move || {
-        if let Err(panic) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(work)) {
-            log::error!("SPACE {name} worker panicked");
-            std::panic::resume_unwind(panic);
-        }
-    });
 }

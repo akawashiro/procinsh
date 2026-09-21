@@ -24,7 +24,6 @@ import type {
   Port,
   SocketEndpoint,
   SpaceActivity,
-  Lease,
   ProcessSummary,
 } from "./api-types.js";
 import type {
@@ -1386,114 +1385,52 @@ function parentLineVisual(parent: string, child: string) {
     b: color.getZ(index * 2),
   };
 }
-let token: string | null = null,
-  source: EventSource | null = null,
-  epoch = 0,
-  heartbeat: number | undefined,
-  retry: number | undefined,
-  renewQueue = Promise.resolve();
-async function api(path: string, options: RequestInit): Promise<Lease> {
-  const r = await fetch(path, options);
-  const data: unknown = await r.json();
-  if (!r.ok)
-    throw new Error(
-      data && typeof data === "object" && "error" in data
-        ? String(data.error)
-        : r.statusText,
-    );
-  return data as Lease;
-}
-async function start() {
-  if (document.hidden) return;
-  const e = ++epoch;
+let source: EventSource | null = null;
+let retry: number | undefined;
+function start() {
+  if (document.hidden || source) return;
   clearTimeout(retry);
-  try {
-    const lease = await api("/api/space/leases", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
-    });
-    if (e !== epoch || document.hidden) {
-      release(lease.token);
-      return;
-    }
-    token = lease.token;
-    renew();
-    source = new EventSource(
-      `/api/space/events?token=${encodeURIComponent(token)}`,
-    );
-    source.onopen = () => {
-      $("failure").hidden = true;
-    };
-    source.addEventListener("topology", (event) =>
-      rebuild(JSON.parse(event.data)),
-    );
-    source.addEventListener("activity", (event) =>
-      activity(JSON.parse(event.data)),
-    );
-    source.addEventListener("metrics", (event) => {
-      for (const m of JSON.parse(event.data) as Pick<
-        ProcessSummary,
-        "identity" | "cpu_percent" | "rss_bytes"
-      >[]) {
-        const n = nodes.get(key(m.identity));
-        if (n) Object.assign(n, m);
-      }
-      if (selected) details();
-    });
-    source.addEventListener("gap", () => {
-      particles = [];
-    });
-    heartbeat = setInterval(renew, 10000);
-  } catch (err) {
-    $("failure").textContent = err instanceof Error ? err.message : String(err);
+  const current = new EventSource("/api/space/events");
+  source = current;
+  current.onopen = () => {
+    if (source === current) $("failure").hidden = true;
+  };
+  current.onerror = () => {
+    if (source !== current) return;
+    stop();
+    $("failure").textContent = "Connection lost. Retrying…";
     $("failure").hidden = false;
-    retry = setTimeout(start, 3000);
-  }
-}
-function release(t: string) {
-  fetch("/api/space/leases", {
-    method: "DELETE",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token: t }),
-    keepalive: true,
-  }).catch(() => {});
+    if (!document.hidden) retry = setTimeout(start, 3000);
+  };
+  current.addEventListener("topology", (event) => {
+    if (source === current) rebuild(JSON.parse(event.data));
+  });
+  current.addEventListener("activity", (event) => {
+    if (source === current) activity(JSON.parse(event.data));
+  });
+  current.addEventListener("metrics", (event) => {
+    if (source !== current) return;
+    for (const m of JSON.parse(event.data) as Pick<
+      ProcessSummary,
+      "identity" | "cpu_percent" | "rss_bytes"
+    >[]) {
+      const n = nodes.get(key(m.identity));
+      if (n) Object.assign(n, m);
+    }
+    if (selected) details();
+  });
+  current.addEventListener("gap", () => {
+    if (source === current) particles = [];
+  });
 }
 function stop() {
-  epoch++;
   clearTimeout(retry);
-  clearInterval(heartbeat);
   source?.close();
   source = null;
-  if (token) release(token);
-  token = null;
   particles = [];
   cpuGlows.clear();
   recentFiles.clear();
   refreshFileScene();
-}
-function renew() {
-  const t = token;
-  if (!t) return Promise.resolve();
-  const body = JSON.stringify({
-    token: t,
-  });
-  renewQueue = renewQueue.then(async () => {
-    if (t !== token) return;
-    try {
-      await api("/api/space/leases", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body,
-      });
-    } catch (e) {
-      if (t === token) {
-        stop();
-        start();
-      }
-    }
-  });
-  return renewQueue;
 }
 
 document.addEventListener("visibilitychange", () => {

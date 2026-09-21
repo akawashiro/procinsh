@@ -86,6 +86,19 @@ try {
   assert.equal(await evaluate("document.getElementById('inspect').getAttribute('href')"), `/process/${app.pid}`);
   await evaluate("document.getElementById('close').click()");
   assert.equal(await evaluate("document.getElementById('regions')"),null,'address-space list is removed from process details');
+  assert.ok(await evaluate("window.spaceTestSources.every(s=>new URL(s.url).pathname==='/api/space/events' && !new URL(s.url).search)"),'SSE needs no token');
+  await evaluate("window.extraViewer=new EventSource('/api/space/events')");
+  await waitFor("window.extraViewer.readyState===EventSource.OPEN", 'second viewer');
+  await evaluate("Object.defineProperty(document,'hidden',{configurable:true,value:true});document.dispatchEvent(new Event('visibilitychange'))");
+  assert.equal((await (await fetch(url+'/api/space/status')).json()).active,true,'second viewer keeps collection active');
+  await evaluate("window.extraViewer.close()");
+  await until(async()=>!(await (await fetch(url+'/api/space/status')).json()).active,'last viewer disconnect');
+  await evaluate("Object.defineProperty(document,'hidden',{configurable:true,value:false});document.dispatchEvent(new Event('visibilitychange'))");
+  await waitFor("window.spaceTestSources.at(-1).readyState===EventSource.OPEN", 'visible reconnect');
+  await evaluate("window.failedSource=window.spaceTestSources.at(-1);window.failedSource.dispatchEvent(new Event('error'))");
+  await waitFor("window.spaceTestSources.at(-1)!==window.failedSource && window.spaceTestSources.at(-1).readyState===EventSource.OPEN", 'error reconnect');
+  await evaluate("window.failedSource.dispatchEvent(new MessageEvent('topology',{data:'invalid stale data'}))");
+  assert.ok(await evaluate("document.getElementById('failure').hidden"),'reconnection clears error');
   await evaluate(`(async()=>{
     window.spaceTestSources.forEach(source=>source.close());
     const m=await import('/space.js'), id={pid:424242,start_time_ticks:7}, peerId={pid:434343,start_time_ticks:8};

@@ -276,6 +276,3 @@ export interface SpaceActivity {
   cpu?: CpuActivity[];
   ipc?: IoActivity[];
 }
-export interface Lease {
-  token: string;
-}

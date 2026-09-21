@@ -3,6 +3,7 @@
 Run: python3 tests/space-files-live.py [http://127.0.0.1:PORT]
 Without a URL, starts and stops a private test server on an ephemeral port.
 """
+from sse import Stream
 import json
 import os
 from pathlib import Path
@@ -59,7 +60,7 @@ if len(sys.argv) > 1 and sys.argv[1] == '--fixture':
 
 server = None
 child = None
-lease = None
+reader = None
 response = None
 opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 logs = tempfile.TemporaryFile(mode='w+')
@@ -91,8 +92,7 @@ try:
         child = subprocess.Popen([sys.executable, __file__, '--fixture', directory],
                                  stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
         ready = json.loads(child.stdout.readline())
-        lease = api('/api/space/leases', {})
-        response = opener.open(base + '/api/space/events?token=' + lease['token'], timeout=30)
+        response = Stream(base + '/api/space/events', timeout=30)
         frames = []
 
         def consume():
@@ -105,7 +105,8 @@ try:
             except (OSError, ValueError):
                 pass
 
-        threading.Thread(target=consume, daemon=True).start()
+        reader = threading.Thread(target=consume, daemon=True)
+        reader.start()
         deadline = time.monotonic() + 20
         while time.monotonic() < deadline:
             status = api('/api/space/status')
@@ -136,8 +137,9 @@ try:
         assert actual == expected, (actual, expected, [f['status'] for f in frames[-1:]])
         assert len({e['resource'] for e in events}) == 1
         assert not Path(ready['path']).exists()
-        api('/api/space/leases', {'token': lease['token']}, 'DELETE')
-        lease = None
+        response.close(reader)
+        response = None
+        reader = None
         if server:
             deadline = time.monotonic() + 5
             while time.monotonic() < deadline and api('/api/space/status')['active']:
@@ -146,10 +148,8 @@ try:
         print('File I/O live checks passed:', actual,
               '(scalar/positioned/vectored I/O, short reads, EOF/errors, immediate close/unlink, shutdown)')
 finally:
-    if lease:
-        api('/api/space/leases', {'token': lease['token']}, 'DELETE')
-    # Closing the streaming socket can wait for a blocked reader; stop the
-    # owned server first so the daemon reader naturally finishes.
+    if response:
+        response.close(reader)
     for process in (child, server):
         if process and process.poll() is None:
             process.terminate()
