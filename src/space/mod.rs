@@ -135,11 +135,11 @@ impl Space {
                         data.edges.len()
                     );
                     for edge in &mut data.edges {
-                        if let Some(socket) = &mut edge.socket {
-                            if socket.network_peer {
-                                socket.remote_hostname =
-                                    socket.remote.and_then(|a| resolver.lookup(a.ip()));
-                            }
+                        if let Some(socket) = &mut edge.socket
+                            && socket.network_peer
+                        {
+                            socket.remote_hostname =
+                                socket.remote.and_then(|a| resolver.lookup(a.ip()));
                         }
                     }
                     space.send("topology", json!(data));
@@ -214,11 +214,11 @@ impl StatusLog {
     fn changes(&mut self, status: &serde_json::Value) -> Vec<(&'static str, String)> {
         let mut changes = Vec::new();
         for key in ["ipc", "cpu", "files"] {
-            if let Some(value) = status[key].as_str() {
-                if self.0.get(key).is_none_or(|old| old != value) {
-                    self.0.insert(key, value.to_owned());
-                    changes.push((key, value.to_owned()));
-                }
+            if let Some(value) = status[key].as_str()
+                && self.0.get(key).is_none_or(|old| old != value)
+            {
+                self.0.insert(key, value.to_owned());
+                changes.push((key, value.to_owned()));
             }
         }
         changes

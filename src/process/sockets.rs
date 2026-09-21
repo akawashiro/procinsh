@@ -40,7 +40,7 @@ fn address(text: &str) -> Result<SocketAddr> {
         8 => IpAddr::V4(Ipv4Addr::from(u32::from_str_radix(ip, 16)?.to_le_bytes())),
         32 => {
             let mut bytes = [0u8; 16];
-            for (index, out) in bytes.chunks_exact_mut(4).enumerate() {
+            for (index, out) in bytes.as_chunks_mut::<4>().0.iter_mut().enumerate() {
                 out.copy_from_slice(
                     &u32::from_str_radix(&ip[index * 8..index * 8 + 8], 16)?.to_le_bytes(),
                 );

@@ -44,10 +44,10 @@ impl Resolver {
     }
     pub fn lookup(&self, ip: IpAddr) -> Option<String> {
         let mut cache = self.cache.lock().unwrap();
-        if let Some(entry) = cache.get(&ip) {
-            if entry.pending || entry.expires > Instant::now() {
-                return entry.name.clone();
-            }
+        if let Some(entry) = cache.get(&ip)
+            && (entry.pending || entry.expires > Instant::now())
+        {
+            return entry.name.clone();
         }
         cache.retain(|_, e| e.pending || e.expires > Instant::now());
         if cache.len() >= 4096 {
