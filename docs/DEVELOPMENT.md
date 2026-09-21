@@ -6,11 +6,13 @@ ProcInSh は Linux x86-64 のプロセスを観測する Web アプリケーシ�
 
 ## ビルドと実行環境
 
-Rust edition は 2024 です。`rust-toolchain.toml` は stable と rustfmt・clippy を指定しています。ビルドには C コンパイラ、`ar`、BPF backend を持つ clang、bpftool、libelf 開発ファイル、実行カーネルの `/sys/kernel/btf/vmlinux` が必要です。
+Rust edition は 2024 です。`rust-toolchain.toml` は stable と rustfmt・clippy を指定しています。ビルドには Node.js 22以降と npm、C コンパイラ、`ar`、BPF backend を持つ clang、bpftool、pkg-config、libelf・zlib 開発ファイル、実行カーネルの `/sys/kernel/btf/vmlinux` が必要です。
 
 `build.rs` は bpftool で BTF から `vmlinux.h` を生成し、`libbpf-cargo` で CPU/IPC とファイル I/O の BPF オブジェクトをビルドします。通常の `cargo build` でもこの処理を実行するため、BPF を画面で利用しない場合もビルド依存は必要です。
 
 ```sh
+npm ci
+npm run build:web
 cargo build --locked
 sudo ./target/debug/procinsh --listen 127.0.0.1:9090
 
@@ -18,7 +20,9 @@ sudo ./target/debug/procinsh --listen 127.0.0.1:9090
 cargo build --release --locked
 ```
 
-ブラウザで http://127.0.0.1:9090 を開きます。HTML/CSS/JavaScript と Three.js（revision 180）はバイナリに埋め込みます。実行時の Node.js、フロントエンドのビルド、外部 CDN は不要です。Web アセットの変更を反映するには Rust バイナリを再ビルドします。SPACE の描画には WebGL2 が必要です。
+ブラウザで http://127.0.0.1:9090 を開きます。Web UI は `src/web/` の TypeScript で実装しています。`npm run build:web` は型チェックと `dist/web/` への JavaScript 生成を行います。生成物は Git に含めず、Cargo は npm を自動実行しません。生成物がない場合、Cargo のビルドは準備手順を表示して失敗します。
+
+HTML/CSS、生成した JavaScript、Three.js（revision 180）はバイナリに埋め込みます。TypeScript を変更したら `npm run build:web` の後に Rust バイナリを再ビルドしてください。Cargo は TypeScript と生成物の鮮度を検証しません。HTML/CSS の変更にも Rust の再ビルドが必要です。実行時の Node.js・npm、外部 CDN は不要です。SPACE の描画には WebGL2 が必要です。
 
 | CLI オプション | 動作 |
 |---|---|
@@ -40,10 +44,12 @@ SIGINT（Ctrl+C）または SIGTERM で収集停止と HTTP サーバーの終�
 | `src/snapshot/` | ptrace による停止・レジスタ取得、frame pointer unwind、逆アセンブル |
 | `src/symbol/` | ELF/DWARF によるシンボル・ソース位置の解決 |
 | `src/space/` | 全プロセスの構造、閲覧セッション、BPF 収集、名前解決、SPACE API |
-| `src/web/` | 通常画面、SPACE 画面、描画モデル、同梱 Three.js |
+| `src/web/` | TypeScript の通常画面・SPACE 画面・描画モデル、HTML/CSS、同梱 Three.js |
 | `tests/` | Rust・ブラウザ・ログ・実機センサーのテストと C fixture |
 
 Tokio/Axum が HTTP と SSE を処理し、ブロッキングする詳細 API は `spawn_blocking` に渡します。定期観測と SPACE の収集は OS スレッドで動きます。詳細監視は `AppState`、SPACE は独立した `Space` に状態を保持します。
+
+Web UI の API 型は `src/web/api-types.ts` に定義し、Rust の JSON 応答と合わせて管理します。null の扱いや16進文字列のアドレスも契約に含まれます。これらはコンパイル時の型で、実行時の入力検証ではありません。TypeScript と Three.js の型定義はビルド専用の npm 依存です。
 
 ## プロセス詳細の観測
 
@@ -93,13 +99,11 @@ RUSTFLAGS="-C force-frame-pointers=yes" cargo build
 | IPC | pipe read/write と socket の送受信結果を観測。ペイロードは読まず、MSG_PEEK は加算しない。splice/sendfile、一部 io_uring、帰属不明のワーカーは対象外 |
 | ファイル I/O | 独立した BPF で VFS の read/write、ベクトル I/O の成功バイト数と回数を観測。ページキャッシュ経由も含む。mmap、io_uring、splice/sendfile、物理ディスク転送量は対象外 |
 
-プロセスを選択してもメモリアクセスのサンプリングや発光は行いません。メモリマップの構造表示と、詳細画面のメモリ読み取りは引き続き利用できます。
-
 ファイルのパスは操作時に取得し、取得できない場合は device/inode 等の識別子を使います。画面は最終アクセスから30秒、各プロセス32個・全体512個まで保持します。IPC の共有 FD や複数所有者は一意な通信相手と区別します。
 
 閲覧は lease で管理します。ブラウザは10秒ごとに更新し、期限は30秒、最大32セッションです。タブ非表示やページ離脱で解放し、最後の lease がなくなるとセンサーを解放して収集を休止します。ワーカースレッドはアプリ終了まで残ります。グラフ上の選択はブラウザ内だけで管理し、収集対象や通常画面の選択には影響しません。
 
-BPF のフックが利用できない場合はセンサーごとに理由を表示し、利用可能な情報の収集を継続します。必要なカーネル機能・権限・CPU 機能はセンサーごとに異なります。
+BPF のフックが利用できない場合はセンサーごとの理由を状態 API とログに出し、利用可能な情報の収集を継続します。必要なカーネル機能・権限はセンサーごとに異なります。
 
 ## HTTP API
 
@@ -122,7 +126,6 @@ JSON のプロセス識別子は `{ "pid": 123, "start_time_ticks": 456 }` で�
 | `GET /api/target/signals` | プロセス・スレッドのシグナル情報 |
 | `POST /api/target/snapshot` | 識別子の JSON でスナップショット取得 |
 | `GET /api/target/events` | SSE の `observation` イベント |
-| `GET /api/target/sample` | 501 Not Implemented を返す |
 | `GET /api/space/status` | センサー状態と収集統計 |
 | `GET /api/space/snapshot` | 最新の構造 |
 | `POST /api/space/leases` | 閲覧開始・更新 |
@@ -133,7 +136,7 @@ JSON のプロセス識別子は `{ "pid": 123, "start_time_ticks": 456 }` で�
 
 詳細 SSE は最新状態を watch channel で配信し、接続時にも現在の値を送ります。SPACE は `topology`、`metrics`、`activity` を配信します。購読側が遅延した場合は `gap` と現在の構造を送り、古い活動を再生しません。
 
-lease の JSON は省略可能な `token` だけを受け付けます。`{}` で新規作成、`{"token":"..."}` で既存セッションを更新します。応答は `token`、`expires_in` です。メモリサンプリング用だった `density` と `selected_process` は廃止し、未知のフィールドとして拒否します。
+lease の JSON は省略可能な `token` だけを受け付け、未知のフィールドは拒否します。`{}` で新規作成、`{"token":"..."}` で既存セッションを更新します。応答は `token`、`expires_in` です。
 
 `activity.files` は `{process_id, resource, path, write, bytes, count}` の配列です。`path` は取得不能なら null、`resource` は device/inode/generation を含む識別子です。状態には `files`、`files_lost`、`files_coverage` などを含みます。
 
@@ -164,6 +167,9 @@ sudo env RUST_LOG=info,procinsh::space=debug ./target/debug/procinsh --listen 12
 ビルドと fixture の準備後に実行します。Rust 結合テストの一部も fixture をビルドしますが、`tests/space.rs` の単独実行には事前準備が必要です。
 
 ```sh
+npm ci
+npm run typecheck
+npm run build:web
 cargo build --locked
 sh tests/targets/build.sh
 cargo test --locked
@@ -171,16 +177,17 @@ python3 tests/logging-checks.py
 node tests/space-model.mjs
 
 # フォーマット・静的解析
-cargo fmt --check
+cargo fmt --all --check
 cargo clippy --all-targets --locked -- -D warnings
-
 ```
+
+CI はフォーマット確認、TypeScript の型チェックとビルド、Rust の全ターゲットのビルド、Clippy、Rust テスト、ログ検証、SPACE モデル検証を実行します。ブラウザと実機センサーのテストは別途実行します。
 
 Rust テストは `/proc` の解析、PID 再利用、メモリ読み取り、ptrace の解除、シンボル、HTTP、SPACE の構造・lease・集計を検証します。ログテストは既定レベル、debug、off、標準エラー、SIGTERM、ポート競合、クエリ非出力を検証します。プロセス観測を拒否するサンドボックスでは一部テストが失敗するため、テスト対象への ptrace/process_vm_readv とローカル通信が許可された環境が必要です。
 
 ### ブラウザテスト
 
-Node.js 22以降と Google Chrome または Chromium が必要です。npm 依存はなく、DevTools Protocol を使用します。
+上記の Web・Rust ビルドと fixture の準備に加え、Google Chrome または Chromium が必要です。テスト自体は Node.js 標準機能と DevTools Protocol を使い、追加の npm テストライブラリは不要です。
 
 ```sh
 node tests/browser.mjs
@@ -195,7 +202,7 @@ CHROME=/usr/bin/chromium node tests/space-browser.mjs
 
 ### 実機センサーテスト
 
-BPF と perf の観測権限を持つサーバーに対して実行します。CPU/IPC とファイル I/O を検証します。メモリサンプリング用の CPU 機能は不要です。センサー利用不可を成功扱いにはしません。
+BPF の観測権限（`CAP_BPF`・`CAP_PERFMON` など）と対応するカーネルのフックを利用できるサーバーに対して実行します。CPU/IPC とファイル I/O を検証します。センサー利用不可を成功扱いにはしません。
 
 ```sh
 python3 tests/space-live.py http://127.0.0.1:9090
