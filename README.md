@@ -1,4 +1,4 @@
-# procinsh
+# ProcInSh - Process in the Shell
 
 Linux x86-64 用の Web ベースのプロセスインスペクタです。
 
