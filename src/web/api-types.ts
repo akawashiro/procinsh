@@ -272,18 +272,9 @@ export interface CpuActivity {
 }
 export interface SpaceActivity {
   window_ms: number;
-  invalidated?: number[];
-  status?: { memory?: string };
   files?: FileActivity[];
   cpu?: CpuActivity[];
   ipc?: IoActivity[];
-  memory?: {
-    process_id: ProcessId;
-    maps_epoch: number;
-    page: string;
-    mode: string;
-    count: number;
-  }[];
 }
 export interface Lease {
   token: string;

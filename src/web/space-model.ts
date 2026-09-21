@@ -143,19 +143,6 @@ export function layoutMaps<M extends Pick<MemoryMap, "start" | "end">>(
     })
     .map((m, _, all) => ({ ...m, z: (m.z / z) * 8, h: (m.h / z) * 8 }));
 }
-export function addressZ(
-  regions: (Pick<MemoryMap, "start" | "end"> & { z: number; h: number })[],
-  address: string,
-) {
-  const a = BigInt(address),
-    r = regions.find((r) => BigInt(r.start) <= a && a < BigInt(r.end));
-  if (!r) return null;
-  return (
-    r.z +
-    (Number(a - BigInt(r.start)) / Number(BigInt(r.end) - BigInt(r.start))) *
-      r.h
-  );
-}
 export function edgeDirection(
   edge: Pick<Edge, "a" | "b" | "shared">,
   event: Pick<IoActivity, "process_id" | "resource" | "write">,

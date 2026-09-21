@@ -9,7 +9,7 @@ p=subprocess.Popen(['tests/targets/bin/activity'],stdin=subprocess.PIPE,stdout=s
 lease=None;response=None
 try:
     pid,peer,address,size=p.stdout.readline().split();pid=int(pid);peer=int(peer);address=int(address,16);size=int(size)
-    lease=api('/api/space/leases',{'density':3});token=lease['token']
+    lease=api('/api/space/leases',{});token=lease['token']
     response=opener.open(base+'/api/space/events?'+urllib.parse.urlencode({'token':token}),timeout=20)
     frames=[]
     def consume():
@@ -17,29 +17,22 @@ try:
             for line in response:
                 if line.startswith(b'data: '):
                     value=json.loads(line[6:]);
-                    if isinstance(value,dict) and 'memory' in value:frames.append(value)
+                    if isinstance(value,dict) and 'ipc' in value:frames.append(value)
         except (OSError,ValueError):pass
     thread=threading.Thread(target=consume,daemon=True);thread.start()
     deadline=time.monotonic()+12
     while time.monotonic()<deadline:
         status=api('/api/space/status')
-        if any(str(status.get(sensor,'')).startswith('unavailable') for sensor in ('cpu','ipc','memory')):raise AssertionError(status)
+        if any(str(status.get(sensor,'')).startswith('unavailable') for sensor in ('cpu','ipc')):raise AssertionError(status)
         snapshot=api('/api/space/snapshot')
         if any(n['identity']['pid']==pid for n in snapshot['nodes']):break
         time.sleep(.3)
-    assert status['memory']=='idle',status
-    selected=next(n['identity'] for n in snapshot['nodes'] if n['identity']['pid']==pid)
-    api('/api/space/leases',{'token':token,'density':3,'selected_process':selected})
+    assert 'memory' not in status,status
     time.sleep(1)
     status=api('/api/space/status')
-    assert status['cpu']=='observing' and status['ipc']=='observing' and status['memory']=='sampling',status
+    assert status['cpu']=='observing' and status['ipc']=='observing',status
     p.stdin.write('go\n');p.stdin.flush();time.sleep(6)
-    memory=[m for f in frames for m in f['memory'] if m['process_id']['pid']==pid and address<=int(m['page'],16)<address+size]
-    assert memory,'No memory samples in known fixture mapping'
-    assert all(m['process_id']['pid']==pid for f in frames for m in f['memory'])
-    api('/api/space/leases',{'token':token,'density':3,'selected_process':None})
-    time.sleep(.5)
-    assert api('/api/space/status')['memory']=='idle'
+    assert frames and all('memory' not in f and 'invalidated' not in f for f in frames)
     ipc=[e for f in frames for e in f['ipc'] if e['process_id']['pid']==pid and e['write'] and e['bytes']>0]
     from collections import defaultdict
     sends=defaultdict(lambda:[0,0]);receives=defaultdict(lambda:[0,0])
@@ -57,7 +50,7 @@ try:
     assert pipe_sends and len(socket_sends)==3 and all(v==[384,2] for v in socket_sends),sends
     assert len(socket_receives)==3 and all(v==[384,2] for v in socket_receives),receives
     assert any(k.startswith('pipe:') and v==[256,1] for k,v in receives.items()),receives
-    print('Live sensors passed:',len(memory),'memory bins; scheduler runtime/current CPU; pipe/UNIX/TCP/UDP send and receive; exact bytes/counts; MSG_PEEK and failed send excluded')
+    print('Live sensors passed: no memory sampling; scheduler runtime/current CPU; pipe/UNIX/TCP/UDP send and receive; exact bytes/counts; MSG_PEEK and failed send excluded')
 
 finally:
     if lease:api('/api/space/leases',{'token':lease['token']},'DELETE')

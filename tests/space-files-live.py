@@ -1,4 +1,4 @@
-"""File I/O integration test. Requires CAP_BPF/CAP_PERFMON (or root), not IBS.
+"""File I/O integration test. Requires CAP_BPF/CAP_PERFMON (or root).
 
 Run: python3 tests/space-files-live.py [http://127.0.0.1:PORT]
 Without a URL, starts and stops a private test server on an ephemeral port.
@@ -91,7 +91,7 @@ try:
         child = subprocess.Popen([sys.executable, __file__, '--fixture', directory],
                                  stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
         ready = json.loads(child.stdout.readline())
-        lease = api('/api/space/leases', {'density': 1})
+        lease = api('/api/space/leases', {})
         response = opener.open(base + '/api/space/events?token=' + lease['token'], timeout=30)
         frames = []
 
@@ -117,7 +117,7 @@ try:
             time.sleep(.2)
         else:
             raise AssertionError(('file sensor/topology did not become ready', status))
-        assert status['memory'] == 'idle', status
+        assert 'memory' not in status, status
         child.stdin.write('go\n')
         child.stdin.flush()
         expected = json.loads(child.stdout.readline())
@@ -145,7 +145,7 @@ try:
                 time.sleep(.1)
             assert api('/api/space/status')['files'] == 'idle'
         print('File I/O live checks passed:', actual,
-              '(scalar/positioned/vectored I/O, short reads, EOF/errors, immediate close/unlink, idle memory, shutdown)')
+              '(scalar/positioned/vectored I/O, short reads, EOF/errors, immediate close/unlink, no memory sampling, shutdown)')
 finally:
     if lease:
         api('/api/space/leases', {'token': lease['token']}, 'DELETE')

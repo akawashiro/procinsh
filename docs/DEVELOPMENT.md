@@ -1,6 +1,6 @@
 # ProcInSh 開発ドキュメント
 
-ProcInSh は Linux x86-64 のプロセスを観測する Web アプリケーションです。Rust の HTTP サーバーが `/proc`、ptrace、eBPF、AMD IBS から情報を取得し、ブラウザに配信します。プロセスのメモリやレジスタを書き換える機能はありません。ただし、ptrace スナップショットの取得中は対象の全スレッドを一時停止します。
+ProcInSh は Linux x86-64 のプロセスを観測する Web アプリケーションです。Rust の HTTP サーバーが `/proc`、ptrace、eBPF から情報を取得し、ブラウザに配信します。プロセスのメモリやレジスタを書き換える機能はありません。ただし、ptrace スナップショットの取得中は対象の全スレッドを一時停止します。
 
 この文書は現在の実装構成、動作、API、開発・検証手順を説明します。以下のコマンドはリポジトリのルートで実行します。
 
@@ -8,7 +8,7 @@ ProcInSh は Linux x86-64 のプロセスを観測する Web アプリケーシ�
 
 Rust edition は 2024 です。`rust-toolchain.toml` は stable と rustfmt・clippy を指定しています。ビルドには C コンパイラ、`ar`、BPF backend を持つ clang、bpftool、libelf 開発ファイル、実行カーネルの `/sys/kernel/btf/vmlinux` が必要です。
 
-`build.rs` は bpftool で BTF から `vmlinux.h` を生成し、`libbpf-cargo` で CPU/IPC とファイル I/O の BPF オブジェクトをビルドします。IBS の C 実装は `libprocinsh_ibs.a` としてリンクします。通常の `cargo build` でもこの処理を実行するため、BPF を画面で利用しない場合もビルド依存は必要です。
+`build.rs` は bpftool で BTF から `vmlinux.h` を生成し、`libbpf-cargo` で CPU/IPC とファイル I/O の BPF オブジェクトをビルドします。通常の `cargo build` でもこの処理を実行するため、BPF を画面で利用しない場合もビルド依存は必要です。
 
 ```sh
 cargo build --locked
@@ -39,7 +39,7 @@ SIGINT（Ctrl+C）または SIGTERM で収集停止と HTTP サーバーの終�
 | `src/process/` | `/proc` の解析、PID 識別、プロセス・スレッド・メモリ・FD・ソケット・シグナル情報 |
 | `src/snapshot/` | ptrace による停止・レジスタ取得、frame pointer unwind、逆アセンブル |
 | `src/symbol/` | ELF/DWARF によるシンボル・ソース位置の解決 |
-| `src/space/` | 全プロセスの構造、閲覧セッション、BPF/IBS 収集、名前解決、SPACE API |
+| `src/space/` | 全プロセスの構造、閲覧セッション、BPF 収集、名前解決、SPACE API |
 | `src/web/` | 通常画面、SPACE 画面、描画モデル、同梱 Three.js |
 | `tests/` | Rust・ブラウザ・ログ・実機センサーのテストと C fixture |
 
@@ -92,15 +92,14 @@ RUSTFLAGS="-C force-frame-pointers=yes" cargo build
 | CPU | CO-RE eBPF の `sched_switch` で実行時間と実行中 CPU を集計。描画は実行中に発光し、終了後約500msで減衰 |
 | IPC | pipe read/write と socket の送受信結果を観測。ペイロードは読まず、MSG_PEEK は加算しない。splice/sendfile、一部 io_uring、帰属不明のワーカーは対象外 |
 | ファイル I/O | 独立した BPF で VFS の read/write、ベクトル I/O の成功バイト数と回数を観測。ページキャッシュ経由も含む。mmap、io_uring、splice/sendfile、物理ディスク転送量は対象外 |
-| メモリ | AMD `ibs_op` を `perf_event_open` で選択プロセスの各スレッドに設定。ユーザー空間のデータアドレスを4 KiBページに集計。サンプルがないことは未アクセスを意味しない |
 
-メモリ観測の密度1/2/3は初期周期1,000,000/250,000/100,000カウントです。欠落時は周期を最大1,000,000まで増やします。exec/MMAP2 後はマップ更新まで古いアドレス情報による発光を抑制します。
+プロセスを選択してもメモリアクセスのサンプリングや発光は行いません。メモリマップの構造表示と、詳細画面のメモリ読み取りは引き続き利用できます。
 
 ファイルのパスは操作時に取得し、取得できない場合は device/inode 等の識別子を使います。画面は最終アクセスから30秒、各プロセス32個・全体512個まで保持します。IPC の共有 FD や複数所有者は一意な通信相手と区別します。
 
-閲覧は lease で管理します。ブラウザは10秒ごとに更新し、期限は30秒、最大32セッションです。タブ非表示やページ離脱で解放し、最後の lease がなくなるとセンサーを解放して収集を休止します。ワーカースレッドはアプリ終了まで残ります。複数閲覧者の密度は最大値を採用し、メモリ観測対象は各 lease の `selected_process` の集合です。通常画面の選択とは独立しています。
+閲覧は lease で管理します。ブラウザは10秒ごとに更新し、期限は30秒、最大32セッションです。タブ非表示やページ離脱で解放し、最後の lease がなくなるとセンサーを解放して収集を休止します。ワーカースレッドはアプリ終了まで残ります。グラフ上の選択はブラウザ内だけで管理し、収集対象や通常画面の選択には影響しません。
 
-BPF のフックや IBS が利用できない場合はセンサーごとに理由を表示し、利用可能な情報の収集を継続します。必要なカーネル機能・権限・CPU 機能はセンサーごとに異なります。
+BPF のフックが利用できない場合はセンサーごとに理由を表示し、利用可能な情報の収集を継続します。必要なカーネル機能・権限・CPU 機能はセンサーごとに異なります。
 
 ## HTTP API
 
@@ -134,13 +133,13 @@ JSON のプロセス識別子は `{ "pid": 123, "start_time_ticks": 456 }` で�
 
 詳細 SSE は最新状態を watch channel で配信し、接続時にも現在の値を送ります。SPACE は `topology`、`metrics`、`activity` を配信します。購読側が遅延した場合は `gap` と現在の構造を送り、古い活動を再生しません。
 
-lease の JSON は `density`（1～3）、省略可能な `token` と `selected_process` を受け付けます。`token` を省略すると新規作成、指定すると既存セッションを更新します。応答は `token`、`density`、`expires_in` です。
+lease の JSON は省略可能な `token` だけを受け付けます。`{}` で新規作成、`{"token":"..."}` で既存セッションを更新します。応答は `token`、`expires_in` です。メモリサンプリング用だった `density` と `selected_process` は廃止し、未知のフィールドとして拒否します。
 
 `activity.files` は `{process_id, resource, path, write, bytes, count}` の配列です。`path` は取得不能なら null、`resource` は device/inode/generation を含む識別子です。状態には `files`、`files_lost`、`files_coverage` などを含みます。
 
 ## 権限とログ
 
-`ptrace` と `process_vm_readv` は所有者、dumpable 属性、Yama、`CAP_SYS_PTRACE`、seccomp などの制約を受けます。BPF/IBS はカーネル側の対応と観測権限も必要です。権限やカーネル設定の自動変更、sudo の自動実行はしません。
+`ptrace` と `process_vm_readv` は所有者、dumpable 属性、Yama、`CAP_SYS_PTRACE`、seccomp などの制約を受けます。BPF はカーネル側の対応と観測権限も必要です。権限やカーネル設定の自動変更、sudo の自動実行はしません。
 
 待受は既定で loopback です。Host/Origin/Fetch Metadata を検証し、API レスポンスに `Cache-Control: no-store` を付けます。認証機能はありません。外部アドレスで待ち受けると警告を出すため、公開範囲を管理する必要があります。
 
@@ -175,9 +174,6 @@ node tests/space-model.mjs
 cargo fmt --check
 cargo clippy --all-targets --locked -- -D warnings
 
-# IBS レコードの C パーサー
-cc -O2 -Wall -Wextra -Werror tests/ibs-parser.c -o target/ibs-parser
-./target/ibs-parser
 ```
 
 Rust テストは `/proc` の解析、PID 再利用、メモリ読み取り、ptrace の解除、シンボル、HTTP、SPACE の構造・lease・集計を検証します。ログテストは既定レベル、debug、off、標準エラー、SIGTERM、ポート競合、クエリ非出力を検証します。プロセス観測を拒否するサンドボックスでは一部テストが失敗するため、テスト対象への ptrace/process_vm_readv とローカル通信が許可された環境が必要です。
@@ -199,14 +195,14 @@ CHROME=/usr/bin/chromium node tests/space-browser.mjs
 
 ### 実機センサーテスト
 
-BPF と perf の観測権限を持つサーバーに対して実行します。CPU/IPC/メモリの検証には AMD IBS の対応も必要です。センサー利用不可を成功扱いにはしません。
+BPF と perf の観測権限を持つサーバーに対して実行します。CPU/IPC とファイル I/O を検証します。メモリサンプリング用の CPU 機能は不要です。センサー利用不可を成功扱いにはしません。
 
 ```sh
 python3 tests/space-live.py http://127.0.0.1:9090
 python3 tests/space-files-live.py http://127.0.0.1:9090
 ```
 
-ファイル I/O のテストは IBS を使いません。URL を省略した場合は一時サーバーを起動・終了しますが、そのサーバーにも観測権限が必要です。
+URL を省略した場合は一時サーバーを起動・終了しますが、そのサーバーにも観測権限が必要です。
 
 `tests/targets/` の C fixture には計算、sleep、スレッド増減、メモリ確保、再帰、mmap、IPC、活動計測用のプログラムがあります。手動観測には次を使えます。
 

@@ -4,32 +4,9 @@ use libbpf_rs::{MapCore, MapFlags, ObjectBuilder, RingBufferBuilder};
 use serde_json::json;
 use std::{
     collections::HashMap,
-    ffi::c_void,
-    ptr::NonNull,
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
-#[repr(C)]
-#[derive(Clone, Copy, Default)]
-struct Sample {
-    time: u64,
-    addr: u64,
-    source: u64,
-    pid: u32,
-    tid: u32,
-}
-unsafe extern "C" {
-    fn procinsh_ibs_open(tid: i32, kind: i32, period: u64) -> *mut c_void;
-    fn procinsh_ibs_close(handle: *mut c_void);
-    fn procinsh_ibs_period(handle: *mut c_void, period: u64) -> i32;
-    fn procinsh_ibs_poll(handle: *mut c_void, out: *mut Sample, cap: i32, lost: *mut u64) -> i32;
-}
-struct Ibs(NonNull<c_void>);
-impl Drop for Ibs {
-    fn drop(&mut self) {
-        unsafe { procinsh_ibs_close(self.0.as_ptr()) }
-    }
-}
 #[derive(Clone, Copy)]
 struct Event {
     start: u64,
@@ -233,95 +210,28 @@ impl Bpf {
         Ok(result)
     }
 }
-type ThreadKey = (crate::process::ProcessId, i32, u64);
-fn selected_threads(
-    targets: &std::collections::HashSet<crate::process::ProcessId>,
-) -> std::collections::HashSet<ThreadKey> {
-    let mut result = std::collections::HashSet::new();
-    for id in targets {
-        if crate::process::check_identity(*id).is_err() {
-            continue;
-        }
-        let Ok(entries) = std::fs::read_dir(format!("/proc/{}/task", id.pid)) else {
-            continue;
-        };
-        for entry in entries.flatten() {
-            if let Ok(stat) =
-                crate::process::procfs::read_stat(&entry.path().join("stat").to_string_lossy())
-            {
-                result.insert((*id, stat.pid, stat.start_time));
-            }
-        }
-        if crate::process::check_identity(*id).is_err() {
-            result.retain(|(owner, _, _)| owner != id);
-        }
-    }
-    result
-}
-fn ibs(thread: ThreadKey, period: u64) -> Result<Ibs> {
-    let (owner, tid, start) = thread;
-    crate::process::check_identity(owner)?;
-    let kind = std::fs::read_to_string("/sys/bus/event_source/devices/ibs_op/type")?
-        .trim()
-        .parse()?;
-    let ptr = NonNull::new(unsafe { procinsh_ibs_open(tid, kind, period) }).with_context(|| {
-        format!(
-            "IBS thread {tid}: {} (CAP_PERFMON required)",
-            std::io::Error::last_os_error()
-        )
-    })?;
-    let handle = Ibs(ptr);
-    let stat = crate::process::procfs::read_stat(&format!("/proc/{}/task/{tid}/stat", owner.pid))?;
-    anyhow::ensure!(stat.start_time == start, "Thread identity changed");
-    crate::process::check_identity(owner)?;
-    Ok(handle)
-}
 pub fn run(space: Arc<Space>) {
     let mut bpf = None;
     let mut files: Option<super::files::Files> = None;
-    let mut perf = HashMap::<ThreadKey, Ibs>::new();
-    let mut targets = std::collections::HashSet::new();
-    let mut threads_at = Instant::now() - Duration::from_secs(1);
-    let mut current = 0;
+    let mut active = false;
     let mut last = Instant::now();
-    let mut lost = 0;
-    let mut prior_lost = 0;
-    let mut effective_period = 250_000;
-    let mut adjust_at = Instant::now();
-    let mut invalidated = std::collections::HashMap::<i32, u64>::new();
     let mut unresolved = 0u64;
-    let mut memory = std::collections::HashMap::new();
     let mut comm = std::collections::HashMap::new();
-    let mut samples = [Sample::default(); 4096];
     let mut logged = super::StatusLog::default();
     log::info!("SPACE activity worker started");
     while !space.stopped() {
-        let density = space.density();
-        if density == 0 {
-            logged.observe(&json!({"ipc":"idle", "cpu":"idle", "files":"idle", "memory":"idle"}));
+        if !space.active() {
+            logged.observe(&json!({"ipc":"idle", "cpu":"idle", "files":"idle"}));
             bpf = None;
             files = None;
-            perf.clear();
-            targets.clear();
-            threads_at = Instant::now() - Duration::from_secs(1);
-            current = 0;
-            memory.clear();
+            active = false;
             comm.clear();
             std::thread::sleep(Duration::from_millis(100));
             continue;
         }
-        if current != density {
-            log::info!("SPACE observation active density={density}");
-            perf.clear();
-            threads_at = Instant::now() - Duration::from_secs(1);
-            let period = match density {
-                1 => 1_000_000,
-                3 => 100_000,
-                _ => 250_000,
-            };
-            effective_period = period;
-            invalidated.clear();
-            let mut status = json!({"active":true,"density":density,"period":period,"ipc":"starting","memory":"starting","cpu":"starting","coverage":"pipe read/write; socket send/recv. splice, sendfile and some io_uring paths are not observed; worker attribution is excluded."});
+        if !active {
+            log::info!("SPACE observation active");
+            let mut status = json!({"active":true,"ipc":"starting","cpu":"starting","coverage":"pipe read/write; socket send/recv. splice, sendfile and some io_uring paths are not observed; worker attribution is excluded."});
             if bpf.is_none() {
                 match Bpf::new() {
                     Ok(v) => {
@@ -354,8 +264,7 @@ pub fn run(space: Arc<Space>) {
             }
             status["files_coverage"] = json!(super::files::COVERAGE);
             *space.status.lock().unwrap() = status;
-            current = density;
-            lost = 0;
+            active = true;
             unresolved = 0;
         }
         if let Some(sensor) = &files {
@@ -363,38 +272,6 @@ pub fn run(space: Arc<Space>) {
                 Ok(()) => json!("observing"),
                 Err(error) => json!(format!("error: {error:#}")),
             };
-        }
-        let requested = space.memory_targets();
-        if requested != targets || threads_at.elapsed() >= Duration::from_millis(250) {
-            targets = requested;
-            let threads = selected_threads(&targets);
-            perf.retain(|key, _| threads.contains(key));
-            memory.retain(|(id, _, _, _), _| targets.contains(id));
-            let mut failure = None;
-            // Use a stable representative error so HashSet iteration cannot flood logs.
-            let mut threads: Vec<_> = threads.into_iter().collect();
-            threads.sort_by_key(|(owner, tid, start)| (owner.pid, *tid, *start));
-            for thread in threads {
-                if perf.contains_key(&thread) {
-                    continue;
-                }
-                match ibs(thread, effective_period) {
-                    Ok(handle) => {
-                        perf.insert(thread, handle);
-                    }
-                    Err(error) => {
-                        failure.get_or_insert_with(|| format!("unavailable: {error:#}"));
-                    }
-                }
-            }
-            let mut status = space.status.lock().unwrap();
-            status["memory"] = json!(failure.unwrap_or_else(|| if perf.is_empty() {
-                "idle".into()
-            } else {
-                "sampling".into()
-            }));
-            status["memory_threads"] = json!(perf.len());
-            threads_at = Instant::now();
         }
         let topology = space.snapshot.read().unwrap().clone();
         let nodes: std::collections::HashMap<_, _> =
@@ -436,73 +313,7 @@ pub fn run(space: Arc<Space>) {
                 value.1 += 1;
             }
         }
-        let mut valid = std::collections::HashMap::new();
-        for p in perf.values() {
-            let count = unsafe {
-                procinsh_ibs_poll(
-                    p.0.as_ptr(),
-                    samples.as_mut_ptr(),
-                    samples.len() as i32,
-                    &mut lost,
-                )
-            };
-            for sample in &samples[..count.max(0) as usize] {
-                let Some(n) = nodes.get(&(sample.pid as i32)) else {
-                    unresolved += 1;
-                    continue;
-                };
-                if !targets.contains(&n.identity) {
-                    continue;
-                }
-                if sample.source == u64::MAX {
-                    invalidated
-                        .entry(sample.pid as i32)
-                        .and_modify(|t| *t = (*t).max(sample.time))
-                        .or_insert(sample.time);
-                    continue;
-                }
-                if sample.time < n.maps_epoch
-                    || invalidated
-                        .get(&(sample.pid as i32))
-                        .is_some_and(|&t| t >= n.maps_epoch)
-                {
-                    unresolved += 1;
-                    continue;
-                }
-                // The kernel sample's TID/PID are checked against current identity before assigning a map.
-                if sample.addr == 0 || !n.maps.iter().any(|m| m.contains(sample.addr)) {
-                    unresolved += 1;
-                    continue;
-                }
-                if !*valid
-                    .entry(n.identity)
-                    .or_insert_with(|| crate::process::check_identity(n.identity).is_ok())
-                {
-                    unresolved += 1;
-                    continue;
-                }
-                if memory.len() >= 8192 {
-                    unresolved += 1;
-                    continue;
-                }
-                let op = sample.source & 31;
-                let mode = if op & 4 != 0 {
-                    "write"
-                } else if op & 2 != 0 {
-                    "read"
-                } else {
-                    "unknown"
-                };
-                *memory
-                    .entry((n.identity, n.maps_epoch, sample.addr & !4095, mode))
-                    .or_insert(0u64) += 1;
-            }
-        }
         if last.elapsed() >= Duration::from_millis(100) {
-            memory.retain(|(id, epoch, _, _), _| {
-                invalidated.get(&id.pid).is_none_or(|t| *t < *epoch)
-            });
-            let mem:Vec<_>=memory.drain().map(|((id,map_epoch,page,mode),count)|json!({"process_id":id,"maps_epoch":map_epoch,"page":format!("0x{page:016x}"),"mode":mode,"count":count})).collect();
             let ipc:Vec<_>=comm.drain().map(|((id,resource,write),(bytes,count))|json!({"process_id":id,"resource":resource,"write":write,"bytes":bytes,"count":count})).collect();
             let cpu = if let Some(bpf) = &mut bpf {
                 match bpf.cpu_activity(super::monotonic_ns(), &topology) {
@@ -518,33 +329,14 @@ pub fn run(space: Arc<Space>) {
             } else {
                 Vec::new()
             };
-            if adjust_at.elapsed() >= Duration::from_secs(2) {
-                if lost > prior_lost && effective_period < 1_000_000 {
-                    let next = (effective_period * 2).min(1_000_000);
-                    let ok = perf
-                        .values()
-                        .all(|p| unsafe { procinsh_ibs_period(p.0.as_ptr(), next) } == 0);
-                    if ok {
-                        effective_period = next;
-                    } else {
-                        perf.clear();
-                        space.status.lock().unwrap()["memory"] =
-                            json!("unavailable: IBS period update failed; sampling stopped");
-                    }
-                }
-                prior_lost = lost;
-                adjust_at = Instant::now();
-            }
-            invalidated.retain(|pid, time| nodes.get(pid).is_some_and(|n| *time >= n.maps_epoch));
             let mut status = space.status.lock().unwrap();
-            status["lost"] = json!(lost + bpf.as_ref().map_or(0, Bpf::lost));
+            status["lost"] = json!(bpf.as_ref().map_or(0, Bpf::lost));
             status["unresolved"] = json!(unresolved);
-            status["period"] = json!(effective_period);
             status["files_lost"] = json!(files.as_ref().map_or(0, |sensor| sensor.lost()));
             let file_events = files
                 .as_ref()
                 .map_or_else(Vec::new, |sensor| sensor.drain());
-            space.send("activity",json!({"captured_at":crate::process::timestamp_ms(),"window_ms":last.elapsed().as_millis(),"files":file_events,"memory":mem,"ipc":ipc,"cpu":cpu,"invalidated":invalidated.keys().collect::<Vec<_>>(),"status":*status}));
+            space.send("activity",json!({"captured_at":crate::process::timestamp_ms(),"window_ms":last.elapsed().as_millis(),"files":file_events,"ipc":ipc,"cpu":cpu,"status":*status}));
             last = Instant::now();
         }
         logged.observe(&space.status.lock().unwrap());
@@ -556,35 +348,6 @@ pub fn run(space: Arc<Space>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    fn selected_thread_identity_and_lifecycle() {
-        let id = crate::process::identity(std::process::id() as i32).unwrap();
-        let targets = [id].into_iter().collect();
-        let before = selected_threads(&targets);
-        assert!(
-            before
-                .iter()
-                .any(|(owner, tid, _)| *owner == id && *tid == id.pid)
-        );
-        let (tx, rx) = std::sync::mpsc::channel();
-        let (ready_tx, ready_rx) = std::sync::mpsc::channel();
-        let thread = std::thread::spawn(move || {
-            ready_tx
-                .send(unsafe { libc::syscall(libc::SYS_gettid) } as i32)
-                .unwrap();
-            rx.recv().unwrap();
-        });
-        let tid = ready_rx.recv().unwrap();
-        assert!(selected_threads(&targets).iter().any(|(_, t, _)| *t == tid));
-        tx.send(()).unwrap();
-        thread.join().unwrap();
-        let fake = crate::process::ProcessId {
-            start_time_ticks: id.start_time_ticks + 1,
-            ..id
-        };
-        assert!(selected_threads(&[fake].into_iter().collect()).is_empty());
-        assert!(selected_threads(&std::collections::HashSet::new()).is_empty());
-    }
     #[test]
     fn decodes_bpf_event_without_unaligned_reads() {
         assert!(event(&[0; 55]).is_none());

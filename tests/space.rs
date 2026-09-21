@@ -51,41 +51,34 @@ fn topology_finds_pipe_and_unix_peers_and_bounds_work() {
 fn leases_are_independent_and_stop_collectors() {
     let s = Arc::new(Space::default());
     assert!(
-        s.lease(LeaseRequest {
-            selected_process: None,
-            token: None,
-            density: 0
-        })
+        serde_json::from_value::<LeaseRequest>(serde_json::json!({
+            "selected_process": {"pid": 1, "start_time_ticks": 1}
+        }))
         .is_err()
     );
+    assert!(serde_json::from_value::<LeaseRequest>(serde_json::json!({"density": 2})).is_err());
+    assert!(serde_json::from_value::<LeaseRequest>(serde_json::json!({})).is_ok());
     assert!(
         s.lease(LeaseRequest {
-            selected_process: None,
             token: Some("unknown".into()),
-            density: 2
         })
         .is_err()
     );
-    let a = s
-        .lease(LeaseRequest {
-            selected_process: None,
-            token: None,
-            density: 1,
-        })
-        .unwrap();
-    let b = s
-        .lease(LeaseRequest {
-            selected_process: None,
-            token: None,
-            density: 3,
-        })
-        .unwrap();
+    let a = s.lease(LeaseRequest { token: None }).unwrap();
+    let b = s.lease(LeaseRequest { token: None }).unwrap();
     assert_ne!(a.token, b.token);
-    assert_eq!(s.density(), 3);
+    let renewed = s
+        .lease(LeaseRequest {
+            token: Some(a.token.clone()),
+        })
+        .unwrap();
+    assert_eq!(renewed.token, a.token);
+    assert_eq!(renewed.expires_in, 30);
+    assert!(s.active());
     s.release(&b.token);
-    assert_eq!(s.density(), 1);
+    assert!(s.active());
     s.release(&a.token);
-    assert_eq!(s.density(), 0);
+    assert!(!s.active());
     s.stop();
     std::thread::sleep(Duration::from_millis(150));
     assert!(s.stopped());

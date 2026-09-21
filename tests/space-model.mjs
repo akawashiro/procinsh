@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
-import {layoutMaps,addressZ,edgeDirection,ipcParticlePlan,cpuGlowLevel,treeLayout,stableLayout} from '../dist/web/space-model.js';
+import {layoutMaps,edgeDirection,ipcParticlePlan,cpuGlowLevel,treeLayout,stableLayout} from '../dist/web/space-model.js';
 const regions=layoutMaps([{start:'0xffffffffff600000',end:'0xffffffffff601000'},{start:'0x1000',end:'0x3000'},{start:'0x7fff00000000',end:'0x7fff00001000'}]);
-assert.equal(regions[0].start,'0x1000');assert.equal(addressZ(regions,'0x3000'),null);
-assert.ok(addressZ(regions,'0xffffffffff600001')>addressZ(regions,'0x7fff00000001'));
-assert.ok(addressZ(regions,'0x1000')<addressZ(regions,'0x2000'));
+assert.equal(regions[0].start,'0x1000');
+assert.ok(regions[2].z > regions[1].z);
+assert.ok(regions.every(region => region.h > 0));
 assert.deepEqual(layoutMaps([]),[]);
 const a={process_id:{pid:1,start_time_ticks:2},resource:'pipe:1:2'},b={process_id:{pid:2,start_time_ticks:3},resource:'pipe:1:2'};
 const edge={a,b,shared:false};

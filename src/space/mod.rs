@@ -19,18 +19,13 @@ use tokio::sync::broadcast;
 #[serde(deny_unknown_fields)]
 pub struct LeaseRequest {
     pub token: Option<String>,
-    pub density: u8,
-    pub selected_process: Option<crate::process::ProcessId>,
 }
 #[derive(Serialize)]
 pub struct LeaseResponse {
     pub token: String,
-    pub density: u8,
     pub expires_in: u32,
 }
 struct Lease {
-    density: u8,
-    selected_process: Option<crate::process::ProcessId>,
     updated: Instant,
 }
 pub struct Space {
@@ -46,9 +41,7 @@ impl Default for Space {
         let (events, _) = broadcast::channel(16);
         Self {
             leases: Mutex::new(HashMap::new()),
-            status: Mutex::new(
-                json!({"active":false,"ipc":"idle","memory":"idle","cpu":"idle","files":"idle"}),
-            ),
+            status: Mutex::new(json!({"active":false,"ipc":"idle","cpu":"idle","files":"idle"})),
             snapshot: RwLock::new(Arc::new(topology::Topology::default())),
             events,
             stop: AtomicBool::new(false),
@@ -63,21 +56,12 @@ impl Space {
     pub fn stop(&self) {
         self.stop.store(true, Ordering::Relaxed);
     }
-    pub fn density(&self) -> u8 {
+    pub fn active(&self) -> bool {
         let mut leases = self.leases.lock().unwrap();
         leases.retain(|_, l| l.updated.elapsed() < Duration::from_secs(30));
-        leases.values().map(|l| l.density).max().unwrap_or(0)
-    }
-    pub fn memory_targets(&self) -> std::collections::HashSet<crate::process::ProcessId> {
-        let mut leases = self.leases.lock().unwrap();
-        leases.retain(|_, l| l.updated.elapsed() < Duration::from_secs(30));
-        leases.values().filter_map(|l| l.selected_process).collect()
+        !leases.is_empty()
     }
     pub fn lease(self: &Arc<Self>, request: LeaseRequest) -> anyhow::Result<LeaseResponse> {
-        anyhow::ensure!(
-            (1..=3).contains(&request.density),
-            "density must be 1, 2 or 3"
-        );
         let mut leases = self.leases.lock().unwrap();
         leases.retain(|_, l| l.updated.elapsed() < Duration::from_secs(30));
         let token = if let Some(token) = request.token {
@@ -92,8 +76,6 @@ impl Space {
         leases.insert(
             token.clone(),
             Lease {
-                density: request.density,
-                selected_process: request.selected_process,
                 updated: Instant::now(),
             },
         );
@@ -101,7 +83,6 @@ impl Space {
         self.start();
         Ok(LeaseResponse {
             token,
-            density: self.density(),
             expires_in: 30,
         })
     }
@@ -129,8 +110,9 @@ impl Space {
             let mut full = Instant::now() - Duration::from_secs(10);
             let mut tick = Instant::now() - Duration::from_secs(2);
             while !space.stopped() {
-                if space.density() == 0 {
-                    *space.status.lock().unwrap() = json!({"active":false,"ipc":"idle","memory":"idle","cpu":"idle","files":"idle"});
+                if !space.active() {
+                    *space.status.lock().unwrap() =
+                        json!({"active":false,"ipc":"idle","cpu":"idle","files":"idle"});
                     full = Instant::now() - Duration::from_secs(10);
                     std::thread::sleep(Duration::from_millis(100));
                     continue;
@@ -202,59 +184,26 @@ pub fn monotonic_ns() -> u64 {
 mod tests {
     use super::*;
     #[test]
-    fn leases_validate_expire_and_negotiate() {
+    fn leases_are_independent_and_expire() {
         let space = Space::default();
         space.leases.lock().unwrap().insert(
             "a".into(),
             Lease {
-                density: 1,
-                selected_process: None,
                 updated: Instant::now(),
             },
         );
         space.leases.lock().unwrap().insert(
             "b".into(),
             Lease {
-                density: 3,
-                selected_process: None,
                 updated: Instant::now(),
             },
         );
-        let first = crate::process::ProcessId {
-            pid: 42,
-            start_time_ticks: 1,
-        };
-        let reused = crate::process::ProcessId {
-            pid: 42,
-            start_time_ticks: 2,
-        };
-        assert!(space.memory_targets().is_empty());
-        space
-            .leases
-            .lock()
-            .unwrap()
-            .get_mut("a")
-            .unwrap()
-            .selected_process = Some(first);
-        space
-            .leases
-            .lock()
-            .unwrap()
-            .get_mut("b")
-            .unwrap()
-            .selected_process = Some(reused);
-        assert_eq!(
-            space.memory_targets(),
-            [first, reused].into_iter().collect()
-        );
-        assert_eq!(space.density(), 3);
+        assert!(space.active());
         space.release("b");
-        assert_eq!(space.density(), 1);
-        assert_eq!(space.memory_targets(), [first].into_iter().collect());
+        assert!(space.active());
         space.leases.lock().unwrap().get_mut("a").unwrap().updated =
             Instant::now() - Duration::from_secs(31);
-        assert_eq!(space.density(), 0);
-        assert!(space.memory_targets().is_empty());
+        assert!(!space.active());
     }
 }
 
@@ -264,7 +213,7 @@ struct StatusLog(std::collections::HashMap<&'static str, String>);
 impl StatusLog {
     fn changes(&mut self, status: &serde_json::Value) -> Vec<(&'static str, String)> {
         let mut changes = Vec::new();
-        for key in ["ipc", "cpu", "files", "memory"] {
+        for key in ["ipc", "cpu", "files"] {
             if let Some(value) = status[key].as_str() {
                 if self.0.get(key).is_none_or(|old| old != value) {
                     self.0.insert(key, value.to_owned());
@@ -291,19 +240,19 @@ mod logging_tests {
     #[test]
     fn logs_changes_recovery_and_recurrence_without_repeating_errors() {
         let mut log = StatusLog::default();
-        let error = json!({"memory":"unavailable: permission denied", "lost":1});
+        let error = json!({"cpu":"unavailable: permission denied", "lost":1});
         assert_eq!(log.changes(&error).len(), 1);
         assert!(log.changes(&error).is_empty());
         assert!(
-            log.changes(&json!({"memory":"unavailable: permission denied", "lost":2}))
+            log.changes(&json!({"cpu":"unavailable: permission denied", "lost":2}))
                 .is_empty()
         );
         assert_eq!(
-            log.changes(&json!({"memory":"unavailable: unsupported"}))
+            log.changes(&json!({"cpu":"unavailable: unsupported"}))
                 .len(),
             1
         );
-        assert_eq!(log.changes(&json!({"memory":"sampling"})).len(), 1);
+        assert_eq!(log.changes(&json!({"cpu":"observing"})).len(), 1);
         assert_eq!(log.changes(&error).len(), 1);
     }
 }

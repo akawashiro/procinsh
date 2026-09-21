@@ -8,7 +8,6 @@ import {
   remoteLabel,
   key,
   layoutMaps,
-  addressZ,
   edgeDirection,
   ipcParticlePlan,
   cpuGlowLevel,
@@ -39,7 +38,6 @@ import type { SpaceElements } from "./dom-types.js";
 interface RenderNode extends SpaceNode {
   pos: T.Vector3;
   regions: Region[];
-  invalidated?: boolean;
 }
 interface EdgeView {
   e: Edge;
@@ -67,8 +65,6 @@ type Particle = {
   start: number;
   duration: number;
   color: number;
-  strength?: number;
-  memory?: boolean;
   networkId?: string;
   fileId?: string;
 } & (
@@ -1005,7 +1001,6 @@ function details() {
     $("facts").textContent =
       `CPU ${(n.cpu_percent ?? 0).toFixed(1)}% · ${cpuText(selected)} · RSS ${(n.rss_bytes / 1048576).toFixed(1)} MiB`;
     $("inspect").href = `/process/${n.identity.pid}`;
-    $("memory-status").textContent = `Memory: ${memoryStatus}`;
     return;
   }
   const e = topology.edges.find((edge) => edge.id === selectedEdge);
@@ -1069,7 +1064,6 @@ function updateParentSelection() {
   colors.needsUpdate = true;
 }
 function updateSelection() {
-  syncMemorySelection();
   const n = nodes.get(selected ?? "");
   selection.visible = !!n;
   if (n) selection.position.set(n.pos.x, n.pos.y, 4);
@@ -1116,14 +1110,7 @@ function selectConnection(id: string | null) {
   if (id) details();
 }
 function activity(data: SpaceActivity) {
-  memoryStatus = data.status?.memory ?? memoryStatus;
   const now = performance.now();
-  for (const pid of data.invalidated || []) {
-    for (const n of nodes.values())
-      if (n.identity.pid === pid) {
-        n.invalidated = true;
-      }
-  }
   const fileChanged = recentFiles.ingest(
     data.files || [],
     now,
@@ -1149,27 +1136,6 @@ function activity(data: SpaceActivity) {
     const id = key(e.process_id);
     if (!nodes.has(id)) continue;
     cpuGlows.set(id, { ...e, window_ms: data.window_ms || 100, last: now });
-  }
-  for (const e of data.memory || []) {
-    const n = nodes.get(key(e.process_id));
-    if (
-      !n ||
-      key(e.process_id) !== selected ||
-      n.invalidated ||
-      n.maps_epoch !== e.maps_epoch
-    )
-      continue;
-    const z = addressZ(n.regions, e.page);
-    if (z === null) continue;
-    particles.push({
-      start: now,
-      duration: reduced ? 150 : 800,
-      pos: n.pos.clone().add(new T.Vector3(0, 0, z)),
-      color:
-        e.mode === "write" ? 0xffb86c : e.mode === "read" ? 0x65fff0 : 0xccccff,
-      strength: Math.min(2, 0.4 + Math.log2(e.count + 1) * 0.3),
-      memory: true,
-    });
   }
   for (const e of data.ipc || []) {
     const links = edgeViews.filter((v) => edgeDirection(v.e, e) !== null);
@@ -1351,9 +1317,7 @@ function animate(now: number) {
     const t = (now - p.start) / p.duration,
       point = p.curve ? p.curve.getPoint(p.direction === 1 ? t : 1 - t) : p.pos;
     positions.set(point.toArray(), i * 3);
-    const c = new T.Color(p.color).multiplyScalar(
-      (p.strength || 1) * (1 - t * 0.8),
-    );
+    const c = new T.Color(p.color).multiplyScalar(1 - t * 0.8);
     colors.set([c.r, c.g, c.b], i * 3);
     i++;
   }
@@ -1427,20 +1391,7 @@ let token: string | null = null,
   epoch = 0,
   heartbeat: number | undefined,
   retry: number | undefined,
-  memoryStatus = "idle",
-  renewQueue = Promise.resolve(),
-  lastMemorySelection: string | null = null;
-function selectionIdentity() {
-  return nodes.get(selected ?? "")?.identity ?? null;
-}
-function syncMemorySelection() {
-  const next = selected;
-  if (next === lastMemorySelection) return;
-  lastMemorySelection = next;
-  particles = particles.filter((p) => !p.memory);
-  memoryStatus = next ? "starting" : "idle";
-  if (token) renew();
-}
+  renewQueue = Promise.resolve();
 async function api(path: string, options: RequestInit): Promise<Lease> {
   const r = await fetch(path, options);
   const data: unknown = await r.json();
@@ -1460,10 +1411,7 @@ async function start() {
     const lease = await api("/api/space/leases", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        density: Number($("density").value),
-        selected_process: selectionIdentity(),
-      }),
+      body: JSON.stringify({}),
     });
     if (e !== epoch || document.hidden) {
       release(lease.token);
@@ -1529,8 +1477,6 @@ function renew() {
   if (!t) return Promise.resolve();
   const body = JSON.stringify({
     token: t,
-    density: Number($("density").value),
-    selected_process: selectionIdentity(),
   });
   renewQueue = renewQueue.then(async () => {
     if (t !== token) return;
@@ -1550,7 +1496,6 @@ function renew() {
   return renewQueue;
 }
 
-$("density").onchange = renew;
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) stop();
   else start();

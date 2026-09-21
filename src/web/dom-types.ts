@@ -69,7 +69,6 @@ export interface SpaceElements {
   back: HTMLAnchorElement;
   fps: HTMLElement;
   search: HTMLInputElement;
-  density: HTMLSelectElement;
   reset: HTMLButtonElement;
   rearrange: HTMLButtonElement;
   details: HTMLElement;
@@ -78,7 +77,6 @@ export interface SpaceElements {
   name: HTMLElement;
   pid: HTMLElement;
   facts: HTMLElement;
-  "memory-status": HTMLElement;
   inspect: HTMLAnchorElement;
   "connection-details": HTMLElement;
   "connection-kind": HTMLElement;

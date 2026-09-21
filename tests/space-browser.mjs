@@ -51,12 +51,12 @@ try {
   await cdp('Runtime.enable'); await cdp('Log.enable'); await cdp('Page.enable');
   await cdp('Emulation.setDeviceMetricsOverride', {width: 1440, height: 1100, deviceScaleFactor: 1, mobile: false});
   await cdp('Page.addScriptToEvaluateOnNewDocument', {source: `
-    window.spaceTestSources=[];window.spaceTestLeases=[];
+    window.spaceTestSources=[];window.spaceTestLeases=[];window.spaceTestActivities=[];
     const nativeFetch=window.fetch;
     window.fetch=(url,options)=>{if(url==='/api/space/leases'&&options?.method==='POST')window.spaceTestLeases.push(JSON.parse(options.body));return nativeFetch(url,options);};
     const NativeEventSource=window.EventSource;
     window.EventSource=class extends NativeEventSource {
-      constructor(...args){super(...args);window.spaceTestSources.push(this);}
+      constructor(...args){super(...args);window.spaceTestSources.push(this);this.addEventListener('activity',event=>window.spaceTestActivities.push(JSON.parse(event.data)));}
     };
   `});
   await cdp('Page.navigate', {url: url+'/space'});
@@ -78,7 +78,7 @@ try {
   assert.equal(await evaluate("document.getElementById('connection')"),null,'live status label is removed');
   assert.equal(await evaluate("document.getElementById('shared')"),null,'shared FD connections are always enabled without a toggle');
   assert.equal(await evaluate("document.getElementById('connected')"),null,'connected-only filter is removed');
-  assert.deepEqual(await evaluate("Array.from(document.querySelector('.tools').children,e=>e.id)"),['search','density','reset','rearrange']);
+  assert.deepEqual(await evaluate("Array.from(document.querySelector('.tools').children,e=>e.id)"),['search','reset','rearrange']);
   await delay(1000);
   assert.ok(snapshot.nodes.length>2);
   assert.equal(await (await fetch(url+'/api/target')).json(),null,'space must not select inspector target');
@@ -86,9 +86,11 @@ try {
   await evaluate(`document.getElementById('search').value='${app.pid}'; document.getElementById('search').dispatchEvent(new Event('input')); document.getElementById('search').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter'}));`);
   assert.match(await evaluate("document.getElementById('pid').textContent"),new RegExp(String(app.pid)));
   assert.equal(await evaluate("document.getElementById('inspect').getAttribute('href')"), `/process/${app.pid}`);
-  await waitFor(`window.spaceTestLeases.at(-1)?.selected_process?.pid===${app.pid}`, 'selected process lease');
+  assert.equal(await evaluate("document.getElementById('memory-status')"),null,'memory sampling status is removed');
+  assert.equal(await evaluate("document.getElementById('density')"),null,'memory sampling density is removed');
+  assert.ok(await evaluate("window.spaceTestLeases.length > 0 && window.spaceTestLeases.every(lease => !('selected_process' in lease) && !('density' in lease))"),'selection is local and never requests memory sampling');
   await evaluate("document.getElementById('close').click()");
-  await waitFor("window.spaceTestLeases.at(-1)?.selected_process===null", 'selection released');
+  assert.ok(await evaluate("window.spaceTestLeases.every(lease => !('selected_process' in lease))"), 'clearing selection does not send a sampling target');
   assert.equal(await evaluate("document.getElementById('regions')"),null,'address-space list is removed from process details');
   await evaluate(`(async()=>{
     window.spaceTestSources.forEach(source=>source.close());
@@ -106,7 +108,7 @@ try {
     document.getElementById('search').value='';
     m.renderTopology({nodes:[node,peer],edges,captured_at:Date.now(),inspected_processes:2,inspected_fds:4,warnings:[]});
     m.selectConnection('unix-exact');
-    m.renderActivity({window_ms:100,cpu:[{process_id:id,runtime_ns:40000000,switches:2,running_threads:1,cpus:[3]}],memory:[],ipc:[{process_id:id,resource:'socket:1:10',write:true,bytes:4096,count:16}],status:{cpu:'observing',ipc:'observing'}});
+    m.renderActivity({window_ms:100,cpu:[{process_id:id,runtime_ns:40000000,switches:2,running_threads:1,cpus:[3]}],ipc:[{process_id:id,resource:'socket:1:10',write:true,bytes:4096,count:16}],status:{cpu:'observing',ipc:'observing'}});
   })()`);
   await delay(50);
   assert.ok(await evaluate("import('/space.js').then(m=>m.processPosition('434343:8').y>m.processPosition('424242:7').y)"),'child is placed in a deeper generation');
@@ -128,9 +130,9 @@ try {
   assert.match(await evaluate("document.getElementById('connection-endpoints').textContent"),/External \/ unknown/);
   await evaluate("import('/space.js').then(m=>m.renderTopology({nodes:[{identity:{pid:424242,start_time_ticks:7},name:'cpu-glow-test',uid:1000,username:'test',rss_bytes:4096,cpu_percent:0,maps_epoch:1,maps:[]}],edges:[],captured_at:Date.now(),inspected_processes:1,inspected_fds:0,warnings:[]}))");
   assert.equal(await evaluate("document.getElementById('details').hidden"),true,'removed connection clears selection');
-  await evaluate("import('/space.js').then(m=>m.renderActivity({window_ms:100,cpu:[{process_id:{pid:424242,start_time_ticks:7},runtime_ns:40000000,switches:2,running_threads:1,cpus:[3]}],memory:[],ipc:[],status:{cpu:'observing'}}))");
+  await evaluate("import('/space.js').then(m=>m.renderActivity({window_ms:100,cpu:[{process_id:{pid:424242,start_time_ticks:7},runtime_ns:40000000,switches:2,running_threads:1,cpus:[3]}],ipc:[],status:{cpu:'observing'}}))");
   await until(()=>evaluate("import('/space.js').then(m=>m.cpuGlowVisual('424242:7').g)"),'CPU activity lights the base',400);
-  await evaluate("import('/space.js').then(m=>m.renderActivity({window_ms:100,cpu:[{process_id:{pid:424242,start_time_ticks:999},runtime_ns:100000000,switches:1,running_threads:1,cpus:[2]}],memory:[],ipc:[],status:{cpu:'observing'}}))");
+  await evaluate("import('/space.js').then(m=>m.renderActivity({window_ms:100,cpu:[{process_id:{pid:424242,start_time_ticks:999},runtime_ns:100000000,switches:1,running_threads:1,cpus:[2]}],ipc:[],status:{cpu:'observing'}}))");
   assert.equal(await evaluate("import('/space.js').then(m=>m.cpuGlowStates.has('424242:999'))"),false,'stale identity is ignored');
   await delay(550);
   assert.ok(await evaluate("import('/space.js').then(m=>m.cpuGlowVisual('424242:7').g)")<0.01,'CPU afterglow ends');
@@ -191,8 +193,12 @@ try {
   assert.ok(focusedPan>1&&closePan/focusedPan>.75&&closePan/focusedPan<1.25,'close-up panning preserves usable world-space speed');
 
   await evaluate(`import('/space.js').then(m=>m.renderTopology(${JSON.stringify(snapshot)}))`);
-  await evaluate("document.getElementById('density').value='1'; document.getElementById('density').dispatchEvent(new Event('change'))");
-  await until(async()=> (await (await fetch(url+'/api/space/status')).json()).density===1,'density change');
+  await waitFor('window.spaceTestActivities.length > 0', 'activity frames');
+  assert.ok(await evaluate("window.spaceTestActivities.every(frame => !('memory' in frame) && !('invalidated' in frame))"),'activity stream has no memory samples');
+  const status = await (await fetch(url+'/api/space/status')).json();
+  assert.equal('memory' in status,false,'no memory collector status');
+  assert.equal('memory_threads' in status,false,'no sampled threads');
+  assert.equal('period' in status,false,'no sampling period');
   await evaluate("document.getElementById('reset').click()");
   await delay(800);
   const png=await cdp('Page.captureScreenshot',{format:'png'});await writeFile('target/browser-space.png',Buffer.from(png.data,'base64'));
@@ -214,7 +220,7 @@ try {
   await cdp('Page.navigate',{url});
   await until(async()=> (await (await fetch(url+'/api/space/status')).json()).active===false,'observer stop');
   assert.deepEqual(errors.filter(e=>!/favicon.ico/.test(e)),[]);
-  console.log('Space browser checks passed: WebGL, topology, minimal tools, connection details/states/links, CPU base glow/fade, stale identity, selection, density, no target mutation, mobile, observation shutdown.');
+  console.log('Space browser checks passed: WebGL, topology, minimal tools, connection details/states/links, CPU base glow/fade, stale identity, selection without memory sampling, no target mutation, mobile, observation shutdown.');
 
 } finally {
   socket?.close();

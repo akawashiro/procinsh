@@ -1,4 +1,4 @@
-//! Regular-file activity, independent of IPC/CPU and IBS availability.
+//! Regular-file activity, independent of IPC/CPU availability.
 use crate::process::ProcessId;
 use anyhow::{Context, Result};
 use libbpf_rs::{MapCore, MapFlags, ObjectBuilder, RingBufferBuilder};

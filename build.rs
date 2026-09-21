@@ -11,7 +11,6 @@ fn main() {
         );
     }
     println!("cargo:rerun-if-changed=src/space/activity.bpf.c");
-    println!("cargo:rerun-if-changed=src/space/ibs.c");
     println!("cargo:rerun-if-changed=src/space/files.bpf.c");
     let out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     let btf = Command::new("bpftool")
@@ -35,31 +34,4 @@ fn main() {
             .build()
             .expect("BPF compile");
     }
-    assert!(
-        Command::new("cc")
-            .args([
-                "-O2",
-                "-Wall",
-                "-Wextra",
-                "-Werror",
-                "-c",
-                "src/space/ibs.c",
-                "-o"
-            ])
-            .arg(out.join("ibs.o"))
-            .status()
-            .unwrap()
-            .success()
-    );
-    assert!(
-        Command::new("ar")
-            .arg("crs")
-            .arg(out.join("libprocinsh_ibs.a"))
-            .arg(out.join("ibs.o"))
-            .status()
-            .unwrap()
-            .success()
-    );
-    println!("cargo:rustc-link-search=native={}", out.display());
-    println!("cargo:rustc-link-lib=static=procinsh_ibs");
 }
