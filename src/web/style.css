@@ -5,4 +5,4 @@
 
 .fd-endpoint{padding:6px 0}.fd-endpoint .muted{font-size:11px;margin-top:4px}.process-detail .fd-holders summary{padding:8px 0;font-size:11px;font-weight:400;color:var(--muted);border:0}#fds-search{width:min(440px,100%)}#fds-entries td:first-child{white-space:nowrap}#fds-entries td:last-child{min-width:230px}
 
-body:has(#explorer:not([hidden])) header{height:42px;padding:0 20px;gap:16px;overflow:hidden;background:#040d1399;border-bottom:1px solid #72ead522;font:10px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:2px;backdrop-filter:blur(12px)}body:has(#explorer:not([hidden])) header a{color:#65f6dc;font-size:11px;font-weight:bold;letter-spacing:1px;flex:none}@media(max-width:750px){body:has(#explorer:not([hidden])) header{padding:0 10px;gap:8px}}
+header{height:42px;padding:0 20px;gap:16px;overflow:hidden;background:#040d1399;border-bottom:1px solid #72ead522;font:10px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:2px;backdrop-filter:blur(12px)}header a{color:#65f6dc;font-size:11px;font-weight:bold;letter-spacing:1px;flex:none}@media(max-width:750px){header{padding:0 10px;gap:8px}}
