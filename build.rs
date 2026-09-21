@@ -44,12 +44,12 @@ fn main() {
     assert!(
         Command::new("ar")
             .arg("crs")
-            .arg(out.join("libalpha_ibs.a"))
+            .arg(out.join("libprocinsh_ibs.a"))
             .arg(out.join("ibs.o"))
             .status()
             .unwrap()
             .success()
     );
     println!("cargo:rustc-link-search=native={}", out.display());
-    println!("cargo:rustc-link-lib=static=alpha_ibs");
+    println!("cargo:rustc-link-lib=static=procinsh_ibs");
 }

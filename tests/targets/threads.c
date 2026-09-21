@@ -1,7 +1,7 @@
 #include "support.h"
 #include <pthread.h>
 static void *worker(void *unused) {
-    (void)unused; pthread_setname_np(pthread_self(), "alpha-worker");
+    (void)unused; pthread_setname_np(pthread_self(), "procinsh-worker");
     for (;;) usleep(10000);
     return NULL;
 }

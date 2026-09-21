@@ -19,15 +19,15 @@ struct Sample {
     tid: u32,
 }
 unsafe extern "C" {
-    fn alpha_ibs_open(tid: i32, kind: i32, period: u64) -> *mut c_void;
-    fn alpha_ibs_close(handle: *mut c_void);
-    fn alpha_ibs_period(handle: *mut c_void, period: u64) -> i32;
-    fn alpha_ibs_poll(handle: *mut c_void, out: *mut Sample, cap: i32, lost: *mut u64) -> i32;
+    fn procinsh_ibs_open(tid: i32, kind: i32, period: u64) -> *mut c_void;
+    fn procinsh_ibs_close(handle: *mut c_void);
+    fn procinsh_ibs_period(handle: *mut c_void, period: u64) -> i32;
+    fn procinsh_ibs_poll(handle: *mut c_void, out: *mut Sample, cap: i32, lost: *mut u64) -> i32;
 }
 struct Ibs(NonNull<c_void>);
 impl Drop for Ibs {
     fn drop(&mut self) {
-        unsafe { alpha_ibs_close(self.0.as_ptr()) }
+        unsafe { procinsh_ibs_close(self.0.as_ptr()) }
     }
 }
 #[derive(Clone, Copy)]
@@ -264,7 +264,7 @@ fn ibs(thread: ThreadKey, period: u64) -> Result<Ibs> {
     let kind = std::fs::read_to_string("/sys/bus/event_source/devices/ibs_op/type")?
         .trim()
         .parse()?;
-    let ptr = NonNull::new(unsafe { alpha_ibs_open(tid, kind, period) }).with_context(|| {
+    let ptr = NonNull::new(unsafe { procinsh_ibs_open(tid, kind, period) }).with_context(|| {
         format!(
             "IBS thread {tid}: {} (CAP_PERFMON required)",
             std::io::Error::last_os_error()
@@ -429,7 +429,7 @@ pub fn run(space: Arc<Space>) {
         let mut valid = std::collections::HashMap::new();
         for p in perf.values() {
             let count = unsafe {
-                alpha_ibs_poll(
+                procinsh_ibs_poll(
                     p.0.as_ptr(),
                     samples.as_mut_ptr(),
                     samples.len() as i32,
@@ -510,7 +510,7 @@ pub fn run(space: Arc<Space>) {
                     let next = (effective_period * 2).min(1_000_000);
                     let ok = perf
                         .values()
-                        .all(|p| unsafe { alpha_ibs_period(p.0.as_ptr(), next) } == 0);
+                        .all(|p| unsafe { procinsh_ibs_period(p.0.as_ptr(), next) } == 0);
                     if ok {
                         effective_period = next;
                     } else {

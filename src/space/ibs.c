@@ -11,7 +11,7 @@
 #include <time.h>
 struct ibs { int fd; size_t size; struct perf_event_mmap_page *map; };
 struct sample { uint64_t time, addr, source; uint32_t pid, tid; };
-void *alpha_ibs_open(int tid, int type, uint64_t period) {
+void *procinsh_ibs_open(int tid, int type, uint64_t period) {
     struct perf_event_attr attr={0}; attr.type=type; attr.size=sizeof(attr);
     attr.sample_period=period; attr.sample_type=PERF_SAMPLE_TID|PERF_SAMPLE_TIME|PERF_SAMPLE_ADDR|PERF_SAMPLE_DATA_SRC;
     attr.use_clockid=1;attr.clockid=CLOCK_MONOTONIC;
@@ -29,13 +29,13 @@ void *alpha_ibs_open(int tid, int type, uint64_t period) {
     if(ioctl(fd,PERF_EVENT_IOC_ENABLE,0)<0) {int e=errno; munmap(map,size);close(fd);free(s);errno=e;return NULL;}
     return s;
 }
-void alpha_ibs_close(void *p) { struct ibs *s=p; if(!s)return; close(s->fd); munmap(s->map,s->size); free(s); }
+void procinsh_ibs_close(void *p) { struct ibs *s=p; if(!s)return; close(s->fd); munmap(s->map,s->size); free(s); }
 static void copy_ring(struct ibs *s,uint64_t off,void *dst,size_t len) {
     size_t size=s->map->data_size; size_t start=off%size; size_t first=size-start; if(first>len) first=len;
     char *base=(char*)s->map+s->map->data_offset;
     memcpy(dst,base+start,first); if(first<len)memcpy((char*)dst+first,base,len-first);
 }
-int alpha_ibs_poll(void *p,struct sample *out,int cap,uint64_t *lost) {
+int procinsh_ibs_poll(void *p,struct sample *out,int cap,uint64_t *lost) {
     struct ibs *s=p; uint64_t head=__atomic_load_n(&s->map->data_head,__ATOMIC_ACQUIRE),tail=s->map->data_tail; int n=0;
     if(head-tail>s->map->data_size){(*lost)++;tail=head;}
     while(tail<head && n<cap) {
@@ -54,4 +54,4 @@ int alpha_ibs_poll(void *p,struct sample *out,int cap,uint64_t *lost) {
     __atomic_store_n(&s->map->data_tail,tail,__ATOMIC_RELEASE);return n;
 }
 
-int alpha_ibs_period(void *p,uint64_t period){return ioctl(((struct ibs*)p)->fd,PERF_EVENT_IOC_PERIOD,&period);}
+int procinsh_ibs_period(void *p,uint64_t period){return ioctl(((struct ibs*)p)->fd,PERF_EVENT_IOC_PERIOD,&period);}

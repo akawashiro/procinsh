@@ -33,11 +33,11 @@ int main(int argc, char **argv) {
     peer=fork(); if (peer<0) return 1;
     if (peer==0) {
         prctl(PR_SET_PDEATHSIG,SIGTERM); if (getppid()==1) return 0;
-        prctl(PR_SET_NAME,"alpha-ipc-peer");
+        prctl(PR_SET_NAME,"procinsh-ipc-peer");
         dup2(pipes[0],60); dup2(unix_pair[1],61); dup2(accepted,62); dup2(unix_pair[0],63); dup2(udp1,64);
     } else {
         signal(SIGTERM,cleanup); signal(SIGINT,cleanup); signal(SIGALRM,cleanup);
-        prctl(PR_SET_NAME,"alpha-ipc");
+        prctl(PR_SET_NAME,"procinsh-ipc");
         dup2(pipes[1],60); dup2(unix_pair[0],61); dup2(client,62); dup2(unix_pair[0],63); dup2(udp0,64); dup2(listener,65);
     }
     close(pipes[0]);close(pipes[1]);close(unix_pair[0]);close(unix_pair[1]);close(listener);close(client);close(accepted);close(udp0);close(udp1);
