@@ -6,7 +6,7 @@
   <link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script>
 </head>
 <body>
-  <header><a href="/" id="brand">procinsh</a></header>
+  <header><a href="/" id="brand">procinsh</a><a href="/" id="back" hidden>Back to process list</a></header>
   <main>
     <div id="error" role="alert" hidden></div>
     <section id="explorer">
@@ -15,7 +15,6 @@
       <div class="panel scroll"><table><thead><tr><th>PID</th><th>USER</th><th>CPU</th><th>RSS</th><th>THREADS</th><th>STATE</th><th>NAME / COMMAND</th></tr></thead><tbody id="process-list"></tbody></table></div>
     </section>
     <section id="inspector" hidden>
-      <button class="text-button" id="back">Back to process list</button>
       <div class="heading"><div><p class="eyebrow" id="identity"></p><h1 id="target-name"></h1><p class="muted command" id="command"></p></div><span class="badge" id="target-status"></span></div>
       <p id="target-error" class="notice" hidden></p>
       <div id="metrics" class="metrics"></div>
