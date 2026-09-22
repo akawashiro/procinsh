@@ -6,6 +6,24 @@ description = "A local, read-only Linux x86-64 process inspector"
 license = "MIT"
 repository = "https://github.com/akawashiro/procinsh"
 readme = "README.md"
+include = [
+    "/Cargo.toml",
+    "/Cargo.lock",
+    "/LICENSE",
+    "/README.md",
+    "/build.rs",
+    "/rust-toolchain.toml",
+    "/src/**",
+    "/dist/web/*.js",
+    "/tests/**",
+    "!/tests/targets/bin/**",
+    "/docs/**",
+    "/deploy/**",
+    "/package.json",
+    "/package-lock.json",
+    "/tsconfig.json",
+    "/space_screenshot.png",
+]
 
 [dependencies]
 log = "0.4"

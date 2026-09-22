@@ -32,6 +32,18 @@ HTML/CSS、生成した JavaScript、Three.js（revision 180）はバイナリ�
 
 SIGINT（Ctrl+C）または SIGTERM で収集停止と HTTP サーバーの終了処理を行います。起動・サーバーの致命的な失敗は非ゼロ終了です。
 
+### crates.io 公開前の検証
+
+公開パッケージには `Cargo.toml` の `include` で生成済みの `dist/web/*.js` を含めます。Git では引き続き生成物を管理しません。公開前に次の手順で生成物を更新し、パッケージ単体でビルドできることを検証します。
+
+```sh
+npm ci
+npm run build:web
+cargo publish --dry-run
+```
+
+`cargo publish --dry-run` は実際には公開しません。`cargo install procinsh --locked` では同梱済みの JavaScript を使うため、インストール先に Node.js・npm は不要です。Rust とネイティブ・BPF のビルド依存は必要です。
+
 ## 実装構成
 
 | 場所 | 役割 |
