@@ -11,12 +11,31 @@ _Now, where shall I go? The process space is vast._
 
 [screenmovie.webm](https://github.com/user-attachments/assets/7e964874-7e5a-46a9-8bb3-0c33defc9f42)
 
-## Build
+## Usage
 
-Requires Node.js 22 or newer with npm, Rust via rustup, a C compiler, clang with the BPF backend, bpftool, libelf development files, and BTF information for the running kernel.
+Requires Linux x86-64. Both installation methods compile native code and require
+Rust, a C compiler, clang with the BPF backend, bpftool, pkg-config, libelf and
+zlib development files, and BTF information at `/sys/kernel/btf/vmlinux`.
 
-The Rust version and components are pinned in `rust-toolchain.toml`, shared by
-local development and CI. rustup installs them automatically when needed.
+### Install from crates.io
+
+Install [procinsh from crates.io](https://crates.io/crates/procinsh) and run it:
+
+```sh
+cargo install procinsh --locked
+sudo "$HOME/.cargo/bin/procinsh" --listen 127.0.0.1:9090
+```
+
+The command above uses Cargo's default installation directory. If you use a
+custom `CARGO_HOME` or install prefix, adjust the binary path accordingly.
+
+### Self build
+
+Also requires Node.js 22 or newer with npm and Rust via rustup. The Rust version
+and components are pinned in `rust-toolchain.toml`; rustup installs them
+automatically when needed.
+
+Clone this repository and run the following from its root:
 
 ```sh
 npm ci
@@ -24,45 +43,15 @@ npm run build:web
 cargo build --release --locked
 ```
 
-The web UI is written in TypeScript in `src/web/`. `npm run build:web` checks
-types and compiles the UI into `dist/web/`, which Cargo embeds into the binary.
-Generated JavaScript is not committed. Re-run the web build before Cargo whenever
-you edit TypeScript; Cargo does not invoke npm or install dependencies for you.
-Node.js and npm are not needed to run the resulting binary.
-
-For web development checks:
-
-```sh
-npm run typecheck
-npm run build:web
-node tests/space-model.mjs
-```
-
-API contracts live in `src/web/api-types.ts` and must be kept aligned with the
-Rust JSON responses (including nullability and hex-string addresses). They are
-compile-time types, not runtime validators. The bundled Three.js r180 runtime
-is unchanged; its matching type definitions are build-only dependencies.
-
-Browser regression checks require Chrome, the debug binary, and C fixtures:
-
-```sh
-npm run build:web
-cargo build --locked
-bash tests/targets/build.sh
-node tests/browser.mjs
-node tests/space-browser.mjs
-```
-
-## Run
+The web UI is compiled and embedded into the binary. Node.js and npm are not
+needed at runtime. Start the release binary:
 
 ```sh
 sudo ./target/release/procinsh --listen 127.0.0.1:9090
 ```
 
-Open http://127.0.0.1:9090 in your browser. Press `Ctrl+C` to stop.
+### Open the UI
 
-To enable debug logging:
-
-```sh
-sudo env RUST_LOG=procinsh=debug ./target/release/procinsh --listen 127.0.0.1:9090
-```
+With either installation method, open http://127.0.0.1:9090 in your browser.
+Press `Ctrl+C` to stop. See [DEVELOPMENT.md](docs/DEVELOPMENT.md) for development,
+testing, API details, and logging options.
