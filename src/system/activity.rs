@@ -1,4 +1,4 @@
-use super::Space;
+use super::System;
 use anyhow::{Context, Result};
 use libbpf_rs::{MapCore, MapFlags, ObjectBuilder, RingBufferBuilder};
 use serde_json::json;
@@ -210,7 +210,7 @@ impl Bpf {
         Ok(result)
     }
 }
-pub fn run(space: Arc<Space>) {
+pub fn run(system: Arc<System>) {
     let mut bpf = None;
     let mut files: Option<super::files::Files> = None;
     let mut active = false;
@@ -219,8 +219,8 @@ pub fn run(space: Arc<Space>) {
     let mut comm = std::collections::HashMap::new();
     let mut logged = super::StatusLog::default();
     log::info!("SPACE activity worker started");
-    while !space.stopped() {
-        if !space.active() {
+    while !system.stopped() {
+        if !system.active() {
             logged.observe(&json!({"ipc":"idle", "cpu":"idle", "files":"idle"}));
             bpf = None;
             files = None;
@@ -263,26 +263,26 @@ pub fn run(space: Arc<Space>) {
                 status["files"] = json!("observing");
             }
             status["files_coverage"] = json!(super::files::COVERAGE);
-            *space.status.lock().unwrap() = status;
+            *system.status.lock().unwrap() = status;
             active = true;
             unresolved = 0;
         }
         if let Some(sensor) = &files {
-            space.status.lock().unwrap()["files"] = match sensor.poll() {
+            system.status.lock().unwrap()["files"] = match sensor.poll() {
                 Ok(()) => json!("observing"),
                 Err(error) => json!(format!("error: {error:#}")),
             };
         }
-        let topology = space.snapshot.read().unwrap().clone();
+        let topology = system.snapshot.read().unwrap().clone();
         let nodes: std::collections::HashMap<_, _> =
             topology.nodes.iter().map(|n| (n.identity.pid, n)).collect();
         if let Some(b) = &mut bpf {
             let consumed = b.ring.consume_raw_n(8192);
             if consumed < 0 {
                 let e = std::io::Error::from_raw_os_error(-consumed);
-                space.status.lock().unwrap()["ipc"] = json!(format!("error: {e}"));
+                system.status.lock().unwrap()["ipc"] = json!(format!("error: {e}"));
             } else {
-                space.status.lock().unwrap()["ipc"] = json!("observing");
+                system.status.lock().unwrap()["ipc"] = json!("observing");
             }
             for e in b.queue.lock().unwrap().drain(..) {
                 let Some(n) = nodes.get(&(e.pid as i32)) else {
@@ -318,28 +318,28 @@ pub fn run(space: Arc<Space>) {
             let cpu = if let Some(bpf) = &mut bpf {
                 match bpf.cpu_activity(super::monotonic_ns(), &topology) {
                     Ok(activity) => {
-                        space.status.lock().unwrap()["cpu"] = json!("observing");
+                        system.status.lock().unwrap()["cpu"] = json!("observing");
                         activity
                     }
                     Err(error) => {
-                        space.status.lock().unwrap()["cpu"] = json!(format!("error: {error:#}"));
+                        system.status.lock().unwrap()["cpu"] = json!(format!("error: {error:#}"));
                         Vec::new()
                     }
                 }
             } else {
                 Vec::new()
             };
-            let mut status = space.status.lock().unwrap();
+            let mut status = system.status.lock().unwrap();
             status["lost"] = json!(bpf.as_ref().map_or(0, Bpf::lost));
             status["unresolved"] = json!(unresolved);
             status["files_lost"] = json!(files.as_ref().map_or(0, |sensor| sensor.lost()));
             let file_events = files
                 .as_ref()
                 .map_or_else(Vec::new, |sensor| sensor.drain());
-            space.send("activity",json!({"captured_at":crate::process::timestamp_ms(),"window_ms":last.elapsed().as_millis(),"files":file_events,"ipc":ipc,"cpu":cpu,"status":*status}));
+            system.send("activity",json!({"captured_at":crate::process::timestamp_ms(),"window_ms":last.elapsed().as_millis(),"files":file_events,"ipc":ipc,"cpu":cpu,"status":*status}));
             last = Instant::now();
         }
-        logged.observe(&space.status.lock().unwrap());
+        logged.observe(&system.status.lock().unwrap());
         std::thread::sleep(Duration::from_millis(10));
     }
     log::info!("SPACE activity worker stopped");

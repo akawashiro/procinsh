@@ -42,7 +42,7 @@ SIGINT（Ctrl+C）または SIGTERM で収集停止と HTTP サーバーの終�
 | `src/process/` | `/proc` の解析、PID 識別、プロセス・スレッド・メモリ・FD・ソケット・シグナル情報 |
 | `src/snapshot/` | ptrace による停止・レジスタ取得、frame pointer unwind、逆アセンブル |
 | `src/symbol/` | ELF/DWARF によるシンボル・ソース位置の解決 |
-| `src/space/` | 全プロセスの構造、閲覧セッション、BPF 収集、名前解決、`/api/system` 配下の API |
+| `src/system/` | 全プロセスの構造、閲覧セッション、BPF 収集、名前解決、`/api/system` 配下の API |
 | `src/web/` | TypeScript の通常画面・SPACE 画面・描画モデル、HTML/CSS、同梱 Three.js |
 | `tests/` | Rust・ブラウザ・ログ・実機センサーのテストと C fixture |
 
@@ -206,9 +206,9 @@ watch channelは接続ごとに独立し、遅い購読者へ古い状態を蓄�
 
 | センサー | バックエンドの観測内容と制約 | eBPF ソース |
 |---|---|---|
-| CPU | `sched_switch` で実行時間と実行中 CPU を集計 | [activity.bpf.c](../src/space/activity.bpf.c) |
-| IPC | pipe read/write と socket の送受信結果を観測。ペイロードは読まず、MSG_PEEK は加算しない。splice/sendfile、一部 io_uring、帰属不明のワーカーは対象外 | [activity.bpf.c](../src/space/activity.bpf.c) |
-| ファイル I/O | VFS の read/write、ベクトル I/O の成功バイト数と回数を観測。ページキャッシュ経由も含む。mmap、io_uring、splice/sendfile、物理ディスク転送量は対象外 | [files.bpf.c](../src/space/files.bpf.c) |
+| CPU | `sched_switch` で実行時間と実行中 CPU を集計 | [activity.bpf.c](../src/system/activity.bpf.c) |
+| IPC | pipe read/write と socket の送受信結果を観測。ペイロードは読まず、MSG_PEEK は加算しない。splice/sendfile、一部 io_uring、帰属不明のワーカーは対象外 | [activity.bpf.c](../src/system/activity.bpf.c) |
+| ファイル I/O | VFS の read/write、ベクトル I/O の成功バイト数と回数を観測。ページキャッシュ経由も含む。mmap、io_uring、splice/sendfile、物理ディスク転送量は対象外 | [files.bpf.c](../src/system/files.bpf.c) |
 
 ファイルのパスは操作時に取得し、取得できない場合は device/inode 等の識別子を使います。BPF のフックが利用できない場合はセンサーごとの理由を状態 API とログに出し、利用可能な情報の収集を継続します。必要なカーネル機能・権限はセンサーごとに異なります。
 
@@ -280,7 +280,7 @@ Three.js でプロセスの親子関係、仮想アドレス空間、接続先�
 
 ```sh
 sudo env RUST_LOG=procinsh=debug ./target/debug/procinsh --listen 127.0.0.1:9090
-sudo env RUST_LOG=info,procinsh::space=debug ./target/debug/procinsh --listen 127.0.0.1:9090
+sudo env RUST_LOG=info,procinsh::system=debug ./target/debug/procinsh --listen 127.0.0.1:9090
 ```
 
 `RUST_LOG=off` はアプリケーションのログを抑制します。HTTP アクセスログにはクエリ、トークン、本文を含めず、観測したメモリや環境変数の値も記録しません。SSE の応答時間は接続開始時の応答までです。

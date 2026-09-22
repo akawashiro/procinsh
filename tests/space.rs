@@ -1,4 +1,4 @@
-use procinsh::space::topology;
+use procinsh::system::topology;
 use std::{
     io::{BufRead, BufReader},
     process::{Command, Stdio},
@@ -66,7 +66,7 @@ async fn sse_connections_own_viewer_lifetimes() {
             app.clone().oneshot(request(path)).await.unwrap().status(),
             StatusCode::OK
         );
-        assert!(!state.space.active());
+        assert!(!state.system.active());
     }
     for method in ["POST", "DELETE"] {
         let mut req = request("/api/system/leases");
@@ -86,7 +86,7 @@ async fn sse_connections_own_viewer_lifetimes() {
         assert_eq!(response.status(), StatusCode::OK);
         responses.push(response);
     }
-    assert!(state.space.active());
+    assert!(state.system.active());
     assert_eq!(
         app.clone()
             .oneshot(request("/api/system/events"))
@@ -116,15 +116,15 @@ async fn sse_connections_own_viewer_lifetimes() {
             .contains("event: topology")
     );
     responses.clear();
-    assert!(state.space.active());
+    assert!(state.system.active());
     drop(body);
-    assert!(!state.space.active());
+    assert!(!state.system.active());
     let response = app
         .clone()
         .oneshot(request("/api/system/events"))
         .await
         .unwrap();
-    assert!(state.space.active());
+    assert!(state.system.active());
     state.stop();
     assert_eq!(
         app.clone()
@@ -141,7 +141,7 @@ async fn sse_connections_own_viewer_lifetimes() {
     .await
     .unwrap()
     .unwrap();
-    assert!(!state.space.active());
+    assert!(!state.system.active());
 }
 
 #[test]

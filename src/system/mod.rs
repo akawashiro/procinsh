@@ -14,14 +14,14 @@ use std::{
 use tokio::sync::broadcast;
 /// Owned by an HTTP response stream, including before its first poll.
 pub(super) struct Viewer {
-    space: Arc<Space>,
+    system: Arc<System>,
 }
 impl Drop for Viewer {
     fn drop(&mut self) {
-        *self.space.viewers.lock().unwrap() -= 1;
+        *self.system.viewers.lock().unwrap() -= 1;
     }
 }
-pub struct Space {
+pub struct System {
     viewers: Mutex<usize>,
     pub status: Mutex<Value>,
     pub snapshot: RwLock<Arc<topology::Topology>>,
@@ -29,7 +29,7 @@ pub struct Space {
     stop: AtomicBool,
     started: AtomicBool,
 }
-impl Default for Space {
+impl Default for System {
     fn default() -> Self {
         let (events, _) = broadcast::channel(16);
         Self {
@@ -42,7 +42,7 @@ impl Default for Space {
         }
     }
 }
-impl Space {
+impl System {
     pub fn stopped(&self) -> bool {
         self.stop.load(Ordering::Relaxed)
     }
@@ -63,7 +63,7 @@ impl Space {
         }
         *viewers += 1;
         let viewer = Viewer {
-            space: self.clone(),
+            system: self.clone(),
         };
         drop(viewers);
         self.start();
@@ -78,9 +78,9 @@ impl Space {
         if self.started.swap(true, Ordering::SeqCst) {
             return;
         }
-        let space = self.clone();
-        spawn_worker("activity", move || activity::run(space));
-        let space = self.clone();
+        let system = self.clone();
+        spawn_worker("activity", move || activity::run(system));
+        let system = self.clone();
         spawn_worker("topology", move || {
             log::info!("SPACE topology worker started");
             let mut previous_warnings = Vec::new();
@@ -89,9 +89,9 @@ impl Space {
             let mut discovery = crate::process::discovery::Discovery::default();
             let mut full = Instant::now() - Duration::from_secs(10);
             let mut tick = Instant::now() - Duration::from_secs(2);
-            while !space.stopped() {
-                if !space.active() {
-                    *space.status.lock().unwrap() =
+            while !system.stopped() {
+                if !system.active() {
+                    *system.status.lock().unwrap() =
                         json!({"active":false,"ipc":"idle","cpu":"idle","files":"idle"});
                     full = Instant::now() - Duration::from_secs(10);
                     std::thread::sleep(Duration::from_millis(100));
@@ -122,8 +122,8 @@ impl Space {
                                 socket.remote.and_then(|a| resolver.lookup(a.ip()));
                         }
                     }
-                    space.send("topology", json!(data));
-                    *space.snapshot.write().unwrap() = Arc::new(data);
+                    system.send("topology", json!(data));
+                    *system.snapshot.write().unwrap() = Arc::new(data);
                     full = Instant::now();
                     tick = Instant::now();
                 } else if tick.elapsed() >= Duration::from_secs(1) {
@@ -133,7 +133,7 @@ impl Space {
                                 log::info!("SPACE metrics recovered");
                             }
                             let metrics:Vec<_>=summaries.iter().map(|s|json!({"identity":s.identity,"cpu_percent":s.cpu_percent,"rss_bytes":s.rss_bytes})).collect();
-                            space.send("metrics", json!(metrics));
+                            system.send("metrics", json!(metrics));
                         }
                         Err(error) => {
                             let error = format!("{error:#}");
@@ -205,7 +205,7 @@ mod logging_tests {
         let response = http::events(axum::extract::State(state.clone()))
             .await
             .unwrap();
-        assert_eq!(*state.space.viewers.lock().unwrap(), 1);
+        assert_eq!(*state.system.viewers.lock().unwrap(), 1);
         state.stop();
         tokio::time::timeout(
             Duration::from_secs(3),
@@ -214,7 +214,7 @@ mod logging_tests {
         .await
         .unwrap()
         .unwrap();
-        assert_eq!(*state.space.viewers.lock().unwrap(), 0);
+        assert_eq!(*state.system.viewers.lock().unwrap(), 0);
     }
 
     #[test]

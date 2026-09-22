@@ -10,8 +10,8 @@ fn main() {
             path.display()
         );
     }
-    println!("cargo:rerun-if-changed=src/space/activity.bpf.c");
-    println!("cargo:rerun-if-changed=src/space/files.bpf.c");
+    println!("cargo:rerun-if-changed=src/system/activity.bpf.c");
+    println!("cargo:rerun-if-changed=src/system/files.bpf.c");
     let out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     let btf = Command::new("bpftool")
         .args([
@@ -28,7 +28,7 @@ fn main() {
     std::fs::write(out.join("vmlinux.h"), btf.stdout).unwrap();
     for name in ["activity", "files"] {
         libbpf_cargo::SkeletonBuilder::new()
-            .source(format!("src/space/{name}.bpf.c"))
+            .source(format!("src/system/{name}.bpf.c"))
             .clang_args([format!("-I{}", out.display()), "-D__TARGET_ARCH_x86".into()])
             .obj(out.join(format!("{name}.bpf.o")))
             .build()

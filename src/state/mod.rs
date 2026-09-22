@@ -153,7 +153,7 @@ pub struct Target {
     pub rollup: Option<MemoryRollup>,
 }
 pub struct AppState {
-    pub space: Arc<crate::space::Space>,
+    pub system: Arc<crate::system::System>,
     pub discovery: Mutex<Discovery>,
     pub interval: Duration,
     stopped: AtomicBool,
@@ -179,7 +179,7 @@ pub struct ObservationSession {
 impl AppState {
     pub fn new(interval: Duration) -> Self {
         Self {
-            space: Arc::new(crate::space::Space::default()),
+            system: Arc::new(crate::system::System::default()),
             discovery: Mutex::new(Discovery::default()),
             interval,
             stopped: AtomicBool::new(false),
@@ -292,7 +292,7 @@ impl AppState {
     pub fn stop(&self) {
         let _workers = self.workers.lock().unwrap();
         self.stopped.store(true, Ordering::Relaxed);
-        self.space.stop();
+        self.system.stop();
     }
     pub fn is_stopped(&self) -> bool {
         self.stopped.load(Ordering::Relaxed)
