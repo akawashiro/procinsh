@@ -105,7 +105,7 @@ async function loadProcessDetails<K extends DetailKind>(kind: K) {
   $(`${kind}-error`).hidden = true;
   $(`${kind}-info`).textContent = "Reading…";
   try {
-    const data = await api<DetailData[K]>(`/api/target/${kind}?${query(id)}`);
+    const data = await api<DetailData[K]>(`/api/processes/${kind}?${query(id)}`);
     if (
       epoch !== detailEpoch ||
       !same(id, identity()) ||
@@ -407,7 +407,7 @@ async function select(id: ProcessId) {
   acceptTarget(null);
   clearError();
   const generation = targetGeneration;
-  const events = new EventSource(`/api/target/events?${query(id)}`);
+  const events = new EventSource(`/api/processes/events?${query(id)}`);
   targetSource = events;
   let disconnected = false;
   history.replaceState(null, "", `/process/${id.pid}`);
@@ -653,7 +653,7 @@ async function snapshot() {
   snapshotBusy = true;
   snapshotControls();
   try {
-    const result = await api<Capture>("/api/target/snapshot", {
+    const result = await api<Capture>("/api/processes/snapshot", {
       method: "POST",
       body: JSON.stringify(id),
     });
@@ -795,7 +795,7 @@ async function readMemory(address: string) {
   }
   try {
     const result = await api<MemoryRead>(
-      `/api/target/memory?${query(id)}&address=${encodeURIComponent(address)}&length=${length}`,
+      `/api/processes/memory?${query(id)}&address=${encodeURIComponent(address)}&length=${length}`,
     );
     if (epoch !== detailEpoch || !same(id, identity())) return;
     const start = BigInt(result.address),

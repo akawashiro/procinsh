@@ -1390,7 +1390,7 @@ let retry: number | undefined;
 function start() {
   if (document.hidden || source) return;
   clearTimeout(retry);
-  const current = new EventSource("/api/space/events");
+  const current = new EventSource("/api/system/events");
   source = current;
   current.onopen = () => {
     if (source === current) $("failure").hidden = true;

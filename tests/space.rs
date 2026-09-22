@@ -61,7 +61,7 @@ async fn sse_connections_own_viewer_lifetimes() {
             .body(Body::empty())
             .unwrap()
     };
-    for path in ["/api/space/status", "/api/space/snapshot"] {
+    for path in ["/api/system/status", "/api/system/topology"] {
         assert_eq!(
             app.clone().oneshot(request(path)).await.unwrap().status(),
             StatusCode::OK
@@ -69,7 +69,7 @@ async fn sse_connections_own_viewer_lifetimes() {
         assert!(!state.space.active());
     }
     for method in ["POST", "DELETE"] {
-        let mut req = request("/api/space/leases");
+        let mut req = request("/api/system/leases");
         *req.method_mut() = method.parse().unwrap();
         assert_eq!(
             app.clone().oneshot(req).await.unwrap().status(),
@@ -80,7 +80,7 @@ async fn sse_connections_own_viewer_lifetimes() {
     for _ in 0..32 {
         let response = app
             .clone()
-            .oneshot(request("/api/space/events"))
+            .oneshot(request("/api/system/events"))
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
@@ -89,7 +89,7 @@ async fn sse_connections_own_viewer_lifetimes() {
     assert!(state.space.active());
     assert_eq!(
         app.clone()
-            .oneshot(request("/api/space/events"))
+            .oneshot(request("/api/system/events"))
             .await
             .unwrap()
             .status(),
@@ -99,7 +99,7 @@ async fn sse_connections_own_viewer_lifetimes() {
     drop(responses.pop());
     let response = app
         .clone()
-        .oneshot(request("/api/space/events"))
+        .oneshot(request("/api/system/events"))
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
@@ -121,14 +121,14 @@ async fn sse_connections_own_viewer_lifetimes() {
     assert!(!state.space.active());
     let response = app
         .clone()
-        .oneshot(request("/api/space/events"))
+        .oneshot(request("/api/system/events"))
         .await
         .unwrap();
     assert!(state.space.active());
     state.stop();
     assert_eq!(
         app.clone()
-            .oneshot(request("/api/space/events"))
+            .oneshot(request("/api/system/events"))
             .await
             .unwrap()
             .status(),

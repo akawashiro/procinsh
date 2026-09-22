@@ -49,7 +49,42 @@ async fn explicit_identity_is_required_without_selection() {
         assert_eq!(app.clone().oneshot(req).await.unwrap().status(), 404);
     }
     for path in [
-        "process",
+        "/api/target/process",
+        "/api/target/threads",
+        "/api/target/maps",
+        "/api/target/memory",
+        "/api/target/fds",
+        "/api/target/environment",
+        "/api/target/auxv",
+        "/api/target/signals",
+        "/api/target/snapshot",
+        "/api/target/events",
+        "/api/space/status",
+        "/api/space/snapshot",
+        "/api/space/events",
+        "/api/processes/process",
+        "/api/system/snapshot",
+    ] {
+        let mut req = request(path);
+        if path == "/api/target/snapshot" {
+            *req.method_mut() = "POST".parse().unwrap();
+        }
+        assert_eq!(
+            app.clone().oneshot(req).await.unwrap().status(),
+            404,
+            "{path}"
+        );
+    }
+    assert_eq!(
+        app.clone()
+            .oneshot(request("/api/processes"))
+            .await
+            .unwrap()
+            .status(),
+        200
+    );
+    for path in [
+        "observation",
         "threads",
         "maps",
         "memory",
@@ -65,7 +100,7 @@ async fn explicit_identity_is_required_without_selection() {
             "?start_time_ticks=1",
             "?pid=abc&start_time_ticks=1",
         ] {
-            let uri = format!("/api/target/{path}{args}");
+            let uri = format!("/api/processes/{path}{args}");
             assert_eq!(
                 app.clone().oneshot(request(&uri)).await.unwrap().status(),
                 400,
@@ -76,7 +111,7 @@ async fn explicit_identity_is_required_without_selection() {
             start_time_ticks: id.start_time_ticks + 1,
             ..id
         };
-        let uri = format!("/api/target/{path}?{}&address=0x0", query(stale));
+        let uri = format!("/api/processes/{path}?{}&address=0x0", query(stale));
         assert_eq!(
             app.clone().oneshot(request(&uri)).await.unwrap().status(),
             410,
@@ -84,7 +119,7 @@ async fn explicit_identity_is_required_without_selection() {
         );
     }
     for body in ["{}", "{\"pid\":1}", "{\"start_time_ticks\":1}"] {
-        let mut req = request("/api/target/snapshot");
+        let mut req = request("/api/processes/snapshot");
         *req.method_mut() = "POST".parse().unwrap();
         req.headers_mut()
             .insert("content-type", "application/json".parse().unwrap());
@@ -92,7 +127,7 @@ async fn explicit_identity_is_required_without_selection() {
         assert_eq!(app.clone().oneshot(req).await.unwrap().status(), 422);
     }
     for path in [
-        "process",
+        "observation",
         "threads",
         "maps",
         "fds",
@@ -102,14 +137,14 @@ async fn explicit_identity_is_required_without_selection() {
     ] {
         let response = app
             .clone()
-            .oneshot(request(&format!("/api/target/{path}?{}", query(id))))
+            .oneshot(request(&format!("/api/processes/{path}?{}", query(id))))
             .await
             .unwrap();
         assert_eq!(response.status(), 200, "{path}");
         let json: serde_json::Value =
             serde_json::from_slice(&to_bytes(response.into_body(), usize::MAX).await.unwrap())
                 .unwrap();
-        if path == "process" {
+        if path == "observation" {
             assert!(json["cpu_percent"].is_null());
             assert!(json["rates"]["read_bytes"].is_null());
         }
@@ -131,7 +166,7 @@ async fn target_streams_have_independent_lifetimes_and_histories() {
     let state = Arc::new(AppState::new(Duration::from_millis(100)));
     let app = procinsh::server::router(state.clone(), "127.0.0.1:8080".parse().unwrap());
     let id = procinsh::process::identity(std::process::id() as i32).unwrap();
-    let uri = format!("/api/target/events?{}", query(id));
+    let uri = format!("/api/processes/events?{}", query(id));
     let mut a = app
         .clone()
         .oneshot(request(&uri))

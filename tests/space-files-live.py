@@ -92,7 +92,7 @@ try:
         child = subprocess.Popen([sys.executable, __file__, '--fixture', directory],
                                  stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
         ready = json.loads(child.stdout.readline())
-        response = Stream(base + '/api/space/events', timeout=30)
+        response = Stream(base + '/api/system/events', timeout=30)
         frames = []
 
         def consume():
@@ -109,10 +109,10 @@ try:
         reader.start()
         deadline = time.monotonic() + 20
         while time.monotonic() < deadline:
-            status = api('/api/space/status')
+            status = api('/api/system/status')
             if str(status.get('files', '')).startswith('unavailable'):
                 raise AssertionError(status['files'])
-            snapshot = api('/api/space/snapshot')
+            snapshot = api('/api/system/topology')
             if status.get('files') == 'observing' and any(n['identity']['pid'] == ready['pid'] for n in snapshot['nodes']):
                 break
             time.sleep(.2)
@@ -142,9 +142,9 @@ try:
         reader = None
         if server:
             deadline = time.monotonic() + 5
-            while time.monotonic() < deadline and api('/api/space/status')['active']:
+            while time.monotonic() < deadline and api('/api/system/status')['active']:
                 time.sleep(.1)
-            assert api('/api/space/status')['files'] == 'idle'
+            assert api('/api/system/status')['files'] == 'idle'
         print('File I/O live checks passed:', actual,
               '(scalar/positioned/vectored I/O, short reads, EOF/errors, immediate close/unlink, shutdown)')
 finally:

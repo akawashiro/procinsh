@@ -60,29 +60,29 @@ JSON のプロセス識別子は `{ "pid": 123, "start_time_ticks": 456 }` で�
 |---|---|---|
 | `GET /api/config` | なし | バージョン、更新間隔 `interval_ms`、履歴秒数 `history_seconds` |
 | `GET /api/processes` | なし | プロセス識別子・名前・ユーザー・CPU/RSSなどの一覧 |
-| `GET /api/target/process` | 識別子クエリ | 要求時のプロセス観測。CPU使用率と毎秒増分は null |
-| `GET /api/target/threads` | 識別子クエリ | 要求時のスレッド観測の配列。CPU使用率は null |
-| `GET /api/target/maps` | 識別子クエリ | `process_id`、maps/smaps、rollup、取得時刻、取得エラー |
-| `GET /api/target/memory` | 識別子クエリ、必須 `address`、省略可能 `length` | 読み取ったバイト列、要求長、取得時刻、部分読み取り情報 |
-| `GET /api/target/fds` | 識別子クエリ | FD、接続候補、共有所有者、探索警告 |
-| `GET /api/target/environment` | 識別子クエリ | 環境変数の名前・値の一覧と取得情報 |
-| `GET /api/target/auxv` | 識別子クエリ | 補助ベクトルのタグ・値・参照先の解決結果 |
-| `GET /api/target/signals` | 識別子クエリ | プロセス・スレッドのシグナル状態と警告 |
-| `POST /api/target/snapshot` | JSON本文の必須 `{pid, start_time_ticks}` | レジスタ・スタック・逆アセンブルなどのスナップショット |
-| `GET /api/target/events` | 識別子クエリ | SSE `observation`：指定プロセスの概要・最新観測・スレッド・履歴・マップ・終了状態 |
-| `GET /api/space/status` | なし | センサー状態と収集統計 |
-| `GET /api/space/snapshot` | なし | 最新のプロセス・接続構造 |
-| `GET /api/space/events` | なし | SSE `topology`・`metrics`・`activity`・`gap`：構造、CPU/RSS、CPU・IPC・ファイルI/O活動、配信欠落 |
+| `GET /api/processes/observation` | 識別子クエリ | 要求時のプロセス観測。CPU使用率と毎秒増分は null |
+| `GET /api/processes/threads` | 識別子クエリ | 要求時のスレッド観測の配列。CPU使用率は null |
+| `GET /api/processes/maps` | 識別子クエリ | `process_id`、maps/smaps、rollup、取得時刻、取得エラー |
+| `GET /api/processes/memory` | 識別子クエリ、必須 `address`、省略可能 `length` | 読み取ったバイト列、要求長、取得時刻、部分読み取り情報 |
+| `GET /api/processes/fds` | 識別子クエリ | FD、接続候補、共有所有者、探索警告 |
+| `GET /api/processes/environment` | 識別子クエリ | 環境変数の名前・値の一覧と取得情報 |
+| `GET /api/processes/auxv` | 識別子クエリ | 補助ベクトルのタグ・値・参照先の解決結果 |
+| `GET /api/processes/signals` | 識別子クエリ | プロセス・スレッドのシグナル状態と警告 |
+| `POST /api/processes/snapshot` | JSON本文の必須 `{pid, start_time_ticks}` | レジスタ・スタック・逆アセンブルなどのスナップショット |
+| `GET /api/processes/events` | 識別子クエリ | SSE `observation`：指定プロセスの概要・最新観測・スレッド・履歴・マップ・終了状態 |
+| `GET /api/system/status` | なし | センサー状態と収集統計 |
+| `GET /api/system/topology` | なし | 最新のプロセス・接続構造 |
+| `GET /api/system/events` | なし | SSE `topology`・`metrics`・`activity`・`gap`：構造、CPU/RSS、CPU・IPC・ファイルI/O活動、配信欠落 |
 
-識別子クエリの欠落・構文不正は400、JSON本文の必須フィールド欠落や型不正は422です。PIDは正の整数である必要があります。対象の終了・PID再利用は410で返します。memory の `address` は10進または `0x` 付き16進、`length` は既定256・範囲1～65536です。不正なアドレス・範囲は400、その他の観測処理の失敗は原則422、ブロッキングタスクの失敗は500です。process/threads/mapsを含め、終了済みプロセスの単発GETは成功しません。
+識別子クエリの欠落・構文不正は400、JSON本文の必須フィールド欠落や型不正は422です。PIDは正の整数である必要があります。対象の終了・PID再利用は410で返します。memory の `address` は10進または `0x` 付き16進、`length` は既定256・範囲1～65536です。不正なアドレス・範囲は400、その他の観測処理の失敗は原則422、ブロッキングタスクの失敗は500です。observation/threads/mapsを含め、終了済みプロセスの単発GETは成功しません。
 
 SSE は `Content-Type: text/event-stream` で接続を維持し、`event:` にイベント名、`data:` に JSON を送ります。接続直後に送るのは詳細側が `observation`、SPACE側が `topology` です。keep-alive はデータの更新ではありません。
 
 SPACE の SSE は接続そのものを閲覧セッションとして扱います。同時接続は最大32本で、上限超過は429、アプリ終了後の新規接続は503です。
 
-### `GET /api/target/events`
+### `GET /api/processes/events`
 
-`GET /api/target/events` は SSE で `observation` イベントを送ります。`?pid=123&start_time_ticks=456` のように識別子クエリを指定します。初回観測を取得して接続を開始し、その後は定期観測時（既定1秒）に次の対象状態全体を送ります。差分ではなく、履歴と保持済みマップも毎回含みます。イベント全体が null になることはありません。
+`GET /api/processes/events` は SSE で `observation` イベントを送ります。`?pid=123&start_time_ticks=456` のように識別子クエリを指定します。初回観測を取得して接続を開始し、その後は定期観測時（既定1秒）に次の対象状態全体を送ります。差分ではなく、履歴と保持済みマップも毎回含みます。イベント全体が null になることはありません。
 
 各接続は独立して収集し、履歴は接続時から直近60秒分を保持します。同じプロセスを複数タブで開いた場合も観測・履歴を共有しません。切断後の再接続は新しい履歴で始まります。詳細SSEは最大32接続で、上限超過は429、終了処理中の新規接続は503です。
 
@@ -101,9 +101,9 @@ SPACE の SSE は接続そのものを閲覧セッションとして扱います
 
 マップは約5秒間隔で取得するため、イベントの最新観測時刻とマップの取得時刻は一致しません。終了を検出したら `exited: true` を含む最終状態を配信し、ストリームを終了します。レジスタ・コールスタック・逆アセンブル・メモリの生バイト・FD詳細・環境変数・auxv・シグナル詳細は含まず、対応する個別APIで取得します。
 
-### `GET /api/space/events`
+### `GET /api/system/events`
 
-`GET /api/space/events` は SSE で以下のイベントを送ります。時刻 `captured_at` はUnix epochからのミリ秒、`window_ms` は集計期間のミリ秒です。
+`GET /api/system/events` は SSE で以下のイベントを送ります。時刻 `captured_at` はUnix epochからのミリ秒、`window_ms` は集計期間のミリ秒です。
 
 | イベント | 配信内容とタイミング |
 |---|---|
@@ -147,31 +147,31 @@ Axum がルートごとにクエリや JSON を取り出し、ハンドラへ渡
 
 次のAPIは識別子を検証し、要求ごとに `/proc` を読み取ります。SSE接続の保持状態は参照せず、ptraceによる停止も行いません。
 
-- `GET /api/target/process`：CPU・RSS/VMS・fault・I/O・context switch・スレッドなどの単発観測を返します。比較対象となる前回観測を持たないため、CPU使用率と `rates` は null です。
-- `GET /api/target/threads`：単発観測の threads を返します。スレッドごとのCPU使用率は null です。
-- `GET /api/target/maps`：maps/smapsとrollupを読み、取得時刻・取得エラー・process_idとともに返します。取得前後に識別子を確認します。
+- `GET /api/processes/observation`：CPU・RSS/VMS・fault・I/O・context switch・スレッドなどの単発観測を返します。比較対象となる前回観測を持たないため、CPU使用率と `rates` は null です。
+- `GET /api/processes/threads`：単発観測の threads を返します。スレッドごとのCPU使用率は null です。
+- `GET /api/processes/maps`：maps/smapsとrollupを読み、取得時刻・取得エラー・process_idとともに返します。取得前後に識別子を確認します。
 
 継続的なCPU使用率と毎秒増分、履歴はSSEで取得します。通常の `/proc` 読み取りは対象を停止せず、各項目の取得時点は厳密には一致しません。
 
 ### メモリ読み取り
 
-`GET /api/target/memory` はアドレスの構文、長さ、加算のオーバーフローを検証し、識別子と生存を確認して `process_vm_readv` で最大64 KiBを読み取ります。部分読み取りを完全な読み取りと区別して返します。スナップショットの保存値ではなく、要求時点のメモリを対象を停止せずに取得します。
+`GET /api/processes/memory` はアドレスの構文、長さ、加算のオーバーフローを検証し、識別子と生存を確認して `process_vm_readv` で最大64 KiBを読み取ります。部分読み取りを完全な読み取りと区別して返します。スナップショットの保存値ではなく、要求時点のメモリを対象を停止せずに取得します。
 
 ### FD と接続先
 
-`GET /api/target/fds` は識別子・生存を確認し、pipe/FIFO/socket の FD、アクセス方向、接続候補、同じリソースの共有所有者を収集します。UNIX peer は socket diagnostic、TCP/UDP は対象の network namespace の情報から探索します。共有所有者と通信相手は区別し、データを消費する読み取りは行いません。探索は3秒・100,000 FD・一致8192 FDを上限とし、打ち切りなどを結果に含めます。
+`GET /api/processes/fds` は識別子・生存を確認し、pipe/FIFO/socket の FD、アクセス方向、接続候補、同じリソースの共有所有者を収集します。UNIX peer は socket diagnostic、TCP/UDP は対象の network namespace の情報から探索します。共有所有者と通信相手は区別し、データを消費する読み取りは行いません。探索は3秒・100,000 FD・一致8192 FDを上限とし、打ち切りなどを結果に含めます。
 
 ### 環境変数・補助ベクトル・シグナル
 
 いずれも識別子・生存を確認して要求時に取得します。定期観測に含めて再収集するものではありません。
 
-- `GET /api/target/environment`：`environ` を最大1 MiB読み取り、重複名・空値・値中の `=` を維持します。通常は exec 時の環境領域であり、起動後の変更すべてを反映しません。
-- `GET /api/target/auxv`：ELF の32/64 bitを判別し、auxv を最大64 KiB読み取ります。既知・未知のタグを扱い、文字列参照は最大4096バイトまで解決します。参照先が読めなくても数値は保持します。big-endian ELF は対象外です。
-- `GET /api/target/signals`：プロセスとスレッドの保留・ブロック・無視・ハンドラ登録のマスクを収集します。最大4096スレッド・2秒で打ち切ります。受信履歴や送信元の追跡、シグナル送信は行いません。
+- `GET /api/processes/environment`：`environ` を最大1 MiB読み取り、重複名・空値・値中の `=` を維持します。通常は exec 時の環境領域であり、起動後の変更すべてを反映しません。
+- `GET /api/processes/auxv`：ELF の32/64 bitを判別し、auxv を最大64 KiB読み取ります。既知・未知のタグを扱い、文字列参照は最大4096バイトまで解決します。参照先が読めなくても数値は保持します。big-endian ELF は対象外です。
+- `GET /api/processes/signals`：プロセスとスレッドの保留・ブロック・無視・ハンドラ登録のマスクを収集します。最大4096スレッド・2秒で打ち切ります。受信履歴や送信元の追跡、シグナル送信は行いません。
 
 ### スナップショット
 
-`POST /api/target/snapshot` は識別子・生存を確認して専用ロックで取得を直列化してスナップショット処理を呼び出します。同時に要求されてもptrace操作は重複せず、このロックは通常観測や単発読み取りの状態とは分離しています。`PTRACE_SEIZE` と `PTRACE_INTERRUPT` で全スレッドの停止を確認し、レジスタ・マップ・スタック・命令バイトを取得します。追加スレッドを再列挙し、4096スレッド・16回の安定化試行・停止待ち2秒を上限とします。取得にも2秒の処理予算がありますが、カーネル内でブロックする syscall の実時間を保証するものではありません。
+`POST /api/processes/snapshot` は識別子・生存を確認して専用ロックで取得を直列化してスナップショット処理を呼び出します。同時に要求されてもptrace操作は重複せず、このロックは通常観測や単発読み取りの状態とは分離しています。`PTRACE_SEIZE` と `PTRACE_INTERRUPT` で全スレッドの停止を確認し、レジスタ・マップ・スタック・命令バイトを取得します。追加スレッドを再列挙し、4096スレッド・16回の安定化試行・停止待ち2秒を上限とします。取得にも2秒の処理予算がありますが、カーネル内でブロックする syscall の実時間を保証するものではありません。
 
 RAII と専用 OS スレッドの終了で detach を扱い、既存の job-control stop と signal delivery を維持します。自分自身のスナップショットは拒否します。対象の再開後にシンボル解決と命令デコードを行い、スレッドごとの結果を返します。
 
@@ -181,7 +181,7 @@ RAII と専用 OS スレッドの終了で detach を扱い、既存の job-cont
 
 ### 詳細監視の SSE
 
-`GET /api/target/events` は接続枠を確保して識別子を検証し、初回観測・マップを取得します。接続専用のOSスレッドとwatch channelを作り、設定間隔で観測して直近60秒の履歴を更新します。maps/smapsは約5秒ごとに更新します。
+`GET /api/processes/events` は接続枠を確保して識別子を検証し、初回観測・マップを取得します。接続専用のOSスレッドとwatch channelを作り、設定間隔で観測して直近60秒の履歴を更新します。maps/smapsは約5秒ごとに更新します。
 
 レスポンスのストリームがRAIIガードを所有し、未読のまま破棄された場合も接続枠を解放して停止フラグを設定します。収集中の処理は完了後に停止します。アプリ終了時にも停止し、終了処理は収集スレッドをjoinします。対象終了時は最終状態を送り、収集とストリームを終了します。
 
@@ -189,16 +189,16 @@ watch channelは接続ごとに独立し、遅い購読者へ古い状態を蓄�
 
 ### SPACE の状態・構造と閲覧セッション
 
-- `GET /api/space/status`：保持しているセンサー状態・収集統計を返します。
-- `GET /api/space/snapshot`：保持している最新の構造を返します。status と snapshot のGET自体は収集を開始しません。
-- `GET /api/space/events`：接続数を上限確認と同時に加算し、初回に収集ワーカーを起動します。レスポンスのストリームがRAIIガードを所有し、未読のレスポンスも含めて終了・破棄時に接続数を減らします。
+- `GET /api/system/status`：保持しているセンサー状態・収集統計を返します。
+- `GET /api/system/topology`：保持している最新の構造を返します。status と topology のGET自体は収集を開始しません。
+- `GET /api/system/events`：接続数を上限確認と同時に加算し、初回に収集ワーカーを起動します。レスポンスのストリームがRAIIガードを所有し、未読のレスポンスも含めて終了・破棄時に接続数を減らします。
 最後の接続がなくなると、ワーカーが次に状態を確認した時点で収集を休止してセンサーを解放します。ワーカースレッドはアプリ終了まで残り、再接続で収集を再開します。ネットワーク断ではサーバーの切断検出が遅れる場合があり、収集停止までの時間に上限は設けていません。
 
 構造収集は約5秒、CPU/RSS の更新は約1秒です。全体 FD 走査は100,000 FD・4秒、各 PID のマッピングは4096件、接続図は約20,000接続を上限とします。プロセスの親子・マップ・pipe/socket・ネットワーク接続先を非停止で探索し、取得不能・打ち切り・欠落を状態として扱います。ネットワーク接続先の名前解決結果はキャッシュします。
 
 ### SPACE の活動収集と SSE
 
-`GET /api/space/events` は閲覧者を登録して broadcast channel を購読します。最初に保持済みの構造を `topology` として返し、その後は構造・メトリクス・活動を配信します。切断・配信終了で登録を解除し、アプリ終了時にはストリームを終了します。
+`GET /api/system/events` は閲覧者を登録して broadcast channel を購読します。最初に保持済みの構造を `topology` として返し、その後は構造・メトリクス・活動を配信します。切断・配信終了で登録を解除し、アプリ終了時にはストリームを終了します。
 
 購読側が遅延した場合は `gap` と最新の `topology` を送り、失われた活動を再生しません。keep-alive は10秒間隔です。活動は最大10Hzで集計・配信します。
 
@@ -229,12 +229,12 @@ watch channelは接続ごとに独立し、遅い購読者へ古い状態を蓄�
 |---|---|
 | `GET /api/config` | 一覧と共通の初期化 |
 | `GET /api/processes` | 直接URLアクセス時に一覧からPIDの開始時刻を解決 |
-| `GET /api/target/events` | 識別子クエリを付けて接続し、概要・観測・履歴・スレッド・マップ・終了状態を更新 |
-| `GET /api/target/environment`、`GET /api/target/auxv`、`GET /api/target/fds`、`GET /api/target/signals` | 各パネルを初めて開くときと再取得操作時 |
-| `GET /api/target/memory` | メモリフォーム送信、マップやレジスタなどのアドレス操作時 |
-| `POST /api/target/snapshot` | 手動取得と自動取得時 |
+| `GET /api/processes/events` | 識別子クエリを付けて接続し、概要・観測・履歴・スレッド・マップ・終了状態を更新 |
+| `GET /api/processes/environment`、`GET /api/processes/auxv`、`GET /api/processes/fds`、`GET /api/processes/signals` | 各パネルを初めて開くときと再取得操作時 |
+| `GET /api/processes/memory` | メモリフォーム送信、マップやレジスタなどのアドレス操作時 |
+| `POST /api/processes/snapshot` | 手動取得と自動取得時 |
 
-直接アクセス時は一覧からPIDの開始時刻を解決し、その識別子でSSEを接続します。PIDが一覧にない場合は一覧と終了エラーを表示します。全ての追加GETにも識別子クエリを付け、snapshotにはJSON本文で識別子を送ります。通常の更新には `observation` を使い、process・threads・mapsの単発GETは直接呼びません。
+直接アクセス時は一覧からPIDの開始時刻を解決し、その識別子でSSEを接続します。PIDが一覧にない場合は一覧と終了エラーを表示します。全ての追加GETにも識別子クエリを付け、snapshotにはJSON本文で識別子を送ります。通常の更新には `observation` を使い、observation・threads・mapsの単発GETは直接呼びません。
 
 対象切替やBack to process listでは現在のSSEを閉じ、保持した詳細情報をリセットします。他タブには影響しません。接続世代と識別子を照合して古い通知を無視します。通信切断ではEventSourceが同じ識別子で再接続し、履歴は再開始します。同じPIDの別プロセスへは自動で乗り換えません。`exited: true` を受信したら接続を閉じ、最終状態と終了表示を残します。ページ離脱時は閉じ、ブラウザのページキャッシュから復帰した場合は同じ識別子で接続し直します。タイトルは `procinsh / <process name>` です。
 
@@ -248,9 +248,9 @@ watch channelは接続ごとに独立し、遅い購読者へ古い状態を蓄�
 
 | 利用API | 呼び出すタイミングと用途 |
 |---|---|
-| `GET /api/space/events` | 表示開始・再表示時に接続し、構造・メトリクス・活動を受信。接続中だけ閲覧者として登録 |
+| `GET /api/system/events` | 表示開始・再表示時に接続し、構造・メトリクス・活動を受信。接続中だけ閲覧者として登録 |
 
-初期構造も SSE から取得するため、`GET /api/space/status` と `GET /api/space/snapshot` は直接呼びません。通常画面の target API も呼びません。グラフ上の選択はブラウザ内だけで管理し、詳細へのリンクは `/process/{pid}` に移動します。
+初期構造も SSE から取得するため、`GET /api/system/status` と `GET /api/system/topology` は直接呼びません。通常画面の `/api/processes` 配下の API も呼びません。グラフ上の選択はブラウザ内だけで管理し、詳細へのリンクは `/process/{pid}` に移動します。
 
 Three.js でプロセスの親子関係、仮想アドレス空間、接続先、ファイル I/O を3D表示します。マップのアドレスの隙間を圧縮し、高さを正規化するため、プロセス間の同じ高さは同じアドレスを意味しません。検索、選択、カメラ操作、再配置もブラウザ内の処理です。タイトルは `procinsh / graph` です。
 

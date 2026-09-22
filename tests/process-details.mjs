@@ -10,12 +10,12 @@ export async function checkProcessDetails({evaluate, waitFor, delay, choose, ori
   await waitFor("!document.getElementById('signals-refresh').disabled", 'signal refresh');
   assert.equal(await evaluate("document.getElementById('signals-error').hidden"), true);
   assert.equal(await evaluate("document.getElementById('environment-panel').open"), false);
-  assert.equal(await evaluate("performance.getEntriesByType('resource').filter(e => /\\/api\\/target\\/(environment|auxv)\\?/.test(e.name)).length"), 0, 'details must not load until opened');
+  assert.equal(await evaluate("performance.getEntriesByType('resource').filter(e => /\\/api\\/processes\\/(environment|auxv)\\?/.test(e.name)).length"), 0, 'details must not load until opened');
   await evaluate(`
     window.detailTest = {calls: {environment: 0, auxv: 0}, mode: 'normal', release: null};
     window.detailFetch = window.fetch;
     window.fetch = async (...args) => {
-      const match = String(args[0]).match(/\\/api\\/target\\/(environment|auxv)\\?/);
+      const match = String(args[0]).match(/\\/api\\/processes\\/(environment|auxv)\\?/);
       if (!match) return window.detailFetch(...args);
       const kind = match[1], t = window.detailTest; t.calls[kind]++;
       if (t.mode === 'denied' && kind === 'environment') return new Response(JSON.stringify({error: 'Permission denied (test)'}), {status: 422});

@@ -26,7 +26,7 @@ export async function checkDescriptors({evaluate, waitFor, delay, choose, origin
   await evaluate(`
     window.fdFetch = window.fetch; window.fdCalls = 0;
     window.fetch = async (...args) => {
-      if (String(args[0]).includes('/api/target/fds?')) { window.fdCalls++; return new Response(JSON.stringify({error: 'FD permission denied (test)'}), {status: 422}); }
+      if (String(args[0]).includes('/api/processes/fds?')) { window.fdCalls++; return new Response(JSON.stringify({error: 'FD permission denied (test)'}), {status: 422}); }
       return window.fdFetch(...args);
     };
     document.querySelector('#fds-panel summary').click();

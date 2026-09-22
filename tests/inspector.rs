@@ -439,7 +439,7 @@ async fn api_explicit_identity_validation_and_memory_limits() {
             (target.id.start_time_ticks + 1, 410),
         ] {
             let uri = format!(
-                "/api/target/{path}?pid={}&start_time_ticks={start}",
+                "/api/processes/{path}?pid={}&start_time_ticks={start}",
                 target.id.pid
             );
             let response = app
@@ -463,7 +463,7 @@ async fn api_explicit_identity_validation_and_memory_limits() {
         (target.id.start_time_ticks, 65537, 400),
     ] {
         let uri = format!(
-            "/api/target/memory?pid={}&start_time_ticks={start}&address=0x{:x}&length={length}",
+            "/api/processes/memory?pid={}&start_time_ticks={start}&address=0x{:x}&length={length}",
             target.id.pid, target.address
         );
         let response = app
@@ -483,7 +483,7 @@ async fn api_explicit_identity_validation_and_memory_limits() {
     let snapshot_request = || {
         Request::builder()
             .method("POST")
-            .uri("/api/target/snapshot")
+            .uri("/api/processes/snapshot")
             .header("host", "127.0.0.1:8080")
             .header("content-type", "application/json")
             .body(Body::from(serde_json::to_vec(&target.id).unwrap()))

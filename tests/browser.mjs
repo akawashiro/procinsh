@@ -68,7 +68,7 @@ try {
     const Native=window.EventSource;
     window.EventSource=class extends Native {
       constructor(...args){super(...args);window.targetSources.push(this);
-        if(String(args[0]).startsWith('/api/target/events?'))queueMicrotask(()=>this.dispatchEvent(new Event('error')));
+        if(String(args[0]).startsWith('/api/processes/events?'))queueMicrotask(()=>this.dispatchEvent(new Event('error')));
       }
     };
   `});

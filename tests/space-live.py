@@ -10,7 +10,7 @@ p=subprocess.Popen(['tests/targets/bin/activity'],stdin=subprocess.PIPE,stdout=s
 response=None;thread=None
 try:
     pid,peer,address,size=p.stdout.readline().split();pid=int(pid);peer=int(peer);address=int(address,16);size=int(size)
-    response=Stream(base+'/api/space/events')
+    response=Stream(base+'/api/system/events')
     frames=[]
     def consume():
         try:
@@ -22,13 +22,13 @@ try:
     thread=threading.Thread(target=consume,daemon=True);thread.start()
     deadline=time.monotonic()+12
     while time.monotonic()<deadline:
-        status=api('/api/space/status')
+        status=api('/api/system/status')
         if any(str(status.get(sensor,'')).startswith('unavailable') for sensor in ('cpu','ipc')):raise AssertionError(status)
-        snapshot=api('/api/space/snapshot')
+        snapshot=api('/api/system/topology')
         if any(n['identity']['pid']==pid for n in snapshot['nodes']):break
         time.sleep(.3)
     time.sleep(1)
-    status=api('/api/space/status')
+    status=api('/api/system/status')
     assert status['cpu']=='observing' and status['ipc']=='observing',status
     p.stdin.write('go\n');p.stdin.flush();time.sleep(6)
     assert frames

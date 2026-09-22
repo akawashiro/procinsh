@@ -7,7 +7,7 @@ export async function checkAutoSnapshot({evaluate, waitFor, delay, choose, other
     window.snapshotTest = {calls: 0, completed: 0, active: 0, maximum: 0, mode: 'normal', release: null};
     window.originalFetch = window.fetch;
     window.fetch = async (...args) => {
-      if (args[0] !== '/api/target/snapshot') return window.originalFetch(...args);
+      if (args[0] !== '/api/processes/snapshot') return window.originalFetch(...args);
       const t = window.snapshotTest; t.calls++; t.active++; t.maximum = Math.max(t.maximum, t.active);
       try {
         if (t.mode === 'denied') return new Response(JSON.stringify({error: 'PTRACE_SEIZE: Operation not permitted (test)'}), {status: 422});
