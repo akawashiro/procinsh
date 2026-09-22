@@ -167,7 +167,7 @@ Axum がルートごとにクエリや JSON を取り出し、ハンドラへ渡
 
 ### メモリ読み取り
 
-`GET /api/processes/memory` はアドレスの構文、長さ、加算のオーバーフローを検証し、識別子と生存を確認して `process_vm_readv` で最大64 KiBを読み取ります。部分読み取りを完全な読み取りと区別して返します。スナップショットの保存値ではなく、要求時点のメモリを対象を停止せずに取得します。
+`GET /api/processes/memory` はアドレスの構文、長さ、加算のオーバーフローを検証し、識別子と生存を確認して [`process_vm_readv`](https://man7.org/linux/man-pages/man2/process_vm_readv.2.html) で最大64 KiBを読み取ります。部分読み取りを完全な読み取りと区別して返します。スナップショットの保存値ではなく、要求時点のメモリを対象を停止せずに取得します。実装は [API ハンドラ](../src/server/mod.rs#L291) と [メモリ読み取り処理](../src/process/memory.rs) を参照してください。
 
 ### FD と接続先
 
