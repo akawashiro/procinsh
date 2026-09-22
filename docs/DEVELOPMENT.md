@@ -37,16 +37,16 @@ SIGINT（Ctrl+C）または SIGTERM で収集停止と HTTP サーバーの終�
 | 場所 | 役割 |
 |---|---|
 | `src/main.rs` | CLI、ロガー初期化、待受、終了処理 |
-| `src/server/` | Axum のルーティング、入力・アクセス検証、HTTP ログ、詳細監視の SSE |
+| `src/server/` | Axum のルーティング、入力・アクセス検証、HTTP ログ、プロセス詳細監視の SSE (Server-Sent Events) |
 | `src/state/` | 接続ごとの独立した観測、60秒の履歴、最新状態の配信 |
 | `src/process/` | `/proc` の解析、PID 識別、プロセス・スレッド・メモリ・FD・ソケット・シグナル情報 |
 | `src/snapshot/` | ptrace による停止・レジスタ取得、frame pointer unwind、逆アセンブル |
 | `src/symbol/` | ELF/DWARF によるシンボル・ソース位置の解決 |
-| `src/space/` | 全プロセスの構造、閲覧セッション、BPF 収集、名前解決、SPACE API |
+| `src/space/` | 全プロセスの構造、閲覧セッション、BPF 収集、名前解決、`/api/system` 配下の API |
 | `src/web/` | TypeScript の通常画面・SPACE 画面・描画モデル、HTML/CSS、同梱 Three.js |
 | `tests/` | Rust・ブラウザ・ログ・実機センサーのテストと C fixture |
 
-Tokio/Axum が HTTP と SSE を処理し、ブロッキングする詳細 API は `spawn_blocking` に渡します。定期観測と SPACE の収集は OS スレッドで動きます。詳細監視は接続ごとに独立した状態を持ち、`AppState` は一覧探索・接続数・ワーカー・シンボルキャッシュを管理します。SPACE は独立した `Space` に状態を保持します。
+Tokio/Axum が HTTP と SSE を処理し、ブロッキングする詳細 API は `spawn_blocking` に渡します。プロセスの定期観測とシステム全体の構造・活動収集は OS スレッドで動きます。プロセス詳細監視は接続ごとに独立した状態を持ち、`AppState` は一覧探索・接続数・ワーカー・シンボルキャッシュを管理します。
 
 Web UI の API 型は `src/web/api-types.ts` に定義し、Rust の JSON 応答と合わせて管理します。null の扱いや16進文字列のアドレスも契約に含まれます。これらはコンパイル時の型で、実行時の入力検証ではありません。TypeScript と Three.js の型定義はビルド専用の npm 依存です。
 
@@ -76,9 +76,7 @@ JSON のプロセス識別子は `{ "pid": 123, "start_time_ticks": 456 }` で�
 
 識別子クエリの欠落・構文不正は400、JSON本文の必須フィールド欠落や型不正は422です。PIDは正の整数である必要があります。対象の終了・PID再利用は410で返します。memory の `address` は10進または `0x` 付き16進、`length` は既定256・範囲1～65536です。不正なアドレス・範囲は400、その他の観測処理の失敗は原則422、ブロッキングタスクの失敗は500です。observation/threads/mapsを含め、終了済みプロセスの単発GETは成功しません。
 
-SSE は `Content-Type: text/event-stream` で接続を維持し、`event:` にイベント名、`data:` に JSON を送ります。接続直後に送るのは詳細側が `observation`、SPACE側が `topology` です。keep-alive はデータの更新ではありません。
-
-SPACE の SSE は接続そのものを閲覧セッションとして扱います。同時接続は最大32本で、上限超過は429、アプリ終了後の新規接続は503です。
+SSE は `Content-Type: text/event-stream` で接続を維持し、`event:` にイベント名、`data:` に JSON を送ります。接続直後に送るのは `GET /api/processes/events` が `observation`、`GET /api/system/events` が `topology` です。keep-alive はデータの更新ではありません。
 
 ### `GET /api/processes/events`
 
@@ -104,6 +102,8 @@ SPACE の SSE は接続そのものを閲覧セッションとして扱います
 ### `GET /api/system/events`
 
 `GET /api/system/events` は SSE で以下のイベントを送ります。時刻 `captured_at` はUnix epochからのミリ秒、`window_ms` は集計期間のミリ秒です。
+
+この API は接続そのものを閲覧セッションとして扱います。同時接続は最大32本で、上限超過は429、アプリ終了後の新規接続は503です。
 
 | イベント | 配信内容とタイミング |
 |---|---|
@@ -134,7 +134,7 @@ SPACE の SSE は接続そのものを閲覧セッションとして扱います
 
 ### 共通処理と状態管理
 
-Axum がルートごとにクエリや JSON を取り出し、ハンドラへ渡します。Host・Origin・Fetch Metadata の検証を通過した応答には no-store とセキュリティヘッダを付けます。ブロッキングする通常画面向けAPIは `spawn_blocking` で実行し、`AppState` 内の状態は mutex で保護します。SPACE は独立した `Space` の状態を参照します。
+Axum がルートごとにクエリや JSON を取り出し、ハンドラへ渡します。Host・Origin・Fetch Metadata の検証を通過した応答には no-store とセキュリティヘッダを付けます。ブロッキングするプロセス観測 API は `spawn_blocking` で実行し、`AppState` 内の状態は mutex で保護します。
 
 対象は PID 単独ではなく `{pid, start_time_ticks}` で識別し、要求ごとに実際のプロセスの識別子と生存を確認します。サーバー全体の選択対象はありません。別のプロセスや別タブからの要求に依存せず、SSEなしでも単発APIを利用できます。
 
@@ -179,7 +179,7 @@ RAII と専用 OS スレッドの終了で detach を扱い、既存の job-cont
 
 逆アセンブルは停止中の RIP から最大256バイトを取得し、`iced-x86` で最大32命令を Intel 構文にデコードします。実メモリを使うため JIT のコードも対象ですが、32-bit compatibility mode は対象外です。
 
-### 詳細監視の SSE
+### プロセス詳細監視の SSE 配信処理
 
 `GET /api/processes/events` は接続枠を確保して識別子を検証し、初回観測・マップを取得します。接続専用のOSスレッドとwatch channelを作り、設定間隔で観測して直近60秒の履歴を更新します。maps/smapsは約5秒ごとに更新します。
 
@@ -187,7 +187,7 @@ RAII と専用 OS スレッドの終了で detach を扱い、既存の job-cont
 
 watch channelは接続ごとに独立し、遅い購読者へ古い状態を蓄積せず最新値を送ります。keep-aliveは10秒間隔です。ネットワーク断の検出が遅れれば、検出まで収集が残ることがあります。
 
-### SPACE の状態・構造と閲覧セッション
+### システム全体の状態・構造と閲覧セッション管理
 
 - `GET /api/system/status`：保持しているセンサー状態・収集統計を返します。
 - `GET /api/system/topology`：保持している最新の構造を返します。status と topology のGET自体は収集を開始しません。
@@ -196,7 +196,7 @@ watch channelは接続ごとに独立し、遅い購読者へ古い状態を蓄�
 
 構造収集は約5秒、CPU/RSS の更新は約1秒です。全体 FD 走査は100,000 FD・4秒、各 PID のマッピングは4096件、接続図は約20,000接続を上限とします。プロセスの親子・マップ・pipe/socket・ネットワーク接続先を非停止で探索し、取得不能・打ち切り・欠落を状態として扱います。ネットワーク接続先の名前解決結果はキャッシュします。
 
-### SPACE の活動収集と SSE
+### システム全体の活動収集と SSE 配信処理
 
 `GET /api/system/events` は閲覧者を登録して broadcast channel を購読します。最初に保持済みの構造を `topology` として返し、その後は構造・メトリクス・活動を配信します。切断・配信終了で登録を解除し、アプリ終了時にはストリームを終了します。
 
@@ -304,7 +304,7 @@ cargo clippy --all-targets --locked -- -D warnings
 
 CI はフォーマット確認、TypeScript の型チェックとビルド、Rust の全ターゲットのビルド、Clippy、Rust テスト、ログ検証、SPACE モデル検証を実行します。ブラウザと実機センサーのテストは別途実行します。
 
-Rust テストは明示的な識別子の必須性、SSEの独立した履歴・切断・接続上限、`/proc` の解析、PID 再利用、メモリ読み取り、ptrace の解除、シンボル、HTTP、SPACE の構造・SSE接続管理・集計を検証します。ログテストは既定レベル、debug、off、標準エラー、SIGTERM、ポート競合、クエリ非出力を検証します。プロセス観測を拒否するサンドボックスでは一部テストが失敗するため、テスト対象への ptrace/process_vm_readv とローカル通信が許可された環境が必要です。
+Rust テストは明示的な識別子の必須性、SSEの独立した履歴・切断・接続上限、`/proc` の解析、PID 再利用、メモリ読み取り、ptrace の解除、シンボル、HTTP、システム全体の構造・SSE接続管理・集計を検証します。ログテストは既定レベル、debug、off、標準エラー、SIGTERM、ポート競合、クエリ非出力を検証します。プロセス観測を拒否するサンドボックスでは一部テストが失敗するため、テスト対象への ptrace/process_vm_readv とローカル通信が許可された環境が必要です。
 
 ### ブラウザテスト
 
