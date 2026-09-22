@@ -59,7 +59,6 @@ JSON のプロセス識別子は `{ "pid": 123, "start_time_ticks": 456 }` で�
 |---|---|
 | `GET /api/config` | バージョン、更新間隔、履歴秒数 |
 | `GET /api/processes` | プロセス一覧 |
-| `GET /api/target` | 選択対象、最新観測、履歴、マップ。未選択は null |
 | `POST /api/target` | 識別子の JSON で対象を選択 |
 | `DELETE /api/target` | 識別子の JSON で対象を解除 |
 | `GET /api/target/process` | 最新のプロセス観測 |
@@ -71,18 +70,72 @@ JSON のプロセス識別子は `{ "pid": 123, "start_time_ticks": 456 }` で�
 | `GET /api/target/auxv` | 補助ベクトル |
 | `GET /api/target/signals` | プロセス・スレッドのシグナル情報 |
 | `POST /api/target/snapshot` | 識別子の JSON でスナップショット取得 |
-| `GET /api/target/events` | SSE の `observation` イベント |
+| `GET /api/target/events` | 選択対象の概要・最新観測・スレッド・履歴・メモリマップ・終了状態を配信 |
 | `GET /api/space/status` | センサー状態と収集統計 |
 | `GET /api/space/snapshot` | 最新の構造 |
-| `GET /api/space/events` | SPACE の SSE |
+| `GET /api/space/events` | プロセス・接続構造、CPU/RSS、CPU・IPC・ファイルI/O活動、配信欠落を通知 |
 
 詳細 GET（process/threads/maps/memory/fds/environment/auxv/signals）には `pid` と `start_time_ticks` のクエリが必要です。対象未選択は404、選択不一致は409です。要求時に対象の生存を確認するAPIでは終了・PID再利用を410で返しますが、保持済みの process/threads/maps は終了後も取得できます。memory の `address` は10進または `0x` 付き16進、`length` は既定256・範囲1～65536です。不正なアドレス・範囲は400、その他の観測処理の失敗は原則422、ブロッキングタスクの失敗は500です。
 
-詳細 SSE の `observation` は対象の最新状態または null です。SPACE の SSE は `topology`（構造）、`metrics`（CPU/RSS）、`activity`（活動集計）、`gap`（欠落フレーム数）を配信します。いずれも接続時に初期状態を送ります。
+SSE は `Content-Type: text/event-stream` で接続を維持し、`event:` にイベント名、`data:` に JSON を送ります。接続直後に送るのは詳細側が `observation`、SPACE側が `topology` です。keep-alive はデータの更新ではありません。
 
 SPACE の SSE は接続そのものを閲覧セッションとして扱い、token は不要です。同時接続は最大32本で、上限超過は429、アプリ終了後の新規接続は503です。
 
-`activity.files` は `{process_id, resource, path, write, bytes, count}` の配列です。`path` は取得不能なら null、`resource` は device/inode/generation を含む識別子です。状態には `files`、`files_lost`、`files_coverage` などを含みます。
+### 詳細SSE：`observation`
+
+`GET /api/target/events` は接続直後と対象の選択・解除・定期観測時（既定1秒）に、次の対象状態全体を送ります。差分ではなく、履歴と保持済みマップも毎回含みます。未選択・解除時の `data` は `null` です。
+
+| フィールド | 配信内容 |
+|---|---|
+| `summary` | `identity`（PID・開始時刻）、名前、実行ファイル、コマンドライン、実・実効ユーザー、状態、CPU使用率、RSS、スレッド数の概要 |
+| `observation` | 最新の `timestamp`、`process_id`、`cpu_percent`、`rss_bytes`、`vms_bytes`、minor/major fault、context switch累計、`io` のread/writeバイト累計、`rates` の毎秒増分、`threads`、CPU番号・nice・priority。未取得なら null |
+| `observation.threads` | TID、名前、状態、CPU番号・使用率、priority・nice、scheduler、affinity、context switch累計 |
+| `history` | 直近60秒の `timestamp`・`cpu_percent`・`rss_bytes`・`vms_bytes` の配列 |
+| `maps` | 仮想メモリ領域の開始・終了、権限、ファイルオフセット、device/inode、パス、RSS/PSS |
+| `maps_captured_at`、`maps_error` | マップの取得時刻と取得エラー。未取得時の時刻、エラーなしの場合のエラー値は null |
+| `rollup` | RSS・PSS・private bytesの集計。取得できなければ null |
+| `exited`、`error` | 対象の終了フラグと観測エラー。エラーなしなら null |
+
+時刻はUnix epochからのミリ秒、メモリ量はバイト、CPU使用率は1コアを100%とします。`rates` はfault・context switchが回/秒、read/writeがバイト/秒です。差分がない初回のCPU使用率や算出不能なrate、取得不能な任意項目は null になり、ゼロとは区別します。`summary` は選択時の概要で、継続的に更新される値は `observation` を参照します。
+
+マップは約5秒間隔で取得するため、イベントの最新観測時刻とマップの取得時刻は一致しません。終了通知は `exited: true` を含む対象状態であり、選択解除の null とは別です。レジスタ・コールスタック・逆アセンブル・メモリの生バイト・FD詳細・環境変数・auxv・シグナル詳細は含まず、対応する個別APIで取得します。
+
+未選択時の実際のイベント形式は次のとおりです。
+
+```text
+event: observation
+data: null
+
+```
+
+### SPACE SSE：構造・メトリクス・活動
+
+`GET /api/space/events` は以下のイベントを送ります。時刻 `captured_at` はUnix epochからのミリ秒、`window_ms` は集計期間のミリ秒です。
+
+| イベント | 配信内容とタイミング |
+|---|---|
+| `topology` | 接続直後の保持済み構造、約5秒ごとの構造更新、配信欠落後の再同期。全体を置き換えるデータ |
+| `metrics` | 約1秒ごとのCPU/RSS更新。`{identity, cpu_percent, rss_bytes}` の配列。構造そのものは含まない |
+| `activity` | 最大10Hzの活動集計。`captured_at`、`window_ms`、`cpu`、`ipc`、`files`、`status` |
+| `gap` | 購読遅延時の `{dropped_frames: 件数}`。続けて最新 `topology` を送り、失われた活動は再送しない |
+
+`topology` のトップレベルは `captured_at`、`nodes`、`edges`、`warnings`、`inspected_processes`、`inspected_fds` です。初回収集前は空の構造の場合があります。
+
+- `nodes`：`identity`、`parent_id`、名前、実・実効ユーザー、CPU使用率、RSS、`maps`、`maps_epoch`、`maps_error`。親を特定できなければ `parent_id` は null、マップ取得失敗時はエラーを含みます。
+- `edges`：接続ID、端点 `a`・`b`、label、socket情報、`candidate`・`shared`。端点にはプロセス識別子、FD、FD数、resource、kind、accessがあります。`b` はローカルの相手を持たなければ null です。`candidate` は接続候補、`shared` は同じリソースの共有で、一意な通信相手とは区別します。
+- `socket`：protocol、state、local/remoteアドレス、network_peer、remote_hostname。socket情報や未取得のアドレス・名前は null になり得ます。
+- `warnings` と探索件数：取得不能・打ち切りなどの警告と、走査したプロセス・FDの件数。
+
+`activity` の各配列はその集計窓の情報で、履歴全体ではありません。
+
+| フィールド | 要素の内容 |
+|---|---|
+| `cpu` | `process_id`、`runtime_ns`（実行時間、ナノ秒）、`switches`（切替回数）、`running_threads`（実行中スレッド数）、`cpus`（実行中CPU番号） |
+| `ipc` | `process_id`、`resource`、`write`、`bytes`、`count`。送信／書き込みがtrue、受信／読み取りがfalse。ペイロードは含まない |
+| `files` | IPCと同じ項目に `path` を追加。パスが取得不能なら null。resourceはdevice/inode/generationを含む識別子 |
+| `status` | `active`、CPU・IPC・filesのセンサー状態、観測範囲の説明、`lost`・`files_lost`・`unresolved` などの収集統計 |
+
+該当活動がない場合やセンサーが利用不能の場合、活動配列は空になります。空配列だけで「活動がなかった」とは判断せず、`status` の observing・unavailable・error なども確認します。CPU/RSSメトリクスのCPU使用率が算出不能なら null です。
 
 ## バックエンド側の処理
 
@@ -97,9 +150,8 @@ Axum がルートごとにクエリや JSON を取り出し、ハンドラへ渡
 - `GET /api/config`：パッケージのバージョン、起動時に指定した更新間隔、履歴の保持秒数を返します。
 - `GET /api/processes`：要求ごとに `Discovery` が `/proc` を走査し、プロセス識別子、名前、コマンド、ユーザー、メモリ量などを返します。前回の収集値との差分から CPU 使用率を求めます。初回など差分がない場合は null です。
 
-### 対象の取得・選択・解除
+### 対象の選択・解除
 
-- `GET /api/target`：保持している対象の概要・観測・履歴・マップ・終了状態を返します。未選択なら null です。この要求自体では再観測しません。
 - `POST /api/target`：受け取った識別子を検証し、概要・初回観測・maps/smaps を取得します。履歴を初期化し、識別子を再確認して選択状態を置き換え、SSE に公開して新しい対象を返します。
 - `DELETE /api/target`：選択中の識別子との一致を確認して対象を解除し、SSE に null を公開します。応答も null です。終了済みの対象も解除できます。
 
@@ -183,8 +235,7 @@ RUSTFLAGS="-C force-frame-pointers=yes" cargo build
 | 利用API | 呼び出すタイミングと用途 |
 |---|---|
 | `GET /api/config` | 初期化時に更新間隔を取得 |
-| `GET /api/target` | 初期化時に共有の選択状態を取得 |
-| `GET /api/target/events` | 初期化後に購読し、選択・解除・観測を反映 |
+| `GET /api/target/events` | 最初のイベントで初期状態を決め、以後の選択・解除・観測も反映 |
 | `GET /api/processes` | 一覧表示時と定期更新時に一覧を取得 |
 | `POST /api/target` | 行の選択時に識別子を送信 |
 
@@ -194,7 +245,7 @@ RUSTFLAGS="-C force-frame-pointers=yes" cargo build
 
 | 利用API | 呼び出すタイミングと用途 |
 |---|---|
-| `GET /api/config`、`GET /api/target` | 一覧と共通の初期化 |
+| `GET /api/config` | 一覧と共通の初期化 |
 | `GET /api/processes`、`POST /api/target` | 直接アクセスした PID と現在の対象が異なる場合、一覧から識別子を解決して選択 |
 | `GET /api/target/events` | 概要・観測・履歴・スレッド・マップ・終了状態を更新 |
 | `GET /api/target/environment`、`GET /api/target/auxv`、`GET /api/target/fds`、`GET /api/target/signals` | 各パネルを初めて開くときと再取得操作時 |
@@ -202,7 +253,7 @@ RUSTFLAGS="-C force-frame-pointers=yes" cargo build
 | `POST /api/target/snapshot` | 手動取得と自動取得時 |
 | `DELETE /api/target` | Back to process list で選択を解除 |
 
-直接アクセスした PID が一覧にない場合は終了エラーを表示します。画面タイトルは `procinsh / <process name>` です。通常の更新には `observation` イベントを使い、`GET /api/target/process`・`threads`・`maps` は直接呼びません。
+直接アクセス時は最初の observation とURLのPIDを比較します。不一致ならSSEを一度閉じ、一覧から識別子を解決して選択し、完了後に接続し直します。初期選択前の通知で表示が戻ることを防ぎ、URLによる選択は初回だけ行います。PIDが一覧にない場合や選択失敗時はエラーを表示し、再接続で現在の共有状態を反映します。初期接続失敗は表示し、EventSourceの再接続後に初期化を続けます。画面タイトルは `procinsh / <process name>` です。通常の更新には `observation` イベントを使い、`GET /api/target/process`・`threads`・`maps` は直接呼びません。
 
 受信した履歴から CPU/RSS のグラフを描画し、スレッドやマップを表示します。スナップショットの応答は通常観測とは別に保持し、選択したスレッドのレジスタ・スタック・逆アセンブルを表示します。メモリ応答は hex/ASCII に整形します。環境変数などの文字列は HTML として解釈せず表示し、検索は取得済みデータを使います。
 
