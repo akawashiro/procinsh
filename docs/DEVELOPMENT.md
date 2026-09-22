@@ -171,7 +171,9 @@ Axum がルートごとにクエリや JSON を取り出し、ハンドラへ渡
 
 ### FD と接続先
 
-`GET /api/processes/fds` は識別子・生存を確認し、pipe/FIFO/socket の FD、アクセス方向、接続候補、同じリソースの共有所有者を収集します。UNIX peer は socket diagnostic、TCP/UDP は対象の network namespace の情報から探索します。共有所有者と通信相手は区別し、データを消費する読み取りは行いません。探索は3秒・100,000 FD・一致8192 FDを上限とし、打ち切りなどを結果に含めます。
+`GET /api/processes/fds` は識別子・生存を確認し、pipe/FIFO/socket の FD、アクセス方向、接続候補、同じリソースの共有所有者を収集します。UNIX domain socket の通信相手は socket diagnostic を使って調べます。TCP/UDP ソケットの通信相手の候補は、対象プロセスが属するネットワーク名前空間の情報から探索します。共有所有者と通信相手は区別し、データを消費する読み取りは行いません。探索は3秒・100,000 FD・一致8192 FDを上限とし、打ち切りなどを結果に含めます。
+
+実装は [FD 情報の収集](../src/process/fds.rs#L272)、[通信相手の候補の照合](../src/process/fds.rs#L341)、[候補を所有するプロセス・FD の探索](../src/process/fds.rs#L117) を参照してください。UNIX domain socket の通信相手の inode を取得する処理は [socket diagnostic](../src/process/sockets.rs#L211) にあります。
 
 ### 環境変数・補助ベクトル・シグナル
 
