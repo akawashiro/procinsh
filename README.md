@@ -21,7 +21,11 @@ zlib development files, and BTF information at `/sys/kernel/btf/vmlinux`.
 
 Install [procinsh from crates.io](https://crates.io/crates/procinsh) and run it:
 
+(Sorry, we assume you are using Ubuntu, please reinterpret not so)
 ```sh
+sudo apt-get install --yes --no-install-recommends \
+         build-essential clang llvm pkg-config libelf-dev zlib1g-dev python3 \
+         linux-tools-common linux-tools-generic
 cargo install procinsh --locked
 sudo "$HOME/.cargo/bin/procinsh" --listen 127.0.0.1:9090
 ```
@@ -38,6 +42,9 @@ automatically when needed.
 Clone this repository and run the following from its root:
 
 ```sh
+sudo apt-get install --yes --no-install-recommends \
+         build-essential clang llvm pkg-config libelf-dev zlib1g-dev python3 \
+         linux-tools-common linux-tools-generic
 npm ci
 npm run build:web
 cargo build --release --locked
