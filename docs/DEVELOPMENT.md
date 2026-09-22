@@ -179,9 +179,11 @@ Axum がルートごとにクエリや JSON を取り出し、ハンドラへ渡
 
 いずれも識別子・生存を確認して要求時に取得します。定期観測に含めて再収集するものではありません。
 
-- `GET /api/processes/environment`：`environ` を最大1 MiB読み取り、重複名・空値・値中の `=` を維持します。通常は exec 時の環境領域であり、起動後の変更すべてを反映しません。
-- `GET /api/processes/auxv`：ELF の32/64 bitを判別し、auxv を最大64 KiB読み取ります。既知・未知のタグを扱い、文字列参照は最大4096バイトまで解決します。参照先が読めなくても数値は保持します。big-endian ELF は対象外です。
-- `GET /api/processes/signals`：プロセスとスレッドの保留・ブロック・無視・ハンドラ登録のマスクを収集します。最大4096スレッド・2秒で打ち切ります。受信履歴や送信元の追跡、シグナル送信は行いません。
+これらの API は procfs に公開されたファイルを読み取ります。auxv の文字列参照先だけは、追加で `process_vm_readv` を使って対象プロセスのメモリから取得します。
+
+- `GET /api/processes/environment`：procfs の [`/proc/<pid>/environ`](https://man7.org/linux/man-pages/man5/proc_pid_environ.5.html) を最大1 MiB読み取り、NUL 区切りの各項目を最初の `=` で名前と値に分けます。重複名・空値・値中の `=` を維持します。通常は exec 時の環境領域であり、起動後の変更すべてを反映しません。実装は [ファイルの読み取り](../src/process/details.rs#L49) と [環境変数の解析](../src/process/details.rs#L32) を参照してください。
+- `GET /api/processes/auxv`：`/proc/<pid>/exe` の ELF ヘッダから32/64 bitを判別し、procfs の [`/proc/<pid>/auxv`](https://man7.org/linux/man-pages/man5/proc_pid_auxv.5.html) を最大64 KiB読み取ります。タグと値の組として解析し、既知・未知のタグを扱います。`AT_EXECFN`・`AT_PLATFORM`・`AT_BASE_PLATFORM` の文字列参照は、`process_vm_readv` で最大4096バイトまで解決します。参照先が読めなくても数値は保持します。big-endian ELF は対象外です。実装は [ELF ヘッダと auxv の読み取り](../src/process/details.rs#L185)、[文字列参照の解決](../src/process/details.rs#L176)、[メモリの読み取り](../src/process/memory.rs#L18) を参照してください。
+- `GET /api/processes/signals`：procfs の [`/proc/<pid>/status`](https://man7.org/linux/man-pages/man5/proc_pid_status.5.html) と、各スレッドの [`/proc/<pid>/task/<tid>/status`](https://man7.org/linux/man-pages/man5/proc_pid_task.5.html) を読み取ります。`SigPnd`（スレッドの保留）・`ShdPnd`（プロセス全体の保留）・`SigBlk`（ブロック）・`SigIgn`（無視）・`SigCgt`（ハンドラ登録）の16進マスクを解析します。最大4096スレッド・2秒で打ち切ります。受信履歴や送信元の追跡、シグナル送信は行いません。実装は [status の読み取りとスレッドの列挙](../src/process/signals.rs#L109) と [シグナル状態の解析](../src/process/signals.rs#L84) を参照してください。
 
 ### スナップショット
 
