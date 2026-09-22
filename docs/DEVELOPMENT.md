@@ -78,11 +78,11 @@ JSON のプロセス識別子は `{ "pid": 123, "start_time_ticks": 456 }` で�
 
 SSE は `Content-Type: text/event-stream` で接続を維持し、`event:` にイベント名、`data:` に JSON を送ります。接続直後に送るのは詳細側が `observation`、SPACE側が `topology` です。keep-alive はデータの更新ではありません。
 
-SPACE の SSE は接続そのものを閲覧セッションとして扱い、token は不要です。同時接続は最大32本で、上限超過は429、アプリ終了後の新規接続は503です。
+SPACE の SSE は接続そのものを閲覧セッションとして扱います。同時接続は最大32本で、上限超過は429、アプリ終了後の新規接続は503です。
 
-### 詳細SSE：`observation`
+### `GET /api/target/events`
 
-`GET /api/target/events?pid=123&start_time_ticks=456` は初回観測を取得して接続を開始し、その後は定期観測時（既定1秒）に次の対象状態全体を送ります。差分ではなく、履歴と保持済みマップも毎回含みます。イベント全体が null になることはありません。
+`GET /api/target/events` は SSE で `observation` イベントを送ります。`?pid=123&start_time_ticks=456` のように識別子クエリを指定します。初回観測を取得して接続を開始し、その後は定期観測時（既定1秒）に次の対象状態全体を送ります。差分ではなく、履歴と保持済みマップも毎回含みます。イベント全体が null になることはありません。
 
 各接続は独立して収集し、履歴は接続時から直近60秒分を保持します。同じプロセスを複数タブで開いた場合も観測・履歴を共有しません。切断後の再接続は新しい履歴で始まります。詳細SSEは最大32接続で、上限超過は429、終了処理中の新規接続は503です。
 
@@ -101,9 +101,9 @@ SPACE の SSE は接続そのものを閲覧セッションとして扱い、tok
 
 マップは約5秒間隔で取得するため、イベントの最新観測時刻とマップの取得時刻は一致しません。終了を検出したら `exited: true` を含む最終状態を配信し、ストリームを終了します。レジスタ・コールスタック・逆アセンブル・メモリの生バイト・FD詳細・環境変数・auxv・シグナル詳細は含まず、対応する個別APIで取得します。
 
-### SPACE SSE：構造・メトリクス・活動
+### `GET /api/space/events`
 
-`GET /api/space/events` は以下のイベントを送ります。時刻 `captured_at` はUnix epochからのミリ秒、`window_ms` は集計期間のミリ秒です。
+`GET /api/space/events` は SSE で以下のイベントを送ります。時刻 `captured_at` はUnix epochからのミリ秒、`window_ms` は集計期間のミリ秒です。
 
 | イベント | 配信内容とタイミング |
 |---|---|
@@ -176,14 +176,6 @@ Axum がルートごとにクエリや JSON を取り出し、ハンドラへ渡
 RAII と専用 OS スレッドの終了で detach を扱い、既存の job-control stop と signal delivery を維持します。自分自身のスナップショットは拒否します。対象の再開後にシンボル解決と命令デコードを行い、スレッドごとの結果を返します。
 
 スタックは RBP をたどる最大256フレームの unwind です。ELF/DWARF から PIE/ASLR を考慮して関数・行・inline frame を解決し、ファイルの device/inode/size/mtime でキャッシュします。解決できない場合は生アドレスを保持します。frame pointer のないコードや signal trampoline を含む任意のスタックを完全には復元できません。
-
-```sh
-# 観測対象の C/C++ プログラム
-cc -g -fno-omit-frame-pointer -fno-optimize-sibling-calls target.c -o target
-
-# 観測対象の Rust プロジェクトで実行
-RUSTFLAGS="-C force-frame-pointers=yes" cargo build
-```
 
 逆アセンブルは停止中の RIP から最大256バイトを取得し、`iced-x86` で最大32命令を Intel 構文にデコードします。実メモリを使うため JIT のコードも対象ですが、32-bit compatibility mode は対象外です。
 
