@@ -12,7 +12,7 @@ use serde::Serialize;
 use std::{
     collections::VecDeque,
     sync::{
-        Arc, Mutex, MutexGuard,
+        Arc, Mutex,
         atomic::{AtomicBool, Ordering},
     },
     time::{Duration, Instant},
@@ -51,7 +51,10 @@ pub struct ProcessObservation {
     measured_at: Option<Instant>,
 }
 
-fn observation(id: ProcessId, previous: Option<&ProcessObservation>) -> Result<ProcessObservation> {
+pub fn observation(
+    id: ProcessId,
+    previous: Option<&ProcessObservation>,
+) -> Result<ProcessObservation> {
     process::check_identity(id)?;
     let stat = procfs::read_stat(&format!("/proc/{}/stat", id.pid))?;
     let now = Instant::now();
@@ -149,142 +152,183 @@ pub struct Target {
     pub maps_captured_at: Option<u64>,
     pub rollup: Option<MemoryRollup>,
 }
-pub struct Inner {
-    pub target: Option<Target>,
-    pub discovery: Discovery,
-    maps_at: Option<Instant>,
-}
 pub struct AppState {
     pub space: Arc<crate::space::Space>,
-    pub inner: Mutex<Inner>,
+    pub discovery: Mutex<Discovery>,
     pub interval: Duration,
-    pub events: watch::Sender<String>,
     stopped: AtomicBool,
+    viewers: Mutex<usize>,
+    workers: Mutex<Vec<std::thread::JoinHandle<()>>>,
+    pub snapshot_lock: Mutex<()>,
     pub symbols: Arc<Mutex<crate::symbol::Symbolizer>>,
+}
+pub struct ObservationPermit {
+    state: Arc<AppState>,
+    cancelled: Arc<AtomicBool>,
+}
+impl Drop for ObservationPermit {
+    fn drop(&mut self) {
+        self.cancelled.store(true, Ordering::Relaxed);
+        *self.state.viewers.lock().unwrap() -= 1;
+    }
+}
+pub struct ObservationSession {
+    pub receiver: watch::Receiver<Target>,
+    _permit: ObservationPermit,
 }
 impl AppState {
     pub fn new(interval: Duration) -> Self {
-        let (events, _) = watch::channel("null".to_owned());
         Self {
             space: Arc::new(crate::space::Space::default()),
-            inner: Mutex::new(Inner {
-                target: None,
-                discovery: Discovery::default(),
-                maps_at: None,
-            }),
+            discovery: Mutex::new(Discovery::default()),
             interval,
-            events,
             stopped: AtomicBool::new(false),
+            viewers: Mutex::new(0),
+            workers: Mutex::new(Vec::new()),
+            snapshot_lock: Mutex::new(()),
             symbols: Arc::new(Mutex::new(crate::symbol::Symbolizer::default())),
         }
     }
-    pub fn lock(&self) -> MutexGuard<'_, Inner> {
-        self.inner.lock().unwrap_or_else(|e| e.into_inner())
+    pub fn observer_count(&self) -> usize {
+        *self.viewers.lock().unwrap()
     }
-    pub fn select(&self, id: ProcessId) -> Result<Target> {
-        let mut inner = self.lock();
-        process::check_identity(id)?;
-        let stat = procfs::read_stat(&format!("/proc/{}/stat", id.pid))?;
-        let summary = process::discovery::summary(&stat, &process::discovery::users());
-        ensure!(summary.identity == id, "Process exited (PID reused)");
-        let observation = observation(id, None)?;
-        let mut history = VecDeque::new();
-        history::push(&mut history, &observation);
-        let mut target = Target {
-            summary,
-            exited: false,
-            error: None,
-            observation: Some(observation),
-            history,
-            maps: Vec::new(),
-            maps_error: None,
-            maps_captured_at: None,
-            rollup: None,
-        };
-        refresh_maps(&mut target);
-        process::check_identity(id)?;
-        log::info!(
-            "target selected pid={} start_time_ticks={}",
-            id.pid,
-            id.start_time_ticks
-        );
-        inner.target = Some(target.clone());
-        inner.maps_at = Some(Instant::now());
-        self.publish(&inner);
-        Ok(target)
-    }
-    pub fn publish(&self, inner: &Inner) {
-        if let Ok(json) = serde_json::to_string(&inner.target) {
-            self.events.send_replace(json);
+    pub fn reserve(self: &Arc<Self>) -> Result<ObservationPermit, axum::http::StatusCode> {
+        let mut viewers = self.viewers.lock().unwrap();
+        if self.is_stopped() {
+            return Err(axum::http::StatusCode::SERVICE_UNAVAILABLE);
         }
+        if *viewers >= 32 {
+            return Err(axum::http::StatusCode::TOO_MANY_REQUESTS);
+        }
+        *viewers += 1;
+        Ok(ObservationPermit {
+            state: self.clone(),
+            cancelled: Arc::new(AtomicBool::new(false)),
+        })
+    }
+    pub fn observe(
+        self: &Arc<Self>,
+        id: ProcessId,
+        permit: ObservationPermit,
+    ) -> Result<ObservationSession> {
+        let mut target = capture_target(id)?;
+        let (tx, receiver) = watch::channel(target.clone());
+        let state = self.clone();
+        let cancelled = permit.cancelled.clone();
+        let mut workers = self.workers.lock().unwrap();
+        ensure!(!self.is_stopped(), "Server is stopping");
+        // Reap completed collectors without retaining handles indefinitely.
+        let mut pending = Vec::new();
+        for worker in workers.drain(..) {
+            if worker.is_finished() {
+                if worker.join().is_err() {
+                    log::error!("process collector thread panicked");
+                }
+            } else {
+                pending.push(worker);
+            }
+        }
+        *workers = pending;
+        let worker = std::thread::Builder::new()
+            .name(format!("observe-{}", id.pid))
+            .spawn(move || {
+                log::info!(
+                    "process observation started pid={} start_time_ticks={}",
+                    id.pid,
+                    id.start_time_ticks
+                );
+                let mut maps_at = Instant::now();
+                loop {
+                    let start = Instant::now();
+                    while start.elapsed() < state.interval
+                        && !state.is_stopped()
+                        && !cancelled.load(Ordering::Relaxed)
+                    {
+                        std::thread::sleep(
+                            Duration::from_millis(50)
+                                .min(state.interval.saturating_sub(start.elapsed())),
+                        );
+                    }
+                    if state.is_stopped() || cancelled.load(Ordering::Relaxed) || tx.is_closed() {
+                        break;
+                    }
+                    match observation(id, target.observation.as_ref()) {
+                        Ok(o) => {
+                            history::push(&mut target.history, &o);
+                            target.observation = Some(o);
+                            if target.error.take().is_some() {
+                                log::info!("observation recovered pid={}", id.pid);
+                            }
+                            if maps_at.elapsed() >= Duration::from_secs(5) {
+                                refresh_maps(&mut target);
+                                maps_at = Instant::now();
+                            }
+                        }
+                        Err(e) => {
+                            let error = format!("{e:#}");
+                            if target.error.as_ref() != Some(&error) {
+                                log::warn!("observation failed pid={}: {error}", id.pid);
+                            }
+                            target.error = Some(error);
+                            target.exited = process::check_identity(id)
+                                .err()
+                                .is_some_and(|e| e.to_string().starts_with("Process exited"));
+                        }
+                    }
+                    tx.send_replace(target.clone());
+                    if target.exited {
+                        log::info!("process exited pid={}", id.pid);
+                        break;
+                    }
+                }
+                log::info!("process observation stopped pid={}", id.pid);
+            })?;
+        workers.push(worker);
+        Ok(ObservationSession {
+            receiver,
+            _permit: permit,
+        })
     }
     pub fn stop(&self) {
-        self.space.stop();
+        let _workers = self.workers.lock().unwrap();
         self.stopped.store(true, Ordering::Relaxed);
+        self.space.stop();
     }
     pub fn is_stopped(&self) -> bool {
         self.stopped.load(Ordering::Relaxed)
     }
-    pub fn start_collector(self: &Arc<Self>) -> std::thread::JoinHandle<()> {
-        let state = self.clone();
-        std::thread::spawn(move || {
-            log::info!("process collector started");
-            while !state.stopped.load(Ordering::Relaxed) {
-                let start = Instant::now();
-                {
-                    let mut inner = state.lock();
-                    let refresh = inner
-                        .maps_at
-                        .is_none_or(|t| t.elapsed() >= Duration::from_secs(5));
-                    if let Some(target) = inner.target.as_mut().filter(|t| !t.exited) {
-                        match observation(target.summary.identity, target.observation.as_ref()) {
-                            Ok(o) => {
-                                history::push(&mut target.history, &o);
-                                target.observation = Some(o);
-                                if target.error.take().is_some() {
-                                    log::info!(
-                                        "observation recovered pid={}",
-                                        target.summary.identity.pid
-                                    );
-                                }
-                                if refresh {
-                                    refresh_maps(target);
-                                }
-                            }
-                            Err(e) => {
-                                let error = format!("{e:#}");
-                                if target.error.as_ref() != Some(&error) {
-                                    log::warn!(
-                                        "observation failed pid={}: {error}",
-                                        target.summary.identity.pid
-                                    );
-                                }
-                                target.error = Some(error);
-                                target.exited = process::check_identity(target.summary.identity)
-                                    .err()
-                                    .is_some_and(|e| e.to_string().starts_with("Process exited"));
-                                if target.exited {
-                                    log::info!("target exited pid={}", target.summary.identity.pid);
-                                }
-                            }
-                        }
-                        if refresh {
-                            inner.maps_at = Some(Instant::now());
-                        }
-                        state.publish(&inner);
-                    }
-                }
-                // Short sleeps make shutdown responsive even with a 60-second interval.
-                while start.elapsed() < state.interval && !state.stopped.load(Ordering::Relaxed) {
-                    std::thread::sleep(
-                        Duration::from_millis(50)
-                            .min(state.interval.saturating_sub(start.elapsed())),
-                    );
-                }
-            }
-            log::info!("process collector stopped");
-        })
+    pub fn join_collectors(&self) -> Result<()> {
+        let workers = std::mem::take(&mut *self.workers.lock().unwrap());
+        for worker in workers {
+            worker
+                .join()
+                .map_err(|_| anyhow::anyhow!("process collector thread panicked"))?;
+        }
+        Ok(())
     }
+}
+pub fn capture_target(id: ProcessId) -> Result<Target> {
+    process::check_identity(id)?;
+    let stat = procfs::read_stat(&format!("/proc/{}/stat", id.pid))?;
+    let summary = process::discovery::summary(&stat, &process::discovery::users());
+    ensure!(summary.identity == id, "Process exited (PID reused)");
+    let observation = observation(id, None)?;
+    let mut history = VecDeque::new();
+    history::push(&mut history, &observation);
+    let mut target = Target {
+        summary,
+        exited: false,
+        error: None,
+        observation: Some(observation),
+        history,
+        maps: Vec::new(),
+        maps_error: None,
+        maps_captured_at: None,
+        rollup: None,
+    };
+    refresh_maps(&mut target);
+    process::check_identity(id)?;
+    Ok(target)
 }
 fn refresh_maps(target: &mut Target) {
     let id = target.summary.identity;

@@ -87,12 +87,12 @@ fn discovery_rates_history_and_process_exit() {
             .any(|p| p.identity == target.id)
     );
     let app = Arc::new(AppState::new(Duration::from_millis(100)));
-    app.select(target.id).unwrap();
-    let collector = app.start_collector();
+    let session = app.observe(target.id, app.reserve().unwrap()).unwrap();
+    let other_id = process::identity(std::process::id() as i32).unwrap();
+    let other = app.observe(other_id, app.reserve().unwrap()).unwrap();
     std::thread::sleep(Duration::from_millis(350));
     {
-        let inner = app.lock();
-        let t = inner.target.as_ref().unwrap();
+        let t = session.receiver.borrow();
         let o = t.observation.as_ref().unwrap();
         assert!(o.cpu_percent.unwrap() > 0.0);
         assert!(o.rss_bytes > 0);
@@ -114,10 +114,14 @@ fn discovery_rates_history_and_process_exit() {
     target.child.kill().unwrap();
     target.child.wait().unwrap();
     std::thread::sleep(Duration::from_millis(200));
-    assert!(app.lock().target.as_ref().unwrap().exited);
-    assert!(app.select(target.id).is_err());
+    assert!(session.receiver.borrow().exited);
+    assert!(!other.receiver.borrow().exited);
+    assert_eq!(other.receiver.borrow().summary.identity, other_id);
+    assert!(app.observe(target.id, app.reserve().unwrap()).is_err());
     app.stop();
-    collector.join().unwrap();
+    drop(session);
+    drop(other);
+    app.join_collectors().unwrap();
 }
 
 #[test]
@@ -423,36 +427,16 @@ fn pipe_unix_tcp_udp_peers_are_distinct_from_shared_descriptors() {
 }
 
 #[tokio::test]
-async fn api_selection_identity_validation_and_memory_limits() {
-    use axum::{
-        body::{Body, to_bytes},
-        http::Request,
-    };
+async fn api_explicit_identity_validation_and_memory_limits() {
+    use axum::{body::Body, http::Request};
     use tower::ServiceExt;
     let target = Target::new("sleeping");
     let state = Arc::new(AppState::new(Duration::from_secs(1)));
     let app = procinsh::server::router(state, "127.0.0.1:8080".parse().unwrap());
-    let response = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/api/target")
-                .header("host", "127.0.0.1:8080")
-                .header("content-type", "application/json")
-                .body(Body::from(serde_json::to_vec(&target.id).unwrap()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(response.status(), 200);
-    let body: serde_json::Value =
-        serde_json::from_slice(&to_bytes(response.into_body(), usize::MAX).await.unwrap()).unwrap();
-    assert_eq!(body["summary"]["identity"]["pid"], target.id.pid);
     for path in ["environment", "auxv", "fds", "signals"] {
         for (start, expected) in [
             (target.id.start_time_ticks, 200),
-            (target.id.start_time_ticks + 1, 409),
+            (target.id.start_time_ticks + 1, 410),
         ] {
             let uri = format!(
                 "/api/target/{path}?pid={}&start_time_ticks={start}",
@@ -475,7 +459,7 @@ async fn api_selection_identity_validation_and_memory_limits() {
     }
     for (start, length, expected) in [
         (target.id.start_time_ticks, 8, 200),
-        (target.id.start_time_ticks + 1, 8, 409),
+        (target.id.start_time_ticks + 1, 8, 410),
         (target.id.start_time_ticks, 65537, 400),
     ] {
         let uri = format!(
@@ -495,4 +479,21 @@ async fn api_selection_identity_validation_and_memory_limits() {
             .unwrap();
         assert_eq!(response.status().as_u16(), expected);
     }
+    // Two callers must not attach to the same tracee concurrently.
+    let snapshot_request = || {
+        Request::builder()
+            .method("POST")
+            .uri("/api/target/snapshot")
+            .header("host", "127.0.0.1:8080")
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_vec(&target.id).unwrap()))
+            .unwrap()
+    };
+    let (a, b) = tokio::join!(
+        app.clone().oneshot(snapshot_request()),
+        app.clone().oneshot(snapshot_request()),
+    );
+    assert_eq!(a.unwrap().status(), 200);
+    assert_eq!(b.unwrap().status(), 200);
+    target.assert_detached();
 }

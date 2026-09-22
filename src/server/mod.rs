@@ -1,6 +1,6 @@
 use crate::{
     process::{self, ProcessId},
-    state::{AppState, Target},
+    state::AppState,
 };
 use axum::{
     Json, Router,
@@ -27,7 +27,9 @@ impl IntoResponse for ApiError {
 impl From<anyhow::Error> for ApiError {
     fn from(e: anyhow::Error) -> Self {
         let message = format!("{e:#}");
-        let status = if message.contains("Process exited") {
+        let status = if message.contains("Server is stopping") {
+            StatusCode::SERVICE_UNAVAILABLE
+        } else if message.contains("Process exited") {
             StatusCode::GONE
         } else {
             StatusCode::UNPROCESSABLE_ENTITY
@@ -136,7 +138,6 @@ pub fn router(state: Arc<AppState>, address: SocketAddr) -> Router {
         .route("/api/space/events", get(crate::space::http::events))
         .route("/api/config", get(config))
         .route("/api/processes", get(processes))
-        .route("/api/target", post(select).delete(clear))
         .route("/api/target/process", get(stats))
         .route("/api/target/threads", get(threads))
         .route("/api/target/maps", get(maps))
@@ -225,99 +226,52 @@ async fn config(State(s): State<Arc<AppState>>) -> Json<Value> {
     )
 }
 async fn processes(State(s): State<Arc<AppState>>) -> ApiResult {
-    blocking(move || Ok(Json(json!(s.lock().discovery.collect()?)))).await
+    blocking(move || Ok(Json(json!(s.discovery.lock().unwrap().collect()?)))).await
 }
-async fn select(State(s): State<Arc<AppState>>, Json(id): Json<ProcessId>) -> ApiResult {
-    blocking(move || Ok(Json(json!(s.select(id)?)))).await
+async fn stats(Query(id): Query<ProcessId>) -> ApiResult {
+    blocking(move || Ok(Json(json!(crate::state::observation(id, None)?)))).await
 }
-async fn clear(State(s): State<Arc<AppState>>, Json(id): Json<ProcessId>) -> ApiResult {
+async fn threads(Query(id): Query<ProcessId>) -> ApiResult {
+    blocking(move || Ok(Json(json!(crate::state::observation(id, None)?.threads)))).await
+}
+async fn maps(Query(id): Query<ProcessId>) -> ApiResult {
     blocking(move || {
-        let mut inner = s.lock();
-        selected(&inner.target, id, false)?;
-        log::info!(
-            "target cleared pid={} start_time_ticks={}",
-            id.pid,
-            id.start_time_ticks
-        );
-        inner.target = None;
-        s.publish(&inner);
-        Ok(Json(Value::Null))
-    })
-    .await
-}
-
-fn selected(
-    target: &Option<Target>,
-    expected: ProcessId,
-    alive: bool,
-) -> Result<&Target, ApiError> {
-    let t = target
-        .as_ref()
-        .ok_or_else(|| ApiError(StatusCode::NOT_FOUND, "No target selected".into()))?;
-    if t.summary.identity != expected {
-        return Err(ApiError(
-            StatusCode::CONFLICT,
-            "Target changed; reload the inspector".into(),
-        ));
-    }
-    if alive {
-        process::check_identity(expected)?;
-    }
-    Ok(t)
-}
-async fn stats(State(s): State<Arc<AppState>>, Query(id): Query<ProcessId>) -> ApiResult {
-    blocking(move || {
-        Ok(Json(json!(
-            selected(&s.lock().target, id, false)?.observation
-        )))
-    })
-    .await
-}
-async fn threads(State(s): State<Arc<AppState>>, Query(id): Query<ProcessId>) -> ApiResult {
-    blocking(move || {
-        Ok(Json(json!(
-            selected(&s.lock().target, id, false)?
-                .observation
-                .as_ref()
-                .map(|o| &o.threads)
-        )))
-    })
-    .await
-}
-async fn maps(State(s): State<Arc<AppState>>, Query(id): Query<ProcessId>) -> ApiResult {
-    blocking(move || { let inner = s.lock(); let t = selected(&inner.target,id,false)?;
-        Ok(Json(json!({"process_id":id,"maps":t.maps,"error":t.maps_error,"captured_at":t.maps_captured_at,"rollup":t.rollup})))
+        process::check_identity(id)?;
+        let result = process::maps::read(id.pid, true);
+        let rollup = process::maps::rollup(id.pid);
+        process::check_identity(id)?;
+        let (maps, error, captured_at) = match result {
+            Ok(maps) => (maps, None, Some(process::timestamp_ms())),
+            Err(e) => (Vec::new(), Some(process::permission_help("memory maps", e)), None),
+        };
+        Ok(Json(json!({"process_id":id,"maps":maps,"error":error,"captured_at":captured_at,"rollup":rollup})))
     }).await
 }
 
-async fn environment(State(s): State<Arc<AppState>>, Query(id): Query<ProcessId>) -> ApiResult {
+async fn environment(Query(id): Query<ProcessId>) -> ApiResult {
     blocking(move || {
-        let inner = s.lock();
-        selected(&inner.target, id, true)?;
+        process::check_identity(id)?;
         Ok(Json(json!(process::details::environment(id)?)))
     })
     .await
 }
-async fn fds(State(s): State<Arc<AppState>>, Query(id): Query<ProcessId>) -> ApiResult {
+async fn fds(Query(id): Query<ProcessId>) -> ApiResult {
     blocking(move || {
-        let inner = s.lock();
-        selected(&inner.target, id, true)?;
+        process::check_identity(id)?;
         Ok(Json(json!(process::fds::read(id)?)))
     })
     .await
 }
-async fn signals(State(s): State<Arc<AppState>>, Query(id): Query<ProcessId>) -> ApiResult {
+async fn signals(Query(id): Query<ProcessId>) -> ApiResult {
     blocking(move || {
-        let inner = s.lock();
-        selected(&inner.target, id, true)?;
+        process::check_identity(id)?;
         Ok(Json(json!(process::signals::read(id)?)))
     })
     .await
 }
-async fn auxv(State(s): State<Arc<AppState>>, Query(id): Query<ProcessId>) -> ApiResult {
+async fn auxv(Query(id): Query<ProcessId>) -> ApiResult {
     blocking(move || {
-        let inner = s.lock();
-        selected(&inner.target, id, true)?;
+        process::check_identity(id)?;
         Ok(Json(json!(process::details::auxv(id)?)))
     })
     .await
@@ -334,7 +288,7 @@ struct MemoryQuery {
 fn default_length() -> usize {
     256
 }
-async fn memory(State(s): State<Arc<AppState>>, Query(q): Query<MemoryQuery>) -> ApiResult {
+async fn memory(Query(q): Query<MemoryQuery>) -> ApiResult {
     let address = if let Some(hex) = q
         .address
         .strip_prefix("0x")
@@ -359,20 +313,19 @@ async fn memory(State(s): State<Arc<AppState>>, Query(q): Query<MemoryQuery>) ->
         ));
     }
     blocking(move || {
-        let inner = s.lock();
         let id = ProcessId {
             pid: q.pid,
             start_time_ticks: q.start_time_ticks,
         };
-        selected(&inner.target, id, true)?;
+        process::check_identity(id)?;
         Ok(Json(json!(process::memory::read(id, address, q.length)?)))
     })
     .await
 }
 async fn snapshot(State(s): State<Arc<AppState>>, Json(id): Json<ProcessId>) -> ApiResult {
     blocking(move || {
-        let inner = s.lock();
-        selected(&inner.target, id, true)?;
+        let _snapshot = s.snapshot_lock.lock().unwrap();
+        process::check_identity(id)?;
         Ok(Json(json!(crate::snapshot::capture(
             id,
             s.symbols.clone()
@@ -380,26 +333,44 @@ async fn snapshot(State(s): State<Arc<AppState>>, Json(id): Json<ProcessId>) -> 
     })
     .await
 }
-async fn events(State(s): State<Arc<AppState>>) -> Response {
-    let mut receiver = s.events.subscribe();
-    // watch delivers the latest state without replaying an older target after
-    // the initial event, or retaining a backlog for a slow browser.
-    let initial = receiver.borrow_and_update().clone();
+async fn events(
+    State(s): State<Arc<AppState>>,
+    Query(id): Query<ProcessId>,
+) -> Result<Response, ApiError> {
+    let permit = s.reserve().map_err(|code| {
+        ApiError(
+            code,
+            if code == StatusCode::TOO_MANY_REQUESTS {
+                "Too many viewers"
+            } else {
+                "Server is stopping"
+            }
+            .into(),
+        )
+    })?;
+    let state = s.clone();
+    let mut session = blocking(move || Ok(state.observe(id, permit)?)).await?;
+    let initial = session.receiver.borrow_and_update().clone();
     let stream = async_stream::stream! {
-        yield Ok::<_,Infallible>(Event::default().event("observation").data(initial));
+        yield Ok::<_, Infallible>(Event::default().event("observation").json_data(initial).unwrap());
         loop {
+            if s.is_stopped() { break; }
             let received = tokio::select! {
-                received = receiver.changed() => received,
-                _ = tokio::time::sleep(Duration::from_secs(1)) => { if s.is_stopped() { break; } else { continue; } }
+                received = session.receiver.changed() => received,
+                _ = tokio::time::sleep(Duration::from_millis(100)) => { continue; }
             };
             if received.is_err() { break; }
-            let data = receiver.borrow_and_update().clone();
-            yield Ok(Event::default().event("observation").data(data));
+            let data = session.receiver.borrow_and_update().clone();
+            let exited = data.exited;
+            yield Ok(Event::default().event("observation").json_data(data).unwrap());
+            if exited { break; }
         }
+        // Retain the permit for the complete stream lifetime, not just initialization.
+        drop(session);
     };
-    Sse::new(stream)
+    Ok(Sse::new(stream)
         .keep_alive(KeepAlive::new().interval(Duration::from_secs(10)))
-        .into_response()
+        .into_response())
 }
 
 #[cfg(test)]

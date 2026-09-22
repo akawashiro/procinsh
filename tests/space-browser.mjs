@@ -79,7 +79,6 @@ try {
   assert.deepEqual(await evaluate("Array.from(document.querySelector('.tools').children,e=>e.id)"),['search','reset','rearrange']);
   await delay(1000);
   assert.ok(snapshot.nodes.length>2);
-  assert.equal(await evaluate(`new Promise((resolve,reject)=>{const s=new EventSource('/api/target/events');const timer=setTimeout(()=>{s.close();reject(new Error('target SSE timeout'));},5000);s.addEventListener('observation',e=>{clearTimeout(timer);s.close();resolve(JSON.parse(e.data));});})`),null,'space must not select inspector target');
   const n=snapshot.nodes.find(n=>n.identity.pid===app.pid);
   await evaluate(`document.getElementById('search').value='${app.pid}'; document.getElementById('search').dispatchEvent(new Event('input')); document.getElementById('search').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter'}));`);
   assert.match(await evaluate("document.getElementById('pid').textContent"),new RegExp(String(app.pid)));
@@ -221,7 +220,7 @@ try {
   await cdp('Page.navigate',{url});
   await until(async()=> (await (await fetch(url+'/api/space/status')).json()).active===false,'observer stop');
   assert.deepEqual(errors.filter(e=>!/favicon.ico/.test(e)),[]);
-  console.log('Space browser checks passed: WebGL, topology, minimal tools, connection details/states/links, CPU base glow/fade, stale identity, process selection, no target mutation, mobile, observation shutdown.');
+  console.log('Space browser checks passed: WebGL, topology, minimal tools, connection details/states/links, CPU base glow/fade, stale identity, process selection, independent graph selection, mobile, observation shutdown.');
 
 } finally {
   socket?.close();

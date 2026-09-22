@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import {checkAutoSnapshot} from './auto-snapshot.mjs';
 import {checkProcessDetails} from './process-details.mjs';
 import {checkDescriptors} from './fds.mjs';
+import {checkProcessSessions} from './process-sessions.mjs';
 
 const children = [], errors = [];
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -58,7 +59,7 @@ try {
     const message=JSON.parse(event.data);
     if(message.method==='Network.requestWillBeSent'){
       const r=message.params.request;
-      if(r.method==='GET'&&new URL(r.url).pathname==='/api/target')targetGets.push(r.url);
+      if(new URL(r.url).pathname==='/api/target')targetGets.push(r.url);
     }
   };
   socket.addEventListener('message',onRequest);
@@ -67,7 +68,7 @@ try {
     const Native=window.EventSource;
     window.EventSource=class extends Native {
       constructor(...args){super(...args);window.targetSources.push(this);
-        if(args[0]==='/api/target/events')queueMicrotask(()=>this.dispatchEvent(new Event('error')));
+        if(String(args[0]).startsWith('/api/target/events?'))queueMicrotask(()=>this.dispatchEvent(new Event('error')));
       }
     };
   `});
@@ -85,20 +86,26 @@ try {
     await waitFor(`!document.getElementById('inspector').hidden && document.getElementById('identity').textContent.includes('PID ${pid} /')`, 'process selection');
   }
   await choose(recursive.pid);
+  await evaluate("window.currentIdentity=JSON.stringify(target.summary.identity);const reused=structuredClone(target);reused.summary.identity.start_time_ticks++;window.targetSources.at(-1).dispatchEvent(new MessageEvent('observation',{data:JSON.stringify(reused)}))");
+  assert.equal(await evaluate("JSON.stringify(target.summary.identity)"),await evaluate("window.currentIdentity"),'SSE cannot switch to a reused PID');
   await cdp('Page.navigate',{url:url+'/process/'+threads.pid});
-  await waitFor(`document.getElementById('identity').textContent.includes('PID ${threads.pid} /')`,'direct URL replaces shared target');
-  await waitFor("window.targetSources.length===2",'direct URL reconnects once');
-  await evaluate("window.targetSources[0].dispatchEvent(new MessageEvent('observation',{data:'null'}))");
+  await waitFor(`document.getElementById('identity').textContent.includes('PID ${threads.pid} /')`,'direct URL selects requested target');
+  await waitFor("window.targetSources.length===1",'direct URL opens one identified stream');
+  await evaluate("window.oldSource=window.targetSources[0];document.getElementById('back').click()");
+  await evaluate("window.oldSource.dispatchEvent(new MessageEvent('observation',{data:'invalid stale data'}))");
+  assert.equal(await evaluate("document.getElementById('inspector').hidden"),true,'stale stream cannot reopen details');
+  await choose(threads.pid);
   assert.ok(await evaluate(`document.getElementById('identity').textContent.includes('PID ${threads.pid} /')`),'stale initial stream is ignored');
   await cdp('Page.navigate',{url:url+'/process/2147483647'});
   await waitFor("document.getElementById('error').textContent.includes('Process exited')",'missing direct PID');
-  await waitFor(`document.getElementById('identity').textContent.includes('PID ${threads.pid} /')`,'failed selection follows shared state');
+  assert.equal(await evaluate("document.getElementById('inspector').hidden"),true,'missing PID leaves list visible');
   await cdp('Page.navigate',{url:url+'/process/'+recursive.pid});
   await waitFor(`document.getElementById('identity').textContent.includes('PID ${recursive.pid} /')`,'direct URL original target');
   assert.equal(await evaluate("document.getElementById('target-status').hidden"), true);
   assert.equal(await evaluate("document.querySelector('header #back').hidden"), false);
   assert.equal(await evaluate("document.querySelector('header #back').textContent"), 'Back to process list');
   assert.equal(await evaluate('document.title'), await evaluate("'procinsh / ' + document.getElementById('target-name').textContent"));
+  await checkProcessSessions({cdp,evaluate,choose,until,delay,url,debugPort,originalPid:recursive.pid,otherPid:threads.pid});
   await checkAutoSnapshot({evaluate, waitFor, delay, choose, otherPid: threads.pid, originalPid: recursive.pid});
   await checkProcessDetails({evaluate, waitFor, delay, choose, otherPid: threads.pid, originalPid: recursive.pid});
   await checkDescriptors({evaluate, waitFor, delay, choose, originalPid: recursive.pid, ipcPid: ipc.pid, peerPid});
@@ -138,16 +145,18 @@ try {
   await waitFor("document.getElementById('target-status').textContent.includes('Process exited')", 'process exit');
   assert.equal(await evaluate("document.getElementById('target-status').hidden"), false);
   assert.equal(await evaluate("document.getElementById('auto-snapshot').checked"), false);
+  assert.ok(await evaluate("window.targetSources.at(-1).readyState===EventSource.CLOSED"),'process exit closes the stream');
+  await evaluate("document.getElementById('back').click()");
+  await choose(recursive.pid);
   // An open SSE connection must not hang graceful shutdown.
   app.kill('SIGTERM'); await until(() => app.exitCode !== null, 'shutdown with active SSE', 5000);
-  const direct = launch('target/debug/procinsh', ['--listen', '127.0.0.1:0', '--pid', String(recursive.pid)]);
-  const directUrl = await until(() => direct.output.match(/http:\/\/127\.0\.0\.1:\d+/)?.[0], 'direct PID server');
-  await cdp('Page.navigate', {url: directUrl});
-  await waitFor(`document.getElementById('identity')?.textContent.includes('PID ${recursive.pid} /')`, 'CLI direct PID');
+  const removed = launch('target/debug/procinsh', ['--pid', String(recursive.pid)]);
+  await until(()=>removed.exitCode!==null,'removed CLI option');
+  assert.notEqual(removed.exitCode,0);
   // Connection failures caused by deliberately shutting down the first server are expected.
   assert.deepEqual(errors.filter(e => !/ERR_CONNECTION_REFUSED|Failed to load resource/.test(e)), []);
-  assert.deepEqual(targetGets,[],'initialization never requests GET /api/target');
-  console.log('Browser checks passed: explorer, search, selection, SSE initialization/direct URLs/stale events, snapshots, source lines, memory, mobile layout, thread switching, process exit, graceful shutdown, --pid.');
+  assert.deepEqual(targetGets,[],'UI never requests removed /api/target');
+  console.log('Browser checks passed: explorer, search, selection, SSE initialization/direct URLs/stale events, snapshots, source lines, memory, mobile layout, thread switching, process exit, graceful shutdown, removed --pid.');
 } finally {
   socket?.close();
   for (const child of children.reverse()) if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM');

@@ -8,8 +8,6 @@ use std::{net::SocketAddr, sync::Arc, time::Duration};
 #[derive(Parser)]
 #[command(version, about = "Read-only Linux x86-64 process inspector")]
 struct Cli {
-    #[arg(long, value_parser = clap::value_parser!(i32).range(1..))]
-    pid: Option<i32>,
     #[arg(long, default_value = "1s", value_parser = humantime::parse_duration)]
     interval: Duration,
     #[arg(long, default_value = "127.0.0.1:8080")]
@@ -38,9 +36,6 @@ async fn run() -> Result<()> {
         "--interval must be between 100ms and 60s"
     );
     let state = Arc::new(procinsh::state::AppState::new(cli.interval));
-    if let Some(pid) = cli.pid {
-        state.select(procinsh::process::identity(pid)?)?;
-    }
     let listener = tokio::net::TcpListener::bind(cli.listen)
         .await
         .context("could not bind HTTP listener")?;
@@ -52,7 +47,6 @@ async fn run() -> Result<()> {
     }
     let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
         .context("could not install SIGTERM handler")?;
-    let collector = state.start_collector();
     let shutdown_state = state.clone();
     log::info!(
         "procinsh {} listening on http://{address} interval={:?}",
@@ -74,9 +68,7 @@ async fn run() -> Result<()> {
         })
         .await;
     state.stop();
-    collector
-        .join()
-        .map_err(|_| anyhow::anyhow!("process collector thread panicked"))?;
+    state.join_collectors()?;
     log::info!("procinsh stopped");
     result.context("HTTP server failed")
 }

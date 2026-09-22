@@ -67,7 +67,6 @@ let processes: ProcessSummary[] = [],
   captured: Capture | null = null;
 let snapshotBusy = false,
   listBusy = false,
-  selecting = false,
   mapsTimestamp: number | null = null;
 let autoSnapshotTimer: number | null = null,
   snapshotEpoch = 0,
@@ -340,7 +339,7 @@ function button(text: string, action: () => void, className = "pointer") {
 }
 
 async function refresh() {
-  if (listBusy || !$("inspector").hidden) return;
+  if (listBusy || targetSource || !$("inspector").hidden) return;
   listBusy = true;
   try {
     processes = await api<ProcessSummary[]>("/api/processes");
@@ -395,25 +394,48 @@ function renderProcesses() {
   $("process-count").textContent =
     `${rows.length} / ${processes.length} processes`;
 }
-async function select(id: ProcessId) {
-  if (selecting) return;
-  selecting = true;
+let targetSource: EventSource | null = null;
+let targetGeneration = 0;
+function closeTarget() {
+  targetGeneration++;
+  targetSource?.close();
+  targetSource = null;
   stopAutoSnapshot();
-  snapshotEpoch++;
-  resetProcessDetails();
+}
+async function select(id: ProcessId) {
+  closeTarget();
+  acceptTarget(null);
   clearError();
-  try {
-    acceptTarget(
-      await api<Target>("/api/target", {
-        method: "POST",
-        body: JSON.stringify(id),
-      }),
-    );
-  } catch (e) {
-    error(e);
-  } finally {
-    selecting = false;
-  }
+  const generation = targetGeneration;
+  const events = new EventSource(`/api/target/events?${query(id)}`);
+  targetSource = events;
+  let disconnected = false;
+  history.replaceState(null, "", `/process/${id.pid}`);
+  events.addEventListener("observation", (event) => {
+    if (targetSource !== events || generation !== targetGeneration) return;
+    try {
+      const next = JSON.parse(event.data) as Target;
+      if (!same(id, next.summary.identity)) return;
+      if (disconnected) {
+        clearError();
+        disconnected = false;
+      }
+      acceptTarget(next);
+      if (next.exited) {
+        events.close();
+        targetSource = null;
+        stopAutoSnapshot("Auto capture OFF · Process exited");
+      }
+    } catch (e) {
+      error(e);
+    }
+  });
+  events.onerror = () => {
+    if (targetSource !== events || generation !== targetGeneration) return;
+    disconnected = true;
+    stopAutoSnapshot("Auto capture OFF · Disconnected");
+    error(new Error("Process observation disconnected. Retrying the same process identity…"));
+  };
 }
 function resetCapture() {
   resetProcessDetails();
@@ -462,18 +484,9 @@ function acceptTarget(next: Target | null) {
 }
 async function back(event?: Event) {
   event?.preventDefault();
+  closeTarget();
   clearError();
-  const id = identity();
-  stopAutoSnapshot();
-  snapshotEpoch++;
-  resetProcessDetails();
-  try {
-    if (id)
-      await api("/api/target", { method: "DELETE", body: JSON.stringify(id) });
-    acceptTarget(null);
-  } catch (e) {
-    error(e);
-  }
+  acceptTarget(null);
 }
 function renderTarget() {
   if (!target) return;
@@ -770,7 +783,8 @@ function renderSnapshot() {
   );
 }
 async function readMemory(address: string) {
-  const id = identity();
+  const id = identity(),
+    epoch = detailEpoch;
   if (!id) return;
   clearError();
   $("address").value = address;
@@ -783,7 +797,7 @@ async function readMemory(address: string) {
     const result = await api<MemoryRead>(
       `/api/target/memory?${query(id)}&address=${encodeURIComponent(address)}&length=${length}`,
     );
-    if (!same(id, identity())) return;
+    if (epoch !== detailEpoch || !same(id, identity())) return;
     const start = BigInt(result.address),
       lines = [];
     for (let i = 0; i < result.bytes.length; i += 16) {
@@ -803,7 +817,7 @@ async function readMemory(address: string) {
     $("memory-info").textContent =
       `${result.bytes.length} / ${result.requested_length} bytes${result.partial ? " · partial read (mapping boundary)" : ""} · live read ${new Date(result.captured_at).toLocaleTimeString("en-US")} · separate from the snapshot`;
   } catch (e) {
-    if (same(id, identity())) {
+    if (epoch === detailEpoch && same(id, identity())) {
       $("memory").textContent = "";
       $("memory-info").textContent = "Read failed.";
       error(e);
@@ -838,7 +852,10 @@ document.addEventListener("visibilitychange", () => {
   if (document.hidden && autoSnapshotTimer !== null)
     stopAutoSnapshot("Auto capture OFF · Tab hidden");
 });
-window.addEventListener("pagehide", () => stopAutoSnapshot());
+window.addEventListener("pagehide", closeTarget);
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted && target && !target.exited) select(target.summary.identity);
+});
 $("memory-form").addEventListener("submit", (event) => {
   event.preventDefault();
   readMemory($("address").value.trim());
@@ -848,61 +865,17 @@ async function start() {
   try {
     const config = await api<{ interval_ms: number }>("/api/config");
     const direct = /^\/process\/(\d+)$/.exec(location.pathname);
-    let initial = true;
-    let initialConnectionError = false;
-    let active: EventSource | null = null;
-    function connect() {
-      const events = new EventSource("/api/target/events");
-      active = events;
-      events.addEventListener("observation", async (event) => {
-        if (active !== events) return;
-        try {
-          const next = JSON.parse(event.data) as Target | null;
-          if (initialConnectionError) {
-            clearError();
-            initialConnectionError = false;
-          }
-          const resolveDirect =
-            initial &&
-            direct &&
-            Number(direct[1]) !== next?.summary.identity.pid;
-          initial = false;
-          if (resolveDirect) {
-            // Resolve the URL only once. Reopen after selection so queued
-            // observations from the old target cannot replace the new view.
-            active = null;
-            events.close();
-            try {
-              const all = await api<ProcessSummary[]>("/api/processes");
-              const p = all.find((p) => p.identity.pid === Number(direct[1]));
-              if (p) await select(p.identity);
-              else {
-                acceptTarget(null);
-                error(new Error("Process exited"));
-              }
-            } catch (e) {
-              error(e);
-            } finally {
-              connect();
-            }
-          } else {
-            acceptTarget(next);
-          }
-        } catch (e) {
-          error(e);
-        }
-      });
-      events.onerror = () => {
-        if (active !== events) return;
-        if (initial) {
-          initialConnectionError = true;
-          error(new Error("Connecting to process updates…"));
-        }
-        if (autoSnapshotTimer !== null)
-          stopAutoSnapshot("Auto capture OFF · Disconnected");
-      };
+    if (direct) {
+      const all = await api<ProcessSummary[]>("/api/processes");
+      const p = all.find((p) => p.identity.pid === Number(direct[1]));
+      if (p) await select(p.identity);
+      else {
+        acceptTarget(null);
+        error(new Error("Process exited"));
+      }
+    } else {
+      acceptTarget(null);
     }
-    connect();
     setInterval(refresh, Math.max(1000, config.interval_ms));
     setInterval(snapshotAge, 1000);
   } catch (e) {
