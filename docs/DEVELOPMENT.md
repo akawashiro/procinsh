@@ -202,11 +202,13 @@ watch channelは接続ごとに独立し、遅い購読者へ古い状態を蓄�
 
 購読側が遅延した場合は `gap` と最新の `topology` を送り、失われた活動を再生しません。keep-alive は10秒間隔です。活動は最大10Hzで集計・配信します。
 
-| センサー | バックエンドの観測内容と制約 |
-|---|---|
-| CPU | CO-RE eBPF の `sched_switch` で実行時間と実行中 CPU を集計 |
-| IPC | pipe read/write と socket の送受信結果を観測。ペイロードは読まず、MSG_PEEK は加算しない。splice/sendfile、一部 io_uring、帰属不明のワーカーは対象外 |
-| ファイル I/O | 独立した BPF で VFS の read/write、ベクトル I/O の成功バイト数と回数を観測。ページキャッシュ経由も含む。mmap、io_uring、splice/sendfile、物理ディスク転送量は対象外 |
+いずれのセンサーも CO-RE eBPF で実装しています。CPU と IPC は同じ eBPF プログラム、ファイル I/O は別の eBPF プログラムで収集します。
+
+| センサー | バックエンドの観測内容と制約 | eBPF ソース |
+|---|---|---|
+| CPU | `sched_switch` で実行時間と実行中 CPU を集計 | [activity.bpf.c](../src/space/activity.bpf.c) |
+| IPC | pipe read/write と socket の送受信結果を観測。ペイロードは読まず、MSG_PEEK は加算しない。splice/sendfile、一部 io_uring、帰属不明のワーカーは対象外 | [activity.bpf.c](../src/space/activity.bpf.c) |
+| ファイル I/O | VFS の read/write、ベクトル I/O の成功バイト数と回数を観測。ページキャッシュ経由も含む。mmap、io_uring、splice/sendfile、物理ディスク転送量は対象外 | [files.bpf.c](../src/space/files.bpf.c) |
 
 ファイルのパスは操作時に取得し、取得できない場合は device/inode 等の識別子を使います。BPF のフックが利用できない場合はセンサーごとの理由を状態 API とログに出し、利用可能な情報の収集を継続します。必要なカーネル機能・権限はセンサーごとに異なります。
 
