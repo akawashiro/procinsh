@@ -79,14 +79,14 @@ try {
   assert.deepEqual(await evaluate("Array.from(document.querySelector('.tools').children,e=>e.id)"),['search','reset','rearrange']);
   await delay(1000);
   assert.ok(snapshot.nodes.length>2);
-  assert.equal(await (await fetch(url+'/api/target')).json(),null,'space must not select inspector target');
+  assert.equal(await evaluate(`new Promise((resolve,reject)=>{const s=new EventSource('/api/target/events');const timer=setTimeout(()=>{s.close();reject(new Error('target SSE timeout'));},5000);s.addEventListener('observation',e=>{clearTimeout(timer);s.close();resolve(JSON.parse(e.data));});})`),null,'space must not select inspector target');
   const n=snapshot.nodes.find(n=>n.identity.pid===app.pid);
   await evaluate(`document.getElementById('search').value='${app.pid}'; document.getElementById('search').dispatchEvent(new Event('input')); document.getElementById('search').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter'}));`);
   assert.match(await evaluate("document.getElementById('pid').textContent"),new RegExp(String(app.pid)));
   assert.equal(await evaluate("document.getElementById('inspect').getAttribute('href')"), `/process/${app.pid}`);
   await evaluate("document.getElementById('close').click()");
   assert.equal(await evaluate("document.getElementById('regions')"),null,'address-space list is removed from process details');
-  assert.ok(await evaluate("window.spaceTestSources.every(s=>new URL(s.url).pathname==='/api/space/events' && !new URL(s.url).search)"),'SSE needs no token');
+  assert.ok(await evaluate("window.spaceTestSources.filter(s=>new URL(s.url).pathname==='/api/space/events').every(s=>!new URL(s.url).search)"),'SSE needs no token');
   await evaluate("window.extraViewer=new EventSource('/api/space/events')");
   await waitFor("window.extraViewer.readyState===EventSource.OPEN", 'second viewer');
   await evaluate("Object.defineProperty(document,'hidden',{configurable:true,value:true});document.dispatchEvent(new Event('visibilitychange'))");

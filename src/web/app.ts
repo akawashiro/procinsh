@@ -846,30 +846,63 @@ $("memory-form").addEventListener("submit", (event) => {
 window.addEventListener("resize", drawHistory);
 async function start() {
   try {
-    const config = await api<{ interval_ms: number }>("/api/config"),
-      initial = await api<Target | null>("/api/target");
+    const config = await api<{ interval_ms: number }>("/api/config");
     const direct = /^\/process\/(\d+)$/.exec(location.pathname);
-    if (direct && Number(direct[1]) !== initial?.summary.identity.pid) {
-      const all = await api<ProcessSummary[]>("/api/processes");
-      const p = all.find((p) => p.identity.pid === Number(direct[1]));
-      if (p) await select(p.identity);
-      else {
-        acceptTarget(null);
-        error(new Error("Process exited"));
-      }
-    } else acceptTarget(initial);
-    const events = new EventSource("/api/target/events");
-    events.addEventListener("observation", (event) => {
-      try {
-        acceptTarget(JSON.parse(event.data));
-      } catch (e) {
-        error(e);
-      }
-    });
-    events.onerror = () => {
-      if (autoSnapshotTimer !== null)
-        stopAutoSnapshot("Auto capture OFF · Disconnected");
-    };
+    let initial = true;
+    let initialConnectionError = false;
+    let active: EventSource | null = null;
+    function connect() {
+      const events = new EventSource("/api/target/events");
+      active = events;
+      events.addEventListener("observation", async (event) => {
+        if (active !== events) return;
+        try {
+          const next = JSON.parse(event.data) as Target | null;
+          if (initialConnectionError) {
+            clearError();
+            initialConnectionError = false;
+          }
+          const resolveDirect =
+            initial &&
+            direct &&
+            Number(direct[1]) !== next?.summary.identity.pid;
+          initial = false;
+          if (resolveDirect) {
+            // Resolve the URL only once. Reopen after selection so queued
+            // observations from the old target cannot replace the new view.
+            active = null;
+            events.close();
+            try {
+              const all = await api<ProcessSummary[]>("/api/processes");
+              const p = all.find((p) => p.identity.pid === Number(direct[1]));
+              if (p) await select(p.identity);
+              else {
+                acceptTarget(null);
+                error(new Error("Process exited"));
+              }
+            } catch (e) {
+              error(e);
+            } finally {
+              connect();
+            }
+          } else {
+            acceptTarget(next);
+          }
+        } catch (e) {
+          error(e);
+        }
+      });
+      events.onerror = () => {
+        if (active !== events) return;
+        if (initial) {
+          initialConnectionError = true;
+          error(new Error("Connecting to process updates…"));
+        }
+        if (autoSnapshotTimer !== null)
+          stopAutoSnapshot("Auto capture OFF · Disconnected");
+      };
+    }
+    connect();
     setInterval(refresh, Math.max(1000, config.interval_ms));
     setInterval(snapshotAge, 1000);
   } catch (e) {

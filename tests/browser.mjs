@@ -52,9 +52,29 @@ try {
   };
   const waitFor = (expression, label) => until(() => evaluate(expression), label);
   await cdp('Runtime.enable'); await cdp('Log.enable'); await cdp('Page.enable');
+  await cdp('Network.enable');
+  const targetGets=[];
+  const onRequest=event=>{
+    const message=JSON.parse(event.data);
+    if(message.method==='Network.requestWillBeSent'){
+      const r=message.params.request;
+      if(r.method==='GET'&&new URL(r.url).pathname==='/api/target')targetGets.push(r.url);
+    }
+  };
+  socket.addEventListener('message',onRequest);
+  await cdp('Page.addScriptToEvaluateOnNewDocument',{source:`
+    window.targetSources=[];
+    const Native=window.EventSource;
+    window.EventSource=class extends Native {
+      constructor(...args){super(...args);window.targetSources.push(this);
+        if(args[0]==='/api/target/events')queueMicrotask(()=>this.dispatchEvent(new Event('error')));
+      }
+    };
+  `});
   await cdp('Emulation.setDeviceMetricsOverride', {width: 1440, height: 1100, deviceScaleFactor: 1, mobile: false});
   await cdp('Page.navigate', {url});
   await waitFor("document.querySelectorAll('#process-list tr').length > 2", 'process explorer');
+  await waitFor("document.getElementById('error').hidden", 'initial SSE recovers from connection error');
   assert.equal(await evaluate("document.getElementById('inspector').hidden"), true);
   assert.equal(await evaluate('document.title'), 'procinsh / list');
   assert.equal(await evaluate("document.querySelector('header #back').hidden"), true);
@@ -65,6 +85,16 @@ try {
     await waitFor(`!document.getElementById('inspector').hidden && document.getElementById('identity').textContent.includes('PID ${pid} /')`, 'process selection');
   }
   await choose(recursive.pid);
+  await cdp('Page.navigate',{url:url+'/process/'+threads.pid});
+  await waitFor(`document.getElementById('identity').textContent.includes('PID ${threads.pid} /')`,'direct URL replaces shared target');
+  await waitFor("window.targetSources.length===2",'direct URL reconnects once');
+  await evaluate("window.targetSources[0].dispatchEvent(new MessageEvent('observation',{data:'null'}))");
+  assert.ok(await evaluate(`document.getElementById('identity').textContent.includes('PID ${threads.pid} /')`),'stale initial stream is ignored');
+  await cdp('Page.navigate',{url:url+'/process/2147483647'});
+  await waitFor("document.getElementById('error').textContent.includes('Process exited')",'missing direct PID');
+  await waitFor(`document.getElementById('identity').textContent.includes('PID ${threads.pid} /')`,'failed selection follows shared state');
+  await cdp('Page.navigate',{url:url+'/process/'+recursive.pid});
+  await waitFor(`document.getElementById('identity').textContent.includes('PID ${recursive.pid} /')`,'direct URL original target');
   assert.equal(await evaluate("document.getElementById('target-status').hidden"), true);
   assert.equal(await evaluate("document.querySelector('header #back').hidden"), false);
   assert.equal(await evaluate("document.querySelector('header #back').textContent"), 'Back to process list');
@@ -116,7 +146,8 @@ try {
   await waitFor(`document.getElementById('identity')?.textContent.includes('PID ${recursive.pid} /')`, 'CLI direct PID');
   // Connection failures caused by deliberately shutting down the first server are expected.
   assert.deepEqual(errors.filter(e => !/ERR_CONNECTION_REFUSED|Failed to load resource/.test(e)), []);
-  console.log('Browser checks passed: explorer, search, selection, SSE, snapshots, source lines, memory, mobile layout, thread switching, process exit, graceful shutdown, --pid.');
+  assert.deepEqual(targetGets,[],'initialization never requests GET /api/target');
+  console.log('Browser checks passed: explorer, search, selection, SSE initialization/direct URLs/stale events, snapshots, source lines, memory, mobile layout, thread switching, process exit, graceful shutdown, --pid.');
 } finally {
   socket?.close();
   for (const child of children.reverse()) if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM');

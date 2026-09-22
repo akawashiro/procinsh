@@ -136,7 +136,7 @@ pub fn router(state: Arc<AppState>, address: SocketAddr) -> Router {
         .route("/api/space/events", get(crate::space::http::events))
         .route("/api/config", get(config))
         .route("/api/processes", get(processes))
-        .route("/api/target", get(target).post(select).delete(clear))
+        .route("/api/target", post(select).delete(clear))
         .route("/api/target/process", get(stats))
         .route("/api/target/threads", get(threads))
         .route("/api/target/maps", get(maps))
@@ -226,9 +226,6 @@ async fn config(State(s): State<Arc<AppState>>) -> Json<Value> {
 }
 async fn processes(State(s): State<Arc<AppState>>) -> ApiResult {
     blocking(move || Ok(Json(json!(s.lock().discovery.collect()?)))).await
-}
-async fn target(State(s): State<Arc<AppState>>) -> ApiResult {
-    blocking(move || Ok(Json(json!(s.lock().target)))).await
 }
 async fn select(State(s): State<Arc<AppState>>, Json(id): Json<ProcessId>) -> ApiResult {
     blocking(move || Ok(Json(json!(s.select(id)?)))).await
