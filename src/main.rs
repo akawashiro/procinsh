@@ -3,7 +3,7 @@ compile_error!("procinsh supports Linux x86-64 only");
 
 use anyhow::{Context, Result, ensure};
 use clap::Parser;
-use std::{net::SocketAddr, sync::Arc, time::Duration};
+use std::{io::Write, net::SocketAddr, sync::Arc, time::Duration};
 
 #[derive(Parser)]
 #[command(version, about = "Read-only Linux x86-64 process inspector")]
@@ -18,7 +18,16 @@ struct Cli {
 async fn main() -> std::process::ExitCode {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
         .target(env_logger::Target::Stderr)
-        .format_timestamp_millis()
+        .format(|buffer, record| {
+            writeln!(
+                buffer,
+                "[{} {:5} {}] {}",
+                buffer.timestamp_millis(),
+                record.level(),
+                record.file().unwrap_or("unknown"),
+                record.args()
+            )
+        })
         .init();
     match run().await {
         Ok(()) => std::process::ExitCode::SUCCESS,

@@ -56,10 +56,12 @@ def check_running(level):
         if level == "off":
             assert output == "", output
         else:
-            assert re.search(r"\[.*INFO\s+procinsh\]", output), output
+            assert re.search(r"\[.*INFO\s+src/main\.rs\]", output), output
             assert f"http://127.0.0.1:{port}" in output
             assert "SIGTERM" in output and "procinsh stopped" in output
             assert ('HTTP GET "/api/config" status=200' in output) == (level == "procinsh=debug")
+            if level == "procinsh=debug":
+                assert re.search(r"\[.*DEBUG\s+src/server/mod\.rs\] HTTP GET", output), output
 
 
 for level in (None, "procinsh=debug", "off"):
@@ -75,6 +77,6 @@ with socket.socket() as occupied:
     assert result.returncode != 0
     assert result.stdout == ""
     assert result.stderr.count("could not bind HTTP listener") == 1, result.stderr
-    assert "ERROR procinsh" in result.stderr
+    assert "ERROR src/main.rs" in result.stderr
 
 print("Logging checks passed: default info, debug HTTP, off, stderr, SIGTERM, bind failure, query omission.")
