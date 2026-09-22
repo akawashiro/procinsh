@@ -283,7 +283,7 @@ Three.js でプロセスの親子関係、仮想アドレス空間、接続先�
 
 `deploy/procinsh-capabilities.conf` は systemd の `[Service]` 用断片で、`CAP_SYS_PTRACE CAP_DAC_READ_SEARCH CAP_BPF CAP_PERFMON` を AmbientCapabilities と CapabilityBoundingSet に指定しています。完全な service unit は同梱していません。
 
-ログは `log` と `env_logger` を使い、標準エラーに時刻・レベル・出力元のファイルパス（例：`src/system/mod.rs`）を出します。既定は `info` です。`RUST_LOG` の絞り込みには引き続きモジュール名を使います。
+ログは `log` と `env_logger` を使い、標準エラーに時刻・レベル・出力元のファイルパスと行番号（例：`src/system/mod.rs:123`）を出します。既定は `info` です。`RUST_LOG` の絞り込みには引き続きモジュール名を使います。
 
 - `info`：起動・終了、観測の開始・停止、対象の終了、収集状態と復旧。
 - `warn`：観測失敗、センサー利用不可。同じ状態・エラーの連続出力を抑制。
