@@ -82,7 +82,7 @@ impl System {
         spawn_worker("activity", move || activity::run(system));
         let system = self.clone();
         spawn_worker("topology", move || {
-            log::info!("SPACE topology worker started");
+            log::info!("System topology worker started");
             let mut previous_warnings = Vec::new();
             let mut metrics_error = None;
             let resolver = resolver::Resolver::new();
@@ -101,16 +101,16 @@ impl System {
                     let mut data = topology::collect(&mut discovery);
                     if data.warnings != previous_warnings {
                         if data.warnings.is_empty() {
-                            log::info!("SPACE topology recovered");
+                            log::info!("System topology recovered");
                         } else {
                             for warning in &data.warnings {
-                                log::warn!("SPACE topology: {warning}");
+                                log::warn!("System topology: {warning}");
                             }
                         }
                         previous_warnings = data.warnings.clone();
                     }
                     log::debug!(
-                        "SPACE topology collected nodes={} edges={}",
+                        "System topology collected nodes={} edges={}",
                         data.nodes.len(),
                         data.edges.len()
                     );
@@ -130,7 +130,7 @@ impl System {
                     match discovery.collect() {
                         Ok(summaries) => {
                             if metrics_error.take().is_some() {
-                                log::info!("SPACE metrics recovered");
+                                log::info!("System metrics recovered");
                             }
                             let metrics:Vec<_>=summaries.iter().map(|s|json!({"identity":s.identity,"cpu_percent":s.cpu_percent,"rss_bytes":s.rss_bytes})).collect();
                             system.send("metrics", json!(metrics));
@@ -138,7 +138,7 @@ impl System {
                         Err(error) => {
                             let error = format!("{error:#}");
                             if metrics_error.as_ref() != Some(&error) {
-                                log::warn!("SPACE metrics: {error}");
+                                log::warn!("System metrics: {error}");
                             }
                             metrics_error = Some(error);
                         }
@@ -147,7 +147,7 @@ impl System {
                 }
                 std::thread::sleep(Duration::from_millis(100));
             }
-            log::info!("SPACE topology worker stopped");
+            log::info!("System topology worker stopped");
         });
     }
 }
@@ -179,9 +179,9 @@ impl StatusLog {
     fn observe(&mut self, status: &serde_json::Value) {
         for (key, value) in self.changes(status) {
             if value.starts_with("unavailable:") || value.starts_with("error:") {
-                log::warn!("SPACE {key}: {value}");
+                log::warn!("System {key}: {value}");
             } else {
-                log::info!("SPACE {key}: {value}");
+                log::info!("System {key}: {value}");
             }
         }
     }
@@ -190,7 +190,7 @@ impl StatusLog {
 fn spawn_worker(name: &'static str, work: impl FnOnce() + Send + 'static) {
     std::thread::spawn(move || {
         if let Err(panic) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(work)) {
-            log::error!("SPACE {name} worker panicked");
+            log::error!("System {name} worker panicked");
             std::panic::resume_unwind(panic);
         }
     });

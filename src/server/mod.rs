@@ -352,6 +352,7 @@ async fn events(
     let mut session = blocking(move || Ok(state.observe(id, permit)?)).await?;
     let initial = session.receiver.borrow_and_update().clone();
     let stream = async_stream::stream! {
+        log::debug!("SSE /api/processes/events event=observation pid={} start_time_ticks={}", id.pid, id.start_time_ticks);
         yield Ok::<_, Infallible>(Event::default().event("observation").json_data(initial).unwrap());
         loop {
             if s.is_stopped() { break; }
@@ -362,6 +363,7 @@ async fn events(
             if received.is_err() { break; }
             let data = session.receiver.borrow_and_update().clone();
             let exited = data.exited;
+            log::debug!("SSE /api/processes/events event=observation pid={} start_time_ticks={} exited={exited}", id.pid, id.start_time_ticks);
             yield Ok(Event::default().event("observation").json_data(data).unwrap());
             if exited { break; }
         }

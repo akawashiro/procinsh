@@ -1,5 +1,6 @@
 """Run after cargo build: python3 tests/logging-checks.py (no sudo required)."""
 import os
+import json
 import re
 import socket
 import subprocess
@@ -42,6 +43,16 @@ def check_running(level):
                     if time.monotonic() >= deadline:
                         raise
                     time.sleep(0.05)
+            with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/processes", timeout=5) as response:
+                processes = json.load(response)
+            identity = next(item["identity"] for item in processes if item["identity"]["pid"] == process.pid)
+            paths = [f'/api/processes/events?pid={identity["pid"]}&start_time_ticks={identity["start_time_ticks"]}']
+            if level == "procinsh=debug":
+                paths.append("/api/system/events")
+            for path in paths:
+                with urllib.request.urlopen(f"http://127.0.0.1:{port}{path}", timeout=5) as response:
+                    while response.readline().strip():
+                        pass
             process.terminate()
             assert process.wait(timeout=10) == 0
         finally:
@@ -53,6 +64,8 @@ def check_running(level):
         assert stdout.read() == b""
         output = stderr.read().decode()
         assert "PRIVATE_SENTINEL" not in output
+        assert "SPACE" not in output
+        assert ("SSE /api/processes/events event=observation" in output) == (level == "procinsh=debug")
         if level == "off":
             assert output == "", output
         else:
@@ -61,6 +74,7 @@ def check_running(level):
             assert "SIGTERM" in output and "procinsh stopped" in output
             assert ('HTTP GET "/api/config" status=200' in output) == (level == "procinsh=debug")
             if level == "procinsh=debug":
+                assert "SSE /api/system/events event=topology" in output, output
                 assert re.search(r"\[.*DEBUG\s+src/server/mod\.rs:[1-9][0-9]*\] HTTP GET", output), output
 
 

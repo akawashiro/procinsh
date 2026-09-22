@@ -218,7 +218,7 @@ pub fn run(system: Arc<System>) {
     let mut unresolved = 0u64;
     let mut comm = std::collections::HashMap::new();
     let mut logged = super::StatusLog::default();
-    log::info!("SPACE activity worker started");
+    log::info!("System activity worker started");
     while !system.stopped() {
         if !system.active() {
             logged.observe(&json!({"ipc":"idle", "cpu":"idle", "files":"idle"}));
@@ -230,7 +230,7 @@ pub fn run(system: Arc<System>) {
             continue;
         }
         if !active {
-            log::info!("SPACE observation active");
+            log::info!("System observation active");
             let mut status = json!({"active":true,"ipc":"starting","cpu":"starting","coverage":"pipe read/write; socket send/recv. splice, sendfile and some io_uring paths are not observed; worker attribution is excluded."});
             if bpf.is_none() {
                 match Bpf::new() {
@@ -342,7 +342,7 @@ pub fn run(system: Arc<System>) {
         logged.observe(&system.status.lock().unwrap());
         std::thread::sleep(Duration::from_millis(10));
     }
-    log::info!("SPACE activity worker stopped");
+    log::info!("System activity worker stopped");
 }
 
 #[cfg(test)]

@@ -22,11 +22,24 @@ pub async fn events(State(s): State<Arc<AppState>>) -> Result<Response, StatusCo
     let stream = async_stream::stream! {
         let _viewer = viewer;
         let initial=serde_json::to_string(&**s.system.snapshot.read().unwrap()).unwrap_or_default();
+        log::debug!("SSE /api/system/events event=topology");
         yield Ok::<_,Infallible>(Event::default().event("topology").data(initial));
         loop{if s.system.stopped(){break;}
             match tokio::time::timeout(Duration::from_secs(1),rx.recv()).await {
-                Ok(Ok(message))=>{if let Ok(value)=serde_json::from_str::<Value>(&message){yield Ok(Event::default().event(value["event"].as_str().unwrap_or("message")).data(value["data"].to_string()));}},
-                Ok(Err(tokio::sync::broadcast::error::RecvError::Lagged(n)))=>{yield Ok(Event::default().event("gap").data(json!({"dropped_frames":n}).to_string()));let snapshot=serde_json::to_string(&**s.system.snapshot.read().unwrap()).unwrap_or_default(); yield Ok(Event::default().event("topology").data(snapshot));},
+                Ok(Ok(message)) => {
+                    if let Ok(value) = serde_json::from_str::<Value>(&message) {
+                        let event = value["event"].as_str().unwrap_or("message");
+                        log::debug!("SSE /api/system/events event={event}");
+                        yield Ok(Event::default().event(event).data(value["data"].to_string()));
+                    }
+                },
+                Ok(Err(tokio::sync::broadcast::error::RecvError::Lagged(n))) => {
+                    log::debug!("SSE /api/system/events event=gap dropped_frames={n}");
+                    yield Ok(Event::default().event("gap").data(json!({"dropped_frames":n}).to_string()));
+                    let snapshot = serde_json::to_string(&**s.system.snapshot.read().unwrap()).unwrap_or_default();
+                    log::debug!("SSE /api/system/events event=topology");
+                    yield Ok(Event::default().event("topology").data(snapshot));
+                },
                 Ok(Err(_))=>break,Err(_)=>{}
             }
         }
