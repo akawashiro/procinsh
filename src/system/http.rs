@@ -1,6 +1,5 @@
 use crate::state::AppState;
 use axum::{
-    Json,
     extract::State,
     http::StatusCode,
     response::{
@@ -10,12 +9,6 @@ use axum::{
 };
 use serde_json::{Value, json};
 use std::{convert::Infallible, sync::Arc, time::Duration};
-pub async fn status(State(s): State<Arc<AppState>>) -> Json<Value> {
-    Json(s.system.status.lock().unwrap().clone())
-}
-pub async fn snapshot(State(s): State<Arc<AppState>>) -> Json<Value> {
-    Json(json!(**s.system.snapshot.read().unwrap()))
-}
 pub async fn events(State(s): State<Arc<AppState>>) -> Result<Response, StatusCode> {
     let viewer = s.system.viewer()?;
     let mut rx = s.system.events.subscribe();

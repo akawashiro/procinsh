@@ -64,7 +64,7 @@ async fn sse_connections_own_viewer_lifetimes() {
     for path in ["/api/system/status", "/api/system/topology"] {
         assert_eq!(
             app.clone().oneshot(request(path)).await.unwrap().status(),
-            StatusCode::OK
+            StatusCode::NOT_FOUND
         );
         assert!(!state.system.active());
     }

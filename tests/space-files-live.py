@@ -8,12 +8,12 @@ import json
 import os
 from pathlib import Path
 import queue
+import re
 import subprocess
 import sys
 import tempfile
 import threading
 import time
-import urllib.request
 
 
 def fixture(directory):
@@ -62,16 +62,7 @@ server = None
 child = None
 reader = None
 response = None
-opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 logs = tempfile.TemporaryFile(mode='w+')
-
-
-def api(path, body=None, method=None):
-    data = None if body is None else json.dumps(body).encode()
-    req = urllib.request.Request(base + path, data=data, method=method,
-                                 headers={'Content-Type': 'application/json'})
-    with opener.open(req, timeout=20) as r:
-        return json.load(r)
 
 
 try:
@@ -79,14 +70,20 @@ try:
         base = sys.argv[1]
     else:
         server = subprocess.Popen(['target/debug/procinsh', '--listen', '127.0.0.1:0'],
-                                  stdout=subprocess.PIPE, stderr=logs, text=True)
+                                  stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
         lines = queue.Queue()
-        threading.Thread(target=lambda: [lines.put(line) for line in server.stdout], daemon=True).start()
+        def collect_logs():
+            for line in server.stderr:
+                logs.write(line)
+                lines.put(line)
+
+        threading.Thread(target=collect_logs, daemon=True).start()
         deadline = time.monotonic() + 15
         while True:
             line = lines.get(timeout=max(.01, deadline-time.monotonic()))
-            if 'http://127.0.0.1:' in line:
-                base = line.strip()
+            match = re.search(r'http://127\.0\.0\.1:\d+', line)
+            if match:
+                base = match.group()
                 break
     with tempfile.TemporaryDirectory(prefix='procinsh-file-io-') as directory:
         child = subprocess.Popen([sys.executable, __file__, '--fixture', directory],
@@ -94,14 +91,19 @@ try:
         ready = json.loads(child.stdout.readline())
         response = Stream(base + '/api/system/events', timeout=30)
         frames = []
+        latest = {"topology": {}, "status": {}}
 
         def consume():
             try:
                 for line in response:
                     if line.startswith(b'data: '):
                         data = json.loads(line[6:])
-                        if isinstance(data, dict) and 'files' in data:
-                            frames.append(data)
+                        if isinstance(data, dict):
+                            if 'nodes' in data:
+                                latest['topology'] = data
+                            if 'files' in data:
+                                frames.append(data)
+                                latest['status'] = data['status']
             except (OSError, ValueError):
                 pass
 
@@ -109,11 +111,11 @@ try:
         reader.start()
         deadline = time.monotonic() + 20
         while time.monotonic() < deadline:
-            status = api('/api/system/status')
+            status = latest['status']
             if str(status.get('files', '')).startswith('unavailable'):
                 raise AssertionError(status['files'])
-            snapshot = api('/api/system/topology')
-            if status.get('files') == 'observing' and any(n['identity']['pid'] == ready['pid'] for n in snapshot['nodes']):
+            snapshot = latest['topology']
+            if status.get('files') == 'observing' and any(n['identity']['pid'] == ready['pid'] for n in snapshot.get('nodes', [])):
                 break
             time.sleep(.2)
         else:
@@ -140,13 +142,8 @@ try:
         response.close(reader)
         response = None
         reader = None
-        if server:
-            deadline = time.monotonic() + 5
-            while time.monotonic() < deadline and api('/api/system/status')['active']:
-                time.sleep(.1)
-            assert api('/api/system/status')['files'] == 'idle'
         print('File I/O live checks passed:', actual,
-              '(scalar/positioned/vectored I/O, short reads, EOF/errors, immediate close/unlink, shutdown)')
+              '(scalar/positioned/vectored I/O, short reads, EOF/errors, immediate close/unlink, stream closure)')
 finally:
     if response:
         response.close(reader)

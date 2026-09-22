@@ -54,11 +54,11 @@ try {
     window.spaceTestSources=[];
     const NativeEventSource=window.EventSource;
     window.EventSource=class extends NativeEventSource {
-      constructor(...args){super(...args);window.spaceTestSources.push(this);}
+      constructor(...args){super(...args);window.spaceTestSources.push(this);this.addEventListener('topology',event=>{try{window.spaceTestTopology=JSON.parse(event.data);}catch{}});}
     };
   `});
   await cdp('Page.navigate', {url: url+'/space'});
-  const snapshot=await until(async()=>{const data=await (await fetch(url+'/api/system/topology')).json();return data.nodes.length>2?data:null;},'space topology');
+  const snapshot=await until(()=>evaluate('window.spaceTestTopology?.nodes.length>2 ? window.spaceTestTopology : null'),'space topology');
   const first=snapshot.nodes[0].identity;
   await waitFor(`import('/space.js').then(m=>Boolean(m.processPosition('${first.pid}:${first.start_time_ticks}')))`, 'rendered space topology');
   assert.equal(await evaluate("document.documentElement.lang"),'en');
@@ -89,9 +89,10 @@ try {
   await evaluate("window.extraViewer=new EventSource('/api/system/events')");
   await waitFor("window.extraViewer.readyState===EventSource.OPEN", 'second viewer');
   await evaluate("Object.defineProperty(document,'hidden',{configurable:true,value:true});document.dispatchEvent(new Event('visibilitychange'))");
-  assert.equal((await (await fetch(url+'/api/system/status')).json()).active,true,'second viewer keeps collection active');
+  await waitFor("window.spaceTestSources.filter(s=>s!==window.extraViewer).every(s=>s.readyState===EventSource.CLOSED)", 'hidden viewer closes');
+  assert.equal(await evaluate('window.extraViewer.readyState===EventSource.OPEN'),true,'second viewer remains connected');
   await evaluate("window.extraViewer.close()");
-  await until(async()=>!(await (await fetch(url+'/api/system/status')).json()).active,'last viewer disconnect');
+  await waitFor('window.spaceTestSources.every(s=>s.readyState===EventSource.CLOSED)', 'all viewers close');
   await evaluate("Object.defineProperty(document,'hidden',{configurable:true,value:false});document.dispatchEvent(new Event('visibilitychange'))");
   await waitFor("window.spaceTestSources.at(-1).readyState===EventSource.OPEN", 'visible reconnect');
   await evaluate("window.failedSource=window.spaceTestSources.at(-1);window.failedSource.dispatchEvent(new Event('error'))");
@@ -217,10 +218,11 @@ try {
   await cdp('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
   assert.equal(await evaluate('document.documentElement.scrollWidth <= 390'),true);
   assert.ok(await evaluate("(()=>{const r=document.querySelector('.tools').getBoundingClientRect();return r.left>=0&&r.right<=390&&r.top>=0&&r.bottom<=844})()"),'mobile tools remain in the viewport');
+  await evaluate("window.dispatchEvent(new Event('pagehide'))");
+  await waitFor('window.spaceTestSources.every(s=>s.readyState===EventSource.CLOSED)', 'pagehide closes viewers');
   await cdp('Page.navigate',{url});
-  await until(async()=> (await (await fetch(url+'/api/system/status')).json()).active===false,'observer stop');
   assert.deepEqual(errors.filter(e=>!/favicon.ico/.test(e)),[]);
-  console.log('Space browser checks passed: WebGL, topology, minimal tools, connection details/states/links, CPU base glow/fade, stale identity, process selection, independent graph selection, mobile, observation shutdown.');
+  console.log('Space browser checks passed: WebGL, topology, minimal tools, connection details/states/links, CPU base glow/fade, stale identity, process selection, independent graph selection, mobile, SSE connection lifecycle.');
 
 } finally {
   socket?.close();

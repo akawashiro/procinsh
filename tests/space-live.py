@@ -1,34 +1,35 @@
 """Run against a service with CAP_BPF and CAP_PERFMON. Fails if sensors are unavailable."""
-import json, urllib.request, subprocess, threading, time, sys
+import json, subprocess, threading, time, sys
 from sse import Stream
 base=sys.argv[1] if len(sys.argv)>1 else 'http://127.0.0.1:8080'
-opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
-def api(path,body=None,method=None):
-    req=urllib.request.Request(base+path,data=None if body is None else json.dumps(body).encode(),headers={'Content-Type':'application/json'},method=method)
-    with opener.open(req,timeout=15) as r:return json.load(r)
+
 p=subprocess.Popen(['tests/targets/bin/activity'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True)
 response=None;thread=None
 try:
     pid,peer,address,size=p.stdout.readline().split();pid=int(pid);peer=int(peer);address=int(address,16);size=int(size)
     response=Stream(base+'/api/system/events')
-    frames=[]
+    frames=[]; latest={"topology": {}, "status": {}}
     def consume():
         try:
             for line in response:
                 if line.startswith(b'data: '):
                     value=json.loads(line[6:]);
-                    if isinstance(value,dict) and 'ipc' in value:frames.append(value)
+                    if isinstance(value,dict):
+                        if 'nodes' in value:latest['topology']=value
+                        if 'ipc' in value:
+                            frames.append(value)
+                            latest['status']=value['status']
         except (OSError,ValueError):pass
     thread=threading.Thread(target=consume,daemon=True);thread.start()
     deadline=time.monotonic()+12
     while time.monotonic()<deadline:
-        status=api('/api/system/status')
+        status=latest['status']
         if any(str(status.get(sensor,'')).startswith('unavailable') for sensor in ('cpu','ipc')):raise AssertionError(status)
-        snapshot=api('/api/system/topology')
-        if any(n['identity']['pid']==pid for n in snapshot['nodes']):break
+        snapshot=latest['topology']
+        if all(status.get(sensor)=='observing' for sensor in ('cpu','ipc')) and any(n['identity']['pid']==pid for n in snapshot.get('nodes',[])):break
         time.sleep(.3)
-    time.sleep(1)
-    status=api('/api/system/status')
+    else:raise AssertionError(('sensor/topology did not become ready',latest))
+    status=latest['status']
     assert status['cpu']=='observing' and status['ipc']=='observing',status
     p.stdin.write('go\n');p.stdin.flush();time.sleep(6)
     assert frames

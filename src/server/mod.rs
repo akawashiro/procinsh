@@ -133,8 +133,6 @@ pub fn router(state: Arc<AppState>, address: SocketAddr) -> Router {
                 )
             }),
         )
-        .route("/api/system/status", get(crate::system::http::status))
-        .route("/api/system/topology", get(crate::system::http::snapshot))
         .route("/api/system/events", get(crate::system::http::events))
         .route("/api/config", get(config))
         .route("/api/processes", get(processes))
