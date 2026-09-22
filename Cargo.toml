@@ -18,7 +18,6 @@ include = [
     "/tests/**",
     "!/tests/targets/bin/**",
     "/docs/**",
-    "/deploy/**",
     "/package.json",
     "/package-lock.json",
     "/tsconfig.json",
