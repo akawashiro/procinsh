@@ -59,22 +59,15 @@ sudo ./target/release/procinsh --listen 127.0.0.1:9090
 
 ### Building on WSL2 (Ubuntu)
 
-Release build verified on Ubuntu 24.04 with WSL2 kernel
-`6.18.33.2-microsoft-standard-WSL2`, Clang 18, and Ubuntu's bpftool v7.4.0.
-
-Install the dependencies listed above. Check that `clang` supports the BPF
-target and that the running WSL2 kernel exposes BTF:
-
-```sh
-test -r /sys/kernel/btf/vmlinux
-clang -target bpf -O2 -x c -c /dev/null -o /tmp/procinsh-check.bpf.o
-```
-
 Ubuntu's `bpftool` wrapper may fail with `bpftool not found for kernel ...`
 because the WSL2 kernel version differs from the Ubuntu tools package. Set
 `BPFTOOL` to the packaged executable directly, bypassing the wrapper:
 
 ```sh
+sudo apt-get update
+sudo apt-get install --yes --no-install-recommends \
+         build-essential clang llvm pkg-config libelf-dev zlib1g-dev python3 \
+         linux-tools-common linux-tools-generic
 for tool in /usr/lib/linux-tools/*/bpftool; do
     if [ -x "$tool" ]; then
         export BPFTOOL="$tool"
