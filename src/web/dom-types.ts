@@ -27,11 +27,6 @@ export interface AppElements {
   registers: HTMLElement;
   "stack-tid": HTMLElement;
   "call-stack": HTMLElement;
-  "memory-form": HTMLFormElement;
-  address: HTMLInputElement;
-  length: HTMLInputElement;
-  "memory-info": HTMLElement;
-  memory: HTMLElement;
   "disasm-time": HTMLElement;
   "disasm-location": HTMLElement;
   "disasm-error": HTMLElement;
