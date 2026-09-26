@@ -121,6 +121,20 @@ try {
   assert.ok((await evaluate("document.querySelector('#disassembly tr').cells[3].textContent")).length > 0);
   assert.equal(await evaluate("document.querySelector('#memory-form, #memory-info, #memory')"), null, 'memory reader UI is removed');
   assert.equal(await evaluate("document.querySelector('#maps button, #registers button, #call-stack button, #disassembly button')"), null, 'addresses are displayed as text');
+  assert.ok(await evaluate(`(() => {
+    const grid = document.querySelector('.inspector-grid').getBoundingClientRect();
+    const stack = document.getElementById('call-stack').closest('.panel').getBoundingClientRect();
+    const name = document.getElementById('target-name').getBoundingClientRect();
+    const controls = document.querySelector('.snapshot-controls').getBoundingClientRect();
+    return Math.abs(stack.width - grid.width) < 1 && Math.abs(stack.left - grid.left) < 1 && controls.left >= name.right;
+  })()`), 'stack spans full width and capture controls sit beside process name');
+  assert.equal(await evaluate("document.getElementById('snapshot').textContent"), 'Capture snapshot once');
+  await evaluate("document.getElementById('auto-snapshot').focus()");
+  await cdp('Input.dispatchKeyEvent', {type: 'keyDown', key: ' ', code: 'Space', windowsVirtualKeyCode: 32});
+  await cdp('Input.dispatchKeyEvent', {type: 'keyUp', key: ' ', code: 'Space', windowsVirtualKeyCode: 32});
+  assert.equal(await evaluate("document.getElementById('auto-snapshot').checked"), true, 'Space activates continuous capture switch');
+  await evaluate("document.getElementById('auto-snapshot').click()");
+  await waitFor('!snapshotBusy', 'keyboard capture completes');
   const png = await cdp('Page.captureScreenshot', {format: 'png', captureBeyondViewport: true});
   await writeFile('target/browser-inspector.png', Buffer.from(png.data, 'base64'));
   await cdp('Emulation.setDeviceMetricsOverride', {width: 390, height: 844, deviceScaleFactor: 1, mobile: true});

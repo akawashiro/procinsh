@@ -30,12 +30,14 @@ export async function checkAutoSnapshot({evaluate, waitFor, delay, choose, other
   assert.equal(await checked(), true);
   assert.equal(await evaluate("document.getElementById('snapshot').disabled"), true, 'manual capture stays disabled between automatic captures');
   await waitFor("document.querySelector('#disassembly .current-instruction')?.cells[1].textContent === Array.from(document.querySelectorAll('#registers tr')).find(r => r.cells[0].textContent === 'RIP')?.cells[1].textContent", 'automatic disassembly matches RIP');
+  const continuousControls = await evaluate("[document.getElementById('snapshot').textContent, document.getElementById('auto-snapshot-status').textContent]");
   await toggle(); await idle();
   assert.equal(await evaluate("document.getElementById('snapshot').disabled"), false, 'manual capture is enabled after auto capture stops');
   let count = await calls(); await delay(1200); assert.equal(await calls(), count, 'OFF must stop requests');
 
   await evaluate("window.snapshotTest.mode = 'hold'"); await toggle();
   await waitFor('window.snapshotTest.release !== null', 'held response');
+  assert.deepEqual(await evaluate("[document.getElementById('snapshot').textContent, document.getElementById('auto-snapshot-status').textContent]"), continuousControls, 'continuous capture keeps control labels stable while a request is in flight');
   count = await calls(); await delay(2200);
   assert.equal(await calls(), count, 'slow capture must skip ticks');
   assert.equal(await evaluate('window.snapshotTest.maximum'), 1, 'never overlap captures');

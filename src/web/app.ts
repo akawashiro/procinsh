@@ -69,7 +69,7 @@ let snapshotBusy = false,
   mapsTimestamp: number | null = null;
 let autoSnapshotTimer: number | null = null,
   snapshotEpoch = 0,
-  autoSnapshotStatus = "Auto capture OFF";
+  autoSnapshotStatus = "Continuous capture OFF";
 let detailEpoch = 0;
 const detailKinds = ["environment", "auxv", "fds", "signals"] as const;
 const processDetails: {
@@ -256,15 +256,15 @@ function renderDescriptors(data: FileDescriptors, time: string) {
 function snapshotControls() {
   const enabled = autoSnapshotTimer !== null;
   $("snapshot").disabled = !target || target.exited || snapshotBusy || enabled;
-  $("snapshot").textContent = snapshotBusy
+  $("snapshot").textContent = snapshotBusy && !enabled
     ? "Capturing…"
-    : "Capture coherent snapshot";
+    : "Capture snapshot once";
   $("auto-snapshot").checked = enabled;
   $("auto-snapshot").disabled = !target || target.exited;
   $("auto-snapshot-status").textContent =
-    `${autoSnapshotStatus}${snapshotBusy ? " · Capturing" : ""}`;
+    `${autoSnapshotStatus}${snapshotBusy && !enabled ? " · Capturing" : ""}`;
 }
-function stopAutoSnapshot(reason = "Auto capture OFF") {
+function stopAutoSnapshot(reason = "Continuous capture OFF") {
   if (autoSnapshotTimer !== null) clearInterval(autoSnapshotTimer);
   autoSnapshotTimer = null;
   autoSnapshotStatus = reason;
@@ -280,10 +280,10 @@ function startAutoSnapshot() {
     snapshotControls();
     return;
   }
-  autoSnapshotStatus = "Auto capture ON · every 1 s";
+  autoSnapshotStatus = "Continuous capture ON · every 1 s";
   autoSnapshotTimer = setInterval(() => {
     if (!document.hidden) snapshot();
-    else stopAutoSnapshot("Auto capture OFF · Tab hidden");
+    else stopAutoSnapshot("Continuous capture OFF · Tab hidden");
   }, 1000);
   snapshotControls();
   snapshot();
@@ -420,7 +420,7 @@ async function select(id: ProcessId) {
       if (next.exited) {
         events.close();
         targetSource = null;
-        stopAutoSnapshot("Auto capture OFF · Process exited");
+        stopAutoSnapshot("Continuous capture OFF · Process exited");
       }
     } catch (e) {
       error(e);
@@ -429,7 +429,7 @@ async function select(id: ProcessId) {
   events.onerror = () => {
     if (targetSource !== events || generation !== targetGeneration) return;
     disconnected = true;
-    stopAutoSnapshot("Auto capture OFF · Disconnected");
+    stopAutoSnapshot("Continuous capture OFF · Disconnected");
     error(new Error("Process observation disconnected. Retrying the same process identity…"));
   };
 }
@@ -469,7 +469,7 @@ function acceptTarget(next: Target | null) {
   $("explorer").hidden = true;
   $("inspector").hidden = false;
   if (target.exited && autoSnapshotTimer !== null)
-    stopAutoSnapshot("Auto capture OFF · Process exited");
+    stopAutoSnapshot("Continuous capture OFF · Process exited");
   history.replaceState(null, "", `/process/${next.summary.identity.pid}`);
   document.title = `procinsh / ${target.summary.name}`;
   renderTarget();
@@ -660,7 +660,7 @@ async function snapshot() {
     }
   } catch (e) {
     if (epoch === snapshotEpoch && same(id, identity())) {
-      stopAutoSnapshot("Auto capture OFF · Capture failed");
+      stopAutoSnapshot("Continuous capture OFF · Capture failed");
       error(e);
     }
   } finally {
@@ -790,7 +790,7 @@ $("auto-snapshot").addEventListener("change", () => {
 });
 document.addEventListener("visibilitychange", () => {
   if (document.hidden && autoSnapshotTimer !== null)
-    stopAutoSnapshot("Auto capture OFF · Tab hidden");
+    stopAutoSnapshot("Continuous capture OFF · Tab hidden");
 });
 window.addEventListener("pagehide", closeTarget);
 window.addEventListener("pageshow", (event) => {
