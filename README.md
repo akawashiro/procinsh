@@ -81,11 +81,6 @@ npm run build:web
 cargo build --release --locked
 ```
 
-Keep `BPFTOOL` set for subsequent Cargo builds. It selects the executable used
-to generate the BTF header; it does not change runtime BPF permissions or hook
-compatibility. CPU, IPC, and file I/O observation still require a compatible
-kernel and sufficient privileges, and must be checked separately from building.
-
 ### Open the UI
 
 With either installation method, open http://127.0.0.1:9090 in your browser.
