@@ -57,6 +57,30 @@ needed at runtime. Start the release binary:
 sudo ./target/release/procinsh --listen 127.0.0.1:9090
 ```
 
+### Building on WSL2 (Ubuntu)
+
+Ubuntu's `bpftool` wrapper may fail with `bpftool not found for kernel ...`
+because the WSL2 kernel version differs from the Ubuntu tools package. Set
+`BPFTOOL` to the packaged executable directly, bypassing the wrapper:
+
+```sh
+sudo apt-get update
+sudo apt-get install --yes --no-install-recommends \
+         build-essential clang llvm pkg-config libelf-dev zlib1g-dev python3 \
+         linux-tools-common linux-tools-generic
+for tool in /usr/lib/linux-tools/*/bpftool; do
+    if [ -x "$tool" ]; then
+        export BPFTOOL="$tool"
+        break
+    fi
+done
+"${BPFTOOL:?No packaged bpftool found; install linux-tools-generic}" version
+"$BPFTOOL" btf dump file /sys/kernel/btf/vmlinux format c >/tmp/procinsh-vmlinux.h
+npm ci
+npm run build:web
+cargo build --release --locked
+```
+
 ### Open the UI
 
 With either installation method, open http://127.0.0.1:9090 in your browser.

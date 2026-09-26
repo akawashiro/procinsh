@@ -62,11 +62,9 @@ jobs:
             echo "::error::No packaged bpftool binary found"
             exit 1
           fi
-          mkdir -p "$RUNNER_TEMP/procinsh-bin"
-          ln -s "${bpftools[0]}" "$RUNNER_TEMP/procinsh-bin/bpftool"
-          echo "$RUNNER_TEMP/procinsh-bin" >> "$GITHUB_PATH"
+          echo "BPFTOOL=${bpftools[0]}" >> "$GITHUB_ENV"
           test -r /sys/kernel/btf/vmlinux
-          "$RUNNER_TEMP/procinsh-bin/bpftool" version
+          "${bpftools[0]}" version
       - name: Build
         run: cargo build --locked --all-targets
       - name: Check Clippy
