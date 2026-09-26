@@ -249,6 +249,8 @@ watch channelは接続ごとに独立し、遅い購読者へ古い状態を蓄�
 | `GET /api/processes/environment`、`GET /api/processes/auxv`、`GET /api/processes/fds`、`GET /api/processes/signals` | 各パネルを初めて開くときと再取得操作時 |
 | `POST /api/processes/snapshot` | 手動取得と自動取得時 |
 
+プロセス詳細のキャプチャ操作はプロセス名の右側（狭い画面では下）に配置します。`Capture snapshot continuously` はキーボード操作可能なトグルスイッチで1秒ごとに取得し、`Capture snapshot once` は単発取得します。状態と一時停止の説明も同じ場所に表示します。Call Stack は詳細グリッドの全列にまたがって表示します。
+
 直接アクセス時は一覧からPIDの開始時刻を解決し、その識別子でSSEを接続します。PIDが一覧にない場合は一覧と終了エラーを表示します。全ての追加GETにも識別子クエリを付け、snapshotにはJSON本文で識別子を送ります。通常の更新には `observation` を使い、observation・threads・mapsの単発GETは直接呼びません。
 
 対象切替やBack to process listでは現在のSSEを閉じ、保持した詳細情報をリセットします。他タブには影響しません。接続世代と識別子を照合して古い通知を無視します。通信切断ではEventSourceが同じ識別子で再接続し、履歴は再開始します。同じPIDの別プロセスへは自動で乗り換えません。`exited: true` を受信したら接続を閉じ、最終状態と終了表示を残します。ページ離脱時は閉じ、ブラウザのページキャッシュから復帰した場合は同じ識別子で接続し直します。タイトルは `procinsh / <process name>` です。
