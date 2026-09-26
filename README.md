@@ -57,6 +57,42 @@ needed at runtime. Start the release binary:
 sudo ./target/release/procinsh --listen 127.0.0.1:9090
 ```
 
+### Building on WSL2 (Ubuntu)
+
+Release build verified on Ubuntu 24.04 with WSL2 kernel
+`6.18.33.2-microsoft-standard-WSL2`, Clang 18, and Ubuntu's bpftool v7.4.0.
+
+Install the dependencies listed above. Check that `clang` supports the BPF
+target and that the running WSL2 kernel exposes BTF:
+
+```sh
+test -r /sys/kernel/btf/vmlinux
+clang -target bpf -O2 -x c -c /dev/null -o /tmp/procinsh-check.bpf.o
+```
+
+Ubuntu's `bpftool` wrapper may fail with `bpftool not found for kernel ...`
+because the WSL2 kernel version differs from the Ubuntu tools package. Set
+`BPFTOOL` to the packaged executable directly, bypassing the wrapper:
+
+```sh
+for tool in /usr/lib/linux-tools/*/bpftool; do
+    if [ -x "$tool" ]; then
+        export BPFTOOL="$tool"
+        break
+    fi
+done
+"${BPFTOOL:?No packaged bpftool found; install linux-tools-generic}" version
+"$BPFTOOL" btf dump file /sys/kernel/btf/vmlinux format c >/tmp/procinsh-vmlinux.h
+npm ci
+npm run build:web
+cargo build --release --locked
+```
+
+Keep `BPFTOOL` set for subsequent Cargo builds. It selects the executable used
+to generate the BTF header; it does not change runtime BPF permissions or hook
+compatibility. CPU, IPC, and file I/O observation still require a compatible
+kernel and sufficient privileges, and must be checked separately from building.
+
 ### Open the UI
 
 With either installation method, open http://127.0.0.1:9090 in your browser.
