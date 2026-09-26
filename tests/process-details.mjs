@@ -37,9 +37,8 @@ export async function checkProcessDetails({evaluate, waitFor, delay, choose, ori
   await waitFor("document.getElementById('auxv-entries').textContent.includes('AT_PAGESZ')", 'auxiliary vector load');
   const entryRow = "Array.from(document.querySelectorAll('#auxv-entries tr')).find(r => r.cells[0].textContent.startsWith('AT_ENTRY '))";
   const address = await evaluate(`${entryRow}.cells[1].textContent`);
-  await evaluate(`${entryRow}.querySelector('button').click()`);
-  await waitFor("document.getElementById('memory').textContent.includes('|')", 'auxv pointer opens memory');
-  assert.equal(await evaluate("document.getElementById('address').value"), address);
+  assert.match(address, /^0x[0-9a-f]+$/i);
+  assert.equal(await evaluate(`${entryRow}.querySelector('button')`), null, 'auxv addresses are text');
   assert.match(await evaluate("Array.from(document.querySelectorAll('#auxv-entries tr')).find(r => r.cells[0].textContent.startsWith('AT_EXECFN ')).cells[3].textContent"), /recursive/);
 
   await evaluate("window.detailTest.mode = 'denied'; document.getElementById('environment-refresh').click()");
@@ -62,5 +61,5 @@ export async function checkProcessDetails({evaluate, waitFor, delay, choose, ori
   await evaluate("window.fetch = window.detailFetch; document.getElementById('back').click()");
   await waitFor("document.getElementById('inspector').hidden", 'return after details tests');
   await choose(originalPid);
-  console.log('Process details checks passed: on-demand environment/auxv, search, literal values, pointer navigation, errors, empty environment, stale response.');
+  console.log('Process details checks passed: on-demand environment/auxv, search, literal values, address display, errors, empty environment, stale response.');
 }

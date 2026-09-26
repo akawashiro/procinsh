@@ -5,7 +5,6 @@ type ProcessSummary = import("./api-types.js").ProcessSummary;
 type Target = import("./api-types.js").Target;
 type Capture = import("./api-types.js").Capture;
 type ThreadSnapshot = import("./api-types.js").ThreadSnapshot;
-type MemoryRead = import("./api-types.js").MemoryRead;
 type DetailData = import("./api-types.js").DetailData;
 type FileDescriptors = import("./api-types.js").FileDescriptors;
 type DescriptorEndpoint = import("./api-types.js").DescriptorEndpoint;
@@ -175,10 +174,7 @@ function renderProcessDetails(kind: DetailKind) {
       ...data.entries.map((e) => {
         const row = node("tr");
         cell(row, `${e.name} (${e.tag})`, "mono");
-        const value = cell(row, null, "mono");
-        if (e.kind === "address" && BigInt(e.value) !== 0n)
-          value.append(button(e.value, () => readMemory(e.value)));
-        else value.textContent = e.value;
+        cell(row, e.value, "mono");
         cell(row, e.decimal, "mono muted");
         const description = cell(row, e.description);
         if (e.text != null)
@@ -455,10 +451,6 @@ function resetCapture() {
   $("disasm-time").textContent = "Snapshot · x86-64 / Intel";
   $("disasm-location").textContent =
     "Capture a snapshot to view instructions starting at the selected thread’s RIP.";
-  $("memory").textContent = "";
-  $("address").value = "";
-  $("memory-info").textContent =
-    "Click an address in a mapping or register to read memory.";
 }
 function acceptTarget(next: Target | null) {
   $("back").hidden = !next;
@@ -584,7 +576,7 @@ function renderTarget() {
         const row = node("tr");
         const start = cell(row, null, "mono");
         start.append(
-          button(m.start, () => readMemory(m.start)),
+          node("span", m.start),
           node("div", m.end, "muted"),
         );
         cell(row, m.permissions, "mono");
@@ -711,12 +703,7 @@ function renderDisassembly(thread: ThreadSnapshot | undefined) {
       );
       if (instruction.current) row.setAttribute("aria-current", "true");
       cell(row, instruction.current ? "→ RIP" : "", "mono");
-      const address = button(instruction.address, () =>
-        readMemory(instruction.address),
-      );
-      address.title =
-        "Read current memory at this address (separate from the snapshot)";
-      cell(row, null, "mono").append(address);
+      cell(row, instruction.address, "mono");
       cell(
         row,
         instruction.bytes.map((b) => b.toString(16).padStart(2, "0")).join(" "),
@@ -744,12 +731,7 @@ function renderSnapshot() {
   for (const r of thread.registers) {
     const row = node("tr");
     cell(row, r.name, "mono");
-    const value = cell(row, null, "mono");
-    value.append(
-      r.mapping
-        ? button(r.value, () => readMemory(r.value))
-        : node("span", r.value),
-    );
+    cell(row, r.value, "mono");
     cell(
       row,
       r.mapping ? `→ ${r.mapping} +${r.offset} (${r.kind})` : `→ ${r.decimal}`,
@@ -761,7 +743,7 @@ function renderSnapshot() {
     const div = node("div", null, "frame");
     div.append(
       node("span", `#${i} `),
-      button(frame.address, () => readMemory(frame.address)),
+      node("span", frame.address),
       node(
         "span",
         ` ${frame.symbol || "??"}${frame.symbol_offset ? ` +${frame.symbol_offset}` : ""}`,
@@ -781,48 +763,6 @@ function renderSnapshot() {
   $("call-stack").append(
     node("p", thread.error || thread.unwind_stop, "muted"),
   );
-}
-async function readMemory(address: string) {
-  const id = identity(),
-    epoch = detailEpoch;
-  if (!id) return;
-  clearError();
-  $("address").value = address;
-  const length = Number($("length").value);
-  if (!Number.isInteger(length) || length < 1 || length > 65536) {
-    error(new Error("Length must be 1–65536"));
-    return;
-  }
-  try {
-    const result = await api<MemoryRead>(
-      `/api/processes/memory?${query(id)}&address=${encodeURIComponent(address)}&length=${length}`,
-    );
-    if (epoch !== detailEpoch || !same(id, identity())) return;
-    const start = BigInt(result.address),
-      lines = [];
-    for (let i = 0; i < result.bytes.length; i += 16) {
-      const chunk = result.bytes.slice(i, i + 16);
-      const hex = chunk
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join(" ")
-        .padEnd(47, " ");
-      const ascii = chunk
-        .map((b) => (b >= 32 && b <= 126 ? String.fromCharCode(b) : "."))
-        .join("");
-      lines.push(
-        `${(start + BigInt(i)).toString(16).padStart(16, "0")}  ${hex}  |${ascii}|`,
-      );
-    }
-    $("memory").textContent = lines.join("\n");
-    $("memory-info").textContent =
-      `${result.bytes.length} / ${result.requested_length} bytes${result.partial ? " · partial read (mapping boundary)" : ""} · live read ${new Date(result.captured_at).toLocaleTimeString("en-US")} · separate from the snapshot`;
-  } catch (e) {
-    if (epoch === detailEpoch && same(id, identity())) {
-      $("memory").textContent = "";
-      $("memory-info").textContent = "Read failed.";
-      error(e);
-    }
-  }
 }
 $("search").addEventListener("input", renderProcesses);
 $("sort").addEventListener("change", renderProcesses);
@@ -855,10 +795,6 @@ document.addEventListener("visibilitychange", () => {
 window.addEventListener("pagehide", closeTarget);
 window.addEventListener("pageshow", (event) => {
   if (event.persisted && target && !target.exited) select(target.summary.identity);
-});
-$("memory-form").addEventListener("submit", (event) => {
-  event.preventDefault();
-  readMemory($("address").value.trim());
 });
 window.addEventListener("resize", drawHistory);
 async function start() {

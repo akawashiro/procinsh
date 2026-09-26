@@ -119,12 +119,8 @@ try {
   assert.equal(await evaluate("document.querySelector('#disassembly .current-instruction').cells[1].textContent"), await ripText());
   assert.match(await evaluate("document.querySelector('#disassembly tr').cells[2].textContent"), /^[0-9a-f]{2}( [0-9a-f]{2})*$/);
   assert.ok((await evaluate("document.querySelector('#disassembly tr').cells[3].textContent")).length > 0);
-  await evaluate("document.querySelector('#disassembly .current-instruction button').click()");
-  await waitFor("document.getElementById('memory').textContent.includes('|')", 'instruction address to memory');
-  assert.equal(await evaluate("document.getElementById('address').value"), await ripText());
-  await evaluate("Array.from(document.querySelectorAll('#registers tr')).find(r => r.cells[0].textContent === 'RSP').querySelector('button').click()");
-  await waitFor("document.getElementById('memory').textContent.includes('|')", 'register to memory navigation');
-  assert.match(await evaluate("document.getElementById('memory-info').textContent"), /256 \/ 256 bytes/);
+  assert.equal(await evaluate("document.querySelector('#memory-form, #memory-info, #memory')"), null, 'memory reader UI is removed');
+  assert.equal(await evaluate("document.querySelector('#maps button, #registers button, #call-stack button, #disassembly button')"), null, 'addresses are displayed as text');
   const png = await cdp('Page.captureScreenshot', {format: 'png', captureBeyondViewport: true});
   await writeFile('target/browser-inspector.png', Buffer.from(png.data, 'base64'));
   await cdp('Emulation.setDeviceMetricsOverride', {width: 390, height: 844, deviceScaleFactor: 1, mobile: true});
@@ -156,7 +152,7 @@ try {
   // Connection failures caused by deliberately shutting down the first server are expected.
   assert.deepEqual(errors.filter(e => !/ERR_CONNECTION_REFUSED|Failed to load resource/.test(e)), []);
   assert.deepEqual(targetGets,[],'UI never requests removed /api/target');
-  console.log('Browser checks passed: explorer, search, selection, SSE initialization/direct URLs/stale events, snapshots, source lines, memory, mobile layout, thread switching, process exit, graceful shutdown, removed --pid.');
+  console.log('Browser checks passed: explorer, search, selection, SSE initialization/direct URLs/stale events, snapshots, source lines, removed memory UI, mobile layout, thread switching, process exit, graceful shutdown, removed --pid.');
 } finally {
   socket?.close();
   for (const child of children.reverse()) if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM');
