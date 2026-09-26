@@ -256,13 +256,13 @@ function renderDescriptors(data: FileDescriptors, time: string) {
 function snapshotControls() {
   const enabled = autoSnapshotTimer !== null;
   $("snapshot").disabled = !target || target.exited || snapshotBusy || enabled;
-  $("snapshot").textContent = snapshotBusy
+  $("snapshot").textContent = snapshotBusy && !enabled
     ? "Capturing…"
     : "Capture snapshot once";
   $("auto-snapshot").checked = enabled;
   $("auto-snapshot").disabled = !target || target.exited;
   $("auto-snapshot-status").textContent =
-    `${autoSnapshotStatus}${snapshotBusy ? " · Capturing" : ""}`;
+    `${autoSnapshotStatus}${snapshotBusy && !enabled ? " · Capturing" : ""}`;
 }
 function stopAutoSnapshot(reason = "Continuous capture OFF") {
   if (autoSnapshotTimer !== null) clearInterval(autoSnapshotTimer);
