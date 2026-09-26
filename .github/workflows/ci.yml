@@ -73,5 +73,7 @@ jobs:
         run: cargo test --locked
       - name: Check logging
         run: python3 tests/logging-checks.py
+      - name: Check perf denial degradation
+        run: python3 tests/perf-unavailable.py
       - name: Check space model
         run: node tests/space-model.mjs

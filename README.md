@@ -86,3 +86,17 @@ cargo build --release --locked
 With either installation method, open http://127.0.0.1:9090 in your browser.
 Press `Ctrl+C` to stop. See [DEVELOPMENT.md](docs/DEVELOPMENT.md) for development,
 testing, API details, and logging options.
+
+### Live process sampling
+
+Process details automatically sample user IP, x86-64 registers and callchains
+without stopping the target. `--sample-hz 49` sets the frequency (1–199 Hz);
+`--no-callchain` disables callchain collection. Freeze holds the browser display
+while sampling continues. Sleeping threads can have stale or no samples.
+Instruction bytes are read on demand, after the selected IP sample.
+
+Sampling requires perf access and Linux support for MONOTONIC timestamps and
+remove-on-exec events (Linux 5.13+). Permission or resource failures appear in the
+sampling panel while available `/proc` panels keep working. STACK_USER and DWARF
+unwinding are deferred. The former snapshot endpoint has been removed; clients
+should consume the `samples` event on the process detail SSE stream.

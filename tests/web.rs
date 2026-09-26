@@ -17,25 +17,32 @@ fn query(id: procinsh::process::ProcessId) -> String {
     format!("pid={}&start_time_ticks={}", id.pid, id.start_time_ticks)
 }
 async fn next(body: &mut Body) -> serde_json::Value {
+    next_event(body, "observation").await
+}
+async fn next_event(body: &mut Body, event: &str) -> serde_json::Value {
     use axum::body::HttpBody;
-    let frame = tokio::time::timeout(
-        Duration::from_secs(3),
-        std::future::poll_fn(|cx| std::pin::Pin::new(&mut *body).poll_frame(cx)),
-    )
-    .await
-    .unwrap()
-    .unwrap()
-    .unwrap()
-    .into_data()
-    .unwrap();
-    let text = std::str::from_utf8(&frame).unwrap();
-    assert!(text.contains("event: observation"));
-    serde_json::from_str(
-        text.lines()
-            .find_map(|line| line.strip_prefix("data: "))
-            .unwrap(),
-    )
-    .unwrap()
+    loop {
+        let frame = tokio::time::timeout(
+            Duration::from_secs(3),
+            std::future::poll_fn(|cx| std::pin::Pin::new(&mut *body).poll_frame(cx)),
+        )
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap()
+        .into_data()
+        .unwrap();
+        let text = std::str::from_utf8(&frame).unwrap();
+        if !text.contains(&format!("event: {event}")) {
+            continue;
+        }
+        return serde_json::from_str(
+            text.lines()
+                .find_map(|line| line.strip_prefix("data: "))
+                .unwrap(),
+        )
+        .unwrap();
+    }
 }
 
 #[tokio::test]
@@ -93,6 +100,7 @@ async fn explicit_identity_is_required_without_selection() {
         "auxv",
         "signals",
         "events",
+        "disassembly",
     ] {
         for args in [
             "",
@@ -117,14 +125,6 @@ async fn explicit_identity_is_required_without_selection() {
             410,
             "{uri}"
         );
-    }
-    for body in ["{}", "{\"pid\":1}", "{\"start_time_ticks\":1}"] {
-        let mut req = request("/api/processes/snapshot");
-        *req.method_mut() = "POST".parse().unwrap();
-        req.headers_mut()
-            .insert("content-type", "application/json".parse().unwrap());
-        *req.body_mut() = Body::from(body);
-        assert_eq!(app.clone().oneshot(req).await.unwrap().status(), 422);
     }
     for path in [
         "observation",
@@ -184,8 +184,10 @@ async fn target_streams_have_independent_lifetimes_and_histories() {
         .into_body();
     assert_eq!(next(&mut b).await["history"].as_array().unwrap().len(), 1);
     assert_eq!(state.observer_count(), 2);
+    assert_eq!(state.perf.sampler_count(), 1);
     drop(a);
     assert_eq!(state.observer_count(), 1);
+    assert_eq!(state.perf.sampler_count(), 1);
     assert_eq!(next(&mut b).await["summary"]["identity"]["pid"], id.pid);
     let mut bodies = vec![b];
     for _ in 1..32 {
@@ -218,6 +220,7 @@ async fn target_streams_have_independent_lifetimes_and_histories() {
     }
     assert_eq!(state.observer_count(), 0);
     state.join_collectors().unwrap();
+    assert_eq!(state.perf.sampler_count(), 0);
 }
 
 #[tokio::test]
@@ -237,6 +240,7 @@ async fn closing_a_session_stops_its_collector() {
     assert_eq!(state.observer_count(), 0);
     state.stop();
     state.join_collectors().unwrap();
+    assert_eq!(state.perf.sampler_count(), 0);
 }
 
 #[tokio::test]
@@ -270,4 +274,28 @@ async fn generated_javascript_is_embedded_at_existing_urls() {
         let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
         assert_eq!(body.as_ref(), expected.as_bytes(), "{path}");
     }
+}
+
+#[tokio::test]
+async fn samples_have_initial_and_independent_one_second_updates() {
+    let state = Arc::new(AppState::new(Duration::from_secs(60)));
+    let app = procinsh::server::router(state.clone(), "127.0.0.1:8080".parse().unwrap());
+    let id = procinsh::process::identity(std::process::id() as i32).unwrap();
+    let mut body = app
+        .oneshot(request(&format!("/api/processes/events?{}", query(id))))
+        .await
+        .unwrap()
+        .into_body();
+    let initial = next_event(&mut body, "samples").await;
+    assert_eq!(initial["process_id"]["pid"], id.pid);
+    assert!(initial["collected_at_mono_ns"].is_string());
+    let later = next_event(&mut body, "samples").await;
+    assert_ne!(
+        initial["collected_at_mono_ns"],
+        later["collected_at_mono_ns"]
+    );
+    drop(body);
+    assert_eq!(state.perf.sampler_count(), 0);
+    state.stop();
+    state.join_collectors().unwrap();
 }

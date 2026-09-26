@@ -30,28 +30,36 @@ pub fn classify(name: &str, value: u64, maps: &[MemoryMap]) -> Register {
     }
 }
 
-pub fn from_raw(r: &libc::user_regs_struct, maps: &[MemoryMap]) -> Vec<Register> {
-    [
-        ("RIP", r.rip),
-        ("RSP", r.rsp),
-        ("RBP", r.rbp),
-        ("RAX", r.rax),
-        ("RBX", r.rbx),
-        ("RCX", r.rcx),
-        ("RDX", r.rdx),
-        ("RSI", r.rsi),
-        ("RDI", r.rdi),
-        ("R8", r.r8),
-        ("R9", r.r9),
-        ("R10", r.r10),
-        ("R11", r.r11),
-        ("R12", r.r12),
-        ("R13", r.r13),
-        ("R14", r.r14),
-        ("R15", r.r15),
-        ("RFLAGS", r.eflags),
-    ]
-    .into_iter()
-    .map(|(name, value)| classify(name, value, maps))
-    .collect()
+/// Values arrive in ascending perf register-mask bit order, not ptrace order.
+pub const MASK: u64 = 0xff03ff;
+pub const NAMES: [(u32, &str); 18] = [
+    (0, "RAX"),
+    (1, "RBX"),
+    (2, "RCX"),
+    (3, "RDX"),
+    (4, "RSI"),
+    (5, "RDI"),
+    (6, "RBP"),
+    (7, "RSP"),
+    (8, "RIP"),
+    (9, "RFLAGS"),
+    (16, "R8"),
+    (17, "R9"),
+    (18, "R10"),
+    (19, "R11"),
+    (20, "R12"),
+    (21, "R13"),
+    (22, "R14"),
+    (23, "R15"),
+];
+pub fn from_perf(values: &[(u32, u64)], maps: &[MemoryMap]) -> Vec<Register> {
+    values
+        .iter()
+        .filter_map(|(bit, value)| {
+            NAMES
+                .iter()
+                .find(|(b, _)| b == bit)
+                .map(|(_, name)| classify(name, *value, maps))
+        })
+        .collect()
 }

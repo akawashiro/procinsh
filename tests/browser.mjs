@@ -4,7 +4,7 @@ import {mkdtemp, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import assert from 'node:assert/strict';
-import {checkAutoSnapshot} from './auto-snapshot.mjs';
+import {checkSamples} from './samples.mjs';
 import {checkProcessDetails} from './process-details.mjs';
 import {checkDescriptors} from './fds.mjs';
 import {checkProcessSessions} from './process-sessions.mjs';
@@ -20,6 +20,8 @@ function launch(program, args) {
 async function until(fn, label, timeout = 15000) {
   const end = Date.now() + timeout;
   while (Date.now() < end) { const value = await fn(); if (value) return value; await delay(80); }
+  console.error("Browser errors:", errors);
+  for (const child of children) console.error(child.spawnfile, child.exitCode, child.signalCode, child.output.slice(-5000));
   throw new Error(`Timed out: ${label}`);
 }
 const profile = await mkdtemp(join(tmpdir(), 'procinsh-browser-'));
@@ -106,16 +108,16 @@ try {
   assert.equal(await evaluate("document.querySelector('header #back').textContent"), 'Back to process list');
   assert.equal(await evaluate('document.title'), await evaluate("'procinsh / ' + document.getElementById('target-name').textContent"));
   await checkProcessSessions({cdp,evaluate,choose,until,delay,url,debugPort,originalPid:recursive.pid,otherPid:threads.pid});
-  await checkAutoSnapshot({evaluate, waitFor, delay, choose, otherPid: threads.pid, originalPid: recursive.pid});
+  await checkSamples({evaluate, waitFor, delay, choose, otherPid: threads.pid, originalPid: recursive.pid});
   await checkProcessDetails({evaluate, waitFor, delay, choose, otherPid: threads.pid, originalPid: recursive.pid});
   await checkDescriptors({evaluate, waitFor, delay, choose, originalPid: recursive.pid, ipcPid: ipc.pid, peerPid});
   await waitFor("document.querySelectorAll('#maps tr').length > 5", 'memory maps');
-  await evaluate("document.getElementById('snapshot').click()");
-  await waitFor("document.querySelectorAll('#registers tr').length === 18", 'register snapshot');
+  await waitFor("document.querySelectorAll('#registers tr').length === 18", 'live registers');
   assert.match(await evaluate("document.getElementById('call-stack').textContent"), /foo/);
   assert.match(await evaluate("document.getElementById('call-stack').textContent"), /recursive\.c/);
-  await waitFor("document.querySelectorAll('#disassembly tr').length > 0", 'disassembly from captured RIP');
-  const ripText = () => evaluate("Array.from(document.querySelectorAll('#registers tr')).find(r => r.cells[0].textContent === 'RIP').cells[1].textContent");
+  await evaluate("document.getElementById('freeze').click(); document.getElementById('disasm-panel').open = true");
+  await waitFor("document.querySelectorAll('#disassembly tr').length > 0", 'disassembly from sample IP');
+  const ripText = () => evaluate("captured.threads.find(t => t.tid === selectedTid).ip");
   assert.equal(await evaluate("document.querySelector('#disassembly .current-instruction').cells[1].textContent"), await ripText());
   assert.match(await evaluate("document.querySelector('#disassembly tr').cells[2].textContent"), /^[0-9a-f]{2}( [0-9a-f]{2})*$/);
   assert.ok((await evaluate("document.querySelector('#disassembly tr').cells[3].textContent")).length > 0);
@@ -134,17 +136,14 @@ try {
   assert.equal(await evaluate("document.querySelectorAll('#disassembly tr').length"), 0);
   await choose(threads.pid);
   await waitFor("document.querySelectorAll('#threads tr').length >= 6", 'thread view');
-  await evaluate("document.getElementById('snapshot').click()");
-  await waitFor("document.querySelectorAll('#registers tr').length === 18", 'multi-thread snapshot');
+  await waitFor("captured !== null", 'multi-thread samples status');
   await evaluate("document.querySelectorAll('#threads button')[1].click()");
   assert.match(await evaluate("document.getElementById('stack-tid').textContent"), /TID \d+/);
-  assert.equal(await evaluate("document.querySelector('#disassembly .current-instruction').cells[1].textContent"), await ripText());
   assert.equal(await evaluate("document.getElementById('error').hidden"), true);
-  await evaluate("document.getElementById('auto-snapshot').click()");
   threads.kill('SIGTERM');
   await waitFor("document.getElementById('target-status').textContent.includes('Process exited')", 'process exit');
   assert.equal(await evaluate("document.getElementById('target-status').hidden"), false);
-  assert.equal(await evaluate("document.getElementById('auto-snapshot').checked"), false);
+  assert.match(await evaluate("document.getElementById('samples-status').textContent"), /stopped/);
   assert.ok(await evaluate("window.targetSources.at(-1).readyState===EventSource.CLOSED"),'process exit closes the stream');
   await evaluate("document.getElementById('back').click()");
   await choose(recursive.pid);
@@ -156,7 +155,7 @@ try {
   // Connection failures caused by deliberately shutting down the first server are expected.
   assert.deepEqual(errors.filter(e => !/ERR_CONNECTION_REFUSED|Failed to load resource/.test(e)), []);
   assert.deepEqual(targetGets,[],'UI never requests removed /api/target');
-  console.log('Browser checks passed: explorer, search, selection, SSE initialization/direct URLs/stale events, snapshots, source lines, memory, mobile layout, thread switching, process exit, graceful shutdown, removed --pid.');
+  console.log('Browser checks passed: explorer, search, selection, SSE initialization/direct URLs/stale events, perf samples, source lines, memory, mobile layout, thread switching, process exit, graceful shutdown, removed --pid.');
 } finally {
   socket?.close();
   for (const child of children.reverse()) if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM');

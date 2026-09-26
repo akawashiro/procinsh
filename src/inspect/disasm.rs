@@ -1,7 +1,6 @@
 use crate::process::{maps::MemoryMap, memory};
 use iced_x86::{Decoder, DecoderError, DecoderOptions, Formatter, IntelFormatter};
 use serde::Serialize;
-use std::time::Instant;
 
 const MAX_BYTES: usize = 256;
 const MAX_INSTRUCTIONS: usize = 32;
@@ -34,37 +33,18 @@ impl Disassembly {
         }
     }
 
-    /// Only read bytes while the tracee is stopped. Decode after tracer exit.
-    pub fn capture(
-        pid: i32,
-        registers: &libc::user_regs_struct,
-        maps: &[MemoryMap],
-        deadline: Instant,
-    ) -> Self {
-        let mut result = Self::empty(registers.rip);
-        if registers.cs != 0x33 {
-            result.error = Some("Disassembly supports 64-bit user mode only.".into());
-            return result;
-        }
-        if Instant::now() >= deadline {
-            result.error = Some(
-                "The snapshot time limit was reached before instruction bytes could be read."
-                    .into(),
-            );
-            return result;
-        }
-        let Some(map) = maps.iter().find(|m| m.contains(registers.rip)) else {
-            result.error = Some("RIP is outside the memory mappings.".into());
+    /// Instruction bytes are live reads, later than the perf sample.
+    pub fn capture(pid: i32, address: u64, maps: &[MemoryMap]) -> Self {
+        let mut result = Self::empty(address);
+        let Some(map) = maps.iter().find(|m| m.contains(address) && m.readable) else {
+            result.error = Some("Address is outside readable mappings".into());
             return result;
         };
-        let length = (map.end - registers.rip).min(MAX_BYTES as u64) as usize;
-        match memory::read_raw(pid, registers.rip, length) {
+        let length = (map.end - address).min(MAX_BYTES as u64) as usize;
+        match memory::read_raw(pid, address, length) {
             Ok(bytes) => {
                 if bytes.len() < length {
-                    result.error = Some(format!(
-                        "Only some instruction bytes were read ({} / {length} bytes).",
-                        bytes.len()
-                    ));
+                    result.error = Some("Partial instruction read".into());
                 }
                 result.bytes = bytes;
             }
@@ -72,11 +52,10 @@ impl Disassembly {
                 result.error = Some(format!("Could not read instruction bytes: {error:#}"))
             }
         }
+        result.decode();
         result
     }
 
-    /// RIP is a known instruction boundary. Never guess boundaries by decoding
-    /// backwards, or re-read live memory after the snapshot has resumed.
     pub fn decode(&mut self) {
         self.instructions.clear();
         let bytes = &self.bytes[..self.bytes.len().min(MAX_BYTES)];
@@ -156,44 +135,22 @@ mod tests {
     }
 
     #[test]
-    fn reads_mapping_boundary_and_decodes_captured_bytes_after_memory_changes() {
-        let mut bytes = [0x55u8, 0xc3];
+    fn reads_mapping_boundary() {
+        let bytes = [0x55u8, 0xc3];
         let address = bytes.as_ptr() as u64;
         let map = crate::process::maps::parse_map(&format!(
             "{address:x}-{:x} r-xp 0 00:00 0",
             address + 2
         ))
         .unwrap();
-        let mut registers: libc::user_regs_struct = unsafe { std::mem::zeroed() };
-        registers.rip = address;
-        registers.cs = 0x33;
-        let mut code = Disassembly::capture(
-            std::process::id() as i32,
-            &registers,
-            &[map],
-            Instant::now() + std::time::Duration::from_secs(1),
-        );
+        let code = Disassembly::capture(std::process::id() as i32, address, &[map]);
         assert_eq!(code.bytes.len(), 2);
-        bytes.fill(0x90);
-        code.decode();
         assert_eq!(code.instructions[0].text, "push rbp");
         assert_eq!(code.instructions[1].text, "ret");
         assert!(
-            Disassembly::capture(
-                std::process::id() as i32,
-                &registers,
-                &[],
-                Instant::now() + std::time::Duration::from_secs(1)
-            )
-            .error
-            .is_some()
-        );
-        registers.cs = 0x23;
-        assert!(
-            Disassembly::capture(std::process::id() as i32, &registers, &[], Instant::now())
+            Disassembly::capture(std::process::id() as i32, address, &[])
                 .error
-                .unwrap()
-                .contains("64-bit")
+                .is_some()
         );
     }
 }

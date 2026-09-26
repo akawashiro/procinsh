@@ -3,8 +3,8 @@
 type ProcessId = import("./api-types.js").ProcessId;
 type ProcessSummary = import("./api-types.js").ProcessSummary;
 type Target = import("./api-types.js").Target;
-type Capture = import("./api-types.js").Capture;
-type ThreadSnapshot = import("./api-types.js").ThreadSnapshot;
+type Samples = import("./api-types.js").Samples;
+type ThreadSample = import("./api-types.js").ThreadSample;
 type MemoryRead = import("./api-types.js").MemoryRead;
 type DetailData = import("./api-types.js").DetailData;
 type FileDescriptors = import("./api-types.js").FileDescriptors;
@@ -64,13 +64,16 @@ const byteRate = (v: number | null | undefined) =>
 let processes: ProcessSummary[] = [],
   target: Target | null = null,
   selectedTid: number | null | undefined = null,
-  captured: Capture | null = null;
-let snapshotBusy = false,
-  listBusy = false,
-  mapsTimestamp: number | null = null;
-let autoSnapshotTimer: number | null = null,
-  snapshotEpoch = 0,
-  autoSnapshotStatus = "Auto capture OFF";
+  captured: Samples | null = null;
+let listBusy = false, mapsTimestamp: number | null = null;
+let liveSamples: Samples | null = null;
+let receivedAt = 0, sampleEpoch = 0, frozen = false;
+let disasmKey = "";
+const sampleDetails = new Map<string, { sample: ThreadSample; at: number; size: number }>();
+let detailBytes = 0;
+const sampleTimes = new WeakMap<ThreadSample, number>();
+const sampleKey = (s: {tid: number; start_time_ticks: number; sampled_at_mono_ns: string}) =>
+  `${s.tid}/${s.start_time_ticks}/${s.sampled_at_mono_ns}`;
 let detailEpoch = 0;
 const detailKinds = ["environment", "auxv", "fds", "signals"] as const;
 const processDetails: {
@@ -257,40 +260,37 @@ function renderDescriptors(data: FileDescriptors, time: string) {
     $("fds-entries").append(row);
   }
 }
-function snapshotControls() {
-  const enabled = autoSnapshotTimer !== null;
-  $("snapshot").disabled = !target || target.exited || snapshotBusy || enabled;
-  $("snapshot").textContent = snapshotBusy
-    ? "Capturing…"
-    : "Capture coherent snapshot";
-  $("auto-snapshot").checked = enabled;
-  $("auto-snapshot").disabled = !target || target.exited;
-  $("auto-snapshot-status").textContent =
-    `${autoSnapshotStatus}${snapshotBusy ? " · Capturing" : ""}`;
+function sampleControls() {
+  $("freeze").checked = frozen;
+  const data = liveSamples;
+  $("samples-status").textContent = data
+    ? `${data.status} · ${data.configured_hz} Hz · lost ${data.lost_total} · malformed ${data.malformed_total} · history discarded ${data.history_dropped_total}${data.throttled ? " · throttled" : ""}${data.thread_limit_reached ? " · thread limit" : ""} ${data.warnings.join("; ")}`
+    : "Waiting for samples";
 }
-function stopAutoSnapshot(reason = "Auto capture OFF") {
-  if (autoSnapshotTimer !== null) clearInterval(autoSnapshotTimer);
-  autoSnapshotTimer = null;
-  autoSnapshotStatus = reason;
-  snapshotControls();
-}
-function startAutoSnapshot() {
-  if (
-    !target ||
-    target.exited ||
-    document.hidden ||
-    autoSnapshotTimer !== null
-  ) {
-    snapshotControls();
-    return;
+function receiveSamples(data: Samples) {
+  const previousSamples = liveSamples;
+  liveSamples = data;
+  receivedAt = Date.now();
+  for (const sample of data.threads) {
+    const key = sampleKey(sample);
+    const previous = sampleDetails.get(key);
+    if (previous) detailBytes -= previous.size;
+    sample.disassembly = previous?.sample.disassembly ?? previousSamples?.threads.find(t => sampleKey(t) === key)?.disassembly;
+    sampleTimes.set(sample, receivedAt - sample.sample_age_ms);
+    const size = JSON.stringify(sample).length * 2 + 256;
+    sampleDetails.set(key, {sample, at: receivedAt - sample.sample_age_ms, size});
+    detailBytes += size;
   }
-  autoSnapshotStatus = "Auto capture ON · every 1 s";
-  autoSnapshotTimer = setInterval(() => {
-    if (!document.hidden) snapshot();
-    else stopAutoSnapshot("Auto capture OFF · Tab hidden");
-  }, 1000);
-  snapshotControls();
-  snapshot();
+  for (const [key, value] of sampleDetails) {
+    if (receivedAt - value.at > 60000 || detailBytes > 16*1024*1024) {
+      sampleDetails.delete(key); detailBytes -= value.size;
+    }
+  }
+  if (!frozen) captured = data;
+  sampleControls(); renderTarget(); renderSamples();
+}
+function sampleAge(sample: ThreadSample): number {
+  return Math.max(0, Date.now() - (sampleTimes.get(sample) ?? (receivedAt - sample.sample_age_ms)));
 }
 function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
@@ -400,7 +400,6 @@ function closeTarget() {
   targetGeneration++;
   targetSource?.close();
   targetSource = null;
-  stopAutoSnapshot();
 }
 async function select(id: ProcessId) {
   closeTarget();
@@ -424,37 +423,47 @@ async function select(id: ProcessId) {
       if (next.exited) {
         events.close();
         targetSource = null;
-        stopAutoSnapshot("Auto capture OFF · Process exited");
+        if (liveSamples) liveSamples.status = "stopped";
+        sampleControls();
       }
     } catch (e) {
       error(e);
     }
   });
+  events.addEventListener("samples", (event) => {
+    if (targetSource !== events || generation !== targetGeneration) return;
+    try {
+      const data = JSON.parse(event.data) as Samples;
+      if (same(id, data.process_id)) receiveSamples(data);
+    } catch (e) { error(e); }
+  });
   events.onerror = () => {
     if (targetSource !== events || generation !== targetGeneration) return;
     disconnected = true;
-    stopAutoSnapshot("Auto capture OFF · Disconnected");
+    $("samples-status").textContent = "Disconnected; samples may be stale";
     error(new Error("Process observation disconnected. Retrying the same process identity…"));
   };
 }
 function resetCapture() {
   resetProcessDetails();
-  stopAutoSnapshot();
-  snapshotEpoch++;
+  sampleEpoch++;
+  liveSamples = null; frozen = false; sampleDetails.clear(); detailBytes = 0; disasmKey = "";
+  $("sample-history").replaceChildren();
+  sampleControls();
   captured = null;
   selectedTid = null;
   mapsTimestamp = null;
   $("registers").replaceChildren();
   $("call-stack").replaceChildren(
-    node("p", "Capture a snapshot to view the call stack.", "muted"),
+    node("p", "Waiting for a user callchain sample.", "muted"),
   );
-  $("snapshot-time").textContent =
-    "Not captured · Capturing briefly pauses all threads.";
+  $("sample-time").textContent =
+    "Waiting for non-stopping samples.";
   $("disassembly").replaceChildren();
   $("disasm-error").hidden = true;
-  $("disasm-time").textContent = "Snapshot · x86-64 / Intel";
+  $("disasm-time").textContent = "Sample IP · x86-64 / Intel";
   $("disasm-location").textContent =
-    "Capture a snapshot to view instructions starting at the selected thread’s RIP.";
+    "Open disassembly to read instructions at the selected sample IP.";
   $("memory").textContent = "";
   $("address").value = "";
   $("memory-info").textContent =
@@ -476,8 +485,7 @@ function acceptTarget(next: Target | null) {
   target = next;
   $("explorer").hidden = true;
   $("inspector").hidden = false;
-  if (target.exited && autoSnapshotTimer !== null)
-    stopAutoSnapshot("Auto capture OFF · Process exited");
+
   history.replaceState(null, "", `/process/${next.summary.identity.pid}`);
   document.title = `procinsh / ${target.summary.name}`;
   renderTarget();
@@ -501,7 +509,7 @@ function renderTarget() {
   $("target-status").classList.toggle("exited", target.exited);
   $("target-error").hidden = !target.error;
   $("target-error").textContent = target.error || "";
-  snapshotControls();
+  sampleControls();
   for (const kind of detailKinds)
     $(`${kind}-refresh`).disabled = target.exited || processDetails[kind].busy;
   if (!o) return;
@@ -551,7 +559,7 @@ function renderTarget() {
     !captured?.threads.some((t) => t.tid === selectedTid)
   ) {
     selectedTid = threads[0]?.tid;
-    renderSnapshot();
+    renderSamples();
   }
   $("thread-count").textContent = `${threads.length} threads`;
   $("threads").replaceChildren(
@@ -561,12 +569,15 @@ function renderTarget() {
         button(`${t.tid} ${t.name}`, () => {
           selectedTid = t.tid;
           renderTarget();
-          renderSnapshot();
+          renderSamples();
         }),
       );
       cell(row, percent(t.cpu_percent));
       cell(row, t.cpu);
       cell(row, t.state);
+      const sample = captured?.threads.find(s => s.tid === t.tid && s.start_time_ticks === t.start_time);
+      cell(row, sample?.ip ?? "no sample", "mono");
+      cell(row, sample ? `${(sampleAge(sample)/1000).toFixed(1)}s · ${sampleAge(sample)>3000 ? "stale" : "sampled"}` : "no sample");
       return row;
     }),
   );
@@ -645,59 +656,59 @@ function drawHistory() {
   $("history-scale").textContent =
     `CPU 0–${num(cpuMax)}% · RSS 0–${bytes(rssMax)}`;
 }
-async function snapshot() {
-  const id = identity(),
-    epoch = snapshotEpoch;
-  if (!id || !target || target.exited || snapshotBusy) return;
-  clearError();
-  snapshotBusy = true;
-  snapshotControls();
+function samplesAge() {
+  const sample = captured?.threads.find(t => t.tid === selectedTid);
+  $("sample-time").textContent = sample
+    ? `TID ${sample.tid} · ${sample.sampled_at_mono_ns} ns monotonic · ${(sampleAge(sample)/1000).toFixed(1)}s ago · ${sampleAge(sample)>3000 ? "stale" : "sampled"} · ${sample.quality}${frozen ? " · display frozen" : ""}`
+    : "No sample for this thread";
+}
+async function loadDisassembly(thread: ThreadSample | undefined) {
+  const id = identity(), epoch = sampleEpoch;
+  if (!id || !thread || !$("disasm-panel").open) return;
+  const key = sampleKey(thread);
+  if (disasmKey === key) return;
+  disasmKey = key;
   try {
-    const result = await api<Capture>("/api/processes/snapshot", {
-      method: "POST",
-      body: JSON.stringify(id),
-    });
-    if (
-      epoch === snapshotEpoch &&
-      same(id, identity()) &&
-      same(id, result.process_id)
-    ) {
-      captured = result;
-      renderTarget();
-      renderSnapshot();
-    }
+    const result = await api<{process_id: ProcessId; captured_at: number; disassembly: ThreadSample["disassembly"]}>(`/api/processes/disassembly?${query(id)}&address=${encodeURIComponent(thread.ip)}`);
+    if (epoch !== sampleEpoch || disasmKey !== key || !same(id, identity()) || !same(id,result.process_id)) return;
+    thread.disassembly = result.disassembly;
+    const current = captured?.threads.find(t => sampleKey(t) === key);
+    if (current) current.disassembly = result.disassembly;
+    const cached = sampleDetails.get(key);
+    if (cached) cached.sample.disassembly = result.disassembly;
+    renderDisassembly(thread);
+    $("disasm-time").textContent = `Sample IP ${thread.ip} · bytes read later at ${new Date(result.captured_at).toLocaleTimeString("en-US")}`;
   } catch (e) {
-    if (epoch === snapshotEpoch && same(id, identity())) {
-      stopAutoSnapshot("Auto capture OFF · Capture failed");
-      error(e);
+    if (epoch === sampleEpoch && disasmKey === key) {
+      $("disasm-error").textContent = errorMessage(e); $("disasm-error").hidden = false;
     }
-  } finally {
-    snapshotBusy = false;
-    snapshotControls();
   }
 }
-function snapshotAge() {
-  if (captured)
-    $("snapshot-time").textContent =
-      `Snapshot · ${Math.max(0, (Date.now() - captured.captured_at) / 1000).toFixed(1)}s ago · ${new Date(captured.captured_at).toLocaleTimeString("en-US")} · capture ${num(captured.paused_ms)}ms · ${captured.threads.length} threads`;
-  if (captured)
-    $("disasm-time").textContent =
-      `TID ${selectedTid} · ${Math.max(0, (Date.now() - captured.captured_at) / 1000).toFixed(1)}s ago · ${new Date(captured.captured_at).toLocaleTimeString("en-US")} · x86-64 / Intel`;
+function renderSampleHistory() {
+  const selected = $("sample-history").value;
+  const options = [node("option", "Latest sample")]; options[0]!.value = "";
+  const points = captured?.history.filter(p => p.tid === selectedTid) ?? [];
+  for (const point of points.slice().reverse()) {
+    const option = node("option", `${point.sampled_at_mono_ns} ns · ${point.ip}${sampleDetails.has(sampleKey(point)) ? " · details" : " · IP only"}`);
+    option.value = sampleKey(point); options.push(option);
+  }
+  $("sample-history").replaceChildren(...options);
+  if (frozen && options.some(o => o.value === selected)) $("sample-history").value = selected;
 }
-function renderDisassembly(thread: ThreadSnapshot | undefined) {
+function renderDisassembly(thread: ThreadSample | undefined) {
   $("disassembly").replaceChildren();
   $("disasm-error").hidden = true;
   const code = thread?.disassembly;
   if (!thread || !code) {
     $("disasm-location").textContent =
       thread?.error ||
-      "This snapshot contains no instruction bytes for this thread.";
+      "Instruction bytes have not been read for this sample.";
     return;
   }
   const rip = thread.registers.find((r) => r.name === "RIP");
   const frame = thread.call_stack[0];
   $("disasm-location").textContent =
-    `RIP ${code.address} · ${rip?.mapping || "mapping N/A"}${frame?.symbol ? ` · ${frame.symbol}${frame.symbol_offset ? ` +${frame.symbol_offset}` : ""}` : ""}${frame?.source_file ? ` · ${frame.source_file}:${frame.line ?? "?"}` : ""} · ${code.bytes.length} bytes captured`;
+    `Sample IP ${code.address} · ${rip?.mapping || "mapping N/A"}${frame?.symbol ? ` · ${frame.symbol}${frame.symbol_offset ? ` +${frame.symbol_offset}` : ""}` : ""}${frame?.source_file ? ` · ${frame.source_file}:${frame.line ?? "?"}` : ""} · ${code.bytes.length} bytes captured`;
   if (code.error) {
     $("disasm-error").textContent = code.error;
     $("disasm-error").hidden = false;
@@ -710,12 +721,12 @@ function renderDisassembly(thread: ThreadSnapshot | undefined) {
         instruction.current ? "current-instruction" : "",
       );
       if (instruction.current) row.setAttribute("aria-current", "true");
-      cell(row, instruction.current ? "→ RIP" : "", "mono");
+      cell(row, instruction.current ? "→ IP" : "", "mono");
       const address = button(instruction.address, () =>
         readMemory(instruction.address),
       );
       address.title =
-        "Read current memory at this address (separate from the snapshot)";
+        "Read current memory at this address (later than the sample)";
       cell(row, null, "mono").append(address);
       cell(
         row,
@@ -727,17 +738,20 @@ function renderDisassembly(thread: ThreadSnapshot | undefined) {
     }),
   );
 }
-function renderSnapshot() {
+function renderSamples() {
   if (!captured) return;
-  snapshotAge();
+  samplesAge();
+  renderSampleHistory();
   const thread = captured.threads.find((t) => t.tid === selectedTid);
+  if (!thread || disasmKey !== sampleKey(thread)) disasmKey = "";
   renderDisassembly(thread);
+  void loadDisassembly(thread);
   $("registers").replaceChildren();
   $("call-stack").replaceChildren();
-  $("stack-tid").textContent = `TID ${selectedTid} · Frame pointer`;
+  $("stack-tid").textContent = `TID ${selectedTid} · User CALLCHAIN`;
   if (!thread) {
     $("call-stack").append(
-      node("p", "This thread is not included in the snapshot.", "muted"),
+      node("p", "No sample for this thread. Sleeping threads may not produce samples.", "muted"),
     );
     return;
   }
@@ -815,7 +829,7 @@ async function readMemory(address: string) {
     }
     $("memory").textContent = lines.join("\n");
     $("memory-info").textContent =
-      `${result.bytes.length} / ${result.requested_length} bytes${result.partial ? " · partial read (mapping boundary)" : ""} · live read ${new Date(result.captured_at).toLocaleTimeString("en-US")} · separate from the snapshot`;
+      `${result.bytes.length} / ${result.requested_length} bytes${result.partial ? " · partial read (mapping boundary)" : ""} · live read ${new Date(result.captured_at).toLocaleTimeString("en-US")} · later than the sample`;
   } catch (e) {
     if (epoch === detailEpoch && same(id, identity())) {
       $("memory").textContent = "";
@@ -841,16 +855,26 @@ $("environment-search").addEventListener("input", () =>
 $("fds-search").addEventListener("input", () => renderProcessDetails("fds"));
 $("back").addEventListener("click", back);
 $("brand").addEventListener("click", back);
-$("snapshot").addEventListener("click", () => {
-  if (autoSnapshotTimer === null) snapshot();
+$("freeze").addEventListener("change", () => {
+  frozen = $("freeze").checked;
+  if (!frozen) { captured = liveSamples; $("sample-history").value = ""; }
+  renderTarget(); renderSamples();
 });
-$("auto-snapshot").addEventListener("change", () => {
-  if ($("auto-snapshot").checked) startAutoSnapshot();
-  else stopAutoSnapshot();
+$("sample-history").addEventListener("change", () => {
+  const key = $("sample-history").value;
+  if (!key) { frozen = false; captured = liveSamples; }
+  else {
+    const point = captured?.history.find(p => sampleKey(p) === key);
+    if (!point || !captured) return;
+    const sample = sampleDetails.get(key)?.sample ?? {...point, sample_age_ms: Math.max(0,Number((BigInt(liveSamples!.collected_at_mono_ns) - BigInt(point.sampled_at_mono_ns))/1000000n)), quality: "ip_only", registers: [], call_stack: [], error: "Only the lightweight IP history is retained", unwind_stop: "Details unavailable"};
+    if (!sampleTimes.has(sample)) sampleTimes.set(sample, receivedAt - sample.sample_age_ms);
+    frozen = true;
+    captured = {...captured, threads: [sample]};
+  }
+  disasmKey = ""; sampleControls(); renderTarget(); renderSamples();
 });
-document.addEventListener("visibilitychange", () => {
-  if (document.hidden && autoSnapshotTimer !== null)
-    stopAutoSnapshot("Auto capture OFF · Tab hidden");
+$("disasm-panel").addEventListener("toggle", () => {
+  if ($("disasm-panel").open) void loadDisassembly(captured?.threads.find(t => t.tid === selectedTid));
 });
 window.addEventListener("pagehide", closeTarget);
 window.addEventListener("pageshow", (event) => {
@@ -877,7 +901,7 @@ async function start() {
       acceptTarget(null);
     }
     setInterval(refresh, Math.max(1000, config.interval_ms));
-    setInterval(snapshotAge, 1000);
+    setInterval(samplesAge, 1000);
   } catch (e) {
     error(e);
   }

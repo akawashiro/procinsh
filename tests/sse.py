@@ -11,7 +11,7 @@ class Stream:
                       else http.client.HTTPConnection)
         self.connection = connection(parsed.hostname, parsed.port, timeout=timeout)
         try:
-            self.connection.request('GET', parsed.path or '/')
+            self.connection.request('GET', (parsed.path or '/') + ('?' + parsed.query if parsed.query else ''))
             self.socket = self.connection.sock
             self.response = self.connection.getresponse()
             if self.response.status != 200:

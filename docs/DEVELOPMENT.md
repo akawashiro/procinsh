@@ -1,6 +1,6 @@
 # ProcInSh 開発ドキュメント
 
-ProcInSh は Linux x86-64 のプロセスを観測する Web アプリケーションです。Rust の HTTP サーバーが `/proc`、ptrace、eBPF から情報を取得し、ブラウザに配信します。プロセスのメモリやレジスタを書き換える機能はありません。ただし、ptrace スナップショットの取得中は対象の全スレッドを一時停止します。
+ProcInSh は Linux x86-64 のプロセスを観測する Web アプリケーションです。Rust の HTTP サーバーが `/proc`、perf_event_open、eBPF から情報を取得し、ブラウザに配信します。プロセスのメモリやレジスタを書き換える機能はありません。サンプリング中も対象プロセスを停止しません。レジスタやスタックはサンプル取得時点の情報であり、画面更新時点の現在値ではありません。
 
 この文書は現在の実装構成、動作、API、開発・検証手順を説明します。以下のコマンドはリポジトリのルートで実行します。
 
@@ -28,6 +28,8 @@ HTML/CSS、生成した JavaScript、Three.js（revision 180）はバイナリ�
 |---|---|
 | `--listen ADDRESS` | 待受アドレス。既定は `127.0.0.1:8080` |
 | `--interval DURATION` | 詳細監視の更新間隔。既定は `1s`、範囲は `100ms`～`60s` |
+| `--sample-hz HZ` | perf の設定周波数。既定49、範囲1–199 Hz。実際の取得頻度は実行時間やカーネルの制限に依存 |
+| `--no-callchain` | CALLCHAIN を無効にし、IP・時刻・CPU・レジスタを収集 |
 | `--help` / `--version` | ヘルプ / バージョン表示 |
 
 SIGINT（Ctrl+C）または SIGTERM で収集停止と HTTP サーバーの終了処理を行います。起動・サーバーの致命的な失敗は非ゼロ終了です。
@@ -52,7 +54,8 @@ cargo publish --dry-run
 | `src/server/` | Axum のルーティング、入力・アクセス検証、HTTP ログ、プロセス詳細監視の SSE (Server-Sent Events) |
 | `src/state/` | 接続ごとの独立した観測、60秒の履歴、最新状態の配信 |
 | `src/process/` | `/proc` の解析、PID 識別、プロセス・スレッド・メモリ・FD・ソケット・シグナル情報 |
-| `src/snapshot/` | ptrace による停止・レジスタ取得、frame pointer unwind、逆アセンブル |
+| `src/perf/` | perf FD・リング・デコード・共有ワーカー・最新サンプルと履歴 |
+| `src/inspect/` | レジスタ分類・スタックフレーム型・要求時の逆アセンブル |
 | `src/symbol/` | ELF/DWARF によるシンボル・ソース位置の解決 |
 | `src/system/` | 全プロセスの構造、閲覧セッション、BPF 収集、名前解決、`/api/system` 配下の API |
 | `src/web/` | TypeScript の通常画面・SPACE 画面・描画モデル、HTML/CSS、同梱 Three.js |
@@ -80,17 +83,17 @@ JSON のプロセス識別子は `{ "pid": 123, "start_time_ticks": 456 }` で�
 | `GET /api/processes/environment` | 識別子クエリ | 環境変数の名前・値の一覧と取得情報 |
 | `GET /api/processes/auxv` | 識別子クエリ | 補助ベクトルのタグ・値・参照先の解決結果 |
 | `GET /api/processes/signals` | 識別子クエリ | プロセス・スレッドのシグナル状態と警告 |
-| `POST /api/processes/snapshot` | JSON本文の必須 `{pid, start_time_ticks}` | レジスタ・スタック・逆アセンブルなどのスナップショット |
-| `GET /api/processes/events` | 識別子クエリ | SSE `observation`：指定プロセスの概要・最新観測・スレッド・履歴・マップ・終了状態 |
+| `GET /api/processes/disassembly` | 必須 `pid`・`start_time_ticks`・`address` | サンプルIPから要求時点の命令列を読み取り・デコード |
+| `GET /api/processes/events` | 識別子クエリ | SSE `observation` と `samples`：通常観測とライブサンプル |
 | `GET /api/system/events` | なし | SSE `topology`・`metrics`・`activity`・`gap`：構造、CPU/RSS、CPU・IPC・ファイルI/O活動、配信欠落 |
 
-識別子クエリの欠落・構文不正は400、JSON本文の必須フィールド欠落や型不正は422です。PIDは正の整数である必要があります。対象の終了・PID再利用は410で返します。memory の `address` は10進または `0x` 付き16進、`length` は既定256・範囲1～65536です。不正なアドレス・範囲は400、その他の観測処理の失敗は原則422、ブロッキングタスクの失敗は500です。observation/threads/mapsを含め、終了済みプロセスの単発GETは成功しません。
+識別子クエリの欠落・構文不正は400、PIDは正の整数である必要があります。対象の終了・PID再利用は410で返します。memory の `address` は10進または `0x` 付き16進、`length` は既定256・範囲1～65536です。不正なアドレス・範囲は400、その他の観測処理の失敗は原則422、ブロッキングタスクの失敗は500です。observation/threads/mapsを含め、終了済みプロセスの単発GETは成功しません。
 
-SSE は `Content-Type: text/event-stream` で接続を維持し、`event:` にイベント名、`data:` に JSON を送ります。接続直後に送るのは `GET /api/processes/events` が `observation`、`GET /api/system/events` が `topology` です。keep-alive はデータの更新ではありません。
+SSE は `Content-Type: text/event-stream` で接続を維持し、`event:` にイベント名、`data:` に JSON を送ります。接続直後に送るのは `GET /api/processes/events` が `observation` と `samples`、`GET /api/system/events` が `topology` です。keep-alive はデータの更新ではありません。
 
 ### `GET /api/processes/events`
 
-`GET /api/processes/events` は SSE で `observation` イベントを送ります。`?pid=123&start_time_ticks=456` のように識別子クエリを指定します。初回観測を取得して接続を開始し、その後は定期観測時（既定1秒）に次の対象状態全体を送ります。差分ではなく、履歴と保持済みマップも毎回含みます。イベント全体が null になることはありません。
+`GET /api/processes/events` は SSE で `observation` と `samples` イベントを送ります。以下は `observation` の説明です。`?pid=123&start_time_ticks=456` のように識別子クエリを指定します。初回観測を取得して接続を開始し、その後は定期観測時（既定1秒）に次の対象状態全体を送ります。差分ではなく、履歴と保持済みマップも毎回含みます。イベント全体が null になることはありません。
 
 各接続は独立して収集し、履歴は接続時から直近60秒分を保持します。同じプロセスを複数タブで開いた場合も観測・履歴を共有しません。切断後の再接続は新しい履歴で始まります。詳細SSEは最大32接続で、上限超過は429、終了処理中の新規接続は503です。
 
@@ -98,7 +101,7 @@ SSE は `Content-Type: text/event-stream` で接続を維持し、`event:` に�
 |---|---|
 | `summary` | `identity`（PID・開始時刻）、名前、実行ファイル、コマンドライン、実・実効ユーザー、状態、CPU使用率、RSS、スレッド数の概要 |
 | `observation` | 最新の `timestamp`、`process_id`、`cpu_percent`、`rss_bytes`、`vms_bytes`、minor/major fault、context switch累計、`io` のread/writeバイト累計、`rates` の毎秒増分、`threads`、CPU番号・nice・priority。未取得なら null |
-| `observation.threads` | TID、名前、状態、CPU番号・使用率、priority・nice、scheduler、affinity、context switch累計 |
+| `observation.threads` | TID、開始時刻 `start_time`、名前、状態、CPU番号・使用率、priority・nice、scheduler、affinity、context switch累計 |
 | `history` | 直近60秒の `timestamp`・`cpu_percent`・`rss_bytes`・`vms_bytes` の配列 |
 | `maps` | 仮想メモリ領域の開始・終了、権限、ファイルオフセット、device/inode、パス、RSS/PSS |
 | `maps_captured_at`、`maps_error` | マップの取得時刻と取得エラー。未取得時の時刻、エラーなしの場合のエラー値は null |
@@ -140,6 +143,23 @@ SSE は `Content-Type: text/event-stream` で接続を維持し、`event:` に�
 
 該当活動がない場合やセンサーが利用不能の場合、活動配列は空になります。空配列だけで「活動がなかった」とは判断せず、`status` の observing・unavailable・error なども確認します。CPU/RSSメトリクスのCPU使用率が算出不能なら null です。
 
+### プロセス SSE の samples イベント
+
+`GET /api/processes/events` は既存の `observation` に加え、接続直後と約1秒ごとに `samples` を返します。設定された `/proc` の更新間隔とは独立しています。終了時には最終状態も配信します。
+
+| フィールド | 意味 |
+|---|---|
+| `process_id`, `status` | 対象の識別子、`active / partial / unavailable / stopped` |
+| `configured_hz`, `monitored_threads` | 設定周波数、実際に開けた TID 数 |
+| `collected_at_mono_ns` | 応答を作成した MONOTONIC 時刻（10進文字列） |
+| `lost_total`, `malformed_total` | カーネルが報告した欠落、不正レコード／リング処理エラーの累計 |
+| `history_dropped_total` | 保持期間または容量上限による履歴破棄数 |
+| `thread_limit_reached`, `throttled`, `warnings` | 上限制限、カーネルによる抑制、権限や縮退の理由 |
+| `threads` | TIDごとの最新値。開始時刻、`sampled_at_mono_ns`（10進文字列）、`sample_age_ms`、IP、CPU、レジスタ、CALLCHAIN、`quality`、取得制限の理由 |
+| `history` | TID・開始時刻・サンプル時刻・IP・CPU の軽量履歴 |
+
+アドレスは16進文字列です。`quality` は `ip_only / registers / callchain`。サンプルがないスレッドは `threads` に現れず、通常観測のスレッド一覧と突き合わせて表示します。
+
 ## バックエンド側の処理
 
 ### 共通処理と状態管理
@@ -155,7 +175,7 @@ Axum がルートごとにクエリや JSON を取り出し、ハンドラへ渡
 
 ### 要求時の観測・スレッド・マップ
 
-次のAPIは識別子を検証し、要求ごとに `/proc` を読み取ります。SSE接続の保持状態は参照せず、ptraceによる停止も行いません。
+次のAPIは識別子を検証し、要求ごとに `/proc` を読み取ります。SSE接続の保持状態は参照せず、対象の停止も行いません。
 
 - `GET /api/processes/observation`：CPU・RSS/VMS・fault・I/O・context switch・スレッドなどの単発観測を返します。比較対象となる前回観測を持たないため、CPU使用率と `rates` は null です。
 - `GET /api/processes/threads`：単発観測の threads を返します。スレッドごとのCPU使用率は null です。
@@ -165,7 +185,7 @@ Axum がルートごとにクエリや JSON を取り出し、ハンドラへ渡
 
 ### メモリ読み取り
 
-`GET /api/processes/memory` はアドレスの構文、長さ、加算のオーバーフローを検証し、識別子と生存を確認して [`process_vm_readv`](https://man7.org/linux/man-pages/man2/process_vm_readv.2.html) で最大64 KiBを読み取ります。部分読み取りを完全な読み取りと区別して返します。スナップショットの保存値ではなく、要求時点のメモリを対象を停止せずに取得します。実装は [API ハンドラ](../src/server/mod.rs#L291) と [メモリ読み取り処理](../src/process/memory.rs) を参照してください。
+`GET /api/processes/memory` はアドレスの構文、長さ、加算のオーバーフローを検証し、識別子と生存を確認して [`process_vm_readv`](https://man7.org/linux/man-pages/man2/process_vm_readv.2.html) で最大64 KiBを読み取ります。部分読み取りを完全な読み取りと区別して返します。perf サンプルの保存値ではなく、要求時点のメモリを対象を停止せずに取得します。実装は [API ハンドラ](../src/server/mod.rs#L291) と [メモリ読み取り処理](../src/process/memory.rs) を参照してください。
 
 ### FD と接続先
 
@@ -183,15 +203,24 @@ Axum がルートごとにクエリや JSON を取り出し、ハンドラへ渡
 - `GET /api/processes/auxv`：`/proc/<pid>/exe` の ELF ヘッダから32/64 bitを判別し、procfs の [`/proc/<pid>/auxv`](https://man7.org/linux/man-pages/man5/proc_pid_auxv.5.html) を最大64 KiB読み取ります。タグと値の組として解析し、既知・未知のタグを扱います。`AT_EXECFN`・`AT_PLATFORM`・`AT_BASE_PLATFORM` の文字列参照は、`process_vm_readv` で最大4096バイトまで解決します。参照先が読めなくても数値は保持します。big-endian ELF は対象外です。実装は [ELF ヘッダと auxv の読み取り](../src/process/details.rs#L185)、[文字列参照の解決](../src/process/details.rs#L176)、[メモリの読み取り](../src/process/memory.rs#L18) を参照してください。
 - `GET /api/processes/signals`：procfs の [`/proc/<pid>/status`](https://man7.org/linux/man-pages/man5/proc_pid_status.5.html) と、各スレッドの [`/proc/<pid>/task/<tid>/status`](https://man7.org/linux/man-pages/man5/proc_pid_task.5.html) を読み取ります。`SigPnd`（スレッドの保留）・`ShdPnd`（プロセス全体の保留）・`SigBlk`（ブロック）・`SigIgn`（無視）・`SigCgt`（ハンドラ登録）の16進マスクを解析します。最大4096スレッド・2秒で打ち切ります。受信履歴や送信元の追跡、シグナル送信は行いません。実装は [status の読み取りとスレッドの列挙](../src/process/signals.rs#L109) と [シグナル状態の解析](../src/process/signals.rs#L84) を参照してください。
 
-### スナップショット
+### perf ライブサンプリング
 
-`POST /api/processes/snapshot` は識別子・生存を確認して専用ロックで取得を直列化してスナップショット処理を呼び出します。同時に要求されてもptrace操作は重複せず、このロックは通常観測や単発読み取りの状態とは分離しています。`PTRACE_SEIZE` と `PTRACE_INTERRUPT` で全スレッドの停止を確認し、レジスタ・マップ・スタック・命令バイトを取得します。追加スレッドを再列挙し、4096スレッド・16回の安定化試行・停止待ち2秒を上限とします。取得にも2秒の処理予算がありますが、カーネル内でブロックする syscall の実時間を保証するものではありません。実装は [スナップショットの取得処理](../src/snapshot/mod.rs#L38) を参照してください。
+`AppState.perf` が `{pid, start_time_ticks}` ごとに `PerfManager` のワーカーを共有します。詳細 SSE の初回接続で起動し、最後の購読が破棄されると停止・join して FD と mmap を解放します。既存の CPU/RSS 履歴は接続ごとに独立したままです。対象終了・PID 再利用・exec・サーバー終了でも停止します。exec 後は古い収集を継続せず、同じ対象の全詳細接続を閉じて開き直すと再開します。
 
-RAII と専用 OS スレッドの終了で detach を扱い、既存の job-control stop と signal delivery を維持します。自分自身のスナップショットは拒否します。対象の再開後にシンボル解決と命令デコードを行い、スレッドごとの結果を返します。実装は [SnapshotGuard の detach 処理](../src/snapshot/ptrace.rs#L146) を参照してください。
+各 TID に `PERF_TYPE_SOFTWARE / PERF_COUNT_SW_CPU_CLOCK` を開きます。既定49 Hz、kernel/hypervisor 除外、inherit 無効、CLOEXEC、MONOTONIC 時刻、remove_on_exec を設定します。TID ごとに metadata 1ページ＋data 8ページ、1プロセス128 TIDを上限とします。Linux 5.13以降の remove_on_exec を必要とし、必須機能がない場合は利用不可とします。FD・locked memory の確保失敗は既存の成功した収集を残して警告にします。システムの上限や権限は変更しません。
 
-スタックは RBP をたどる最大256フレームの unwind です。ELF/DWARF から PIE/ASLR を考慮して関数・行・inline frame を解決し、ファイルの device/inode/size/mtime でキャッシュします。解決できない場合は生アドレスを保持します。frame pointer のないコードや signal trampoline を含む任意のスタックを完全には復元できません。実装は [RBP によるスタックの unwind](../src/snapshot/unwind_fp.rs#L33) を参照してください。
+専用 OS スレッドの epoll がリングを処理します。head の acquire、消費後の tail 公開、境界越え、不正長、未知レコード、LOST、THROTTLE/UNTHROTTLE、EXIT、exec を扱います。約1秒ごとに TID と開始時刻を再走査し、開く前後にも識別子を検証します。短命スレッドは再走査の間に終了して取得できない場合があります。
 
-逆アセンブルは停止中の RIP から最大256バイトを取得し、`iced-x86` で最大32命令を Intel 構文にデコードします。実メモリを使うため JIT のコードも対象ですが、32-bit compatibility mode は対象外です。実装は [命令のデコード処理](../src/snapshot/disasm.rs#L80) を参照してください。
+収集フィールドは IP/TID/TIME/CPU、x86-64 のユーザーレジスタ、ユーザー CALLCHAIN です。非対応フィールドはレジスタのみ、IPのみの順に縮退し、理由を返します。ABI_NONE、32-bit ABI、欠損レジスタを64-bitのゼロ値として表示しません。サンプル IP とレジスタ RIP の一致は仮定しません。
+
+最新サンプルを TID ごとに保持し、IP・時刻・CPU の軽量履歴は最大60秒保持します。履歴と最新値の保存予算は16 MiB/プロセス、1サンプルの詳細は64 KiBを上限にし、予算不足では古い履歴を先に破棄します。カーネル LOST と履歴の破棄は別のカウンターです。SSE は現状を1秒単位でまとめて返し、生レコードごとの送信や無制限の送信待ちキューを作りません。
+
+レジスタを既存のメモリマップで分類し、最新 CALLCHAIN を約1秒ごとにシンボル化します。ELF/DWARF のソース解決と PIE/ASLR 対応は既存実装を再利用します。マップはサンプルと別時刻に読み取るため、JIT・アンマップ・ファイル変更などで解決できなければ生アドレスを残します。フレームポインタ省略やカーネルの深さ制限による部分的な結果を許容します。STACK_USER と DWARF unwind は未実装です。
+
+### サンプル IP の逆アセンブル
+
+`GET /api/processes/disassembly?pid=...&start_time_ticks=...&address=...` は識別子を読み取り前後で検証し、指定アドレスから最大256バイト・32命令を Intel 構文で返します。`address` は10進または `0x` 付き16進です。応答は `{process_id, captured_at, disassembly}` で、読み取れない範囲や不完全な命令は `disassembly.error` に理由を残します。命令バイトはサンプルより後の `process_vm_readv` で取得するため、JIT・自己書き換えコードではサンプル時と異なる場合があります。対象は x86-64 です。
+
 
 ### プロセス詳細監視の SSE 配信処理
 
@@ -246,17 +275,18 @@ watch channelは接続ごとに独立し、遅い購読者へ古い状態を蓄�
 | `GET /api/processes/events` | 識別子クエリを付けて接続し、概要・観測・履歴・スレッド・マップ・終了状態を更新 |
 | `GET /api/processes/environment`、`GET /api/processes/auxv`、`GET /api/processes/fds`、`GET /api/processes/signals` | 各パネルを初めて開くときと再取得操作時 |
 | `GET /api/processes/memory` | メモリフォーム送信、マップやレジスタなどのアドレス操作時 |
-| `POST /api/processes/snapshot` | 手動取得と自動取得時 |
+| `GET /api/processes/disassembly` | 逆アセンブルパネルを開いた時と、表示するサンプルが更新された時 |
 
-直接アクセス時は一覧からPIDの開始時刻を解決し、その識別子でSSEを接続します。PIDが一覧にない場合は一覧と終了エラーを表示します。全ての追加GETにも識別子クエリを付け、snapshotにはJSON本文で識別子を送ります。通常の更新には `observation` を使い、observation・threads・mapsの単発GETは直接呼びません。
+直接アクセス時は一覧からPIDの開始時刻を解決し、その識別子でSSEを接続します。PIDが一覧にない場合は一覧と終了エラーを表示します。全ての追加GETにも識別子クエリを付けます。通常の更新には `observation` を使い、observation・threads・mapsの単発GETは直接呼びません。
 
 対象切替やBack to process listでは現在のSSEを閉じ、保持した詳細情報をリセットします。他タブには影響しません。接続世代と識別子を照合して古い通知を無視します。通信切断ではEventSourceが同じ識別子で再接続し、履歴は再開始します。同じPIDの別プロセスへは自動で乗り換えません。`exited: true` を受信したら接続を閉じ、最終状態と終了表示を残します。ページ離脱時は閉じ、ブラウザのページキャッシュから復帰した場合は同じ識別子で接続し直します。タイトルは `procinsh / <process name>` です。
 
-受信した履歴から CPU/RSS のグラフを描画し、スレッドやマップを表示します。スナップショットの応答は通常観測とは別に保持し、選択したスレッドのレジスタ・スタック・逆アセンブルを表示します。メモリ応答は hex/ASCII に整形します。環境変数などの文字列は HTML として解釈せず表示し、検索は取得済みデータを使います。
+受信した履歴から CPU/RSS のグラフを描画し、スレッドやマップを表示します。`samples` の最新値は通常観測とは別に保持し、選択したスレッドのレジスタ・CALLCHAIN・逆アセンブルを表示します。メモリ応答は hex/ASCII に整形します。環境変数などの文字列は HTML として解釈せず表示し、検索は取得済みデータを使います。
 
-自動スナップショットは既定 OFF で、ON にすると1秒間隔で要求します。取得の重複を避け、自動取得中は手動ボタンを無効化します。対象変更・タブ非表示・ページ離脱・対象終了・取得失敗・SSE切断で停止します。毎回対象を一時停止するAPIである点は手動取得と同じです。
+詳細画面の SSE 接続とともにサンプリングを開始します。`no sample` は未取得、`stale` は最後の取得から3秒超を示します。Sleeping などの `/proc` 状態と分離し、未取得を停止・異常・ゼロ使用率と断定しません。
 
-対象変更時には保持した詳細情報をクリアします。追加パネルとスナップショットでは、識別子と要求世代を確認して古い応答を破棄します。追加パネルの再取得が失敗した場合は、以前の結果があれば残したうえでエラーを表示します。
+Freeze はブラウザのサンプル表示を固定し、収集を停止しません。配信された詳細はブラウザでも最大60秒・16 MiB以内で保持します。履歴で選んだ時刻に詳細がなければ IP のみを表示し、別の時刻のレジスタを補完しません。対象切替では履歴と追加パネルをリセットし、識別子・接続世代・選択サンプルのキーにより古い SSE や逆アセンブル応答を破棄します。追加パネルの再取得失敗は既存結果を残して表示します。
+
 
 ### グラフ `/space`
 
@@ -277,7 +307,7 @@ Three.js でプロセスの親子関係、仮想アドレス空間、接続先�
 
 ## 権限とログ
 
-`ptrace` と `process_vm_readv` は所有者、dumpable 属性、Yama、`CAP_SYS_PTRACE`、seccomp などの制約を受けます。BPF はカーネル側の対応と観測権限も必要です。権限やカーネル設定の自動変更、sudo の自動実行はしません。
+`process_vm_readv` は所有者、dumpable 属性、Yama、`CAP_SYS_PTRACE`、seccomp などの制約を受けます。perf は `perf_event_paranoid`・`CAP_PERFMON`・seccomp・FD/locked-memory 上限に依存します。perf が使えなくても `/proc` とメモリ読み取りはそれぞれの権限の範囲で継続します。BPF はカーネル側の対応と観測権限も必要です。権限やカーネル設定の自動変更、sudo の自動実行はしません。
 
 待受は既定で loopback です。Host/Origin/Fetch Metadata を検証し、API レスポンスに `Cache-Control: no-store` を付けます。認証機能はありません。外部アドレスで待ち受けると警告を出すため、公開範囲を管理する必要があります。
 
@@ -307,6 +337,7 @@ cargo build --locked
 sh tests/targets/build.sh
 cargo test --locked
 python3 tests/logging-checks.py
+python3 tests/perf-unavailable.py
 node tests/space-model.mjs
 
 # フォーマット・静的解析
@@ -316,7 +347,7 @@ cargo clippy --all-targets --locked -- -D warnings
 
 CI はフォーマット確認、TypeScript の型チェックとビルド、Rust の全ターゲットのビルド、Clippy、Rust テスト、ログ検証、SPACE モデル検証を実行します。ブラウザと実機センサーのテストは別途実行します。
 
-Rust テストは明示的な識別子の必須性、SSEの独立した履歴・切断・接続上限、`/proc` の解析、PID 再利用、メモリ読み取り、ptrace の解除、シンボル、HTTP、システム全体の構造・SSE接続管理・集計を検証します。ログテストは既定レベル、debug、off、標準エラー、SIGTERM、ポート競合、クエリ非出力を検証します。プロセス観測を拒否するサンドボックスでは一部テストが失敗するため、テスト対象への ptrace/process_vm_readv とローカル通信が許可された環境が必要です。
+Rust テストは明示的な識別子の必須性、SSEの独立した履歴・切断・接続上限、`/proc` の解析、PID 再利用、メモリ読み取り、perf のデコード・保持上限・共有と解放、シンボル、HTTP、システム全体の構造・SSE接続管理・集計を検証します。ログテストは既定レベル、debug、off、標準エラー、SIGTERM、ポート競合、クエリ非出力を検証します。プロセス観測を拒否するサンドボックスでは一部テストが失敗するため、テスト対象への process_vm_readv とローカル通信が許可された環境が必要です。
 
 ### ブラウザテスト
 
@@ -331,7 +362,24 @@ CHROME=/usr/bin/chromium node tests/browser.mjs
 CHROME=/usr/bin/chromium node tests/space-browser.mjs
 ```
 
-通常画面は検索・選択・SSE・スナップショット・詳細パネル・終了処理を、SPACE は WebGL、配置、選択、ネットワークとファイルの描画を検証します。ブラウザテストは一時サーバーとブラウザプロファイルを作り、終了時に片付けます。画面・モデルの検証と実機センサーの検証は別です。
+通常画面は検索・選択・SSE・ライブサンプル・Freeze・履歴・詳細パネル・終了処理を、SPACE は WebGL、配置、選択、ネットワークとファイルの描画を検証します。ブラウザテストは一時サーバーとブラウザプロファイルを作り、終了時に片付けます。画面・モデルの検証と実機センサーの検証は別です。
+
+### perf 実機テストと負荷測定
+
+通常の `cargo test` は perf 実機テストを明示的な ignored テストとして報告します。権限不要のデコーダー・リング・履歴テストは通常 CI で実行します。`tests/perf-unavailable.py` は子サーバーだけに perf を拒否する seccomp フィルターを設定し、SSE が理由を返しながら `/proc` とメモリ読み取りを継続することを検証します。
+
+perf が利用可能な Linux x86-64 で次を実行します。利用不可は失敗とし、成功としてスキップしません。
+
+```sh
+sh tests/targets/build.sh
+cargo test --locked --test perf_live -- --ignored --test-threads=1
+cargo test --locked --lib live_ring_overflow -- --ignored
+python3 tests/perf-bench.py > target/perf-bench.jsonl
+```
+
+専用の `Perf live tests` ワークフローを手動実行できます。実機テストは CPU-bound、sleep、スレッド増減、exec、動的 mmap、PIE/non-PIE、シンボル、共有、解放を、リングテストは意図的な overflow と LOST を検証します。ブラウザテストにも perf と process_vm_readv の利用権限が必要です。
+
+負荷測定は1/8/64個の CPU-bound ワーカースレッド（ほかに待機するリーダー1本）、19/49/99 Hz、CALLCHAIN 有無を組み合わせます。対象の CPU と処理量、サーバー CPU/RSS/FD、欠落数、SSE バイト数を JSONL に記録します。既定測定窓は4秒、ウォームアップは1.5秒です。`--seconds` で延長できます。短い測定の値を一般的なオーバーヘッド保証として扱わず、同じホスト・同じビルドで比較してください。実測結果は [perf 移行計画と検証記録](procinsh-perf-migration-plan.md) を参照してください。
 
 ### 実機センサーテスト
 

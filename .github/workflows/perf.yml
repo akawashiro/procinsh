@@ -1,0 +1,40 @@
+name: Perf live tests
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  perf:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes build-essential clang llvm pkg-config libelf-dev zlib1g-dev linux-tools-common linux-tools-generic
+          for tool in /usr/lib/linux-tools/*/bpftool; do
+            if [ -x "$tool" ]; then echo "BPFTOOL=$tool" >> "$GITHUB_ENV"; break; fi
+          done
+      - name: Build fixtures and application
+        run: |
+          npm ci
+          npm run build:web
+          sh tests/targets/build.sh
+          cargo build --locked
+      - name: Perf tests (unavailability fails this job)
+        run: |
+          sudo env "PATH=$PATH" "BPFTOOL=$BPFTOOL" cargo test --locked --test perf_live -- --ignored --test-threads=1
+          sudo env "PATH=$PATH" "BPFTOOL=$BPFTOOL" cargo test --locked --lib live_ring_overflow -- --ignored
+      - name: Measure sampling overhead
+        run: sudo python3 tests/perf-bench.py > target/perf-bench.jsonl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: perf-bench
+          path: target/perf-bench.jsonl

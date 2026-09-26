@@ -1,6 +1,6 @@
 use crate::{
+    inspect::frames::{SourceFrame, StackFrame},
     process::maps::MemoryMap,
-    snapshot::unwind_fp::{SourceFrame, StackFrame},
 };
 use object::{Object, ObjectSegment, ObjectSymbol};
 use std::{collections::HashMap, fs, os::unix::fs::MetadataExt, path::PathBuf};

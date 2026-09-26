@@ -10,6 +10,10 @@ use std::{io::Write, net::SocketAddr, sync::Arc, time::Duration};
 struct Cli {
     #[arg(long, default_value = "1s", value_parser = humantime::parse_duration)]
     interval: Duration,
+    #[arg(long, default_value_t = 49, value_parser = clap::value_parser!(u32).range(1..=199))]
+    sample_hz: u32,
+    #[arg(long)]
+    no_callchain: bool,
     #[arg(long, default_value = "127.0.0.1:8080")]
     listen: SocketAddr,
 }
@@ -45,7 +49,13 @@ async fn run() -> Result<()> {
         cli.interval >= Duration::from_millis(100) && cli.interval <= Duration::from_secs(60),
         "--interval must be between 100ms and 60s"
     );
-    let state = Arc::new(procinsh::state::AppState::new(cli.interval));
+    let state = Arc::new(procinsh::state::AppState::with_perf(
+        cli.interval,
+        procinsh::perf::Config {
+            hz: cli.sample_hz,
+            callchain: !cli.no_callchain,
+        },
+    ));
     let listener = tokio::net::TcpListener::bind(cli.listen)
         .await
         .context("could not bind HTTP listener")?;

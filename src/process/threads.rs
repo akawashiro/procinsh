@@ -18,7 +18,6 @@ pub struct ThreadObservation {
     pub nonvoluntary_context_switches: Option<u64>,
     #[serde(skip)]
     pub ticks: u64,
-    #[serde(skip)]
     pub start_time: u64,
 }
 

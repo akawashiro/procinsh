@@ -11,7 +11,7 @@ use axum::{
         Html, IntoResponse, Response, Sse,
         sse::{Event, KeepAlive},
     },
-    routing::{get, post},
+    routing::get,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -144,7 +144,7 @@ pub fn router(state: Arc<AppState>, address: SocketAddr) -> Router {
         .route("/api/processes/auxv", get(auxv))
         .route("/api/processes/fds", get(fds))
         .route("/api/processes/signals", get(signals))
-        .route("/api/processes/snapshot", post(snapshot))
+        .route("/api/processes/disassembly", get(disassembly))
         .route("/api/processes/events", get(events))
         .layer(middleware::from_fn(move |request, next| {
             guard_http(request, next, address)
@@ -320,14 +320,50 @@ async fn memory(Query(q): Query<MemoryQuery>) -> ApiResult {
     })
     .await
 }
-async fn snapshot(State(s): State<Arc<AppState>>, Json(id): Json<ProcessId>) -> ApiResult {
+#[derive(Deserialize)]
+struct DisassemblyQuery {
+    pid: i32,
+    start_time_ticks: u64,
+    address: String,
+}
+async fn disassembly(Query(q): Query<DisassemblyQuery>) -> ApiResult {
+    let address = if let Some(hex) = q
+        .address
+        .strip_prefix("0x")
+        .or_else(|| q.address.strip_prefix("0X"))
+    {
+        u64::from_str_radix(hex, 16)
+    } else {
+        q.address.parse()
+    }
+    .map_err(|_| ApiError(StatusCode::BAD_REQUEST, "Invalid address".into()))?;
     blocking(move || {
-        let _snapshot = s.snapshot_lock.lock().unwrap();
+        let id = ProcessId {
+            pid: q.pid,
+            start_time_ticks: q.start_time_ticks,
+        };
         process::check_identity(id)?;
-        Ok(Json(json!(crate::snapshot::capture(
-            id,
-            s.symbols.clone()
-        )?)))
+        let maps = process::maps::read(id.pid, false)?;
+        use std::io::Read;
+        let mut elf = [0u8; 20];
+        std::fs::File::open(format!("/proc/{}/exe", id.pid))
+            .and_then(|mut file| file.read_exact(&mut elf))
+            .map_err(anyhow::Error::from)?;
+        if &elf[..4] != b"\x7fELF"
+            || elf[4] != 2
+            || elf[5] != 1
+            || u16::from_le_bytes([elf[18], elf[19]]) != 62
+        {
+            return Err(ApiError(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Disassembly supports x86-64 processes only".into(),
+            ));
+        }
+        let code = crate::inspect::disasm::Disassembly::capture(id.pid, address, &maps);
+        process::check_identity(id)?;
+        Ok(Json(
+            json!({"process_id":id,"captured_at":process::timestamp_ms(),"disassembly":code}),
+        ))
     })
     .await
 }
@@ -349,12 +385,22 @@ async fn events(
     let state = s.clone();
     let mut session = blocking(move || Ok(state.observe(id, permit)?)).await?;
     let initial = session.receiver.borrow_and_update().clone();
+    let perf = s.perf.subscribe(id, s.symbols.clone())?;
     let stream = async_stream::stream! {
         log::debug!("SSE /api/processes/events event=observation pid={} start_time_ticks={}", id.pid, id.start_time_ticks);
         yield Ok::<_, Infallible>(Event::default().event("observation").json_data(initial).unwrap());
+        log::debug!("SSE /api/processes/events event=samples pid={} start_time_ticks={}",id.pid,id.start_time_ticks);
+        yield Ok(Event::default().event("samples").json_data(perf.view()).unwrap());
+        let mut sample_tick = tokio::time::interval_at(tokio::time::Instant::now()+Duration::from_secs(1), Duration::from_secs(1));
+        sample_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         loop {
             if s.is_stopped() { break; }
             let received = tokio::select! {
+                _ = sample_tick.tick() => {
+                    log::debug!("SSE /api/processes/events event=samples pid={} start_time_ticks={}",id.pid,id.start_time_ticks);
+                    yield Ok(Event::default().event("samples").json_data(perf.view()).unwrap());
+                    continue;
+                }
                 received = session.receiver.changed() => received,
                 _ = tokio::time::sleep(Duration::from_millis(100)) => { continue; }
             };
@@ -363,7 +409,11 @@ async fn events(
             let exited = data.exited;
             log::debug!("SSE /api/processes/events event=observation pid={} start_time_ticks={} exited={exited}", id.pid, id.start_time_ticks);
             yield Ok(Event::default().event("observation").json_data(data).unwrap());
-            if exited { break; }
+            if exited {
+                let mut samples = perf.view(); samples.status = "stopped".into();
+                yield Ok(Event::default().event("samples").json_data(samples).unwrap());
+                break;
+            }
         }
         // Retain the permit for the complete stream lifetime, not just initialization.
         drop(session);

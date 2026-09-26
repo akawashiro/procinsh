@@ -1,5 +1,5 @@
 // JSON contracts consumed by the UI. Keep these aligned with the Rust Serialize
-// structs in process/, state/, snapshot/ and space/. Addresses stay hex strings.
+// structs in process/, state/, perf/ and space/. Addresses stay hex strings.
 export interface ProcessId {
   pid: number;
   start_time_ticks: number;
@@ -34,6 +34,7 @@ export interface MemoryMap {
   pss_bytes: number | null;
 }
 export interface ThreadObservation {
+  start_time: number;
   tid: number;
   name: string;
   state: string;
@@ -88,7 +89,13 @@ export interface Target {
   } | null;
   history: HistoryPoint[];
 }
-export interface ThreadSnapshot {
+export interface ThreadSample {
+  start_time_ticks: number;
+  sampled_at_mono_ns: string;
+  sample_age_ms: number;
+  ip: string;
+  cpu: number;
+  quality: string;
   tid: number;
   error: string | null;
   unwind_stop: string;
@@ -112,7 +119,7 @@ export interface ThreadSnapshot {
       line: number | null;
     }[];
   }[];
-  disassembly: {
+  disassembly?: {
     address: string;
     bytes: number[];
     error: string | null;
@@ -124,12 +131,19 @@ export interface ThreadSnapshot {
     }[];
   } | null;
 }
-export interface Capture {
+export interface Samples {
+  collected_at_mono_ns: string;
   process_id: ProcessId;
-  captured_at: number;
-  paused_ms: number;
-  threads: ThreadSnapshot[];
-  maps: MemoryMap[];
+  status: "active" | "partial" | "unavailable" | "stopped";
+  configured_hz: number;
+  lost_total: number;
+  malformed_total: number;
+  history_dropped_total: number;
+  thread_limit_reached: boolean;
+  throttled: boolean;
+  warnings: string[];
+  threads: ThreadSample[];
+  history: { tid: number; start_time_ticks: number; sampled_at_mono_ns: string; ip: string; cpu: number }[];
 }
 export interface MemoryRead {
   process_id: ProcessId;

@@ -159,7 +159,7 @@ pub struct AppState {
     stopped: AtomicBool,
     viewers: Mutex<usize>,
     workers: Mutex<Vec<std::thread::JoinHandle<()>>>,
-    pub snapshot_lock: Mutex<()>,
+    pub perf: Arc<crate::perf::PerfManager>,
     pub symbols: Arc<Mutex<crate::symbol::Symbolizer>>,
 }
 pub struct ObservationPermit {
@@ -178,6 +178,9 @@ pub struct ObservationSession {
 }
 impl AppState {
     pub fn new(interval: Duration) -> Self {
+        Self::with_perf(interval, crate::perf::Config::default())
+    }
+    pub fn with_perf(interval: Duration, config: crate::perf::Config) -> Self {
         Self {
             system: Arc::new(crate::system::System::default()),
             discovery: Mutex::new(Discovery::default()),
@@ -185,7 +188,7 @@ impl AppState {
             stopped: AtomicBool::new(false),
             viewers: Mutex::new(0),
             workers: Mutex::new(Vec::new()),
-            snapshot_lock: Mutex::new(()),
+            perf: Arc::new(crate::perf::PerfManager::new(config)),
             symbols: Arc::new(Mutex::new(crate::symbol::Symbolizer::default())),
         }
     }
@@ -293,11 +296,13 @@ impl AppState {
         let _workers = self.workers.lock().unwrap();
         self.stopped.store(true, Ordering::Relaxed);
         self.system.stop();
+        self.perf.stop();
     }
     pub fn is_stopped(&self) -> bool {
         self.stopped.load(Ordering::Relaxed)
     }
     pub fn join_collectors(&self) -> Result<()> {
+        self.perf.join();
         let workers = std::mem::take(&mut *self.workers.lock().unwrap());
         for worker in workers {
             worker
