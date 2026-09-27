@@ -54,6 +54,10 @@ pub fn router(state: Arc<AppState>, address: SocketAddr) -> Router {
             get(|| async { Html(include_str!("../web/index.html")) }),
         )
         .route(
+            "/list",
+            get(|| async { Html(include_str!("../web/index.html")) }),
+        )
+        .route(
             "/process/{pid}",
             get(|| async { Html(include_str!("../web/index.html")) }),
         )
@@ -395,6 +399,7 @@ mod tests {
                 403,
             ),
             ("127.0.0.1:8080", None, "/", 200),
+            ("127.0.0.1:8080", None, "/list", 200),
             ("localhost:8080", None, "/app.js", 200),
         ] {
             let mut req = Request::builder().uri(path).header("host", host);

@@ -66,8 +66,8 @@ try {
   assert.equal(await evaluate("document.querySelector('header #brand').textContent"),'procinsh');
   assert.equal(await evaluate("document.querySelector('.counts')"),null,'process counts are removed');
   assert.equal(await evaluate("document.querySelector('.telemetry')"),null,'sensor status is removed');
-  assert.equal(await evaluate("document.querySelector('header #back').textContent"),'Back to process list');
-  assert.equal(await evaluate("document.querySelector('header #back').getAttribute('href')"),'/');
+  assert.equal(await evaluate("document.querySelector('header #back').textContent"),'Go to list view');
+  assert.equal(await evaluate("document.querySelector('header #back').getAttribute('href')"),'/list');
   assert.equal(await evaluate("document.querySelector('footer')"),null,'footer content is moved into the header');
   assert.match(await evaluate("document.querySelector('header').textContent"),/CODE[\s\S]*HEAP[\s\S]*CPU[\s\S]*WRITE[\s\S]*DRAG · ORBIT/);
   assert.ok(await evaluate("document.querySelector('header').getBoundingClientRect().height<=42"),'header is compact');

@@ -459,7 +459,7 @@ function acceptTarget(next: Target | null) {
     resetCapture();
     $("explorer").hidden = false;
     $("inspector").hidden = true;
-    history.replaceState(null, "", "/");
+    history.replaceState(null, "", "/list");
     document.title = "procinsh / list";
     refresh();
     return;
