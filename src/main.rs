@@ -10,8 +10,12 @@ use std::{io::Write, net::SocketAddr, sync::Arc, time::Duration};
 struct Cli {
     #[arg(long, default_value = "1s", value_parser = humantime::parse_duration)]
     interval: Duration,
+    /// Listen address; non-loopback addresses require --allow-non-loopback
     #[arg(long, default_value = "127.0.0.1:8080")]
     listen: SocketAddr,
+    /// Allow non-loopback listening: exposes process memory and environment variables without authentication or TLS
+    #[arg(long)]
+    allow_non_loopback: bool,
 }
 
 #[tokio::main]
@@ -42,6 +46,11 @@ async fn main() -> std::process::ExitCode {
 async fn run() -> Result<()> {
     let cli = Cli::parse();
     ensure!(
+        cli.listen.ip().is_loopback() || cli.allow_non_loopback,
+        "refusing to listen on non-loopback address {}; use --allow-non-loopback to explicitly expose process memory and environment variables without authentication or TLS",
+        cli.listen
+    );
+    ensure!(
         cli.interval >= Duration::from_millis(100) && cli.interval <= Duration::from_secs(60),
         "--interval must be between 100ms and 60s"
     );
@@ -52,7 +61,7 @@ async fn run() -> Result<()> {
     let address = listener.local_addr()?;
     if !address.ip().is_loopback() {
         log::warn!(
-            "Warning: remote access exposes process memory. Use only on a trusted network; no authentication is provided."
+            "Warning: remote access exposes process memory and environment variables without authentication or TLS. Use only on a trusted network."
         );
     }
     let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())

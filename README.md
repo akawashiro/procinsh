@@ -86,3 +86,6 @@ cargo build --release --locked
 With either installation method, open http://127.0.0.1:9090 in your browser.
 Press `Ctrl+C` to stop. See [DEVELOPMENT.md](docs/DEVELOPMENT.md) for development,
 testing, API details, and logging options.
+
+To allow remote access, use `--allow-non-loopback`, but be careful: this exposes
+process memory and environment variables without authentication or TLS.
