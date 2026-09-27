@@ -87,19 +87,5 @@ With either installation method, open http://127.0.0.1:9090 in your browser.
 Press `Ctrl+C` to stop. See [DEVELOPMENT.md](docs/DEVELOPMENT.md) for development,
 testing, API details, and logging options.
 
-### Listen address and remote access
-
-The default listen address is `127.0.0.1:8080`. IPv4 and IPv6 loopback
-addresses (such as `127.0.0.1` and `::1`) work without additional flags.
-Other addresses, including wildcard addresses `0.0.0.0` and `::`, are
-rejected before binding unless you explicitly pass `--allow-non-loopback`:
-
-```sh
-sudo ./target/release/procinsh --listen 0.0.0.0:9090 --allow-non-loopback
-```
-
-**There is no authentication or TLS.** Remote access exposes process memory
-and environment variables to anyone who can reach the server. Only enable
-this on a trusted network with a controlled access boundary. A warning is
-logged when listening on a non-loopback address. Host, Origin, and Fetch
-Metadata checks remain enabled, but are not a substitute for authentication.
+To allow remote access, use `--allow-non-loopback`, but be careful: this exposes
+process memory and environment variables without authentication or TLS.
