@@ -93,4 +93,68 @@ with socket.socket() as occupied:
     assert result.stderr.count("could not bind HTTP listener") == 1, result.stderr
     assert re.search(r"ERROR src/main\.rs:[1-9][0-9]*\]", result.stderr), result.stderr
 
-print("Logging checks passed: default info, debug HTTP, off, stderr, SIGTERM, bind failure, query omission.")
+def check_listen_policy():
+    help_result = subprocess.run(
+        [BINARY, "--help"], capture_output=True, text=True, timeout=10,
+    )
+    assert help_result.returncode == 0
+    for expected in ("127.0.0.1:8080", "--allow-non-loopback", "authentication", "TLS"):
+        assert expected in help_result.stdout, help_result.stdout
+
+    # Unassigned LAN addresses must fail the policy check, not the bind syscall.
+    for address in ("0.0.0.0:0", "[::]:0", "192.168.1.10:0", "[fd00::1234]:0"):
+        result = subprocess.run(
+            [BINARY, "--listen", address], env=environment(None),
+            capture_output=True, text=True, timeout=10,
+        )
+        assert result.returncode != 0
+        assert result.stdout == ""
+        for expected in ("refusing to listen", address, "--allow-non-loopback",
+                         "process memory", "environment variables", "authentication", "TLS"):
+            assert expected in result.stderr, result.stderr
+        assert "could not bind HTTP listener" not in result.stderr, result.stderr
+
+    # An occupied wildcard port also proves rejection precedes binding.
+    with socket.socket() as occupied:
+        occupied.bind(("0.0.0.0", 0))
+        occupied.listen()
+        result = subprocess.run(
+            [BINARY, "--listen", f"0.0.0.0:{occupied.getsockname()[1]}"],
+            env=environment(None), capture_output=True, text=True, timeout=10,
+        )
+        assert result.returncode != 0
+        assert "refusing to listen" in result.stderr, result.stderr
+        assert "could not bind HTTP listener" not in result.stderr, result.stderr
+
+    for address, opt_in in (("127.0.0.1:0", False), ("[::1]:0", False),
+                            ("0.0.0.0:0", True), ("[::]:0", True)):
+        with tempfile.TemporaryFile() as stderr:
+            args = [BINARY, "--listen", address]
+            if opt_in:
+                args.append("--allow-non-loopback")
+            process = subprocess.Popen(args, stdout=subprocess.DEVNULL,
+                                       stderr=stderr, env=environment(None))
+            try:
+                deadline = time.monotonic() + 10
+                while True:
+                    stderr.seek(0)
+                    output = stderr.read().decode()
+                    assert process.poll() is None, output
+                    if "listening on http://" in output:
+                        break
+                    assert time.monotonic() < deadline, output
+                    time.sleep(0.05)
+                warning = "remote access exposes process memory"
+                assert (warning in output) == opt_in, output
+                if opt_in:
+                    assert "environment variables without authentication or TLS" in output, output
+                process.terminate()
+                assert process.wait(timeout=10) == 0
+            finally:
+                if process.poll() is None:
+                    process.kill()
+                    process.wait()
+
+
+check_listen_policy()
+print("Logging and CLI checks passed: log levels, shutdown, bind failure, query omission, listen policy and help.")
