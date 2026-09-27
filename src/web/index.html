@@ -6,11 +6,10 @@
   <link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script>
 </head>
 <body>
-  <header><a href="/" id="brand">procinsh</a><a href="/" id="back" hidden>Back to process list</a></header>
+  <header><a href="/list" id="brand">procinsh</a><a href="/list" id="back" class="view-link" hidden>Go to list view</a><a href="/space" class="view-link">Go to space view</a></header>
   <main>
     <div id="error" role="alert" hidden></div>
     <section id="explorer">
-      <div class="heading"><a href="/space" class="text-button">Open Graph View</a></div>
       <div class="toolbar"><input type="search" id="search" placeholder="Search name, PID, or command…" aria-label="Search processes"><label>Sort <select id="sort"><option value="cpu">CPU ↓</option><option value="rss">RSS ↓</option><option value="pid">PID ↑</option></select></label><span id="process-count" class="muted"></span></div>
       <div class="panel scroll"><table><thead><tr><th>PID</th><th>USER</th><th>CPU</th><th>RSS</th><th>THREADS</th><th>STATE</th><th>NAME / COMMAND</th></tr></thead><tbody id="process-list"></tbody></table></div>
     </section>

@@ -103,7 +103,7 @@ try {
   await waitFor(`document.getElementById('identity').textContent.includes('PID ${recursive.pid} /')`,'direct URL original target');
   assert.equal(await evaluate("document.getElementById('target-status').hidden"), true);
   assert.equal(await evaluate("document.querySelector('header #back').hidden"), false);
-  assert.equal(await evaluate("document.querySelector('header #back').textContent"), 'Back to process list');
+  assert.equal(await evaluate("document.querySelector('header #back').textContent"), 'Go to list view');
   assert.equal(await evaluate('document.title'), await evaluate("'procinsh / ' + document.getElementById('target-name').textContent"));
   await checkProcessSessions({cdp,evaluate,choose,until,delay,url,debugPort,originalPid:recursive.pid,otherPid:threads.pid});
   await checkAutoSnapshot({evaluate, waitFor, delay, choose, otherPid: threads.pid, originalPid: recursive.pid});

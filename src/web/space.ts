@@ -116,7 +116,7 @@ try {
 } catch (e) {
   $("failure").hidden = false;
   $("failure").textContent =
-    "WebGL2 is unavailable. Use Back to process list to return to the process list.";
+    "WebGL2 is unavailable. Use Go to list view to return to the process list.";
   throw e;
 }
 renderer.setPixelRatio(renderScale);
