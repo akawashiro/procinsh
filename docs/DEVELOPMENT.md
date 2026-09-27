@@ -63,6 +63,8 @@ Tokio/Axum が HTTP と SSE を処理し、ブロッキングする詳細 API �
 
 Web UI の API 型は `src/web/api-types.ts` に定義し、Rust の JSON 応答と合わせて管理します。null の扱いや16進文字列のアドレスも契約に含まれます。これらはコンパイル時の型で、実行時の入力検証ではありません。TypeScript と Three.js の型定義はビルド専用の npm 依存です。
 
+[API Documentation](https://akawashiro.github.io/procinsh/) に Rust 側のドキュメントがあります。
+
 ## HTTP API
 
 JSON のプロセス識別子は `{ "pid": 123, "start_time_ticks": 456 }` です。アドレスは JavaScript の整数精度を保つため16進文字列で返します。
