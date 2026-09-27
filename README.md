@@ -3,8 +3,6 @@
 A web-based process inspector for Linux.
 Like [Ghost in the Shell](https://en.wikipedia.org/wiki/Ghost_in_the_Shell), you can wander through process space with your ghost.
 
-_Now, where shall I go? The process space is vast._
-
 ## Screenshot
 
 ![Demo of procinsh](./images/procinsh_movie.gif)
@@ -95,3 +93,5 @@ testing, API details, and logging options.
 
 To allow remote access, use `--allow-non-loopback`, but be careful: this exposes
 process memory and environment variables without authentication or TLS.
+
+_Now, where shall I go? The process space is vast._
