@@ -1,0 +1,61 @@
+
+name: Publish rustdoc
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build rustdoc
+        run: cargo doc --workspace --no-deps
+
+      - name: Create index page
+        run: |
+          echo '<!doctype html><html lang="ja">' \
+            '<meta charset="utf-8">' \
+            '<meta name="viewport" content="width=device-width,initial-scale=1">' \
+            '<title>Rust API Docs</title>' \
+            '<h1>Rust API Docs</h1><ul>' \
+            > target/doc/index.html
+
+          for file in target/doc/*/index.html; do
+            [ -f "$file" ] || continue
+            crate=$(basename "$(dirname "$file")")
+            echo "<li><a href=\"$crate/index.html\">$crate</a></li>" \
+              >> target/doc/index.html
+          done
+
+          echo '</ul></html>' >> target/doc/index.html
+          touch target/doc/.nojekyll
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: target/doc
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: $｛｛ steps.deployment.outputs.page_url ｝｝
+
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
