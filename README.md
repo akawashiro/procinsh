@@ -7,9 +7,15 @@ _Now, where shall I go? The process space is vast._
 
 ## Screenshot
 
-![Screenshot of space view](./space_screenshot.png)
+![Demo of procinsh](./images/procinsh_movie.gif)
 
-[screenmovie.webm](https://github.com/user-attachments/assets/7e964874-7e5a-46a9-8bb3-0c33defc9f42)
+![Screenshot of space view](./images/procinsh_top.png)
+
+![Screenshot of a process in 3D](./images/procinsh_procinsh.png)
+
+![Screenshot of process details](./images/procinsh_tmux.png)
+
+![Screenshot of the process list](./images/procinsh_list.png)
 
 ## Usage
 
