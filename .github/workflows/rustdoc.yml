@@ -1,23 +1,54 @@
-
 name: Publish rustdoc
 
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
 
     steps:
       - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust
+        # rustup reads the version and components from rust-toolchain.toml.
+        run: rustup show active-toolchain
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install web dependencies
+        run: npm ci
+      - name: Build web assets
+        run: npm run build:web
+      - name: Install native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential clang llvm pkg-config libelf-dev zlib1g-dev python3 \
+            linux-tools-common linux-tools-generic
+      - name: Configure bpftool and check kernel BTF
+        shell: bash
+        run: |
+          # Use the packaged binary directly: the wrapper requires tools matching
+          # the runner's kernel, which may differ from the installed generic kernel.
+          shopt -s nullglob
+          bpftools=(/usr/lib/linux-tools/*/bpftool)
+          if (( ${#bpftools[@]} == 0 )); then
+            echo "::error::No packaged bpftool binary found"
+            exit 1
+          fi
+          echo "BPFTOOL=${bpftools[0]}" >> "$GITHUB_ENV"
+          test -r /sys/kernel/btf/vmlinux
+          "${bpftools[0]}" version
 
       - name: Build rustdoc
-        run: cargo doc --workspace --no-deps
+        run: cargo doc --locked --workspace --no-deps
 
       - name: Create index page
         run: |
@@ -39,14 +70,17 @@ jobs:
           touch target/doc/.nojekyll
 
       - uses: actions/configure-pages@v5
+        if: github.event_name != 'pull_request'
 
       - uses: actions/upload-pages-artifact@v4
+        if: github.event_name != 'pull_request'
         with:
           path: target/doc
 
   deploy:
+    if: github.event_name != 'pull_request'
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     permissions:
       pages: write
@@ -54,7 +88,7 @@ jobs:
 
     environment:
       name: github-pages
-      url: $｛｛ steps.deployment.outputs.page_url ｝｝
+      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - id: deployment
