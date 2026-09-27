@@ -14,7 +14,7 @@
       <div class="panel scroll"><table><thead><tr><th>PID</th><th>USER</th><th>CPU</th><th>RSS</th><th>THREADS</th><th>STATE</th><th>NAME / COMMAND</th></tr></thead><tbody id="process-list"></tbody></table></div>
     </section>
     <section id="inspector" hidden>
-      <div class="heading inspector-heading"><div class="target-heading"><p class="eyebrow" id="identity"></p><h1 id="target-name"></h1><p class="muted command" id="command"></p></div><div class="capture-heading"><span class="badge" id="target-status"></span><div class="snapshot-controls"><label><input type="checkbox" role="switch" id="auto-snapshot" aria-describedby="capture-hint"> Capture snapshot continuously</label><button id="snapshot">Capture snapshot once</button><span class="muted" id="auto-snapshot-status" role="status">Continuous capture OFF</span><p class="muted" id="capture-hint">Every 1 s while enabled. Each capture briefly pauses all threads.</p></div></div></div>
+      <div class="heading inspector-heading"><div class="target-heading"><p class="eyebrow" id="identity"></p><h1 id="target-name"></h1><p class="muted command" id="command"></p></div><div class="capture-heading"><span class="badge" id="target-status"></span><div class="snapshot-controls"><label><input type="checkbox" role="switch" id="auto-snapshot" aria-describedby="capture-hint"> Capture snapshot continuously</label><button id="snapshot">Capture snapshot once</button><span class="muted" id="auto-snapshot-status" role="status" hidden></span><p class="muted" id="capture-hint">Every 1 s while enabled. Each capture briefly pauses all threads.</p></div></div></div>
       <p id="target-error" class="notice" hidden></p>
       <div id="metrics" class="metrics"></div>
       <div class="panel history"><div class="panel-heading"><h2>CPU &amp; memory history</h2><span class="muted">Last 60 seconds · CPU per core</span></div><canvas id="history" height="160" role="img" aria-label="CPU and RSS history over the last 60 seconds"></canvas><div class="legend"><span>● CPU</span><span>● RSS</span><span id="history-scale"></span></div></div>
@@ -31,6 +31,5 @@
       <details class="panel process-detail" id="auxv-panel"><summary>Auxiliary Vector</summary><div class="toolbar detail"><button id="auxv-refresh">Refresh</button><span class="muted" id="auxv-info" role="status">Not captured</span></div><p class="muted detail">Values supplied by the kernel at exec time.</p><p class="notice detail" id="auxv-error" hidden></p><div class="scroll process-detail-scroll"><table><thead><tr><th>TYPE</th><th>HEX VALUE</th><th>DECIMAL</th><th>DESCRIPTION / STRING</th></tr></thead><tbody id="auxv-entries"></tbody></table></div></details>
     </section>
   </main>
-  <footer>procinsh v0.1.0 <span>/proc observation · ptrace snapshot · x86-64</span></footer>
 </body>
 </html>
