@@ -5,15 +5,15 @@ Like [Ghost in the Shell](https://en.wikipedia.org/wiki/Ghost_in_the_Shell), you
 
 ## Screenshot
 
-![Demo of procinsh](./images/procinsh_movie.gif)
+<img src="./images/procinsh_movie.gif" alt="Demo of procinsh" width="800">
 
-![Screenshot of space view](./images/procinsh_top.png)
+<img src="./images/procinsh_top.png" alt="Screenshot of space view" width="800">
 
-![Screenshot of a process in 3D](./images/procinsh_procinsh.png)
+<img src="./images/procinsh_procinsh.png" alt="Screenshot of a process in 3D" width="800">
 
-![Screenshot of process details](./images/procinsh_tmux.png)
+<img src="./images/procinsh_tmux.png" alt="Screenshot of process details" width="800">
 
-![Screenshot of the process list](./images/procinsh_list.png)
+<img src="./images/procinsh_list.png" alt="Screenshot of the process list" width="800">
 
 ## Usage
 
