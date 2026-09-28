@@ -359,3 +359,37 @@ tests/targets/bin/recursive --allow-inspector
 ```
 
 `--allow-inspector` は当該 fixture の ptrace 許可を設定するテスト専用オプションです。システム全体の Yama 設定は変更しません。
+
+## Module dependency documentation
+
+The [module dependency graphs](https://akawashiro.github.io/procinsh/architecture/)
+are built alongside rustdoc by `.github/workflows/rustdoc.yml`. Pull requests build
+both sets of documentation without deploying; main pushes and manual runs publish
+`target/doc` to GitHub Pages.
+
+After preparing the normal Rust/web/native build dependencies above, install
+Graphviz (`sudo apt-get install graphviz`) and generate the graphs locally:
+
+```sh
+cargo install cargo-modules --version 0.27.0 --locked
+cargo doc --locked --workspace --no-deps
+mkdir -p target/doc/architecture
+cargo modules dependencies --lib --no-externs --no-sysroot \
+  --no-fns --no-traits --no-types > target/doc/architecture/modules-raw.dot
+python3 -m unittest discover -s scripts -p 'test_*.py'
+python3 scripts/module_dependencies.py target/doc/architecture/modules-raw.dot
+```
+
+Open `target/doc/architecture/index.html`. The overview aggregates descendants
+into their top-level module; the detail view retains child modules. cargo-modules
+folds filtered function/type/trait references into their parent modules. The
+renderer retains only internal `uses` edges, dropping ownership edges and
+self-loops. Both directions of a cycle are preserved. This describes the default
+library configuration, excluding tests and external crates, rather than runtime
+calls. Generated BPF modules can appear in the detail view.
+
+The parser targets cargo-modules 0.27.0's DOT node/edge comments. When upgrading
+that tool, verify its CLI and DOT output and confirm that cross-module references
+and cycles survive aggregation. DOT sources are published alongside the SVGs.
+After deployment, check the documentation home link, `/architecture/`, both SVG
+links, and scrolling/zoom on a narrow viewport.
