@@ -38,12 +38,42 @@ def overview(nodes, edges):
     return {top(n) for n in nodes}, {(top(a), top(b)) for a, b in edges if top(a) != top(b)}
 
 
-def render_dot(nodes, edges):
+def render_dot(nodes, edges, *, nested=False):
     lines = ['digraph {', '  graph [rankdir=LR, bgcolor="white", pad=0.3];',
              '  node [shape=box, style="rounded,filled", fillcolor="#e8f2ff", fontname="sans-serif"];',
              '  edge [color="#475569", arrowsize=0.8];']
-    for node in sorted(nodes):
-        lines.append(f'  {json.dumps(node)} [label={json.dumps(node.removeprefix("procinsh::"))}];')
+    if nested:
+        # Include ancestors as containers even if the input omits their nodes.
+        children = {}
+        for node in sorted(nodes):
+            parts = node.split('::')
+            for depth in range(2, len(parts) + 1):
+                parent = '::'.join(parts[:depth - 1])
+                child = '::'.join(parts[:depth])
+                children.setdefault(parent, set()).add(child)
+
+        def emit(node, indent):
+            label = node.rsplit('::', 1)[-1]
+            if node in children:
+                lines.append(f'{indent}subgraph {json.dumps("cluster_" + node)} {{')
+                lines.append(f'{indent}  graph [label={json.dumps(label)}, '
+                             'fontname="sans-serif", color="#94a3b8", '
+                             'style="rounded", margin=16, labeljust=l];')
+                if node in nodes:
+                    lines.append(f'{indent}  {json.dumps(node)} [label="(module)", '
+                                 f'tooltip={json.dumps(node)}];')
+                for child in sorted(children[node]):
+                    emit(child, indent + '  ')
+                lines.append(f'{indent}}}')
+            else:
+                lines.append(f'{indent}{json.dumps(node)} [label={json.dumps(label)}, '
+                             f'tooltip={json.dumps(node)}];')
+
+        for node in sorted(children.get('procinsh', ())):
+            emit(node, '  ')
+    else:
+        for node in sorted(nodes):
+            lines.append(f'  {json.dumps(node)} [label={json.dumps(node.removeprefix("procinsh::"))}];')
     for source, target in sorted(edges):
         lines.append(f'  {json.dumps(source)} -> {json.dumps(target)};')
     return '\n'.join(lines + ['}', ''])
@@ -59,7 +89,7 @@ def main():
     for name, graph in [('module-dependencies', overview(nodes, edges)),
                         ('module-dependencies-detail', (nodes, edges))]:
         dot = args.output / f'{name}.dot'
-        dot.write_text(render_dot(*graph))
+        dot.write_text(render_dot(*graph, nested=name.endswith("-detail")))
         subprocess.run(['dot', '-Tsvg', str(dot), '-o', str(args.output / f'{name}.svg')], check=True)
     shutil.copyfile(Path(__file__).with_name('architecture.html'), args.output / 'index.html')
 
