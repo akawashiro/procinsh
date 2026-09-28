@@ -49,18 +49,26 @@ cargo publish --dry-run
 
 | 場所 | 役割 |
 |---|---|
-| `src/main.rs` | CLI、ロガー初期化、待受、終了処理 |
-| `src/server/` | Axum のルーティング、入力・アクセス検証、HTTP ログ、プロセス詳細監視の SSE (Server-Sent Events) |
-| `src/state/` | 接続ごとの独立した観測、60秒の履歴、最新状態の配信 |
-| `src/process/` | `/proc` の解析、PID 識別、プロセス・スレッド・メモリ・FD・ソケット・シグナル情報 |
-| `src/snapshot/` | ptrace による停止・レジスタ取得、frame pointer unwind、逆アセンブル |
-| `src/symbol/` | ELF 取得・キャッシュ、アドレス変換、ELF/DWARF によるシンボル・ソース位置の解決 |
-| `src/stack.rs` | スナップショットとシンボル解決で共有するフレーム型 |
-| `src/system/` | 全プロセスの構造、閲覧セッション、BPF 収集、名前解決、`/api/system` 配下の API |
+| `src/main.rs` | CLI、ロガー初期化、起動設定の検証 |
+| `src/http_server/` | サーバー起動・終了、router・middleware、worker の停止・join |
+| `src/http_server/api/` | HTTP 入力・応答、domain error のステータス変換、JSON と SSE (Server-Sent Events) |
+| `src/http_server/web.rs` | 静的 Web UI 配信 |
+| `src/http_server/process/monitoring/` | 接続ごとの独立した観測、60秒の履歴、最新状態の配信 |
+| `src/http_server/process/` | `/proc` の解析、PID 識別、プロセス・スレッド・メモリ・FD・ソケット・シグナル情報 |
+| `src/http_server/process/snapshot/` | ptrace による停止・レジスタ取得、frame pointer unwind、逆アセンブル |
+| `src/http_server/process/snapshot/symbol/` | ELF 取得・キャッシュ、アドレス変換、ELF/DWARF によるシンボル・ソース位置の解決 |
+| `src/http_server/process/snapshot/stack.rs` | スナップショットとシンボル解決で共有するフレーム型 |
+| `src/http_server/system_monitoring/` | 全プロセスの構造、subscription、BPF 収集、名前解決 |
 | `src/web/` | TypeScript の通常画面・SPACE 画面・描画モデル、HTML/CSS、同梱 Three.js |
 | `tests/` | Rust・ブラウザ・ログ・実機センサーのテストと C fixture |
 
-Tokio/Axum が HTTP と SSE を処理し、ブロッキングする詳細 API は `spawn_blocking` に渡します。プロセスの定期観測とシステム全体の構造・活動収集は OS スレッドで動きます。プロセス詳細監視は接続ごとに独立した状態を持ち、`AppState` は一覧探索・接続数・ワーカー・シンボルキャッシュを管理します。
+`main.rs` が唯一の crate root で、CLI の検証後は `http_server::run` だけを呼びます。Rust library API は提供しません。モジュールは直接の利用者の最小共通祖先に置き、子モジュールの宣言は private、親に必要な item は原則 `pub(super)` とします。
+
+HTTP handler と system monitoring は `process/mod.rs` の façade だけを利用します。`process` 内部の `monitoring` は継続観測、`snapshot` は停止を伴う詳細取得を担当します。snapshot のロックと ELF キャッシュも snapshot が所有します。`process` / `system_monitoring` は Axum 型に依存しません。
+
+例外として、façade から再公開する domain 型と subscription の操作は `pub(in crate::http_server)` に限定しています。private な子モジュールから親で再公開するために必要な可視性であり、crate 外部への公開ではありません。内部テストは各モジュールに置き、`tests/http.rs` はバイナリを起動して HTTP と SSE、SIGTERM による終了を検証します。
+
+Tokio/Axum が HTTP と SSE を処理し、ブロッキングする詳細 API は `spawn_blocking` に渡します。プロセスの定期観測とシステム全体の構造・活動収集は OS スレッドで動きます。プロセス詳細監視は接続ごとに独立した状態を持ち、`AppState` は一覧探索と各サブシステムを保持します。接続数・collector は process monitoring、snapshot の直列化とシンボルキャッシュは snapshot が管理します。
 
 Web UI の API 型は `src/web/api-types.ts` に定義し、Rust の JSON 応答と合わせて管理します。null の扱いや16進文字列のアドレスも契約に含まれます。これらはコンパイル時の型で、実行時の入力検証ではありません。TypeScript と Three.js の型定義はビルド専用の npm 依存です。
 
@@ -171,13 +179,13 @@ Axum がルートごとにクエリや JSON を取り出し、ハンドラへ渡
 
 メモリ読み取りAPIは外部クライアント向けに提供します。Web UIには読み取りフォームやhex/ASCII表示はありません。
 
-`GET /api/processes/memory` はアドレスの構文、長さ、加算のオーバーフローを検証し、識別子と生存を確認して [`process_vm_readv`](https://man7.org/linux/man-pages/man2/process_vm_readv.2.html) で最大64 KiBを読み取ります。部分読み取りを完全な読み取りと区別して返します。スナップショットの保存値ではなく、要求時点のメモリを対象を停止せずに取得します。実装は [API ハンドラ](../src/server/mod.rs#L291) と [メモリ読み取り処理](../src/process/memory.rs) を参照してください。
+`GET /api/processes/memory` はアドレスの構文、長さ、加算のオーバーフローを検証し、識別子と生存を確認して [`process_vm_readv`](https://man7.org/linux/man-pages/man2/process_vm_readv.2.html) で最大64 KiBを読み取ります。部分読み取りを完全な読み取りと区別して返します。スナップショットの保存値ではなく、要求時点のメモリを対象を停止せずに取得します。実装は [API ハンドラ](../src/http_server/api/process.rs) と [メモリ読み取り処理](../src/http_server/process/memory.rs) を参照してください。
 
 ### FD と接続先
 
 `GET /api/processes/fds` は識別子・生存を確認し、pipe/FIFO/socket の FD、アクセス方向、接続候補、同じリソースの共有所有者を収集します。UNIX domain socket の通信相手は socket diagnostic を使って調べます。TCP/UDP ソケットの通信相手の候補は、対象プロセスが属するネットワーク名前空間の情報から探索します。共有所有者と通信相手は区別し、データを消費する読み取りは行いません。探索は3秒・100,000 FD・一致8192 FDを上限とし、打ち切りなどを結果に含めます。
 
-実装は [FD 情報の収集](../src/process/fds.rs#L272)、[通信相手の候補の照合](../src/process/fds.rs#L341)、[候補を所有するプロセス・FD の探索](../src/process/fds.rs#L117) を参照してください。UNIX domain socket の通信相手の inode を取得する処理は [socket diagnostic](../src/process/sockets.rs#L211) にあります。
+実装は [FD 情報の収集](../src/http_server/process/fds.rs)、[通信相手の候補の照合](../src/http_server/process/fds.rs)、[候補を所有するプロセス・FD の探索](../src/http_server/process/fds.rs) を参照してください。UNIX domain socket の通信相手の inode を取得する処理は [socket diagnostic](../src/http_server/process/sockets.rs) にあります。
 
 ### 環境変数・補助ベクトル・シグナル
 
@@ -185,19 +193,19 @@ Axum がルートごとにクエリや JSON を取り出し、ハンドラへ渡
 
 これらの API は procfs に公開されたファイルを読み取ります。auxv の文字列参照先だけは、追加で `process_vm_readv` を使って対象プロセスのメモリから取得します。
 
-- `GET /api/processes/environment`：procfs の [`/proc/<pid>/environ`](https://man7.org/linux/man-pages/man5/proc_pid_environ.5.html) を最大1 MiB読み取り、NUL 区切りの各項目を最初の `=` で名前と値に分けます。重複名・空値・値中の `=` を維持します。通常は exec 時の環境領域であり、起動後の変更すべてを反映しません。実装は [ファイルの読み取り](../src/process/details.rs#L49) と [環境変数の解析](../src/process/details.rs#L32) を参照してください。
-- `GET /api/processes/auxv`：`/proc/<pid>/exe` の ELF ヘッダから32/64 bitを判別し、procfs の [`/proc/<pid>/auxv`](https://man7.org/linux/man-pages/man5/proc_pid_auxv.5.html) を最大64 KiB読み取ります。タグと値の組として解析し、既知・未知のタグを扱います。`AT_EXECFN`・`AT_PLATFORM`・`AT_BASE_PLATFORM` の文字列参照は、`process_vm_readv` で最大4096バイトまで解決します。参照先が読めなくても数値は保持します。big-endian ELF は対象外です。実装は [ELF ヘッダと auxv の読み取り](../src/process/details.rs#L185)、[文字列参照の解決](../src/process/details.rs#L176)、[メモリの読み取り](../src/process/memory.rs#L18) を参照してください。
-- `GET /api/processes/signals`：procfs の [`/proc/<pid>/status`](https://man7.org/linux/man-pages/man5/proc_pid_status.5.html) と、各スレッドの [`/proc/<pid>/task/<tid>/status`](https://man7.org/linux/man-pages/man5/proc_pid_task.5.html) を読み取ります。`SigPnd`（スレッドの保留）・`ShdPnd`（プロセス全体の保留）・`SigBlk`（ブロック）・`SigIgn`（無視）・`SigCgt`（ハンドラ登録）の16進マスクを解析します。最大4096スレッド・2秒で打ち切ります。受信履歴や送信元の追跡、シグナル送信は行いません。実装は [status の読み取りとスレッドの列挙](../src/process/signals.rs#L109) と [シグナル状態の解析](../src/process/signals.rs#L84) を参照してください。
+- `GET /api/processes/environment`：procfs の [`/proc/<pid>/environ`](https://man7.org/linux/man-pages/man5/proc_pid_environ.5.html) を最大1 MiB読み取り、NUL 区切りの各項目を最初の `=` で名前と値に分けます。重複名・空値・値中の `=` を維持します。通常は exec 時の環境領域であり、起動後の変更すべてを反映しません。実装は [ファイルの読み取り](../src/http_server/process/details.rs) と [環境変数の解析](../src/http_server/process/details.rs) を参照してください。
+- `GET /api/processes/auxv`：`/proc/<pid>/exe` の ELF ヘッダから32/64 bitを判別し、procfs の [`/proc/<pid>/auxv`](https://man7.org/linux/man-pages/man5/proc_pid_auxv.5.html) を最大64 KiB読み取ります。タグと値の組として解析し、既知・未知のタグを扱います。`AT_EXECFN`・`AT_PLATFORM`・`AT_BASE_PLATFORM` の文字列参照は、`process_vm_readv` で最大4096バイトまで解決します。参照先が読めなくても数値は保持します。big-endian ELF は対象外です。実装は [ELF ヘッダと auxv の読み取り](../src/http_server/process/details.rs)、[文字列参照の解決](../src/http_server/process/details.rs)、[メモリの読み取り](../src/http_server/process/memory.rs) を参照してください。
+- `GET /api/processes/signals`：procfs の [`/proc/<pid>/status`](https://man7.org/linux/man-pages/man5/proc_pid_status.5.html) と、各スレッドの [`/proc/<pid>/task/<tid>/status`](https://man7.org/linux/man-pages/man5/proc_pid_task.5.html) を読み取ります。`SigPnd`（スレッドの保留）・`ShdPnd`（プロセス全体の保留）・`SigBlk`（ブロック）・`SigIgn`（無視）・`SigCgt`（ハンドラ登録）の16進マスクを解析します。最大4096スレッド・2秒で打ち切ります。受信履歴や送信元の追跡、シグナル送信は行いません。実装は [status の読み取りとスレッドの列挙](../src/http_server/process/signals.rs) と [シグナル状態の解析](../src/http_server/process/signals.rs) を参照してください。
 
 ### スナップショット
 
-`POST /api/processes/snapshot` は識別子・生存を確認して専用ロックで取得を直列化してスナップショット処理を呼び出します。同時に要求されてもptrace操作は重複せず、このロックは通常観測や単発読み取りの状態とは分離しています。`PTRACE_SEIZE` と `PTRACE_INTERRUPT` で全スレッドの停止を確認し、レジスタ・マップ・スタック・命令バイトを取得します。追加スレッドを再列挙し、4096スレッド・16回の安定化試行・停止待ち2秒を上限とします。取得にも2秒の処理予算がありますが、カーネル内でブロックする syscall の実時間を保証するものではありません。実装は [スナップショットの取得処理](../src/snapshot/mod.rs#L38) を参照してください。
+`POST /api/processes/snapshot` は識別子・生存を確認して専用ロックで取得を直列化してスナップショット処理を呼び出します。同時に要求されてもptrace操作は重複せず、このロックは通常観測や単発読み取りの状態とは分離しています。`PTRACE_SEIZE` と `PTRACE_INTERRUPT` で全スレッドの停止を確認し、レジスタ・マップ・スタック・命令バイトを取得します。追加スレッドを再列挙し、4096スレッド・16回の安定化試行・停止待ち2秒を上限とします。取得にも2秒の処理予算がありますが、カーネル内でブロックする syscall の実時間を保証するものではありません。実装は [スナップショットの取得処理](../src/http_server/process/snapshot/mod.rs) を参照してください。
 
-RAII と専用 OS スレッドの終了で detach を扱い、既存の job-control stop と signal delivery を維持します。自分自身のスナップショットは拒否します。対象の再開後にシンボル解決と命令デコードを行い、スレッドごとの結果を返します。実装は [SnapshotGuard の detach 処理](../src/snapshot/ptrace.rs#L146) を参照してください。
+RAII と専用 OS スレッドの終了で detach を扱い、既存の job-control stop と signal delivery を維持します。自分自身のスナップショットは拒否します。対象の再開後にシンボル解決と命令デコードを行い、スレッドごとの結果を返します。実装は [SnapshotGuard の detach 処理](../src/http_server/process/snapshot/ptrace.rs) を参照してください。
 
-スタックは RBP をたどる最大256フレームの unwind です。ELF/DWARF から PIE/ASLR を考慮して関数・行・inline frame を解決し、ファイルの device/inode/size/mtime でキャッシュします。解決できない場合は生アドレスを保持します。frame pointer のないコードや signal trampoline を含む任意のスタックを完全には復元できません。実装は [RBP によるスタックの unwind](../src/snapshot/unwind_fp.rs#L33) を参照してください。
+スタックは RBP をたどる最大256フレームの unwind です。ELF/DWARF から PIE/ASLR を考慮して関数・行・inline frame を解決し、ファイルの device/inode/size/mtime でキャッシュします。解決できない場合は生アドレスを保持します。frame pointer のないコードや signal trampoline を含む任意のスタックを完全には復元できません。実装は [RBP によるスタックの unwind](../src/http_server/process/snapshot/unwind_fp.rs) を参照してください。
 
-逆アセンブルは停止中の RIP から最大256バイトを取得し、`iced-x86` で最大32命令を Intel 構文にデコードします。実メモリを使うため JIT のコードも対象ですが、32-bit compatibility mode は対象外です。実装は [命令のデコード処理](../src/snapshot/disasm.rs#L80) を参照してください。
+逆アセンブルは停止中の RIP から最大256バイトを取得し、`iced-x86` で最大32命令を Intel 構文にデコードします。実メモリを使うため JIT のコードも対象ですが、32-bit compatibility mode は対象外です。実装は [命令のデコード処理](../src/http_server/process/snapshot/disasm.rs) を参照してください。
 
 ### プロセス詳細監視の SSE 配信処理
 
@@ -224,9 +232,9 @@ watch channelは接続ごとに独立し、遅い購読者へ古い状態を蓄�
 
 | センサー | バックエンドの観測内容と制約 | eBPF ソース |
 |---|---|---|
-| CPU | `sched_switch` で実行時間と実行中 CPU を集計 | [activity.bpf.c](../src/system/activity.bpf.c) |
-| IPC | pipe read/write と socket の送受信結果を観測。ペイロードは読まず、MSG_PEEK は加算しない。splice/sendfile、一部 io_uring、帰属不明のワーカーは対象外 | [activity.bpf.c](../src/system/activity.bpf.c) |
-| ファイル I/O | VFS の read/write、ベクトル I/O の成功バイト数と回数を観測。ページキャッシュ経由も含む。mmap、io_uring、splice/sendfile、物理ディスク転送量は対象外 | [files.bpf.c](../src/system/files.bpf.c) |
+| CPU | `sched_switch` で実行時間と実行中 CPU を集計 | [activity.bpf.c](../src/http_server/system_monitoring/activity.bpf.c) |
+| IPC | pipe read/write と socket の送受信結果を観測。ペイロードは読まず、MSG_PEEK は加算しない。splice/sendfile、一部 io_uring、帰属不明のワーカーは対象外 | [activity.bpf.c](../src/http_server/system_monitoring/activity.bpf.c) |
+| ファイル I/O | VFS の read/write、ベクトル I/O の成功バイト数と回数を観測。ページキャッシュ経由も含む。mmap、io_uring、splice/sendfile、物理ディスク転送量は対象外 | [files.bpf.c](../src/http_server/system_monitoring/files.bpf.c) |
 
 ファイルのパスは操作時に取得し、取得できない場合は device/inode 等の識別子を使います。BPF のフックが利用できない場合はセンサーごとの理由を状態 API とログに出し、利用可能な情報の収集を継続します。必要なカーネル機能・権限はセンサーごとに異なります。
 
@@ -290,7 +298,7 @@ Three.js でプロセスの親子関係、仮想アドレス空間、接続先�
 
 認証・TLS はありません。接続できる利用者はプロセスメモリや環境変数にアクセスできるため、非 loopback での待受はアクセス範囲を管理した信頼できるネットワーク内に限定してください。Host/Origin/Fetch Metadata の検証と API レスポンスの `Cache-Control: no-store` は維持しますが、これらは認証の代わりにはなりません。
 
-ログは `log` と `env_logger` を使い、標準エラーに時刻・レベル・出力元のファイルパスと行番号（例：`src/system/mod.rs:123`）を出します。既定は `info` です。`RUST_LOG` の絞り込みには引き続きモジュール名を使います。
+ログは `log` と `env_logger` を使い、標準エラーに時刻・レベル・出力元のファイルパスと行番号（例：`src/http_server/system_monitoring/mod.rs:123`）を出します。既定は `info` です。`RUST_LOG` の絞り込みには引き続きモジュール名を使います。
 
 - `info`：起動・終了、観測の開始・停止、対象の終了、収集状態と復旧。
 - `warn`：観測失敗、センサー利用不可。同じ状態・エラーの連続出力を抑制。
@@ -299,7 +307,7 @@ Three.js でプロセスの親子関係、仮想アドレス空間、接続先�
 
 ```sh
 sudo env RUST_LOG=procinsh=debug ./target/debug/procinsh --listen 127.0.0.1:9090
-sudo env RUST_LOG=info,procinsh::system=debug ./target/debug/procinsh --listen 127.0.0.1:9090
+sudo env RUST_LOG=info,procinsh::http_server::system_monitoring=debug ./target/debug/procinsh --listen 127.0.0.1:9090
 ```
 
 `RUST_LOG=off` はアプリケーションのログを抑制します。HTTP アクセスログにはクエリ、トークン、本文を含めず、観測したメモリや環境変数の値も記録しません。SSE の応答時間は接続開始時の応答までです。

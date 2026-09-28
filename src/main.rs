@@ -1,9 +1,11 @@
+mod http_server;
+
 #[cfg(not(all(target_os = "linux", target_arch = "x86_64")))]
 compile_error!("procinsh supports Linux x86-64 only");
 
-use anyhow::{Context, Result, ensure};
+use anyhow::{Result, ensure};
 use clap::Parser;
-use std::{io::Write, net::SocketAddr, sync::Arc, time::Duration};
+use std::{io::Write, net::SocketAddr, time::Duration};
 
 #[derive(Parser)]
 #[command(version, about = "Read-only Linux x86-64 process inspector")]
@@ -54,40 +56,5 @@ async fn run() -> Result<()> {
         cli.interval >= Duration::from_millis(100) && cli.interval <= Duration::from_secs(60),
         "--interval must be between 100ms and 60s"
     );
-    let state = Arc::new(procinsh::state::AppState::new(cli.interval));
-    let listener = tokio::net::TcpListener::bind(cli.listen)
-        .await
-        .context("could not bind HTTP listener")?;
-    let address = listener.local_addr()?;
-    if !address.ip().is_loopback() {
-        log::warn!(
-            "Warning: remote access exposes process memory and environment variables without authentication or TLS. Use only on a trusted network."
-        );
-    }
-    let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-        .context("could not install SIGTERM handler")?;
-    let shutdown_state = state.clone();
-    log::info!(
-        "procinsh {} listening on http://{address} interval={:?}",
-        env!("CARGO_PKG_VERSION"),
-        cli.interval
-    );
-    let result = axum::serve(listener, procinsh::server::router(state.clone(), address))
-        .with_graceful_shutdown(async move {
-            tokio::select! {
-                result = tokio::signal::ctrl_c() => {
-                    match result {
-                        Ok(()) => log::info!("received SIGINT; shutting down"),
-                        Err(error) => log::error!("SIGINT handler failed: {error}"),
-                    }
-                },
-                _ = terminate.recv() => log::info!("received SIGTERM; shutting down"),
-            }
-            shutdown_state.stop();
-        })
-        .await;
-    state.stop();
-    state.join_collectors()?;
-    log::info!("procinsh stopped");
-    result.context("HTTP server failed")
+    http_server::run(cli.listen, cli.interval).await
 }
