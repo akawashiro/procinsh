@@ -17,11 +17,12 @@ Opposite arrows show mutual dependencies; longer cycles can be followed along th
 <p>These graphs show internal library module dependencies detected by cargo-modules 0.27.0
 for the default Linux build, excluding external crates and test-only code.
 References to functions, types and traits are folded into their containing modules.
-Module ownership and dependencies within the same displayed module are omitted.
+Ownership arrows and dependencies within the same displayed module are omitted.
 This is static analysis, not a runtime call graph.</p>
 <p>Scroll each graph horizontally or vertically. Use the zoom buttons or your browser's pinch zoom.
 You can also open the SVG directly. The overview combines all descendants of each top-level module;
-the detail view preserves child modules and direct references across module boundaries.</p>
+the detail view places child modules inside their parent module’s box and preserves direct references across module boundaries.
+A node labelled <strong>(module)</strong> represents the parent module itself; arrows to or from it refer to that module, not all its children.</p>
 <h2>Overview</h2>
 <p><a href="module-dependencies.svg">Open overview SVG</a> · <a href="module-dependencies.dot">Download DOT</a></p>
 <div data-view>
