@@ -31,7 +31,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends \
             build-essential clang llvm pkg-config libelf-dev zlib1g-dev python3 \
-            linux-tools-common linux-tools-generic
+            linux-tools-common linux-tools-generic graphviz
       - name: Configure bpftool and check kernel BTF
         shell: bash
         run: |
@@ -47,8 +47,21 @@ jobs:
           test -r /sys/kernel/btf/vmlinux
           "${bpftools[0]}" version
 
+      - name: Install dependency graph tool
+        run: cargo install cargo-modules --version 0.27.0 --locked
+
       - name: Build rustdoc
         run: cargo doc --locked --workspace --no-deps
+
+      - name: Build module dependency graphs
+        run: |
+          python3 -m unittest discover -s scripts -p 'test_*.py'
+          mkdir -p target/doc/architecture
+          # The item filters fold references into the containing modules.
+          # Keep uses edges; --no-uses would produce only an ownership tree.
+          cargo modules dependencies --lib --no-externs --no-sysroot \
+            --no-fns --no-traits --no-types > target/doc/architecture/modules-raw.dot
+          python3 scripts/module_dependencies.py target/doc/architecture/modules-raw.dot
 
       - name: Create index page
         run: |
@@ -61,11 +74,13 @@ jobs:
 
           for file in target/doc/*/index.html; do
             [ -f "$file" ] || continue
+            [ "$file" != target/doc/architecture/index.html ] || continue
             crate=$(basename "$(dirname "$file")")
             echo "<li><a href=\"$crate/index.html\">$crate</a></li>" \
               >> target/doc/index.html
           done
 
+          echo '<li><a href="architecture/">Module dependency graph</a></li>' >> target/doc/index.html
           echo '</ul></html>' >> target/doc/index.html
           touch target/doc/.nojekyll
 

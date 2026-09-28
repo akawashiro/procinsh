@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Module dependency graph — procinsh</title>
+<style>
+  body { font: 1rem/1.6 system-ui, sans-serif; color: #172033; margin: auto; padding: 1rem; max-width: 80rem; }
+  a { color: #164eaf; }
+  .graph { overflow: auto; border: 1px solid #94a3b8; border-radius: .5rem; max-height: 75vh; }
+  .graph img { display: block; max-width: none; }
+  button { font: inherit; min-height: 44px; min-width: 44px; margin: .25rem; }
+</style>
+<nav><a href="../index.html">Documentation home</a> · <a href="../procinsh/index.html">Rust API docs</a></nav>
+<h1>Module dependency graph</h1>
+<p>Arrows mean <strong>user → dependency</strong> (利用する側 → 利用される側).
+Opposite arrows show mutual dependencies; longer cycles can be followed along the arrows.</p>
+<p>These graphs show internal library module dependencies detected by cargo-modules 0.27.0
+for the default Linux build, excluding external crates and test-only code.
+References to functions, types and traits are folded into their containing modules.
+Module ownership and dependencies within the same displayed module are omitted.
+This is static analysis, not a runtime call graph.</p>
+<p>Scroll each graph horizontally or vertically. Use the zoom buttons or your browser's pinch zoom.
+You can also open the SVG directly. The overview combines all descendants of each top-level module;
+the detail view preserves child modules and direct references across module boundaries.</p>
+<h2>Overview</h2>
+<p><a href="module-dependencies.svg">Open overview SVG</a> · <a href="module-dependencies.dot">Download DOT</a></p>
+<div data-view>
+  <div class="controls" hidden><button data-zoom="0.8" aria-label="Zoom overview out">−</button><button data-zoom="1.25" aria-label="Zoom overview in">+</button><button data-zoom="reset">Reset zoom</button></div>
+  <div class="graph" tabindex="0" role="region" aria-label="Scrollable overview graph"><img src="module-dependencies.svg" alt="Dependencies between top-level procinsh modules"></div>
+</div>
+<h2>Detail</h2>
+<p><a href="module-dependencies-detail.svg">Open detailed SVG</a> · <a href="module-dependencies-detail.dot">Download DOT</a></p>
+<div data-view>
+  <div class="controls" hidden><button data-zoom="0.8" aria-label="Zoom detail out">−</button><button data-zoom="1.25" aria-label="Zoom detail in">+</button><button data-zoom="reset">Reset zoom</button></div>
+  <div class="graph" tabindex="0" role="region" aria-label="Scrollable detailed graph"><img src="module-dependencies-detail.svg" alt="Dependencies including procinsh child modules"></div>
+</div>
+<script>
+  for (const view of document.querySelectorAll('[data-view]')) {
+    const image = view.querySelector('img');
+    let scale = 1;
+    view.querySelector('.controls').hidden = false;
+    for (const button of view.querySelectorAll('button')) {
+      button.addEventListener('click', () => {
+        scale = button.dataset.zoom === 'reset' ? 1 : Math.max(.25, Math.min(4, scale * Number(button.dataset.zoom)));
+        image.style.width = scale === 1 ? '' : `${image.naturalWidth * scale}px`;
+      });
+    }
+  }
+</script>
+</html>
