@@ -41,7 +41,7 @@ async fn next(body: &mut Body) -> serde_json::Value {
 #[tokio::test]
 async fn explicit_identity_is_required_without_selection() {
     let state = Arc::new(AppState::new(Duration::from_millis(100)));
-    let app = super::router(state.clone(), "127.0.0.1:8080".parse().unwrap());
+    let app = super::router::router(state.clone(), "127.0.0.1:8080".parse().unwrap());
     let id = super::process::identity(std::process::id() as i32).unwrap();
     for method in ["GET", "POST", "DELETE"] {
         let mut req = request("/api/target");
@@ -164,7 +164,7 @@ async fn explicit_identity_is_required_without_selection() {
 #[tokio::test]
 async fn target_streams_have_independent_lifetimes_and_histories() {
     let state = Arc::new(AppState::new(Duration::from_millis(100)));
-    let app = super::router(state.clone(), "127.0.0.1:8080".parse().unwrap());
+    let app = super::router::router(state.clone(), "127.0.0.1:8080".parse().unwrap());
     let id = super::process::identity(std::process::id() as i32).unwrap();
     let uri = format!("/api/processes/events?{}", query(id));
     let mut a = app
@@ -245,7 +245,7 @@ async fn closing_a_session_stops_its_collector() {
 #[tokio::test]
 async fn generated_javascript_is_embedded_at_existing_urls() {
     let state = Arc::new(AppState::new(Duration::from_secs(1)));
-    let app = super::router(state, "127.0.0.1:8080".parse().unwrap());
+    let app = super::router::router(state, "127.0.0.1:8080".parse().unwrap());
     for (path, expected) in [
         ("/app.js", include_str!("../../dist/web/app.js")),
         ("/space.js", include_str!("../../dist/web/space.js")),
@@ -282,7 +282,7 @@ async fn api_explicit_identity_validation_and_memory_limits() {
     use tower::ServiceExt;
     let target = Target::new("sleeping");
     let state = Arc::new(AppState::new(Duration::from_secs(1)));
-    let app = super::router(state, "127.0.0.1:8080".parse().unwrap());
+    let app = super::router::router(state, "127.0.0.1:8080".parse().unwrap());
     for path in ["environment", "auxv", "fds", "signals"] {
         for (start, expected) in [
             (target.id.start_time_ticks, 200),

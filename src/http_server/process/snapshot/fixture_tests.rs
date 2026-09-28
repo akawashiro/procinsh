@@ -1,5 +1,6 @@
-use super::super::{self as process, memory, test_support::Target, threads};
-use super::{self as snapshot, symbol::ElfCache};
+use super as snapshot;
+use crate::http_server::process::snapshot::symbol::ElfCache;
+use crate::http_server::process::{self as process, memory, test_support::Target, threads};
 use std::{
     sync::{Arc, Mutex},
     time::Duration,

@@ -38,6 +38,33 @@ class ModuleDependenciesTest(unittest.TestCase):
             with self.subTest(dot=dot), self.assertRaises(ValueError):
                 parse_modules(dot)
 
+    def test_implementation_children_fold_into_subsystems(self):
+        prefix = 'procinsh::http_server::'
+        nodes = {prefix + name for name in (
+            'server', 'state', 'router', 'middleware', 'api::router',
+            'process::identity', 'process::resources',
+            'process::monitoring::service', 'process::snapshot::capture',
+            'process::snapshot::symbol::cache', 'process::snapshot::symbol::resolve',
+            'system_monitoring::service', 'system_monitoring::status',
+        )}
+        edges = {(prefix + a, prefix + b) for a, b in (
+            ('router', 'api::router'),
+            ('api::router', 'process::resources'),
+            ('process::resources', 'process::identity'),
+            ('process::snapshot::capture', 'process::snapshot::symbol::cache'),
+            ('system_monitoring::service', 'process::resources'),
+        )}
+        summary_nodes, summary_edges = overview(nodes, edges)
+        self.assertEqual(summary_nodes, {prefix + name for name in (
+            'server', 'state', 'router', 'middleware', 'api', 'process', 'system_monitoring',
+        )})
+        self.assertEqual(summary_edges, {(prefix + a, prefix + b) for a, b in (
+            ('router', 'api'), ('api', 'process'), ('system_monitoring', 'process'),
+        )})
+        nested = render_dot(nodes, edges, nested=True)
+        self.assertIn('cluster_' + prefix + 'process::snapshot::symbol', nested)
+        self.assertIn('label="resolve"', nested)
+
 
 if __name__ == '__main__':
     unittest.main()

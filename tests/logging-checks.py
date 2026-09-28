@@ -69,13 +69,13 @@ def check_running(level):
         if level == "off":
             assert output == "", output
         else:
-            assert re.search(r"\[.*INFO\s+src/http_server/mod\.rs:[1-9][0-9]*\]", output), output
+            assert re.search(r"\[.*INFO\s+src/http_server/server\.rs:[1-9][0-9]*\]", output), output
             assert f"http://127.0.0.1:{port}" in output
             assert "SIGTERM" in output and "procinsh stopped" in output
             assert ('HTTP GET "/api/config" status=200' in output) == (level == "procinsh=debug")
             if level == "procinsh=debug":
                 assert "SSE /api/system/events event=topology" in output, output
-                assert re.search(r"\[.*DEBUG\s+src/http_server/mod\.rs:[1-9][0-9]*\] HTTP GET", output), output
+                assert re.search(r"\[.*DEBUG\s+src/http_server/middleware\.rs:[1-9][0-9]*\] HTTP GET", output), output
 
 
 for level in (None, "procinsh=debug", "off"):

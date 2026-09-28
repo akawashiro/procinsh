@@ -1,7 +1,6 @@
 // Session handles and lifecycle methods are re-exported by the process façade.
-use super::SubscribeError;
-mod history;
-use history::HistoryPoint;
+use super::history::{self, HistoryPoint};
+use crate::http_server::process::SubscribeError;
 
 use crate::http_server::process::{
     self, ProcessId, ProcessSummary,
@@ -31,19 +30,19 @@ struct Rates {
     write_bytes: Option<f64>,
 }
 #[derive(Clone, Debug, Serialize)]
-pub(super) struct ProcessObservation {
-    timestamp: u64,
+pub(in crate::http_server::process) struct ProcessObservation {
+    pub(super) timestamp: u64,
     process_id: ProcessId,
-    cpu_percent: Option<f64>,
-    rss_bytes: u64,
-    vms_bytes: u64,
+    pub(super) cpu_percent: Option<f64>,
+    pub(super) rss_bytes: u64,
+    pub(super) vms_bytes: u64,
     minor_faults: u64,
     major_faults: u64,
     voluntary_context_switches: Option<u64>,
     nonvoluntary_context_switches: Option<u64>,
     io: Option<IoStats>,
     rates: Rates,
-    pub(super) threads: Vec<ThreadObservation>,
+    pub(in crate::http_server::process) threads: Vec<ThreadObservation>,
     cpu: i32,
     nice: i64,
     priority: i64,
@@ -53,7 +52,7 @@ pub(super) struct ProcessObservation {
     measured_at: Option<Instant>,
 }
 
-pub(super) fn observation(
+pub(in crate::http_server::process) fn observation(
     id: ProcessId,
     previous: Option<&ProcessObservation>,
 ) -> Result<ProcessObservation> {
@@ -303,7 +302,7 @@ impl Monitoring {
         Ok(())
     }
 }
-pub(super) fn capture_target(id: ProcessId) -> Result<Target> {
+pub(in crate::http_server::process) fn capture_target(id: ProcessId) -> Result<Target> {
     process::check_identity(id)?;
     let stat = procfs::read_stat(&format!("/proc/{}/stat", id.pid))?;
     let summary = process::summary(&stat, &process::users());
@@ -353,4 +352,5 @@ fn refresh_maps(target: &mut Target) {
 }
 
 #[cfg(test)]
+#[path = "tests.rs"]
 mod tests;

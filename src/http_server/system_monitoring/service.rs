@@ -1,19 +1,15 @@
-pub(super) use topology::Topology;
+use super::{Topology, activity, resolver, topology};
 #[derive(Debug, PartialEq, Eq)]
-pub(super) enum SubscribeError {
+pub(in crate::http_server) enum SubscribeError {
     Stopped,
     TooManySubscribers,
 }
 #[derive(Clone)]
-pub(super) enum SystemEvent {
+pub(in crate::http_server) enum SystemEvent {
     Topology(std::sync::Arc<Topology>),
     Metrics(serde_json::Value),
     Activity(serde_json::Value),
 }
-mod activity;
-mod files;
-mod resolver;
-mod topology;
 use serde_json::{Value, json};
 use std::{
     sync::{
@@ -24,19 +20,19 @@ use std::{
 };
 use tokio::sync::broadcast;
 /// Owns a monitoring registration until dropped.
-pub(super) struct Subscription {
+pub(in crate::http_server) struct Subscription {
     system: Arc<System>,
-    pub(super) receiver: broadcast::Receiver<SystemEvent>,
-    pub(super) initial: Arc<Topology>,
+    pub(in crate::http_server) receiver: broadcast::Receiver<SystemEvent>,
+    pub(in crate::http_server) initial: Arc<Topology>,
 }
 impl Drop for Subscription {
     fn drop(&mut self) {
         *self.system.viewers.lock().unwrap() -= 1;
     }
 }
-pub(super) struct System {
+pub(in crate::http_server) struct System {
     viewers: Mutex<usize>,
-    status: Mutex<Value>,
+    pub(super) status: Mutex<Value>,
     snapshot: RwLock<Arc<topology::Topology>>,
     events: broadcast::Sender<SystemEvent>,
     stop: AtomicBool,
@@ -58,14 +54,14 @@ impl Default for System {
     }
 }
 impl System {
-    pub(super) fn stopped(&self) -> bool {
+    pub(in crate::http_server) fn stopped(&self) -> bool {
         self.stop.load(Ordering::Relaxed)
     }
-    pub(super) fn stop(&self) {
+    pub(in crate::http_server) fn stop(&self) {
         let _viewers = self.viewers.lock().unwrap();
         self.stop.store(true, Ordering::Relaxed);
     }
-    pub(super) fn join_workers(&self) -> anyhow::Result<()> {
+    pub(in crate::http_server) fn join_workers(&self) -> anyhow::Result<()> {
         let workers = std::mem::take(&mut *self.workers.lock().unwrap());
         let mut failed = false;
         for worker in workers {
@@ -74,10 +70,12 @@ impl System {
         anyhow::ensure!(!failed, "system monitoring worker panicked");
         Ok(())
     }
-    pub(super) fn active(&self) -> bool {
+    pub(in crate::http_server) fn active(&self) -> bool {
         !self.stopped() && *self.viewers.lock().unwrap() > 0
     }
-    pub(super) fn subscribe(self: &Arc<Self>) -> Result<Subscription, SubscribeError> {
+    pub(in crate::http_server) fn subscribe(
+        self: &Arc<Self>,
+    ) -> Result<Subscription, SubscribeError> {
         let mut viewers = self.viewers.lock().unwrap();
         if self.stopped() {
             return Err(SubscribeError::Stopped);
@@ -95,10 +93,10 @@ impl System {
         drop(viewers);
         Ok(viewer)
     }
-    fn send(&self, event: SystemEvent) {
+    pub(super) fn send(&self, event: SystemEvent) {
         let _ = self.events.send(event);
     }
-    pub(super) fn snapshot(&self) -> Arc<Topology> {
+    pub(in crate::http_server) fn snapshot(&self) -> Arc<Topology> {
         self.snapshot.read().unwrap().clone()
     }
     fn start(self: &Arc<Self>) {
@@ -180,40 +178,13 @@ impl System {
         }));
     }
 }
-pub(super) fn monotonic_ns() -> u64 {
+pub(in crate::http_server) fn monotonic_ns() -> u64 {
     let mut ts = libc::timespec {
         tv_sec: 0,
         tv_nsec: 0,
     };
     unsafe { libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut ts) };
     ts.tv_sec as u64 * 1_000_000_000 + ts.tv_nsec as u64
-}
-
-/// Remembers only operational states, not continuously changing counters.
-#[derive(Default)]
-struct StatusLog(std::collections::HashMap<&'static str, String>);
-impl StatusLog {
-    fn changes(&mut self, status: &serde_json::Value) -> Vec<(&'static str, String)> {
-        let mut changes = Vec::new();
-        for key in ["ipc", "cpu", "files"] {
-            if let Some(value) = status[key].as_str()
-                && self.0.get(key).is_none_or(|old| old != value)
-            {
-                self.0.insert(key, value.to_owned());
-                changes.push((key, value.to_owned()));
-            }
-        }
-        changes
-    }
-    fn observe(&mut self, status: &serde_json::Value) {
-        for (key, value) in self.changes(status) {
-            if value.starts_with("unavailable:") || value.starts_with("error:") {
-                log::warn!("System {key}: {value}");
-            } else {
-                log::info!("System {key}: {value}");
-            }
-        }
-    }
 }
 
 fn spawn_worker(
@@ -226,27 +197,4 @@ fn spawn_worker(
             std::panic::resume_unwind(panic);
         }
     })
-}
-
-#[cfg(test)]
-mod logging_tests {
-    use super::*;
-    #[test]
-    fn logs_changes_recovery_and_recurrence_without_repeating_errors() {
-        let mut log = StatusLog::default();
-        let error = json!({"cpu":"unavailable: permission denied", "lost":1});
-        assert_eq!(log.changes(&error).len(), 1);
-        assert!(log.changes(&error).is_empty());
-        assert!(
-            log.changes(&json!({"cpu":"unavailable: permission denied", "lost":2}))
-                .is_empty()
-        );
-        assert_eq!(
-            log.changes(&json!({"cpu":"unavailable: unsupported"}))
-                .len(),
-            1
-        );
-        assert_eq!(log.changes(&json!({"cpu":"observing"})).len(), 1);
-        assert_eq!(log.changes(&error).len(), 1);
-    }
 }
