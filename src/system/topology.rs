@@ -1,6 +1,5 @@
 use crate::process::{
-    self, ProcessId,
-    discovery::{Discovery, ProcessSummary},
+    self, Discovery, ProcessId, ProcessSummary,
     maps::{self, MemoryMap},
     sockets,
 };

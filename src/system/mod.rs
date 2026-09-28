@@ -86,7 +86,7 @@ impl System {
             let mut previous_warnings = Vec::new();
             let mut metrics_error = None;
             let resolver = resolver::Resolver::new();
-            let mut discovery = crate::process::discovery::Discovery::default();
+            let mut discovery = crate::process::Discovery::default();
             let mut full = Instant::now() - Duration::from_secs(10);
             let mut tick = Instant::now() - Duration::from_secs(2);
             while !system.stopped() {

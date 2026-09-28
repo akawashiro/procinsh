@@ -1,5 +1,11 @@
+//! Process inspection APIs grouped by resource (maps, memory, threads, and details).
+//! These resource modules are intentionally public. Discovery implementation is
+//! private; consumers use [`Discovery`] and [`ProcessSummary`] from this module.
+
 pub mod details;
-pub mod discovery;
+mod discovery;
+pub use discovery::{Discovery, ProcessSummary};
+pub(crate) use discovery::{summary, users};
 pub mod fds;
 pub mod maps;
 pub mod memory;

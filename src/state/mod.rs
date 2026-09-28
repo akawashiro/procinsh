@@ -1,8 +1,8 @@
-pub mod history;
+mod history;
+pub use history::HistoryPoint;
 
 use crate::process::{
-    self, ProcessId,
-    discovery::{Discovery, ProcessSummary},
+    self, Discovery, ProcessId, ProcessSummary,
     maps::{self, MemoryMap, MemoryRollup},
     procfs::{self, IoStats},
     threads::{self, ThreadObservation},
@@ -146,7 +146,7 @@ pub struct Target {
     pub exited: bool,
     pub error: Option<String>,
     pub observation: Option<ProcessObservation>,
-    pub history: VecDeque<history::HistoryPoint>,
+    pub history: VecDeque<HistoryPoint>,
     pub maps: Vec<MemoryMap>,
     pub maps_error: Option<String>,
     pub maps_captured_at: Option<u64>,
@@ -160,7 +160,7 @@ pub struct AppState {
     viewers: Mutex<usize>,
     workers: Mutex<Vec<std::thread::JoinHandle<()>>>,
     pub snapshot_lock: Mutex<()>,
-    pub symbols: Arc<Mutex<crate::symbol::Symbolizer>>,
+    pub symbols: Arc<Mutex<crate::symbol::ElfCache>>,
 }
 pub struct ObservationPermit {
     state: Arc<AppState>,
@@ -186,7 +186,7 @@ impl AppState {
             viewers: Mutex::new(0),
             workers: Mutex::new(Vec::new()),
             snapshot_lock: Mutex::new(()),
-            symbols: Arc::new(Mutex::new(crate::symbol::Symbolizer::default())),
+            symbols: Arc::new(Mutex::new(crate::symbol::ElfCache::default())),
         }
     }
     pub fn observer_count(&self) -> usize {
@@ -310,7 +310,7 @@ impl AppState {
 pub fn capture_target(id: ProcessId) -> Result<Target> {
     process::check_identity(id)?;
     let stat = procfs::read_stat(&format!("/proc/{}/stat", id.pid))?;
-    let summary = process::discovery::summary(&stat, &process::discovery::users());
+    let summary = process::summary(&stat, &process::users());
     ensure!(summary.identity == id, "Process exited (PID reused)");
     let observation = observation(id, None)?;
     let mut history = VecDeque::new();
