@@ -21,7 +21,6 @@ include = [
     "/package.json",
     "/package-lock.json",
     "/tsconfig.json",
-    "/space_screenshot.png",
 ]
 
 [dependencies]
