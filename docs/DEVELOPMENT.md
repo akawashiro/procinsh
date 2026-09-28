@@ -54,7 +54,8 @@ cargo publish --dry-run
 | `src/state/` | 接続ごとの独立した観測、60秒の履歴、最新状態の配信 |
 | `src/process/` | `/proc` の解析、PID 識別、プロセス・スレッド・メモリ・FD・ソケット・シグナル情報 |
 | `src/snapshot/` | ptrace による停止・レジスタ取得、frame pointer unwind、逆アセンブル |
-| `src/symbol/` | ELF/DWARF によるシンボル・ソース位置の解決 |
+| `src/symbol/` | ELF 取得・キャッシュ、アドレス変換、ELF/DWARF によるシンボル・ソース位置の解決 |
+| `src/stack.rs` | スナップショットとシンボル解決で共有するフレーム型 |
 | `src/system/` | 全プロセスの構造、閲覧セッション、BPF 収集、名前解決、`/api/system` 配下の API |
 | `src/web/` | TypeScript の通常画面・SPACE 画面・描画モデル、HTML/CSS、同梱 Three.js |
 | `tests/` | Rust・ブラウザ・ログ・実機センサーのテストと C fixture |
@@ -363,3 +364,18 @@ tests/targets/bin/recursive --allow-inspector
 ## モジュール依存関係
 
 [モジュール依存関係図](https://akawashiro.github.io/procinsh/architecture/)
+
+### シンボル解決 API とモジュール境界
+
+`stack::StackFrame` / `SourceFrame` はキャプチャ処理から独立した共有型です。`symbol` は `snapshot` を参照しません。`snapshot` は停止中に生フレームを取得し、トレーサースレッドの終了後に次の処理を行います。
+
+1. `instruction_address` で戻りアドレスだけを `-1` 補正し、対応するマッピングを選びます。
+2. `ElfCache::get` が `/proc` のファイル同一性を検証し、`Arc<ElfSymbols>` を返します。512 MiB のファイルサイズ上限と64件のキャッシュ上限を維持します。
+3. キャッシュのロックを解放してから、`elf_address` で PIE/ASLR・ファイルオフセット・ページ境界を考慮した ELF 内アドレスに変換します。
+4. `resolve_frame(address, &elf)` が `Option<SymbolInfo>` を返し、`snapshot` が既存の JSON フィールドに反映します。結果は追記ではなく置換するため、再適用でインラインフレームが重複しません。
+
+`resolve_frame` は入力フレームやキャッシュを変更しません。ただし addr2line は内部で遅延解析やデバッグファイルの I/O を行うため、数学的な純粋関数ではありません。ローダーの内部状態は ELF ごとの Mutex で保護し、解決中はキャッシュ全体をロックしません。
+
+`process::discovery` と `state::history` は非公開にし、必要な型を親モジュールから公開します。`snapshot` の unwind・レジスタ変換・逆アセンブルの実装も非公開にし、応答に現れる型を親から公開します。`process` のリソース別 API（`maps`、`memory`、`threads` 等）と scoped guard を提供する `snapshot::ptrace` は意図的に公開を維持します。
+
+シンボル解決の単体テストは clang で一時 ELF を生成し、DWARF のインラインフレームと行番号のみの情報を検証します。既存の結合テストは PIE / 非 PIE / デバッグ情報なしの対象を実際にキャプチャします。

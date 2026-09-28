@@ -1,8 +1,8 @@
 use procinsh::{
-    process::{self, discovery::Discovery, maps, memory, threads},
+    process::{self, Discovery, maps, memory, threads},
     snapshot,
     state::AppState,
-    symbol::Symbolizer,
+    symbol::ElfCache,
 };
 use std::{
     io::{BufRead, BufReader},
@@ -144,7 +144,7 @@ fn memory_partial_reads_and_map_statistics() {
 #[test]
 fn coherent_snapshot_unwinds_and_resolves_pie_source() {
     let target = Target::new("recursive");
-    let symbols = Arc::new(Mutex::new(Symbolizer::default()));
+    let symbols = Arc::new(Mutex::new(ElfCache::default()));
     let snapshot = snapshot::capture(target.id, symbols.clone()).unwrap();
     target.assert_detached();
     let thread = snapshot
@@ -197,7 +197,7 @@ fn symbols_support_non_pie_and_missing_debug_information() {
     for name in ["recursive_nopie", "recursive_nodebug"] {
         let target = Target::new(name);
         let snapshot =
-            snapshot::capture(target.id, Arc::new(Mutex::new(Symbolizer::default()))).unwrap();
+            snapshot::capture(target.id, Arc::new(Mutex::new(ElfCache::default()))).unwrap();
         let frame = snapshot.threads[0]
             .call_stack
             .iter()
@@ -228,7 +228,7 @@ fn partial_attach_failure_releases_previously_attached_threads() {
         }
     });
     attached_rx.recv().unwrap();
-    let result = snapshot::capture(target.id, Arc::new(Mutex::new(Symbolizer::default())));
+    let result = snapshot::capture(target.id, Arc::new(Mutex::new(ElfCache::default())));
     release_tx.send(()).unwrap();
     other_tracer.join().unwrap();
     assert!(result.is_err());
@@ -240,7 +240,7 @@ fn snapshot_handles_thread_churn_and_preserves_job_control_stop() {
     let target = Target::new("threads");
     for _ in 0..3 {
         let result =
-            snapshot::capture(target.id, Arc::new(Mutex::new(Symbolizer::default()))).unwrap();
+            snapshot::capture(target.id, Arc::new(Mutex::new(ElfCache::default()))).unwrap();
         assert!(result.threads.len() >= 6);
         target.assert_detached();
     }
@@ -257,7 +257,7 @@ fn snapshot_handles_thread_churn_and_preserves_job_control_stop() {
         }
         std::thread::sleep(Duration::from_millis(5));
     }
-    snapshot::capture(target.id, Arc::new(Mutex::new(Symbolizer::default()))).unwrap();
+    snapshot::capture(target.id, Arc::new(Mutex::new(ElfCache::default()))).unwrap();
     target.assert_detached();
     assert_eq!(
         process::procfs::read_stat(&format!("/proc/{}/stat", target.id.pid))
@@ -295,7 +295,7 @@ fn guard_cleans_up_on_error_and_panic() {
                 start_time_ticks: id.start_time_ticks + 1,
                 ..id
             },
-            Arc::new(Mutex::new(Symbolizer::default()))
+            Arc::new(Mutex::new(ElfCache::default()))
         )
         .is_err()
     );

@@ -1,14 +1,22 @@
-pub mod disasm;
+//! Capture raw frames while stopped, then decode and symbolize after tracer exit.
+//! Frame values live in [`crate::stack`]; symbol resolution returns values from
+//! [`crate::symbol`] and never depends on snapshot implementation details.
+//! [`ptrace`] remains public for callers needing the scoped capture guard.
+
+mod disasm;
+pub use disasm::{Disassembly, Instruction};
 pub mod ptrace;
-pub mod registers;
-pub mod unwind_fp;
+mod registers;
+pub use registers::Register;
+mod unwind_fp;
 
 use crate::{
     process::{
         self, ProcessId,
         maps::{self, MemoryMap},
     },
-    symbol::Symbolizer,
+    stack::StackFrame,
+    symbol::{ElfCache, SymbolInfo, elf_address, instruction_address, resolve_frame},
 };
 use anyhow::{Result, anyhow, ensure};
 use serde::Serialize;
@@ -20,9 +28,9 @@ use std::{
 #[derive(Clone, Debug, Serialize)]
 pub struct ThreadSnapshot {
     pub tid: i32,
-    pub registers: Vec<registers::Register>,
-    pub call_stack: Vec<unwind_fp::StackFrame>,
-    pub disassembly: Option<disasm::Disassembly>,
+    pub registers: Vec<Register>,
+    pub call_stack: Vec<StackFrame>,
+    pub disassembly: Option<Disassembly>,
     pub unwind_stop: String,
     pub error: Option<String>,
 }
@@ -35,7 +43,7 @@ pub struct ProcessSnapshot {
     pub maps: Vec<MemoryMap>,
 }
 
-pub fn capture(id: ProcessId, symbols: Arc<Mutex<Symbolizer>>) -> Result<ProcessSnapshot> {
+pub fn capture(id: ProcessId, symbols: Arc<Mutex<ElfCache>>) -> Result<ProcessSnapshot> {
     let mut snapshot = std::thread::Builder::new()
         .name("snapshot-tracer".into())
         .spawn(move || -> Result<ProcessSnapshot> {
@@ -90,14 +98,72 @@ pub fn capture(id: ProcessId, symbols: Arc<Mutex<Symbolizer>>) -> Result<Process
         .map_err(|_| anyhow!("snapshot worker panicked; tracer thread exited"))??;
     // Tracer has exited before symbolization: even cleanup failures cannot keep
     // tracees attached while ELF/debug files are being parsed.
-    let mut symbols = symbols.lock().unwrap_or_else(|e| e.into_inner());
     for thread in &mut snapshot.threads {
         if let Some(disassembly) = &mut thread.disassembly {
             disassembly.decode();
         }
         for (index, frame) in thread.call_stack.iter_mut().enumerate() {
-            symbols.resolve(id.pid, &snapshot.maps, frame, index > 0);
+            let address = instruction_address(frame.address, index > 0);
+            let info = snapshot
+                .maps
+                .iter()
+                .find(|m| m.contains(address) && m.inode != 0)
+                .and_then(|map| {
+                    let elf = symbols
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .get(id.pid, map)?;
+                    let address = elf_address(address, map, &elf, process::procfs::page_size())?;
+                    resolve_frame(address, &elf)
+                });
+            apply_symbol_info(frame, info);
         }
     }
     Ok(snapshot)
+}
+
+// Replace all resolved fields so repeated application cannot append inline frames
+// or preserve stale data from an earlier resolution.
+fn apply_symbol_info(frame: &mut StackFrame, info: Option<SymbolInfo>) {
+    let info = info.unwrap_or_default();
+    frame.symbol = info.name;
+    frame.symbol_offset = info.offset.map(|offset| format!("0x{offset:x}"));
+    frame.source_file = info.file;
+    frame.line = info.line;
+    frame.inline_frames = info.inline_frames;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::stack::SourceFrame;
+
+    #[test]
+    fn applying_symbols_replaces_fields_and_preserves_json_contract() {
+        let mut frame = StackFrame::raw(0x1234);
+        let info = SymbolInfo {
+            name: Some("inner".into()),
+            offset: Some(0xa),
+            file: Some("test.c".into()),
+            line: Some(12),
+            inline_frames: vec![SourceFrame {
+                function: Some("inner".into()),
+                file: Some("test.c".into()),
+                line: Some(12),
+            }],
+        };
+        apply_symbol_info(&mut frame, Some(info.clone()));
+        let once = frame.clone();
+        apply_symbol_info(&mut frame, Some(info));
+        assert_eq!(frame, once);
+        assert_eq!(
+            serde_json::to_value(&frame).unwrap(),
+            serde_json::json!({
+                "address": "0x0000000000001234", "symbol": "inner", "symbol_offset": "0xa", "source_file": "test.c", "line": 12,
+                "inline_frames": [{"function": "inner", "file": "test.c", "line": 12}]
+            })
+        );
+        apply_symbol_info(&mut frame, None);
+        assert_eq!(frame, StackFrame::raw(0x1234));
+    }
 }

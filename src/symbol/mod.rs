@@ -1,18 +1,73 @@
-use crate::{
-    process::maps::MemoryMap,
-    snapshot::unwind_fp::{SourceFrame, StackFrame},
-};
-use object::{Object, ObjectSegment, ObjectSymbol};
-use std::{collections::HashMap, fs, os::unix::fs::MetadataExt, path::PathBuf};
+//! ELF acquisition and caching are separate from address conversion and resolution.
+//!
+//! Call [`ElfCache::get`] after the target resumes, release the cache lock, then
+//! use [`elf_address`] and [`resolve_frame`]. Resolution never mutates its input
+//! frame or the cache. addr2line may lazily load DWARF internally; that work is
+//! serialized per ELF, not under the cache lock.
 
-struct Elf {
-    segments: Vec<(u64, u64, u64)>, // file offset, file size, virtual address
-    symbols: Vec<(u64, u64, String)>,
-    dwarf: Option<addr2line::Loader>,
+use crate::{process::maps::MemoryMap, stack::SourceFrame};
+use object::{Object, ObjectSegment, ObjectSymbol};
+use std::{
+    collections::HashMap,
+    fs,
+    os::unix::fs::MetadataExt,
+    path::{Path, PathBuf},
+    sync::{Arc, Mutex},
+};
+
+/// Symbol and source information for one ELF address.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct SymbolInfo {
+    pub name: Option<String>,
+    pub offset: Option<u64>,
+    pub file: Option<String>,
+    pub line: Option<u32>,
+    pub inline_frames: Vec<SourceFrame>,
 }
+
+/// Parsed ELF data. The DWARF loader has its own synchronization for lazy data.
+pub struct ElfSymbols {
+    segments: Vec<(u64, u64, u64)>,
+    symbols: Vec<(u64, u64, String)>,
+    dwarf: Option<Mutex<addr2line::Loader>>,
+}
+
+impl ElfSymbols {
+    fn load(path: &Path) -> Option<Self> {
+        let bytes = fs::read(path).ok()?;
+        let file = object::File::parse(bytes.as_slice()).ok()?;
+        let segments = file
+            .segments()
+            .map(|s| {
+                let (offset, size) = s.file_range();
+                (offset, size, s.address())
+            })
+            .collect();
+        let mut symbols: Vec<_> = file
+            .symbols()
+            .chain(file.dynamic_symbols())
+            .filter(|s| s.is_definition() && s.kind() == object::SymbolKind::Text)
+            .filter_map(|s| Some((s.address(), s.size(), s.name().ok()?.to_owned())))
+            .collect();
+        symbols.sort_by_key(|s| s.0);
+        let dwarf = addr2line::Loader::new(path).ok().map(Mutex::new);
+
+        Some(Self {
+            segments,
+            symbols,
+            dwarf,
+        })
+    }
+}
+
+type FileIdentity = (u64, u64, u64, i64, i64);
+const MAX_FILES: usize = 64;
+const MAX_FILE_SIZE: u64 = 512 * 1024 * 1024;
+
+/// Bounded cache keyed by device, inode, size, and nanosecond modification time.
 #[derive(Default)]
-pub struct Symbolizer {
-    cache: HashMap<(u64, u64, u64, i64, i64), Elf>,
+pub struct ElfCache {
+    entries: HashMap<FileIdentity, Arc<ElfSymbols>>,
 }
 
 fn matching_file(pid: i32, map: &MemoryMap) -> Option<(PathBuf, fs::Metadata)> {
@@ -41,21 +96,13 @@ fn matching_file(pid: i32, map: &MemoryMap) -> Option<(PathBuf, fs::Metadata)> {
             .then_some((path, meta))
     })
 }
-impl Symbolizer {
-    pub fn resolve(
-        &mut self,
-        pid: i32,
-        maps: &[MemoryMap],
-        frame: &mut StackFrame,
-        return_address: bool,
-    ) {
-        let address = frame.address.saturating_sub(u64::from(return_address));
-        let Some(map) = maps.iter().find(|m| m.contains(address) && m.inode != 0) else {
-            return;
-        };
-        let Some((path, meta)) = matching_file(pid, map) else {
-            return;
-        };
+
+impl ElfCache {
+    /// Locate the mapped file by identity and reuse or load its ELF/DWARF data.
+    /// Performs I/O; call only after the target has resumed. Returned data may
+    /// outlive eviction and can be resolved after releasing the cache lock.
+    pub fn get(&mut self, pid: i32, map: &MemoryMap) -> Option<Arc<ElfSymbols>> {
+        let (path, meta) = matching_file(pid, map)?;
         let key = (
             meta.dev(),
             meta.ino(),
@@ -63,93 +110,89 @@ impl Symbolizer {
             meta.mtime(),
             meta.mtime_nsec(),
         );
-        if !self.cache.contains_key(&key) {
-            if self.cache.len() >= 64 {
-                self.cache.clear();
-            }
-            // Bound per-file allocation. Missing/oversized debug data leaves raw addresses usable.
-            if meta.len() > 512 * 1024 * 1024 {
-                return;
-            }
-            let Ok(bytes) = fs::read(&path) else { return };
-            let Ok(file) = object::File::parse(bytes.as_slice()) else {
-                return;
-            };
-            let segments = file
-                .segments()
-                .map(|s| {
-                    let (offset, size) = s.file_range();
-                    (offset, size, s.address())
-                })
-                .collect();
-            let mut symbols: Vec<_> = file
-                .symbols()
-                .chain(file.dynamic_symbols())
-                .filter(|s| s.is_definition() && s.kind() == object::SymbolKind::Text)
-                .filter_map(|s| Some((s.address(), s.size(), s.name().ok()?.to_owned())))
-                .collect();
-            symbols.sort_by_key(|s| s.0);
-            let dwarf = addr2line::Loader::new(&path).ok();
-            self.cache.insert(
-                key,
-                Elf {
-                    segments,
-                    symbols,
-                    dwarf,
-                },
-            );
+        if let Some(elf) = self.entries.get(&key) {
+            return Some(Arc::clone(elf));
         }
-        let elf = &self.cache[&key];
-        let Some(offset) = address
-            .checked_sub(map.start)
-            .and_then(|v| v.checked_add(map.file_offset))
-        else {
-            return;
-        };
-        let page = crate::process::procfs::page_size();
-        let Some(&(file_offset, _, virtual_address)) =
-            elf.segments.iter().find(|&&(off, size, _)| {
-                offset >= off / page * page
-                    && offset < off.saturating_add(size).div_ceil(page) * page
-            })
-        else {
-            return;
-        };
-        let relative = (offset as i128 + virtual_address as i128 - file_offset as i128).try_into();
-        let Ok(relative): Result<u64, _> = relative else {
-            return;
-        };
-        if let Some((start, _, name)) = elf.symbols.iter().rev().find(|(start, size, _)| {
-            *start <= relative && (*size == 0 || relative < start.saturating_add(*size))
-        }) {
-            frame.symbol = Some(name.clone());
-            frame.symbol_offset = Some(format!("0x{:x}", relative - start));
+        if meta.len() > MAX_FILE_SIZE {
+            return None;
         }
-        if let Some(loader) = &elf.dwarf {
-            if let Ok(mut iter) = loader.find_frames(relative) {
-                while let Ok(Some(f)) = iter.next() {
-                    let function = f
-                        .function
-                        .and_then(|f| f.demangle().ok().map(|v| v.into_owned()));
-                    let file = f.location.as_ref().and_then(|l| l.file.map(str::to_owned));
-                    let line = f.location.and_then(|l| l.line);
-                    frame.inline_frames.push(SourceFrame {
-                        function,
-                        file,
-                        line,
-                    });
-                }
-            }
-            if let Some(source) = frame.inline_frames.first() {
-                if source.function.is_some() {
-                    frame.symbol = source.function.clone();
-                }
-                frame.source_file = source.file.clone();
-                frame.line = source.line;
-            } else if let Ok(Some(location)) = loader.find_location(relative) {
-                frame.source_file = location.file.map(str::to_owned);
-                frame.line = location.line;
-            }
+        let elf = Arc::new(ElfSymbols::load(&path)?);
+        if self.entries.len() >= MAX_FILES {
+            self.entries.clear();
         }
+        self.entries.insert(key, Arc::clone(&elf));
+        Some(elf)
     }
 }
+
+/// Correct a saved return address before selecting its mapping.
+/// The currently executing instruction must be passed with `return_address = false`.
+pub fn instruction_address(address: u64, return_address: bool) -> u64 {
+    address.saturating_sub(u64::from(return_address))
+}
+
+/// Convert a corrected runtime address into an ELF address, accounting for the
+/// mapping offset, PIE/ASLR load bias, and page-aligned segment mappings.
+pub fn elf_address(address: u64, map: &MemoryMap, elf: &ElfSymbols, page: u64) -> Option<u64> {
+    if page == 0 || !map.contains(address) {
+        return None;
+    }
+    let offset = address
+        .checked_sub(map.start)?
+        .checked_add(map.file_offset)?;
+    let &(file_offset, _, virtual_address) = elf.segments.iter().find(|&&(off, size, _)| {
+        offset >= off / page * page
+            && (offset as u128) < (off as u128 + size as u128).div_ceil(page as u128) * page as u128
+    })?;
+    (offset as i128 + virtual_address as i128 - file_offset as i128)
+        .try_into()
+        .ok()
+}
+
+/// Resolve an ELF address without changing a frame or the ELF cache.
+/// Returns `None` only when no symbol, source location, or inline frame is found.
+/// addr2line may perform lazy debug-file I/O under the ELF's private lock.
+pub fn resolve_frame(address: u64, elf: &ElfSymbols) -> Option<SymbolInfo> {
+    let mut info = SymbolInfo::default();
+    if let Some((start, _, name)) = elf.symbols.iter().rev().find(|(start, size, _)| {
+        *start <= address && (*size == 0 || address < start.saturating_add(*size))
+    }) {
+        info.name = Some(name.clone());
+        info.offset = Some(address - start);
+    }
+    if let Some(loader) = &elf.dwarf {
+        let loader = loader.lock().unwrap_or_else(|e| e.into_inner());
+        if let Ok(mut iter) = loader.find_frames(address) {
+            while let Ok(Some(f)) = iter.next() {
+                let function = f
+                    .function
+                    .and_then(|f| f.demangle().ok().map(|v| v.into_owned()));
+                let file = f.location.as_ref().and_then(|l| l.file.map(str::to_owned));
+                let line = f.location.and_then(|l| l.line);
+                info.inline_frames.push(SourceFrame {
+                    function,
+                    file,
+                    line,
+                });
+            }
+        }
+        if let Some(source) = info.inline_frames.first() {
+            if source.function.is_some() {
+                info.name = source.function.clone();
+            }
+            info.file = source.file.clone();
+            info.line = source.line;
+        } else if let Ok(Some(location)) = loader.find_location(address) {
+            info.file = location.file.map(str::to_owned);
+            info.line = location.line;
+        }
+    }
+    (info.name.is_some()
+        || info.file.is_some()
+        || info.line.is_some()
+        || !info.inline_frames.is_empty())
+    .then_some(info)
+}
+
+#[cfg(test)]
+mod tests;

@@ -3,6 +3,7 @@
 pub mod process;
 pub mod server;
 pub mod snapshot;
+pub mod stack;
 pub mod state;
 pub mod symbol;
 
