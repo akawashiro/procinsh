@@ -64,7 +64,11 @@ cargo publish --dry-run
 
 `main.rs` が唯一の crate root で、CLI の検証後は `http_server::run` だけを呼びます。Rust library API は提供しません。モジュールは直接の利用者の最小共通祖先に置き、子モジュールの宣言は private、親に必要な item は原則 `pub(super)` とします。
 
-HTTP handler と system monitoring は `process/mod.rs` の façade だけを利用します。`process` 内部の `monitoring` は継続観測、`snapshot` は停止を伴う詳細取得を担当します。snapshot のロックと ELF キャッシュも snapshot が所有します。`process` / `system_monitoring` は Axum 型に依存しません。
+階層モジュールは `foo.rs` + `foo/` で表し、`mod.rs` は使用しません。`foo.rs` は module documentation、子モジュール宣言、re-export のみを持ち、型・関数・定数の実装は責務を表す子ファイルに置きます。
+
+HTTP の起動と終了は `http_server/server.rs`、共有状態は `state.rs`、router の組み立ては `router.rs` と `api/router.rs`、HTTP guard とアクセスログは `middleware.rs` が担当します。process façade の実装は `process/identity.rs` と `process/resources.rs`、観測の lifecycle は `monitoring/service.rs`、snapshot の orchestration は `snapshot/capture.rs` に置きます。symbol は `symbol/cache.rs` と `symbol/resolve.rs`、system monitoring は `system_monitoring/service.rs` と状態ログの `status.rs` に分けています。依存関係図はこれらの子モジュールも含めて生成され、概要図では従来どおり各サブシステムへ集約されます。
+
+HTTP handler と system monitoring は `process.rs` の façade だけを利用します。`process` 内部の `monitoring` は継続観測、`snapshot` は停止を伴う詳細取得を担当します。snapshot のロックと ELF キャッシュも snapshot が所有します。`process` / `system_monitoring` は Axum 型に依存しません。
 
 例外として、façade から再公開する domain 型と subscription の操作は `pub(in crate::http_server)` に限定しています。private な子モジュールから親で再公開するために必要な可視性であり、crate 外部への公開ではありません。内部テストは各モジュールに置き、`tests/http.rs` はバイナリを起動して HTTP と SSE、SIGTERM による終了を検証します。
 
@@ -199,7 +203,7 @@ Axum がルートごとにクエリや JSON を取り出し、ハンドラへ渡
 
 ### スナップショット
 
-`POST /api/processes/snapshot` は識別子・生存を確認して専用ロックで取得を直列化してスナップショット処理を呼び出します。同時に要求されてもptrace操作は重複せず、このロックは通常観測や単発読み取りの状態とは分離しています。`PTRACE_SEIZE` と `PTRACE_INTERRUPT` で全スレッドの停止を確認し、レジスタ・マップ・スタック・命令バイトを取得します。追加スレッドを再列挙し、4096スレッド・16回の安定化試行・停止待ち2秒を上限とします。取得にも2秒の処理予算がありますが、カーネル内でブロックする syscall の実時間を保証するものではありません。実装は [スナップショットの取得処理](../src/http_server/process/snapshot/mod.rs) を参照してください。
+`POST /api/processes/snapshot` は識別子・生存を確認して専用ロックで取得を直列化してスナップショット処理を呼び出します。同時に要求されてもptrace操作は重複せず、このロックは通常観測や単発読み取りの状態とは分離しています。`PTRACE_SEIZE` と `PTRACE_INTERRUPT` で全スレッドの停止を確認し、レジスタ・マップ・スタック・命令バイトを取得します。追加スレッドを再列挙し、4096スレッド・16回の安定化試行・停止待ち2秒を上限とします。取得にも2秒の処理予算がありますが、カーネル内でブロックする syscall の実時間を保証するものではありません。実装は [スナップショットの取得処理](../src/http_server/process/snapshot/capture.rs) を参照してください。
 
 RAII と専用 OS スレッドの終了で detach を扱い、既存の job-control stop と signal delivery を維持します。自分自身のスナップショットは拒否します。対象の再開後にシンボル解決と命令デコードを行い、スレッドごとの結果を返します。実装は [SnapshotGuard の detach 処理](../src/http_server/process/snapshot/ptrace.rs) を参照してください。
 
@@ -298,7 +302,7 @@ Three.js でプロセスの親子関係、仮想アドレス空間、接続先�
 
 認証・TLS はありません。接続できる利用者はプロセスメモリや環境変数にアクセスできるため、非 loopback での待受はアクセス範囲を管理した信頼できるネットワーク内に限定してください。Host/Origin/Fetch Metadata の検証と API レスポンスの `Cache-Control: no-store` は維持しますが、これらは認証の代わりにはなりません。
 
-ログは `log` と `env_logger` を使い、標準エラーに時刻・レベル・出力元のファイルパスと行番号（例：`src/http_server/system_monitoring/mod.rs:123`）を出します。既定は `info` です。`RUST_LOG` の絞り込みには引き続きモジュール名を使います。
+ログは `log` と `env_logger` を使い、標準エラーに時刻・レベル・出力元のファイルパスと行番号（例：`src/http_server/system_monitoring/service.rs:123`）を出します。既定は `info` です。`RUST_LOG` の絞り込みには引き続きモジュール名を使います。
 
 - `info`：起動・終了、観測の開始・停止、対象の終了、収集状態と復旧。
 - `warn`：観測失敗、センサー利用不可。同じ状態・エラーの連続出力を抑制。
@@ -309,6 +313,8 @@ Three.js でプロセスの親子関係、仮想アドレス空間、接続先�
 sudo env RUST_LOG=procinsh=debug ./target/debug/procinsh --listen 127.0.0.1:9090
 sudo env RUST_LOG=info,procinsh::http_server::system_monitoring=debug ./target/debug/procinsh --listen 127.0.0.1:9090
 ```
+
+HTTP アクセスログだけを絞り込む例は `RUST_LOG=info,procinsh::http_server::middleware=debug` です。既存のサブシステム単位のフィルタは子モジュールにも適用されます。
 
 `RUST_LOG=off` はアプリケーションのログを抑制します。HTTP アクセスログにはクエリ、トークン、本文を含めず、観測したメモリや環境変数の値も記録しません。SSE の応答時間は接続開始時の応答までです。
 

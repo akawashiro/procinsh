@@ -1,6 +1,8 @@
+use super::super::{SymbolInfo, elf_address, instruction_address, resolve_frame};
 use super::*;
 use crate::http_server::process::maps::parse_map;
 use std::process::Command;
+use std::{fs, sync::Arc};
 
 fn empty_elf() -> ElfSymbols {
     ElfSymbols {

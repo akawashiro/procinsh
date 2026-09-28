@@ -273,7 +273,7 @@ pub(super) fn run(system: Arc<System>) {
                 Err(error) => json!(format!("error: {error:#}")),
             };
         }
-        let topology = system.snapshot.read().unwrap().clone();
+        let topology = system.snapshot();
         let nodes: std::collections::HashMap<_, _> =
             topology.nodes.iter().map(|n| (n.identity.pid, n)).collect();
         if let Some(b) = &mut bpf {

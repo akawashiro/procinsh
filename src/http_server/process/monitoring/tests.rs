@@ -1,5 +1,5 @@
-use super::super::{self as process, Discovery, test_support::Target};
 use super::Monitoring as AppState;
+use crate::http_server::process::{self as process, Discovery, test_support::Target};
 use std::{sync::Arc, time::Duration};
 #[test]
 fn discovery_rates_history_and_process_exit() {

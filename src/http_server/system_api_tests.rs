@@ -8,7 +8,7 @@ async fn sse_connections_own_viewer_lifetimes() {
     };
     use tower::ServiceExt;
     let state = Arc::new(AppState::new(Duration::from_secs(1)));
-    let app = super::router(state.clone(), "127.0.0.1:8080".parse().unwrap());
+    let app = super::router::router(state.clone(), "127.0.0.1:8080".parse().unwrap());
     let request = |path: &str| {
         Request::builder()
             .uri(path)

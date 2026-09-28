@@ -1,13 +1,9 @@
-//! Stop, capture, resume, then decode and symbolize a process snapshot.
-mod disasm;
-mod stack;
-mod symbol;
-use disasm::Disassembly;
-mod ptrace;
-mod registers;
-use registers::Register;
-mod unwind_fp;
-
+use super::{
+    disasm::{self, Disassembly},
+    ptrace,
+    registers::{self, Register},
+    unwind_fp,
+};
 use crate::http_server::{
     process::snapshot::stack::StackFrame,
     process::snapshot::symbol::{
@@ -35,7 +31,7 @@ struct ThreadSnapshot {
     error: Option<String>,
 }
 #[derive(Clone, Debug, Serialize)]
-pub(super) struct ProcessSnapshot {
+pub(in crate::http_server::process) struct ProcessSnapshot {
     captured_at: u64,
     process_id: ProcessId,
     paused_ms: f64,
@@ -169,12 +165,15 @@ mod tests {
 }
 
 #[derive(Default)]
-pub(super) struct Snapshotter {
+pub(in crate::http_server::process) struct Snapshotter {
     lock: Mutex<()>,
     symbols: Arc<Mutex<ElfCache>>,
 }
 impl Snapshotter {
-    pub(super) fn capture(&self, id: ProcessId) -> Result<ProcessSnapshot> {
+    pub(in crate::http_server::process) fn capture(
+        &self,
+        id: ProcessId,
+    ) -> Result<ProcessSnapshot> {
         let _snapshot = self.lock.lock().unwrap();
         process::check_identity(id)?;
         capture(id, self.symbols.clone())
@@ -182,4 +181,5 @@ impl Snapshotter {
 }
 
 #[cfg(test)]
+#[path = "fixture_tests.rs"]
 mod fixture_tests;
