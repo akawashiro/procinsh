@@ -51,7 +51,7 @@ jobs:
         run: cargo install cargo-modules --version 0.27.0 --locked
 
       - name: Build rustdoc
-        run: cargo doc --locked --workspace --no-deps
+        run: cargo doc --locked --workspace --no-deps --document-private-items
 
       - name: Build module dependency graphs
         run: |
@@ -59,7 +59,7 @@ jobs:
           mkdir -p target/doc/architecture
           # The item filters fold references into the containing modules.
           # Keep uses edges; --no-uses would produce only an ownership tree.
-          cargo modules dependencies --lib --no-externs --no-sysroot \
+          cargo modules dependencies --bin procinsh --no-externs --no-sysroot \
             --no-fns --no-traits --no-types > target/doc/architecture/modules-raw.dot
           python3 scripts/module_dependencies.py target/doc/architecture/modules-raw.dot
 

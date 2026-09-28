@@ -18,7 +18,7 @@ def parse_modules(dot):
     for line in dot.splitlines():
         if match := NODE.match(line):
             name, kind = match.groups()
-            if kind == 'mod' and name.startswith('procinsh::'):
+            if (kind == 'mod' and name.startswith('procinsh::')) or (kind == 'crate' and name == 'procinsh'):
                 nodes.add(name)
         elif match := EDGE.match(line):
             source, target, kind = match.groups()
@@ -34,7 +34,8 @@ def parse_modules(dot):
 
 def overview(nodes, edges):
     def top(name):
-        return '::'.join(name.split('::')[:2])
+        # Summarize at the HTTP subsystem boundary, below the single root module.
+        return '::'.join(name.split('::')[:3])
     return {top(n) for n in nodes}, {(top(a), top(b)) for a, b in edges if top(a) != top(b)}
 
 
@@ -69,6 +70,8 @@ def render_dot(nodes, edges, *, nested=False):
                 lines.append(f'{indent}{json.dumps(node)} [label={json.dumps(label)}, '
                              f'tooltip={json.dumps(node)}];')
 
+        if 'procinsh' in nodes:
+            lines.append('  "procinsh" [label="main"];')
         for node in sorted(children.get('procinsh', ())):
             emit(node, '  ')
     else:

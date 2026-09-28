@@ -7,28 +7,31 @@ class ModuleDependenciesTest(unittest.TestCase):
     def test_child_references_cycles_and_isolated_modules(self):
         dot = '''digraph {
 "procinsh" [label="crate|procinsh"]; // "crate" node
-"procinsh::snapshot" [label="pub mod|snapshot"]; // "mod" node
-"procinsh::snapshot::capture" [label="pub mod|capture"]; // "mod" node
-"procinsh::symbol" [label="pub mod|symbol"]; // "mod" node
-"procinsh::state" [label="pub mod|state"]; // "mod" node
+"procinsh::http_server::process" [label="mod|process"]; // "mod" node
+"procinsh::http_server::process::snapshot" [label="mod|snapshot"]; // "mod" node
+"procinsh::http_server::api" [label="mod|api"]; // "mod" node
+"procinsh::http_server::web" [label="mod|web"]; // "mod" node
 "std::fs" [label="external mod|std::fs"]; // "mod" node
-"procinsh::snapshot" -> "procinsh::snapshot::capture" [label="owns"]; // "owns" edge
-"procinsh::snapshot::capture" -> "procinsh::symbol" [label="uses"]; // "uses" edge
-"procinsh::symbol" -> "procinsh::snapshot::capture" [label="uses"]; // "uses" edge
-"procinsh::symbol" -> "procinsh::symbol" [label="uses"]; // "uses" edge
-"procinsh::snapshot" -> "std::fs" [label="uses"]; // "uses" edge
+"procinsh::http_server::process" -> "procinsh::http_server::process::snapshot" [label="owns"]; // "owns" edge
+"procinsh::http_server::process::snapshot" -> "procinsh::http_server::api" [label="uses"]; // "uses" edge
+"procinsh::http_server::api" -> "procinsh::http_server::process::snapshot" [label="uses"]; // "uses" edge
+"procinsh::http_server::api" -> "procinsh::http_server::api" [label="uses"]; // "uses" edge
+"procinsh::http_server::process" -> "std::fs" [label="uses"]; // "uses" edge
 }'''
         nodes, edges = parse_modules(dot)
-        self.assertEqual(len(nodes), 4)
-        self.assertEqual(edges, {('procinsh::snapshot::capture', 'procinsh::symbol'),
-                                 ('procinsh::symbol', 'procinsh::snapshot::capture')})
+        self.assertEqual(len(nodes), 5)
+        self.assertEqual(edges, {('procinsh::http_server::process::snapshot', 'procinsh::http_server::api'),
+                                 ('procinsh::http_server::api', 'procinsh::http_server::process::snapshot')})
         summary_nodes, summary_edges = overview(nodes, edges)
-        self.assertEqual(summary_nodes, {'procinsh::snapshot', 'procinsh::symbol', 'procinsh::state'})
-        self.assertEqual(summary_edges, {('procinsh::snapshot', 'procinsh::symbol'),
-                                         ('procinsh::symbol', 'procinsh::snapshot')})
+        self.assertEqual(summary_nodes, {'procinsh', 'procinsh::http_server::process', 'procinsh::http_server::api', 'procinsh::http_server::web'})
+        self.assertEqual(summary_edges, {('procinsh::http_server::process', 'procinsh::http_server::api'),
+                                         ('procinsh::http_server::api', 'procinsh::http_server::process')})
         rendered = render_dot(summary_nodes, summary_edges)
-        self.assertIn('"procinsh::state" [label="state"]', rendered)
+        self.assertIn('"procinsh::http_server::web" [label="http_server::web"]', rendered)
         self.assertNotIn('std::', rendered)
+        nested = render_dot(nodes, edges, nested=True)
+        self.assertIn('cluster_procinsh::http_server::process', nested)
+        self.assertIn('label="main"', nested)
 
     def test_empty_or_changed_format_fails(self):
         for dot in ['', 'digraph {}', 'unrecognized; // "mod" node']:
