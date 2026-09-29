@@ -31,11 +31,15 @@ sudo apt-get install --yes --no-install-recommends \
          build-essential clang llvm pkg-config libelf-dev zlib1g-dev python3 \
          linux-tools-common linux-tools-generic
 cargo install procinsh --locked
-sudo "$HOME/.cargo/bin/procinsh" --listen 127.0.0.1:9090
 ```
 
-The command above uses Cargo's default installation directory. If you use a
-custom `CARGO_HOME` or install prefix, adjust the binary path accordingly.
+Then run and open http://127.0.0.1:9090 in your browser. To allow remote
+access, use `--allow-non-loopback`, but be careful: this exposes process memory
+and environment variables without any authentication.
+
+```
+sudo "$HOME/.cargo/bin/procinsh" --listen 127.0.0.1:9090
+```
 
 ### Self build
 
@@ -54,8 +58,7 @@ npm run build:web
 cargo build --release --locked
 ```
 
-The web UI is compiled and embedded into the binary. Node.js and npm are not
-needed at runtime. Start the release binary:
+Then run:
 
 ```sh
 sudo ./target/release/procinsh --listen 127.0.0.1:9090
@@ -85,13 +88,10 @@ npm run build:web
 cargo build --release --locked
 ```
 
-### Open the UI
+Then run:
 
-With either installation method, open http://127.0.0.1:9090 in your browser.
-Press `Ctrl+C` to stop. See [DEVELOPMENT.md](docs/DEVELOPMENT.md) for development,
-testing, API details, and logging options.
-
-To allow remote access, use `--allow-non-loopback`, but be careful: this exposes
-process memory and environment variables without authentication or TLS.
+```sh
+sudo ./target/release/procinsh --listen 127.0.0.1:9090
+```
 
 _Now, where shall I go? The process space is vast._
