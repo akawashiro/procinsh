@@ -2,11 +2,9 @@
 //!
 //! # Interface
 //!
-//! Re-export visibility: `pub(super)`. Follow the definition link, then **Source**, for the implementation.
-//!
-//! | Definition | Kind |
-//! | --- | --- |
-//! | [`Snapshotter`] | `struct Snapshotter` |
+//! | Definition | Visibility | Kind |
+//! | --- | --- | --- |
+//! | [`Snapshotter`] | `pub(super)` | `struct `[`Snapshotter`] |
 mod capture;
 mod disasm;
 mod ptrace;

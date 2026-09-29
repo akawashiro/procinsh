@@ -2,47 +2,42 @@
 //!
 //! # Interface
 //!
-//! Re-export visibility: `pub(super)`. Names link to definitions; **Source** opens their implementation.
-//! `Result<T>` below means [`anyhow::Result<T>`](anyhow::Result).
-//!
 //! ## Types and constants
 //!
-//! | Definition | Kind / type |
-//! | --- | --- |
-//! | [`Discovery`] | `struct Discovery` |
-//! | [`ProcessSummary`] | `struct ProcessSummary` |
-//! | [`ProcessId`] | `struct ProcessId` |
-//! | [`MemoryMap`] | `struct MemoryMap` |
-//! | [`Monitoring`] | `struct Monitoring` |
-//! | [`Snapshotter`] | `struct Snapshotter` |
-//! | [`SubscribeError`] | `enum SubscribeError` |
-//! | [`SocketInfo`] | `struct SocketInfo` |
-//! | [`MAX_READ`] | `const MAX_READ: usize` |
+//! | Definition | Visibility | Kind / type |
+//! | --- | --- | --- |
+//! | [`Discovery`] | `pub(super)` | `struct `[`Discovery`] |
+//! | [`ProcessSummary`] | `pub(super)` | `struct `[`ProcessSummary`] |
+//! | [`ProcessId`] | `pub(super)` | `struct `[`ProcessId`] |
+//! | [`MemoryMap`] | `pub(super)` | `struct `[`MemoryMap`] |
+//! | [`Monitoring`] | `pub(super)` | `struct `[`Monitoring`] |
+//! | [`Snapshotter`] | `pub(super)` | `struct `[`Snapshotter`] |
+//! | [`SubscribeError`] | `pub(super)` | `enum `[`SubscribeError`] |
+//! | [`SocketInfo`] | `pub(super)` | `struct `[`SocketInfo`] |
+//! | [`MAX_READ`] | `pub(super)` | `const MAX_READ: `[`usize`] |
 //!
 //! ## Functions
 //!
-//! | Definition | Signature |
-//! | --- | --- |
-//! | [`check_identity`] | `fn check_identity(id: ProcessId) -> Result<()>` |
-//! | [`observation`] | `fn observation(id: ProcessId) -> Result<impl Serialize>` |
-//! | [`fn@threads`] | `fn threads(id: ProcessId) -> Result<impl Serialize>` |
-//! | [`fn@maps`] | `fn maps(id: ProcessId) -> Result<impl Serialize>` |
-//! | [`environment`] | `fn environment(id: ProcessId) -> Result<impl Serialize>` |
-//! | [`auxv`] | `fn auxv(id: ProcessId) -> Result<impl Serialize>` |
-//! | [`fn@fds`] | `fn fds(id: ProcessId) -> Result<impl Serialize>` |
-//! | [`fn@signals`] | `fn signals(id: ProcessId) -> Result<impl Serialize>` |
-//! | [`fn@memory`] | `fn memory(id: ProcessId, address: u64, length: usize) -> Result<impl Serialize>` |
-//! | [`memory_maps`] | `fn memory_maps(pid: i32) -> Result<Vec<MemoryMap>>` |
-//! | [`ticks_per_second`] | `fn ticks_per_second() -> f64` |
-//! | [`fields`] | `fn fields(path: &str) -> Result<HashMap<String, String>>` |
-//! | [`socket_text`] | `fn socket_text(path: &str) -> Result<String>` |
-//! | [`inet_sockets`] | `fn inet_sockets(text: &str, protocol: &str) -> HashMap<u64, SocketInfo>` |
-//! | [`unix_sockets`] | `fn unix_sockets(text: &str) -> HashMap<u64, SocketInfo>` |
-//! | [`unix_socket_peers`] | `fn unix_socket_peers(deadline: Instant) -> Result<HashMap<u64, SocketInfo>>` |
-//! | [`timestamp_ms`] | `fn timestamp_ms() -> u64` |
+//! | Definition | Visibility | Signature |
+//! | --- | --- | --- |
+//! | [`check_identity`] | `pub(super)` | `fn check_identity(id: `[`ProcessId`]`) -> `[`Result`](anyhow::Result)`<()>` |
+//! | [`observation`] | `pub(super)` | `fn observation(id: `[`ProcessId`]`) -> `[`Result`](anyhow::Result)`<impl `[`Serialize`](serde::Serialize)`>` |
+//! | [`fn@threads`] | `pub(super)` | `fn threads(id: `[`ProcessId`]`) -> `[`Result`](anyhow::Result)`<impl `[`Serialize`](serde::Serialize)`>` |
+//! | [`fn@maps`] | `pub(super)` | `fn maps(id: `[`ProcessId`]`) -> `[`Result`](anyhow::Result)`<impl `[`Serialize`](serde::Serialize)`>` |
+//! | [`environment`] | `pub(super)` | `fn environment(id: `[`ProcessId`]`) -> `[`Result`](anyhow::Result)`<impl `[`Serialize`](serde::Serialize)`>` |
+//! | [`auxv`] | `pub(super)` | `fn auxv(id: `[`ProcessId`]`) -> `[`Result`](anyhow::Result)`<impl `[`Serialize`](serde::Serialize)`>` |
+//! | [`fn@fds`] | `pub(super)` | `fn fds(id: `[`ProcessId`]`) -> `[`Result`](anyhow::Result)`<impl `[`Serialize`](serde::Serialize)`>` |
+//! | [`fn@signals`] | `pub(super)` | `fn signals(id: `[`ProcessId`]`) -> `[`Result`](anyhow::Result)`<impl `[`Serialize`](serde::Serialize)`>` |
+//! | [`fn@memory`] | `pub(super)` | `fn memory(id: `[`ProcessId`]`, address: `[`u64`]`, length: `[`usize`]`) -> `[`Result`](anyhow::Result)`<impl `[`Serialize`](serde::Serialize)`>` |
+//! | [`memory_maps`] | `pub(super)` | `fn memory_maps(pid: `[`i32`]`) -> `[`Result`](anyhow::Result)`<`[`Vec`]`<`[`MemoryMap`]`>>` |
+//! | [`ticks_per_second`] | `pub(super)` | `fn ticks_per_second() -> `[`f64`] |
+//! | [`fields`] | `pub(super)` | `fn fields(path: &`[`str`]`) -> `[`Result`](anyhow::Result)`<`[`HashMap`](std::collections::HashMap)`<`[`String`]`, `[`String`]`>>` |
+//! | [`socket_text`] | `pub(super)` | `fn socket_text(path: &`[`str`]`) -> `[`Result`](anyhow::Result)`<`[`String`]`>` |
+//! | [`inet_sockets`] | `pub(super)` | `fn inet_sockets(text: &`[`str`]`, protocol: &`[`str`]`) -> `[`HashMap`](std::collections::HashMap)`<`[`u64`]`, `[`SocketInfo`]`>` |
+//! | [`unix_sockets`] | `pub(super)` | `fn unix_sockets(text: &`[`str`]`) -> `[`HashMap`](std::collections::HashMap)`<`[`u64`]`, `[`SocketInfo`]`>` |
+//! | [`unix_socket_peers`] | `pub(super)` | `fn unix_socket_peers(deadline: `[`Instant`](std::time::Instant)`) -> `[`Result`](anyhow::Result)`<`[`HashMap`](std::collections::HashMap)`<`[`u64`]`, `[`SocketInfo`]`>>` |
+//! | [`timestamp_ms`] | `pub(super)` | `fn timestamp_ms() -> `[`u64`] |
 //!
-//! Supporting types: [`Serialize`](serde::Serialize), [`HashMap`](std::collections::HashMap),
-//! [`Instant`](std::time::Instant). Test-only re-exports are omitted.
 mod details;
 mod discovery;
 mod fds;

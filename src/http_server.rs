@@ -2,14 +2,10 @@
 //!
 //! # Interface
 //!
-//! Names link to the defining item's documentation; its **Source** link opens the implementation.
-//! Re-export visibility: `pub(super)`.
+//! | Definition | Visibility | Signature |
+//! | --- | --- | --- |
+//! | [`run`] | `pub(super)` | `async fn run(listen: `[`SocketAddr`](std::net::SocketAddr)`, interval: `[`Duration`](std::time::Duration)`) -> `[`anyhow::Result`]`<()>` |
 //!
-//! | Definition | Signature |
-//! | --- | --- |
-//! | [`run`] | `async fn run(listen: SocketAddr, interval: Duration) -> anyhow::Result<()>` |
-//!
-//! Types: [`SocketAddr`](std::net::SocketAddr), [`Duration`](std::time::Duration).
 mod api;
 mod middleware;
 mod process;
