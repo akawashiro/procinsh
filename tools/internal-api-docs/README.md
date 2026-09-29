@@ -15,18 +15,18 @@ cargo +nightly-2026-09-28 rustdoc --locked --bin procinsh \
   --target-dir target/internal-api-json -- \
   --document-private-items --document-hidden-items -Z unstable-options --output-format json
 cargo run --locked --manifest-path tools/internal-api-docs/Cargo.toml -- \
-  target/internal-api-json/doc/procinsh.json target/doc/internal-api
+  target/internal-api-json/doc/procinsh.json target/pages/internal-api
 ```
 
-Open `target/doc/internal-api/index.html`. The output directory is owned by the
+Open `target/pages/internal-api/index.html`. The output directory is owned by the
 generator: its HTML files are replaced on each successful generation to remove
 obsolete facade pages. Other file types are left alone. Input/extraction failures
 leave the previous site intact.
 
 JSON format **61**, `rustdoc-types` **0.61.0**, and **nightly-2026-09-28** are a
 matched set. Update them together and rerun the tests and production generation.
-The generator rejects a different format version. Production build/test and
-ordinary HTML rustdoc continue to use **Rust 1.98.1** from the root toolchain file.
+The generator rejects a different format version. Production build/test continue
+to use **Rust 1.98.1** from the root toolchain file.
 The tool has its own manifest and lockfile and is not a production dependency.
 
 ## Visibility and scope
@@ -65,4 +65,7 @@ The integration test invokes the pinned nightly rustdoc on a small fixture and
 checks the actual generated HTML, aliases, nested facades, generic signatures,
 escaping, unsupported input errors and regeneration. No native/BPF dependencies
 are needed for this fixture. The documentation workflow also generates all
-production facade pages and publishes them alongside rustdoc and architecture.
+production facade pages and publishes them alongside the architecture graphs.
+Only `target/pages` is uploaded to GitHub Pages. The legacy rustdoc HTML is no
+longer generated or published; existing local files under `target/doc` are not
+included in the site.
