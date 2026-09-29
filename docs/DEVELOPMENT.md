@@ -20,9 +20,9 @@ sudo ./target/debug/procinsh --listen 127.0.0.1:9090
 cargo build --release --locked
 ```
 
-ブラウザで http://127.0.0.1:9090 を開きます。Web UI は `src/web/` の TypeScript で実装しています。`npm run build:web` は型チェックと `dist/web/` への JavaScript 生成を行います。生成物は Git に含めず、Cargo は npm を自動実行しません。生成物がない場合、Cargo のビルドは準備手順を表示して失敗します。
+ブラウザで http://127.0.0.1:9090 を開きます。Web UI は `src/web/` の TypeScript で実装しています。`npm run build:web` は型チェックと `dist/web/` への JavaScript 生成を行います。生成物は Git に含めず、Cargo は npm を自動実行しません。Web ビルドは入力と生成 JS の内容を `dist/web/build-manifest.json` に記録します。生成物・manifest がない場合やソース・HTML/CSS・設定・生成 JS が記録と一致しない場合、Cargo のビルドは再生成手順を表示して失敗します。
 
-HTML/CSS、生成した JavaScript、Three.js（revision 180）はバイナリに埋め込みます。TypeScript を変更したら `npm run build:web` の後に Rust バイナリを再ビルドしてください。Cargo は TypeScript と生成物の鮮度を検証しません。HTML/CSS の変更にも Rust の再ビルドが必要です。実行時の Node.js・npm、外部 CDN は不要です。SPACE の描画には WebGL2 が必要です。
+HTML/CSS、生成した JavaScript、Three.js（revision 180）はバイナリに埋め込みます。TypeScript を変更したら `npm run build:web` の後に Rust バイナリを再ビルドしてください。Cargo は内容を比較して不整合を検出するため、checkout や公開パッケージのファイル時刻には依存しません。HTML/CSS の変更にも Rust の再ビルドが必要です。実行時の Node.js・npm、外部 CDN は不要です。SPACE の描画には WebGL2 が必要です。
 
 | CLI オプション | 動作 |
 |---|---|
@@ -35,7 +35,7 @@ SIGINT（Ctrl+C）または SIGTERM で収集停止と HTTP サーバーの終�
 
 ### crates.io 公開前の検証
 
-公開パッケージには `Cargo.toml` の `include` で生成済みの `dist/web/*.js` を含めます。Git では引き続き生成物を管理しません。公開前に次の手順で生成物を更新し、パッケージ単体でビルドできることを検証します。
+公開パッケージには `Cargo.toml` の `include` で生成済みの `dist/web/*.js` と検証用 manifest、ビルドスクリプトを含めます。Git では引き続き生成物を管理しません。公開前に次の手順で生成物を更新し、パッケージ単体でビルドできることを検証します。
 
 ```sh
 npm ci

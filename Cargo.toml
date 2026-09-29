@@ -12,9 +12,12 @@ include = [
     "/LICENSE",
     "/README.md",
     "/build.rs",
+    "/build_support/**",
+    "/scripts/build-web.mjs",
     "/rust-toolchain.toml",
     "/src/**",
     "/dist/web/*.js",
+    "/dist/web/build-manifest.json",
     "/tests/**",
     "!/tests/targets/bin/**",
     "/docs/**",
@@ -48,4 +51,5 @@ lto = "thin"
 strip = "debuginfo"
 
 [build-dependencies]
+serde_json = "1"
 libbpf-cargo = "0.26.2"

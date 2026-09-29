@@ -54,7 +54,9 @@ npm run build:web
 cargo build --release --locked
 ```
 
-The web UI is compiled and embedded into the binary. Node.js and npm are not
+The web UI is compiled and embedded into the binary. Cargo rejects missing or
+stale web assets; rerun `npm ci && npm run build:web` after updating the checkout
+and then rebuild the binary. Node.js and npm are not
 needed at runtime. Start the release binary:
 
 ```sh
