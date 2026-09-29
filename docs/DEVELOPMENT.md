@@ -76,9 +76,10 @@ Tokio/Axum が HTTP と SSE を処理し、ブロッキングする詳細 API �
 
 Web UI の API 型は `src/web/api-types.ts` に定義し、Rust の JSON 応答と合わせて管理します。null の扱いや16進文字列のアドレスも契約に含まれます。これらはコンパイル時の型で、実行時の入力検証ではありません。TypeScript と Three.js の型定義はビルド専用の npm 依存です。
 
-[Internal API](https://akawashiro.github.io/procinsh/internal-api/) は module root の `pub use` を I/F として、型シグネチャ・visibility・定義元を一覧表示します。
-生成手順と制約は [internal-api-docs](../tools/internal-api-docs/README.md) を参照してください。
-JSON に re-export を残すため、I/F の再エクスポートと定義元は `pub` にし、実装モジュールの `mod` 宣言は非公開に保ちます。
+[API Documentation](https://akawashiro.github.io/procinsh/) に Rust 側のドキュメントがあります。
+各 façade の module root にある `//! # Interface` コメントに、再エクスポートする型・関数シグネチャを記載します。
+名前のリンクは定義元の rustdoc ページを開き、その **Source** リンクから実装を参照できます。
+CI は `rustdoc::broken_intra_doc_links` をエラーにしてリンク切れを検出しますが、コメント内のシグネチャ一致までは検証しません。
 
 ## HTTP API
 

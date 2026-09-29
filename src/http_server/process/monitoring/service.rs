@@ -52,7 +52,7 @@ pub(in crate::http_server::process) struct ProcessObservation {
     measured_at: Option<Instant>,
 }
 
-pub fn observation(
+pub(in crate::http_server::process) fn observation(
     id: ProcessId,
     previous: Option<&ProcessObservation>,
 ) -> Result<ProcessObservation> {
@@ -153,7 +153,7 @@ pub(in crate::http_server) struct Target {
     maps_captured_at: Option<u64>,
     rollup: Option<MemoryRollup>,
 }
-pub struct Monitoring {
+pub(in crate::http_server) struct Monitoring {
     interval: Duration,
     stopped: AtomicBool,
     viewers: Mutex<usize>,

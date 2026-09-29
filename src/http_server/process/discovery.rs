@@ -5,7 +5,7 @@ use serde::Serialize;
 use std::{collections::HashMap, fs, time::Instant};
 
 #[derive(Clone, Debug, Serialize)]
-pub struct ProcessSummary {
+pub(in crate::http_server) struct ProcessSummary {
     pub(in crate::http_server) identity: ProcessId,
     #[serde(skip)]
     pub(in crate::http_server) parent_pid: i32,
@@ -67,7 +67,7 @@ pub(super) fn users() -> HashMap<u32, String> {
 }
 
 #[derive(Default)]
-pub struct Discovery {
+pub(in crate::http_server) struct Discovery {
     previous: HashMap<ProcessId, (u64, Instant)>,
 }
 impl Discovery {

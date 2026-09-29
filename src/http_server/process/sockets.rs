@@ -10,7 +10,7 @@ use std::{
 };
 
 #[derive(Clone, Debug)]
-pub struct SocketInfo {
+pub(in crate::http_server) struct SocketInfo {
     pub(in crate::http_server) protocol: String,
     pub(in crate::http_server) state: String,
     pub(in crate::http_server) local: Option<SocketAddr>,

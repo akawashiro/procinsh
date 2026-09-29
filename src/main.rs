@@ -1,3 +1,9 @@
+//! Process inspector for Linux.
+//!
+//! Start with the [HTTP server interface](http_server). Each subsystem's
+//! **Interface** section lists its re-exported types and function signatures,
+//! with links to the defining items and their source.
+
 mod http_server;
 
 #[cfg(not(all(target_os = "linux", target_arch = "x86_64")))]
