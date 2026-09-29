@@ -6,7 +6,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "build:web": "tsc -p tsconfig.json",
+    "build:web": "node scripts/build-web.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

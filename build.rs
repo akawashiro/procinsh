@@ -1,15 +1,22 @@
+#[path = "build_support/web_assets.rs"]
+mod web_assets;
 use std::{env, path::PathBuf, process::Command};
 fn main() {
     let root = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap());
-    for asset in ["app.js", "space.js", "space-model.js"] {
-        let path = root.join("dist/web").join(asset);
-        println!("cargo:rerun-if-changed={}", path.display());
-        assert!(
-            path.is_file(),
-            "Missing web asset {}. Run `npm ci && npm run build:web` before building with Cargo.",
-            path.display()
-        );
+    for path in [
+        "src/web",
+        "dist/web",
+        "package.json",
+        "package-lock.json",
+        "tsconfig.json",
+        "scripts/build-web.mjs",
+        "build_support/web_assets.rs",
+    ] {
+        println!("cargo:rerun-if-changed={path}");
     }
+    web_assets::validate(&root).unwrap_or_else(|error| {
+        panic!("{error}. Run `npm ci && npm run build:web` before building with Cargo.")
+    });
     println!("cargo:rerun-if-changed=src/http_server/system_monitoring/activity.bpf.c");
     println!("cargo:rerun-if-changed=src/http_server/system_monitoring/files.bpf.c");
     println!("cargo:rerun-if-env-changed=BPFTOOL");
