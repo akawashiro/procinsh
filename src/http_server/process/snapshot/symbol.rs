@@ -7,17 +7,14 @@
 //!
 //! # Interface
 //!
-//! Re-export visibility: `pub(super)`. Names link to definitions; **Source** opens their implementation.
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`ElfCache`] | `pub(super)` | `struct `[`ElfCache`] |
+//! | [`SymbolInfo`] | `pub(super)` | `struct `[`SymbolInfo`] |
+//! | [`instruction_address`] | `pub(super)` | `fn instruction_address(address: `[`u64`]`, return_address: `[`bool`]`) -> `[`u64`] |
+//! | [`elf_address`] | `pub(super)` | `fn elf_address(address: `[`u64`]`, map: &`[`MemoryMap`](crate::http_server::process::maps::MemoryMap)`, elf: &`[`ElfSymbols`](cache::ElfSymbols)`, page: `[`u64`]`) -> `[`Option`]`<`[`u64`]`>` |
+//! | [`resolve_frame`] | `pub(super)` | `fn resolve_frame(address: `[`u64`]`, elf: &`[`ElfSymbols`](cache::ElfSymbols)`) -> `[`Option`]`<`[`SymbolInfo`]`>` |
 //!
-//! | Definition | Kind / signature |
-//! | --- | --- |
-//! | [`ElfCache`] | `struct ElfCache` |
-//! | [`SymbolInfo`] | `struct SymbolInfo` |
-//! | [`instruction_address`] | `fn instruction_address(address: u64, return_address: bool) -> u64` |
-//! | [`elf_address`] | `fn elf_address(address: u64, map: &MemoryMap, elf: &ElfSymbols, page: u64) -> Option<u64>` |
-//! | [`resolve_frame`] | `fn resolve_frame(address: u64, elf: &ElfSymbols) -> Option<SymbolInfo>` |
-//!
-//! Types: [`MemoryMap`](crate::http_server::process::maps::MemoryMap), [`ElfSymbols`](cache::ElfSymbols).
 
 mod cache;
 mod resolve;

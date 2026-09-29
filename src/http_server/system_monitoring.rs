@@ -2,14 +2,12 @@
 //!
 //! # Interface
 //!
-//! Re-export visibility: `pub(super)`. Names link to definitions; **Source** opens their implementation.
-//!
-//! | Definition | Kind |
-//! | --- | --- |
-//! | [`SubscribeError`] | `enum SubscribeError` |
-//! | [`System`] | `struct System` |
-//! | [`SystemEvent`] | `enum SystemEvent` |
-//! | [`Topology`] | `struct Topology` |
+//! | Definition | Visibility | Kind |
+//! | --- | --- | --- |
+//! | [`SubscribeError`] | `pub(super)` | `enum `[`SubscribeError`] |
+//! | [`System`] | `pub(super)` | `struct `[`System`] |
+//! | [`SystemEvent`] | `pub(super)` | `enum `[`SystemEvent`] |
+//! | [`Topology`] | `pub(super)` | `struct `[`Topology`] |
 mod activity;
 mod files;
 mod resolver;
