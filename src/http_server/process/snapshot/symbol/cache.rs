@@ -48,7 +48,7 @@ const MAX_FILE_SIZE: u64 = 512 * 1024 * 1024;
 
 /// Bounded cache keyed by device, inode, size, and nanosecond modification time.
 #[derive(Default)]
-pub(in crate::http_server::process::snapshot) struct ElfCache {
+pub struct ElfCache {
     entries: HashMap<FileIdentity, Arc<ElfSymbols>>,
 }
 

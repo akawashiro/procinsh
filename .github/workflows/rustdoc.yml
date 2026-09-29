@@ -53,6 +53,21 @@ jobs:
       - name: Build rustdoc
         run: cargo doc --locked --workspace --no-deps --document-private-items
 
+      - name: Install documentation nightly
+        run: rustup toolchain install nightly-2026-09-28 --profile minimal
+
+      - name: Build internal API documentation
+        run: |
+          cargo fmt --manifest-path tools/internal-api-docs/Cargo.toml --check
+          cargo test --locked --manifest-path tools/internal-api-docs/Cargo.toml
+          cargo clippy --locked --manifest-path tools/internal-api-docs/Cargo.toml --all-targets -- -D warnings
+          # Keep nightly build artifacts and JSON separate from the stable rustdoc site.
+          cargo +nightly-2026-09-28 rustdoc --locked --bin procinsh \
+            --target-dir target/internal-api-json -- \
+            --document-private-items --document-hidden-items -Z unstable-options --output-format json
+          cargo run --locked --manifest-path tools/internal-api-docs/Cargo.toml -- \
+            target/internal-api-json/doc/procinsh.json target/doc/internal-api
+
       - name: Build module dependency graphs
         run: |
           python3 -m unittest discover -s scripts -p 'test_*.py'
@@ -75,12 +90,14 @@ jobs:
           for file in target/doc/*/index.html; do
             [ -f "$file" ] || continue
             [ "$file" != target/doc/architecture/index.html ] || continue
+            [ "$file" != target/doc/internal-api/index.html ] || continue
             crate=$(basename "$(dirname "$file")")
             echo "<li><a href=\"$crate/index.html\">$crate</a></li>" \
               >> target/doc/index.html
           done
 
           echo '<li><a href="architecture/">Module dependency graph</a></li>' >> target/doc/index.html
+          echo '<li><a href="internal-api/">Internal API</a></li>' >> target/doc/index.html
           echo '</ul></html>' >> target/doc/index.html
           touch target/doc/.nojekyll
 

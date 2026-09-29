@@ -4,7 +4,7 @@ use std::{
     process::{Child, Command, Stdio},
     time::Duration,
 };
-pub(in crate::http_server) struct Target {
+pub struct Target {
     pub(in crate::http_server) child: Child,
     pub(in crate::http_server) id: process::ProcessId,
     pub(in crate::http_server) address: u64,

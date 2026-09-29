@@ -1,11 +1,11 @@
 use super::{Topology, activity, resolver, topology};
 #[derive(Debug, PartialEq, Eq)]
-pub(in crate::http_server) enum SubscribeError {
+pub enum SubscribeError {
     Stopped,
     TooManySubscribers,
 }
 #[derive(Clone)]
-pub(in crate::http_server) enum SystemEvent {
+pub enum SystemEvent {
     Topology(std::sync::Arc<Topology>),
     Metrics(serde_json::Value),
     Activity(serde_json::Value),
@@ -30,7 +30,7 @@ impl Drop for Subscription {
         *self.system.viewers.lock().unwrap() -= 1;
     }
 }
-pub(in crate::http_server) struct System {
+pub struct System {
     viewers: Mutex<usize>,
     pub(super) status: Mutex<Value>,
     snapshot: RwLock<Arc<topology::Topology>>,

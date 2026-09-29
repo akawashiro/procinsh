@@ -7,7 +7,7 @@ mod server;
 mod state;
 mod system_monitoring;
 mod web;
-pub(super) use server::run;
+pub use server::run;
 use state::AppState;
 #[cfg(test)]
 mod process_api_tests;
