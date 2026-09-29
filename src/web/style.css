@@ -8,3 +8,6 @@
 
 header{height:42px;padding:0 20px;gap:16px;overflow:hidden;background:#040d1399;border-bottom:1px solid #72ead522;font:10px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:2px;backdrop-filter:blur(12px)}header a{color:#65f6dc;font-size:11px;font-weight:bold;letter-spacing:1px;flex:none}@media(max-width:750px){header{padding:0 10px;gap:8px}}
 header a.view-link{text-decoration:underline;text-underline-offset:3px}
+
+header a.github-link{margin-left:auto;white-space:nowrap;text-decoration:underline;text-underline-offset:3px}
+@media(max-width:480px){header{height:auto;min-height:42px;flex-wrap:wrap;padding-top:10px;padding-bottom:10px}header a.github-link{order:1}header a.view-link{order:2}}
