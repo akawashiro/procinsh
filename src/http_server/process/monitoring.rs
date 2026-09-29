@@ -2,7 +2,7 @@
 //!
 //! # Interface
 //!
-//! | Re-export visibility | Visibility | Kind / signature |
+//! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
 //! | [`Monitoring`] | `pub(in crate::http_server)` | `struct `[`Monitoring`] |
 //! | [`observation`] | `pub(super)` | `fn observation(id: `[`ProcessId`](super::identity::ProcessId)`, previous: `[`Option`]`<&`[`ProcessObservation`]`>) -> `[`anyhow::Result`]`<`[`ProcessObservation`]`>` |
