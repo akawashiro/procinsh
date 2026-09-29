@@ -18,10 +18,10 @@ import {
   connectionState,
 } from "/space-model.js";
 import type {
-  SpaceNode,
-  Topology,
-  Edge,
-  Port,
+  Process,
+  SystemSnapshot,
+  FdRelation,
+  FdEndpoint,
   SocketEndpoint,
   SpaceActivity,
   ProcessSummary,
@@ -34,12 +34,12 @@ import type {
   CpuGlow,
 } from "./space-model.js";
 import type { SpaceElements } from "./dom-types.js";
-interface RenderNode extends SpaceNode {
+interface RenderNode extends Process {
   pos: T.Vector3;
   regions: Region[];
 }
 interface EdgeView {
-  e: Edge;
+  e: FdRelation;
   curve: T.QuadraticBezierCurve3;
   networkId?: string;
 }
@@ -58,7 +58,7 @@ interface EdgeStat {
   count: number;
   time: number;
 }
-type ConnectionPick = Edge & { networkId?: string };
+type ConnectionPick = FdRelation & { networkId?: string };
 type PickResult = ConnectionPick | { fileId: string };
 type Particle = {
   start: number;
@@ -76,7 +76,7 @@ interface PickData {
   files?: RecentFile[];
   filePaths?: string[];
   network?: NetworkGroup[];
-  edges?: (ConnectionPick | null)[];
+  fd_relations?: (ConnectionPick | null)[];
 }
 function pickData(object: T.Object3D): PickData {
   return object.userData as PickData;
@@ -150,7 +150,7 @@ controls.addEventListener("change", updatePanSpeed);
 
 const nodes = new Map<string, RenderNode>(),
   cpuGlows = new Map<string, CpuGlow>();
-let topology: Topology = { nodes: [], edges: [] },
+let snapshot: SystemSnapshot = { processes: [], fd_relations: [] },
   edgeViews: EdgeView[] = [],
   parentViews: { parent: string; child: string }[] = [],
   parentLines: T.LineSegments<T.BufferGeometry, T.LineBasicMaterial> | null =
@@ -383,7 +383,7 @@ function fit() {
 function visibleIds() {
   const term = $("search").value.trim().toLowerCase();
   return new Set(
-    topology.nodes
+    snapshot.processes
       .filter(
         (n) =>
           !term || `${n.identity.pid} ${n.name}`.toLowerCase().includes(term),
@@ -397,21 +397,21 @@ function disposeGroup() {
   geometryGroup = new T.Group();
   scene.add(geometryGroup);
 }
-function rebuild(data: Topology, rearrange = false) {
-  topology = data;
-  const live = new Set(data.nodes.map((n) => key(n.identity)));
+function rebuild(data: SystemSnapshot, rearrange = false) {
+  snapshot = data;
+  const live = new Set(data.processes.map((n) => key(n.identity)));
   for (const id of nodes.keys()) if (!live.has(id)) cpuGlows.delete(id);
-  const liveEdges = new Set(data.edges.map((e) => e.id));
+  const liveEdges = new Set(data.fd_relations.map((e) => e.id));
   for (const id of edgeStats.keys())
     if (!liveEdges.has(id)) edgeStats.delete(id);
   const layout = rearrange
-    ? treeLayout(data.nodes)
+    ? treeLayout(data.processes)
     : stableLayout(
-        data.nodes,
+        data.processes,
         new Map([...nodes].map(([id, n]) => [id, n.pos])),
       );
   nodes.clear();
-  for (const n of data.nodes) {
+  for (const n of data.processes) {
     const id = key(n.identity),
       place = layout.get(id);
     nodes.set(id, {
@@ -422,7 +422,7 @@ function rebuild(data: Topology, rearrange = false) {
   }
   recentFiles.prune(performance.now(), live);
   if (rearrange) filePositions.clear();
-  network = networkGroups(data.edges);
+  network = networkGroups(data.fd_relations);
   particles = particles.filter((p) => !p.networkId || network.has(p.networkId));
   networkPositions = networkLayout(
     network,
@@ -437,7 +437,7 @@ function rebuild(data: Topology, rearrange = false) {
   )
     clearSelection();
   buildScene();
-  if (firstView && data.nodes.length) {
+  if (firstView && data.processes.length) {
     fit();
     firstView = false;
   }
@@ -532,13 +532,13 @@ function buildScene() {
     layerList: { n: RenderNode; r: Region }[] = [];
   let regionLimit = 0;
   const addLine = (
-    a: number[],
-    b: number[],
+    endpoint: number[],
+    peer: number[],
     color: T.ColorRepresentation,
     edge: ConnectionPick | null = null,
   ) => {
     lineEdges.push(edge);
-    linePos.push(...a, ...b);
+    linePos.push(...endpoint, ...peer);
     const c = new T.Color(color);
     lineColors.push(c.r, c.g, c.b, c.r, c.g, c.b);
   };
@@ -617,7 +617,7 @@ function buildScene() {
     [...network.values()].flatMap((g) => g.members.map((e) => e.id)),
   );
   const visibleGroups = [...network.values()].filter(
-    (g) => visible.has(key(g.a.process_id)) && networkPositions.has(g.id),
+    (g) => visible.has(key(g.endpoint.process_id)) && networkPositions.has(g.id),
   );
   const markers = new T.InstancedMesh(
     new T.OctahedronGeometry(0.75),
@@ -648,7 +648,7 @@ function buildScene() {
     const group = visibleGroups[i],
       p = networkPositions.get(group.id)!,
       pos = new T.Vector3(p.x, p.y, p.z),
-      owner = nodes.get(key(group.a.process_id))!;
+      owner = nodes.get(key(group.endpoint.process_id))!;
     dummy.position.copy(pos);
     dummy.scale.set(1, 1, 1);
     dummy.updateMatrix();
@@ -663,7 +663,7 @@ function buildScene() {
     const pts = curve.getPoints(24),
       pick = {
         ...group,
-        b: null,
+        peer: null,
         shared: false,
         candidate: false,
         networkId: group.id,
@@ -673,10 +673,10 @@ function buildScene() {
   }
   const dashedPos = [],
     dashedEdges = [];
-  for (const e of topology.edges) {
+  for (const e of snapshot.fd_relations) {
     if (grouped.has(e.id)) continue;
-    const a = nodes.get(key(e.a.process_id)),
-      b = e.b && nodes.get(key(e.b.process_id));
+    const a = nodes.get(key(e.endpoint.process_id)),
+      b = e.peer && nodes.get(key(e.peer.process_id));
     if (
       !a ||
       !visible.has(key(a.identity)) ||
@@ -685,9 +685,9 @@ function buildScene() {
       continue;
     const start = a.pos
       .clone()
-      .add(new T.Vector3(1.12, 0, 1 + (e.a.fd % 12) * 0.11));
+      .add(new T.Vector3(1.12, 0, 1 + (e.endpoint.fd % 12) * 0.11));
     const end = b
-      ? b.pos.clone().add(new T.Vector3(-1.12, 0, 1 + (e.b!.fd % 12) * 0.11))
+      ? b.pos.clone().add(new T.Vector3(-1.12, 0, 1 + (e.peer!.fd % 12) * 0.11))
       : start.clone().add(new T.Vector3(3.5, -2.5, -0.6));
     const mid = start.clone().lerp(end, 0.5);
     mid.z = 0.22;
@@ -704,7 +704,7 @@ function buildScene() {
         addLine(
           pts[j].toArray(),
           pts[j + 1].toArray(),
-          e.b ? 0x236857 : 0x24404c,
+          e.peer ? 0x236857 : 0x24404c,
           e,
         );
     }
@@ -722,7 +722,7 @@ function buildScene() {
       blending: T.AdditiveBlending,
     }),
   );
-  solidLines.userData.edges = lineEdges;
+  solidLines.userData.fd_relations = lineEdges;
   geometryGroup.add(solidLines);
   const dashed = new T.BufferGeometry();
   dashed.setAttribute("position", new T.Float32BufferAttribute(dashedPos, 3));
@@ -735,7 +735,7 @@ function buildScene() {
       depthWrite: false,
     }),
   );
-  dashedLines.userData.edges = dashedEdges;
+  dashedLines.userData.fd_relations = dashedEdges;
   geometryGroup.add(dashedLines);
   refreshFileScene();
   updateSelection();
@@ -766,13 +766,13 @@ function networkDetails() {
     : "Recent traffic —";
   const content = document.createDocumentFragment(),
     heading = document.createElement("p");
-  heading.textContent = `${nodes.get(key(group.a.process_id))?.name || ""} · PID ${group.a.process_id.pid} → ${remoteLabel(group.socket)} (${group.socket.remote}) · ${group.members.length} connections`;
+  heading.textContent = `${nodes.get(key(group.endpoint.process_id))?.name || ""} · PID ${group.endpoint.process_id.pid} → ${remoteLabel(group.socket)} (${group.socket.remote}) · ${group.members.length} connections`;
   content.append(heading);
   for (const e of group.members) {
     const row = document.createElement("div");
     row.className = "endpoint";
     const button = document.createElement("button");
-    button.textContent = `FD ${e.a.fd}${e.a.fd_count > 1 ? ` (+${e.a.fd_count - 1} shared FDs)` : ""} · ${e.socket!.state}`;
+    button.textContent = `FD ${e.endpoint.fd}${e.endpoint.fd_count > 1 ? ` (+${e.endpoint.fd_count - 1} shared FDs)` : ""} · ${e.socket!.state}`;
     button.onclick = () => selectConnection(e.id);
     const address = document.createElement("span");
     address.textContent = `${e.socket!.local || "—"} → ${e.socket!.remote}`;
@@ -931,21 +931,21 @@ function accessText(access: number) {
         : "UNKNOWN";
 }
 function endpoint(
-  port: Port | null,
+  fdEndpoint: FdEndpoint | null,
   title: string,
   socket: SocketEndpoint | null = null,
 ) {
   const div = document.createElement("div");
   div.className = "endpoint";
-  const n = port && nodes.get(key(port.process_id));
+  const n = fdEndpoint && nodes.get(key(fdEndpoint.process_id));
   const heading = document.createElement("strong");
-  heading.textContent = port
+  heading.textContent = fdEndpoint
     ? n?.name || `Unknown process`
     : socket?.network_peer
       ? (remoteLabel(socket) ?? "Unknown destination")
       : "External / unknown";
   div.append(heading);
-  if (!port) {
+  if (!fdEndpoint) {
     const note = document.createElement("span");
     note.textContent = socket?.network_peer
       ? `${socket.protocol} · ${socket.state}`
@@ -954,13 +954,13 @@ function endpoint(
     return div;
   }
   const identity = document.createElement("span");
-  identity.textContent = `${title} · PID ${port.process_id.pid} · ${n?.username ?? n?.uid ?? "unknown"}`;
+  identity.textContent = `${title} · PID ${fdEndpoint.process_id.pid} · ${n?.username ?? n?.uid ?? "unknown"}`;
   const fd = document.createElement("span");
-  fd.textContent = `FD ${port.fd}${port.fd_count > 1 ? ` (+${port.fd_count - 1} shared FDs)` : ""} · ${accessText(port.access)}`;
+  fd.textContent = `FD ${fdEndpoint.fd}${fdEndpoint.fd_count > 1 ? ` (+${fdEndpoint.fd_count - 1} shared FDs)` : ""} · ${accessText(fdEndpoint.access)}`;
   const resource = document.createElement("span");
-  resource.textContent = port.resource;
+  resource.textContent = fdEndpoint.resource;
   const link = document.createElement("a");
-  link.href = `/process/${port.process_id.pid}`;
+  link.href = `/process/${fdEndpoint.process_id.pid}`;
   link.textContent = "Open process details ↗";
   div.append(identity, fd, resource, link);
   return div;
@@ -1002,7 +1002,7 @@ function details() {
     $("inspect").href = `/process/${n.identity.pid}`;
     return;
   }
-  const e = topology.edges.find((edge) => edge.id === selectedEdge);
+  const e = snapshot.fd_relations.find((edge) => edge.id === selectedEdge);
   if (!e) return;
   process.hidden = true;
   connection.hidden = false;
@@ -1013,8 +1013,8 @@ function details() {
     ? `Latest activity: ${stat.bytes} bytes / ${stat.count} operations · ${((performance.now() - stat.time) / 1000).toFixed(1)}s ago`
     : "Recent traffic —";
   $("connection-endpoints").replaceChildren(
-    endpoint(e.a, "ENDPOINT A"),
-    endpoint(e.b, "ENDPOINT B", e.socket),
+    endpoint(e.endpoint, "ENDPOINT"),
+    endpoint(e.peer, "PEER", e.socket),
   );
   if (e.socket) {
     const info = document.createElement("p");
@@ -1209,7 +1209,7 @@ function edgeHit(event: MouseEvent): PickResult | null {
     if (group)
       return {
         ...group,
-        b: null,
+        peer: null,
         shared: false,
         candidate: false,
         networkId: group.id,
@@ -1217,7 +1217,7 @@ function edgeHit(event: MouseEvent): PickResult | null {
     const edge =
       result.index === undefined
         ? undefined
-        : data.edges?.[Math.floor(result.index / 2)];
+        : data.fd_relations?.[Math.floor(result.index / 2)];
     if (edge) return edge;
   }
   return null;
@@ -1261,7 +1261,7 @@ canvas.addEventListener("pointermove", (e) => {
     } else if (edge) {
       hoveredNetwork = edge.networkId || null;
       const stat = edgeStats.get(edge.id);
-      text = `${edge.label}${edge.candidate ? " · Candidate peer" : ""}${edge.shared ? " · Shared FD" : ""}\nPID ${edge.a.process_id.pid} / FD ${edge.a.fd}${edge.a.fd_count > 1 ? ` (+${edge.a.fd_count - 1} shared FDs)` : ""} ↔ ${edge.b ? `PID ${edge.b.process_id.pid} / FD ${edge.b.fd}` : edge.socket?.network_peer ? remoteLabel(edge.socket) : connectionState(edge)}${stat ? `\nLatest window: ${stat.bytes} bytes / ${stat.count} operations (${((performance.now() - stat.time) / 1000).toFixed(1)}s ago)` : ""}`;
+      text = `${edge.label}${edge.candidate ? " · Candidate peer" : ""}${edge.shared ? " · Shared FD" : ""}\nPID ${edge.endpoint.process_id.pid} / FD ${edge.endpoint.fd}${edge.endpoint.fd_count > 1 ? ` (+${edge.endpoint.fd_count - 1} shared FDs)` : ""} ↔ ${edge.peer ? `PID ${edge.peer.process_id.pid} / FD ${edge.peer.fd}` : edge.socket?.network_peer ? remoteLabel(edge.socket) : connectionState(edge)}${stat ? `\nLatest window: ${stat.bytes} bytes / ${stat.count} operations (${((performance.now() - stat.time) / 1000).toFixed(1)}s ago)` : ""}`;
     }
   }
   $("hover").hidden = !text;
@@ -1275,7 +1275,7 @@ canvas.addEventListener("pointermove", (e) => {
 
 $("rearrange").onclick = () => {
   particles = [];
-  rebuild(topology, true);
+  rebuild(snapshot, true);
   fit();
 };
 $("close").onclick = () => select(null);
@@ -1402,7 +1402,7 @@ function start() {
     $("failure").hidden = false;
     if (!document.hidden) retry = setTimeout(start, 3000);
   };
-  current.addEventListener("topology", (event) => {
+  current.addEventListener("snapshot", (event) => {
     if (source === current) rebuild(JSON.parse(event.data));
   });
   current.addEventListener("activity", (event) => {
@@ -1448,9 +1448,9 @@ export {
   fileVisuals,
   fileParticles,
   pruneFiles,
-  rebuild as renderTopology,
+  rebuild as renderSystemSnapshot,
   activity as renderActivity,
-  fit as fitTopology,
+  fit as fitScene,
   select as selectProcess,
   selectConnection,
   selectNetwork,

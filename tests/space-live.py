@@ -8,14 +8,14 @@ response=None;thread=None
 try:
     pid,peer,address,size=p.stdout.readline().split();pid=int(pid);peer=int(peer);address=int(address,16);size=int(size)
     response=Stream(base+'/api/system/events')
-    frames=[]; latest={"topology": {}, "status": {}}
+    frames=[]; latest={"snapshot": {}, "status": {}}
     def consume():
         try:
             for line in response:
                 if line.startswith(b'data: '):
                     value=json.loads(line[6:]);
                     if isinstance(value,dict):
-                        if 'nodes' in value:latest['topology']=value
+                        if 'processes' in value:latest['snapshot']=value
                         if 'ipc' in value:
                             frames.append(value)
                             latest['status']=value['status']
@@ -25,10 +25,10 @@ try:
     while time.monotonic()<deadline:
         status=latest['status']
         if any(str(status.get(sensor,'')).startswith('unavailable') for sensor in ('cpu','ipc')):raise AssertionError(status)
-        snapshot=latest['topology']
-        if all(status.get(sensor)=='observing' for sensor in ('cpu','ipc')) and any(n['identity']['pid']==pid for n in snapshot.get('nodes',[])):break
+        snapshot=latest['snapshot']
+        if all(status.get(sensor)=='observing' for sensor in ('cpu','ipc')) and any(n['identity']['pid']==pid for n in snapshot.get('processes',[])):break
         time.sleep(.3)
-    else:raise AssertionError(('sensor/topology did not become ready',latest))
+    else:raise AssertionError(('sensor/snapshot did not become ready',latest))
     status=latest['status']
     assert status['cpu']=='observing' and status['ipc']=='observing',status
     p.stdin.write('go\n');p.stdin.flush();time.sleep(6)

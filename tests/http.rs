@@ -161,7 +161,7 @@ fn binary_serves_assets_process_api_and_sse_and_shuts_down() {
         assert_eq!(server.get(&format!("/api/processes/{endpoint}")).0, 400);
     }
     let mut process = server.events(&format!("/api/processes/events?{query}"), "observation");
-    let mut system = server.events("/api/system/events", "topology");
+    let mut system = server.events("/api/system/events", "snapshot");
     server.shutdown();
     // Open streams must end so graceful shutdown can finish.
     process.read_to_end(&mut Vec::new()).unwrap();

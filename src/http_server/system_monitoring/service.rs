@@ -1,4 +1,4 @@
-use super::{Topology, activity, resolver, topology};
+use super::{SystemSnapshot, activity, resolver, system_snapshot};
 #[derive(Debug, PartialEq, Eq)]
 pub(in crate::http_server) enum SubscribeError {
     Stopped,
@@ -6,7 +6,7 @@ pub(in crate::http_server) enum SubscribeError {
 }
 #[derive(Clone)]
 pub(in crate::http_server) enum SystemEvent {
-    Topology(std::sync::Arc<Topology>),
+    Snapshot(std::sync::Arc<SystemSnapshot>),
     Metrics(serde_json::Value),
     Activity(serde_json::Value),
 }
@@ -23,7 +23,7 @@ use tokio::sync::broadcast;
 pub(in crate::http_server) struct Subscription {
     system: Arc<System>,
     pub(in crate::http_server) receiver: broadcast::Receiver<SystemEvent>,
-    pub(in crate::http_server) initial: Arc<Topology>,
+    pub(in crate::http_server) initial: Arc<SystemSnapshot>,
 }
 impl Drop for Subscription {
     fn drop(&mut self) {
@@ -33,7 +33,7 @@ impl Drop for Subscription {
 pub(in crate::http_server) struct System {
     viewers: Mutex<usize>,
     pub(super) status: Mutex<Value>,
-    snapshot: RwLock<Arc<topology::Topology>>,
+    snapshot: RwLock<Arc<system_snapshot::SystemSnapshot>>,
     events: broadcast::Sender<SystemEvent>,
     stop: AtomicBool,
     started: AtomicBool,
@@ -45,7 +45,7 @@ impl Default for System {
         Self {
             viewers: Mutex::new(0),
             status: Mutex::new(json!({"active":false,"ipc":"idle","cpu":"idle","files":"idle"})),
-            snapshot: RwLock::new(Arc::new(topology::Topology::default())),
+            snapshot: RwLock::new(Arc::new(system_snapshot::SystemSnapshot::default())),
             events,
             stop: AtomicBool::new(false),
             started: AtomicBool::new(false),
@@ -96,7 +96,7 @@ impl System {
     pub(super) fn send(&self, event: SystemEvent) {
         let _ = self.events.send(event);
     }
-    pub(in crate::http_server) fn snapshot(&self) -> Arc<Topology> {
+    pub(in crate::http_server) fn snapshot(&self) -> Arc<SystemSnapshot> {
         self.snapshot.read().unwrap().clone()
     }
     fn start(self: &Arc<Self>) {
@@ -107,8 +107,8 @@ impl System {
         let mut workers = self.workers.lock().unwrap();
         workers.push(spawn_worker("activity", move || activity::run(system)));
         let system = self.clone();
-        workers.push(spawn_worker("topology", move || {
-            log::info!("System topology worker started");
+        workers.push(spawn_worker("snapshot", move || {
+            log::info!("System snapshot worker started");
             let mut previous_warnings = Vec::new();
             let mut metrics_error = None;
             let resolver = resolver::Resolver::new();
@@ -124,24 +124,24 @@ impl System {
                     continue;
                 }
                 if full.elapsed() >= Duration::from_secs(5) {
-                    let mut data = topology::collect(&mut discovery);
+                    let mut data = system_snapshot::collect(&mut discovery);
                     if data.warnings != previous_warnings {
                         if data.warnings.is_empty() {
-                            log::info!("System topology recovered");
+                            log::info!("System snapshot recovered");
                         } else {
                             for warning in &data.warnings {
-                                log::warn!("System topology: {warning}");
+                                log::warn!("System snapshot: {warning}");
                             }
                         }
                         previous_warnings = data.warnings.clone();
                     }
                     log::debug!(
-                        "System topology collected nodes={} edges={}",
-                        data.nodes.len(),
-                        data.edges.len()
+                        "System snapshot collected processes={} fd_relations={}",
+                        data.processes.len(),
+                        data.fd_relations.len()
                     );
-                    for edge in &mut data.edges {
-                        if let Some(socket) = &mut edge.socket
+                    for relation in &mut data.fd_relations {
+                        if let Some(socket) = &mut relation.socket
                             && socket.network_peer
                         {
                             socket.remote_hostname =
@@ -149,7 +149,7 @@ impl System {
                         }
                     }
                     let data = Arc::new(data);
-                    system.send(SystemEvent::Topology(data.clone()));
+                    system.send(SystemEvent::Snapshot(data.clone()));
                     *system.snapshot.write().unwrap() = data;
                     full = Instant::now();
                     tick = Instant::now();
@@ -174,7 +174,7 @@ impl System {
                 }
                 std::thread::sleep(Duration::from_millis(100));
             }
-            log::info!("System topology worker stopped");
+            log::info!("System snapshot worker stopped");
         }));
     }
 }

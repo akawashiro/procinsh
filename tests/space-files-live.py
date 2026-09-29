@@ -49,7 +49,7 @@ def fixture(directory):
         pass
     os.close(readonly)
     os.close(fd)
-    os.unlink(path)  # The path must survive close/unlink before topology refresh.
+    os.unlink(path)  # The path must survive close/unlink before snapshot refresh.
     print(json.dumps(expected), flush=True)
     sys.stdin.readline()
 
@@ -91,7 +91,7 @@ try:
         ready = json.loads(child.stdout.readline())
         response = Stream(base + '/api/system/events', timeout=30)
         frames = []
-        latest = {"topology": {}, "status": {}}
+        latest = {"snapshot": {}, "status": {}}
 
         def consume():
             try:
@@ -99,8 +99,8 @@ try:
                     if line.startswith(b'data: '):
                         data = json.loads(line[6:])
                         if isinstance(data, dict):
-                            if 'nodes' in data:
-                                latest['topology'] = data
+                            if 'processes' in data:
+                                latest['snapshot'] = data
                             if 'files' in data:
                                 frames.append(data)
                                 latest['status'] = data['status']
@@ -114,12 +114,12 @@ try:
             status = latest['status']
             if str(status.get('files', '')).startswith('unavailable'):
                 raise AssertionError(status['files'])
-            snapshot = latest['topology']
-            if status.get('files') == 'observing' and any(n['identity']['pid'] == ready['pid'] for n in snapshot.get('nodes', [])):
+            snapshot = latest['snapshot']
+            if status.get('files') == 'observing' and any(n['identity']['pid'] == ready['pid'] for n in snapshot.get('processes', [])):
                 break
             time.sleep(.2)
         else:
-            raise AssertionError(('file sensor/topology did not become ready', status))
+            raise AssertionError(('file sensor/snapshot did not become ready', status))
         child.stdin.write('go\n')
         child.stdin.flush()
         expected = json.loads(child.stdout.readline())

@@ -210,7 +210,7 @@ export interface DetailData {
   fds: FileDescriptors;
   signals: Signals;
 }
-export interface SpaceNode {
+export interface Process {
   identity: ProcessId;
   parent_id: ProcessId | null;
   name: string;
@@ -224,7 +224,7 @@ export interface SpaceNode {
   maps_epoch: number;
   maps_error: string | null;
 }
-export interface Port {
+export interface FdEndpoint {
   process_id: ProcessId;
   fd: number;
   fd_count: number;
@@ -240,18 +240,18 @@ export interface SocketEndpoint {
   network_peer: boolean;
   remote_hostname: string | null;
 }
-export interface Edge {
+export interface FdRelation {
   id: string;
-  a: Port;
-  b: Port | null;
+  endpoint: FdEndpoint;
+  peer: FdEndpoint | null;
   label: string;
   socket: SocketEndpoint | null;
   candidate: boolean;
   shared: boolean;
 }
-export interface Topology {
-  nodes: SpaceNode[];
-  edges: Edge[];
+export interface SystemSnapshot {
+  processes: Process[];
+  fd_relations: FdRelation[];
 }
 export interface IoActivity {
   process_id: ProcessId;
