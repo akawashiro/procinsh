@@ -16,7 +16,7 @@ async fn sse_connections_own_viewer_lifetimes() {
             .body(Body::empty())
             .unwrap()
     };
-    for path in ["/api/system/status", "/api/system/topology"] {
+    for path in ["/api/system/status", "/api/system/snapshot"] {
         assert_eq!(
             app.clone().oneshot(request(path)).await.unwrap().status(),
             StatusCode::NOT_FOUND
@@ -68,8 +68,19 @@ async fn sse_connections_own_viewer_lifetimes() {
     assert!(
         std::str::from_utf8(&frame)
             .unwrap()
-            .contains("event: topology")
+            .contains("event: snapshot")
     );
+    let text = std::str::from_utf8(&frame).unwrap();
+    let payload: serde_json::Value = serde_json::from_str(
+        text.lines()
+            .find_map(|line| line.strip_prefix("data: "))
+            .unwrap(),
+    )
+    .unwrap();
+    assert!(payload["processes"].is_array());
+    assert!(payload["fd_relations"].is_array());
+    assert!(payload.get("nodes").is_none());
+    assert!(payload.get("edges").is_none());
     responses.clear();
     assert!(state.system.active());
     drop(body);

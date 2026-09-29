@@ -126,7 +126,7 @@ impl Bpf {
     fn cpu_activity(
         &mut self,
         now: u64,
-        topology: &super::topology::Topology,
+        snapshot: &super::system_snapshot::SystemSnapshot,
     ) -> Result<Vec<serde_json::Value>> {
         let current = self
             .obj
@@ -176,10 +176,10 @@ impl Bpf {
         }
 
         let ticks = crate::http_server::process::ticks_per_second() as u128;
-        let known: HashMap<_, _> = topology
-            .nodes
+        let known: HashMap<_, _> = snapshot
+            .processes
             .iter()
-            .map(|node| (node.identity, node))
+            .map(|process| (process.identity, process))
             .collect();
         let mut result = Vec::new();
         let mut next_previous = HashMap::new();
@@ -273,9 +273,12 @@ pub(super) fn run(system: Arc<System>) {
                 Err(error) => json!(format!("error: {error:#}")),
             };
         }
-        let topology = system.snapshot();
-        let nodes: std::collections::HashMap<_, _> =
-            topology.nodes.iter().map(|n| (n.identity.pid, n)).collect();
+        let snapshot = system.snapshot();
+        let processes: std::collections::HashMap<_, _> = snapshot
+            .processes
+            .iter()
+            .map(|n| (n.identity.pid, n))
+            .collect();
         if let Some(b) = &mut bpf {
             let consumed = b.ring.consume_raw_n(8192);
             if consumed < 0 {
@@ -285,7 +288,7 @@ pub(super) fn run(system: Arc<System>) {
                 system.status.lock().unwrap()["ipc"] = json!("observing");
             }
             for e in b.queue.lock().unwrap().drain(..) {
-                let Some(n) = nodes.get(&(e.pid as i32)) else {
+                let Some(n) = processes.get(&(e.pid as i32)) else {
                     unresolved += 1;
                     continue;
                 };
@@ -298,7 +301,7 @@ pub(super) fn run(system: Arc<System>) {
                 }
                 let dev =
                     libc::makedev((e.device >> 20) as u32, (e.device & ((1 << 20) - 1)) as u32);
-                let resource = super::topology::resource(
+                let resource = super::system_snapshot::resource(
                     if e.kind == 1 { "pipe" } else { "socket" },
                     dev,
                     e.inode,
@@ -317,7 +320,7 @@ pub(super) fn run(system: Arc<System>) {
         if last.elapsed() >= Duration::from_millis(100) {
             let ipc:Vec<_>=comm.drain().map(|((id,resource,write),(bytes,count))|json!({"process_id":id,"resource":resource,"write":write,"bytes":bytes,"count":count})).collect();
             let cpu = if let Some(bpf) = &mut bpf {
-                match bpf.cpu_activity(super::monotonic_ns(), &topology) {
+                match bpf.cpu_activity(super::monotonic_ns(), &snapshot) {
                     Ok(activity) => {
                         system.status.lock().unwrap()["cpu"] = json!("observing");
                         activity

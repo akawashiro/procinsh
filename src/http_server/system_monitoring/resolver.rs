@@ -1,4 +1,4 @@
-//! Bounded background reverse lookup: topology collection never waits for DNS.
+//! Bounded background reverse lookup: snapshot collection never waits for DNS.
 use std::{
     collections::HashMap,
     net::{IpAddr, SocketAddr},

@@ -19,13 +19,13 @@ pub(super) async fn events(State(s): State<Arc<AppState>>) -> Result<Response, S
     })?;
     let stream = async_stream::stream! {
         let initial=serde_json::to_string(&*subscription.initial).unwrap_or_default();
-        log::debug!("SSE /api/system/events event=topology");
-        yield Ok::<_,Infallible>(Event::default().event("topology").data(initial));
+        log::debug!("SSE /api/system/events event=snapshot");
+        yield Ok::<_,Infallible>(Event::default().event("snapshot").data(initial));
         loop{if s.system.stopped(){break;}
             match tokio::time::timeout(Duration::from_secs(1),subscription.receiver.recv()).await {
                 Ok(Ok(message)) => {
                     let (event, data) = match message {
-                        SystemEvent::Topology(data) => ("topology", serde_json::to_string(&*data).unwrap()),
+                        SystemEvent::Snapshot(data) => ("snapshot", serde_json::to_string(&*data).unwrap()),
                         SystemEvent::Metrics(data) => ("metrics", data.to_string()),
                         SystemEvent::Activity(data) => ("activity", data.to_string()),
                     };
@@ -36,8 +36,8 @@ pub(super) async fn events(State(s): State<Arc<AppState>>) -> Result<Response, S
                     log::debug!("SSE /api/system/events event=gap dropped_frames={n}");
                     yield Ok(Event::default().event("gap").data(json!({"dropped_frames":n}).to_string()));
                     let snapshot = serde_json::to_string(&*s.system.snapshot()).unwrap_or_default();
-                    log::debug!("SSE /api/system/events event=topology");
-                    yield Ok(Event::default().event("topology").data(snapshot));
+                    log::debug!("SSE /api/system/events event=snapshot");
+                    yield Ok(Event::default().event("snapshot").data(snapshot));
                 },
                 Ok(Err(_))=>break,Err(_)=>{}
             }
