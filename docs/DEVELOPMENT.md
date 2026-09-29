@@ -79,7 +79,6 @@ Web UI の API 型は `src/web/api-types.ts` に定義し、Rust の JSON 応答
 [API Documentation](https://akawashiro.github.io/procinsh/) に Rust 側のドキュメントがあります。
 各 façade の module root にある `//! # Interface` コメントに、再エクスポートする型・関数シグネチャを記載します。
 名前のリンクは定義元の rustdoc ページを開き、その **Source** リンクから実装を参照できます。
-シグネチャと一覧は手書きのため、re-export や定義を変更するときはコメントも更新してください。
 CI は `rustdoc::broken_intra_doc_links` をエラーにしてリンク切れを検出しますが、コメント内のシグネチャ一致までは検証しません。
 
 ## HTTP API
