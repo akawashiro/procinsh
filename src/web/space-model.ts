@@ -1,8 +1,8 @@
 import type {
   ProcessId,
   SocketEndpoint,
-  Edge,
-  Port,
+  FdRelation,
+  FdEndpoint,
   IoActivity,
   FileActivity,
   MemoryMap,
@@ -30,9 +30,9 @@ interface PackedTree {
 }
 export interface NetworkGroup {
   id: string;
-  a: Port;
+  endpoint: FdEndpoint;
   socket: SocketEndpoint;
-  members: Edge[];
+  members: FdRelation[];
   label: string;
 }
 export interface RecentFile {
@@ -54,28 +54,28 @@ export const remoteLabel = (socket: SocketEndpoint | null | undefined) =>
     ? `${socket.remote_hostname}:${socket.remote.slice(socket.remote.lastIndexOf(":") + 1)}`
     : socket?.remote;
 export const key = (id: ProcessId) => `${id.pid}:${id.start_time_ticks}`;
-export function networkGroups(edges: Edge[]) {
+export function networkGroups(fd_relations: FdRelation[]) {
   const groups = new Map<string, NetworkGroup>();
-  for (const e of edges) {
-    if (e.b || e.shared || !e.socket?.network_peer) continue;
+  for (const e of fd_relations) {
+    if (e.peer || e.shared || !e.socket?.network_peer) continue;
     const id = JSON.stringify([
-      key(e.a.process_id),
+      key(e.endpoint.process_id),
       e.socket.protocol,
       e.socket.remote,
     ]);
     if (!groups.has(id))
-      groups.set(id, { id, a: e.a, socket: e.socket, members: [], label: "" });
+      groups.set(id, { id, endpoint: e.endpoint, socket: e.socket, members: [], label: "" });
     groups.get(id)!.members.push(e);
   }
   for (const group of groups.values()) {
-    group.members.sort((a, b) => a.a.fd - b.a.fd || a.id.localeCompare(b.id));
+    group.members.sort((a, b) => a.endpoint.fd - b.endpoint.fd || a.id.localeCompare(b.id));
     group.label = `${group.socket.protocol} ${remoteLabel(group.socket)} ×${group.members.length}`;
   }
   return groups;
 }
 
 export function networkLayout(
-  groups: ReadonlyMap<string, { a: { process_id: ProcessId } }>,
+  groups: ReadonlyMap<string, { endpoint: { process_id: ProcessId } }>,
   positions: ReadonlyMap<string, Pick<Position, "x" | "y">>,
   previous: ReadonlyMap<string, Position> = new Map(),
 ) {
@@ -93,7 +93,7 @@ export function networkLayout(
     a.localeCompare(b),
   )) {
     if (result.has(id)) continue;
-    const origin = positions.get(key(group.a.process_id));
+    const origin = positions.get(key(group.endpoint.process_id));
     if (!origin) continue;
     let placed = false;
     for (let layer = 0; !placed; layer++)
@@ -114,11 +114,11 @@ export function networkLayout(
 }
 
 export function connectionState(
-  e: Pick<Edge, "shared" | "candidate" | "b" | "socket">,
+  e: Pick<FdRelation, "shared" | "candidate" | "peer" | "socket">,
 ) {
   if (e.shared) return "Shared FD";
   if (e.candidate) return "Candidate peer";
-  if (e.b) return "Confirmed process connection";
+  if (e.peer) return "Confirmed process connection";
   if (e.socket?.network_peer) return "Network destination";
   if (e.socket?.state === "LISTEN") return "Listening";
   if (e.socket?.protocol.startsWith("UDP")) return "No destination set";
@@ -144,16 +144,16 @@ export function layoutMaps<M extends Pick<MemoryMap, "start" | "end">>(
     .map((m, _, all) => ({ ...m, z: (m.z / z) * 8, h: (m.h / z) * 8 }));
 }
 export function edgeDirection(
-  edge: Pick<Edge, "a" | "b" | "shared">,
+  edge: Pick<FdRelation, "endpoint" | "peer" | "shared">,
   event: Pick<IoActivity, "process_id" | "resource" | "write">,
 ) {
   const a =
-    key(edge.a.process_id) === key(event.process_id) &&
-    edge.a.resource === event.resource;
+    key(edge.endpoint.process_id) === key(event.process_id) &&
+    edge.endpoint.resource === event.resource;
   const b =
-    edge.b &&
-    key(edge.b.process_id) === key(event.process_id) &&
-    edge.b.resource === event.resource;
+    edge.peer &&
+    key(edge.peer.process_id) === key(event.process_id) &&
+    edge.peer.resource === event.resource;
   if (edge.shared || (!a && !b) || (a && b)) return null;
   return a ? (event.write ? 1 : -1) : event.write ? -1 : 1;
 }
@@ -199,8 +199,8 @@ export function cpuGlowLevel(
   return peak * (1 - (now - state.last) / afterglowMs);
 }
 
-export function treeLayout(nodes: TreeNode[], xGap = 4.8, yGap = 6.5) {
-  const ordered = [...nodes].sort(
+export function treeLayout(processes: TreeNode[], xGap = 4.8, yGap = 6.5) {
+  const ordered = [...processes].sort(
     (a, b) =>
       a.identity.pid - b.identity.pid ||
       a.identity.start_time_ticks - b.identity.start_time_ticks,
@@ -317,12 +317,12 @@ export function treeLayout(nodes: TreeNode[], xGap = 4.8, yGap = 6.5) {
 
 // Keep live identities anchored; only newcomers consume vacant space.
 export function stableLayout(
-  nodes: TreeNode[],
+  processes: TreeNode[],
   previous: ReadonlyMap<string, Pick<Position, "x" | "y">> = new Map(),
   xGap = 4.8,
   yGap = 6.5,
 ) {
-  const initial = treeLayout(nodes, xGap, yGap),
+  const initial = treeLayout(processes, xGap, yGap),
     result = new Map<string, TreePosition>();
   for (const [id, place] of initial) {
     const old = previous.get(id);
@@ -402,7 +402,7 @@ export const processColors = (n: {
   euid?: number | null;
 }) => ({ real: userColor(n.uid), effective: userColor(n.euid) });
 
-// Recent file activity is independent of the five-second FD topology snapshot.
+// Recent file activity is independent of the five-second system snapshot.
 export const fileKey = (event: Pick<IoActivity, "process_id" | "resource">) =>
   JSON.stringify([key(event.process_id), event.resource]);
 export class RecentFiles {
@@ -474,7 +474,7 @@ export function fileLayout(
   previous: ReadonlyMap<string, Position> = new Map(),
 ) {
   const groups = new Map(
-    [...files].map(([id, f]) => [id, { a: { process_id: f.process_id } }]),
+    [...files].map(([id, f]) => [id, { endpoint: { process_id: f.process_id } }]),
   );
   const prior = new Map(
     [...previous].map(([id, p]) => [id, { ...p, z: 9 - p.z }]),

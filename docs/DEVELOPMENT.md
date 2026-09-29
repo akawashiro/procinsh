@@ -101,11 +101,11 @@ JSON のプロセス識別子は `{ "pid": 123, "start_time_ticks": 456 }` で�
 | `GET /api/processes/signals` | 識別子クエリ | プロセス・スレッドのシグナル状態と警告 |
 | `POST /api/processes/snapshot` | JSON本文の必須 `{pid, start_time_ticks}` | レジスタ・スタック・逆アセンブルなどのスナップショット |
 | `GET /api/processes/events` | 識別子クエリ | SSE `observation`：指定プロセスの概要・最新観測・スレッド・履歴・マップ・終了状態 |
-| `GET /api/system/events` | なし | SSE `topology`・`metrics`・`activity`・`gap`：構造、CPU/RSS、CPU・IPC・ファイルI/O活動、配信欠落 |
+| `GET /api/system/events` | なし | SSE `snapshot`・`metrics`・`activity`・`gap`：構造、CPU/RSS、CPU・IPC・ファイルI/O活動、配信欠落 |
 
 識別子クエリの欠落・構文不正は400、JSON本文の必須フィールド欠落や型不正は422です。PIDは正の整数である必要があります。対象の終了・PID再利用は410で返します。memory の `address` は10進または `0x` 付き16進、`length` は既定256・範囲1～65536です。不正なアドレス・範囲は400、その他の観測処理の失敗は原則422、ブロッキングタスクの失敗は500です。observation/threads/mapsを含め、終了済みプロセスの単発GETは成功しません。
 
-SSE は `Content-Type: text/event-stream` で接続を維持し、`event:` にイベント名、`data:` に JSON を送ります。接続直後に送るのは `GET /api/processes/events` が `observation`、`GET /api/system/events` が `topology` です。keep-alive はデータの更新ではありません。
+SSE は `Content-Type: text/event-stream` で接続を維持し、`event:` にイベント名、`data:` に JSON を送ります。接続直後に送るのは `GET /api/processes/events` が `observation`、`GET /api/system/events` が `snapshot` です。keep-alive はデータの更新ではありません。
 
 ### `GET /api/processes/events`
 
@@ -136,15 +136,17 @@ SSE は `Content-Type: text/event-stream` で接続を維持し、`event:` に�
 
 | イベント | 配信内容とタイミング |
 |---|---|
-| `topology` | 接続直後の保持済み構造、約5秒ごとの構造更新、配信欠落後の再同期。全体を置き換えるデータ |
+| `snapshot` | 接続直後の保持済み構造、約5秒ごとの構造更新、配信欠落後の再同期。全体を置き換えるデータ |
 | `metrics` | 約1秒ごとのCPU/RSS更新。`{identity, cpu_percent, rss_bytes}` の配列。構造そのものは含まない |
 | `activity` | 最大10Hzの活動集計。`captured_at`、`window_ms`、`cpu`、`ipc`、`files`、`status` |
-| `gap` | 購読遅延時の `{dropped_frames: 件数}`。続けて最新 `topology` を送り、失われた活動は再送しない |
+| `gap` | 購読遅延時の `{dropped_frames: 件数}`。続けて最新 `snapshot` を送り、失われた活動は再送しない |
 
-`topology` のトップレベルは `captured_at`、`nodes`、`edges`、`warnings`、`inspected_processes`、`inspected_fds` です。初回収集前は空の構造の場合があります。
+`system_monitoring/system_snapshot.rs` の `SystemSnapshot` を配信します。`Process` はプロセス、`FdEndpoint` はプロセスの FD 端点、`FdRelation` は socket・pipe・共有所有の関係を表します。
 
-- `nodes`：`identity`、`parent_id`、名前、実・実効ユーザー、CPU使用率、RSS、`maps`、`maps_epoch`、`maps_error`。親を特定できなければ `parent_id` は null、マップ取得失敗時はエラーを含みます。
-- `edges`：接続ID、端点 `a`・`b`、label、socket情報、`candidate`・`shared`。端点にはプロセス識別子、FD、FD数、resource、kind、accessがあります。`b` はローカルの相手を持たなければ null です。`candidate` は接続候補、`shared` は同じリソースの共有で、一意な通信相手とは区別します。
+`snapshot` のトップレベルは `captured_at`、`processes`、`fd_relations`、`warnings`、`inspected_processes`、`inspected_fds` です。初回収集前は空の構造の場合があります。
+
+- `processes`：`identity`、`parent_id`、名前、実・実効ユーザー、CPU使用率、RSS、`maps`、`maps_epoch`、`maps_error`。親を特定できなければ `parent_id` は null、マップ取得失敗時はエラーを含みます。
+- `fd_relations`：接続ID、端点 `endpoint`・`peer`、label、socket情報、`candidate`・`shared`。端点にはプロセス識別子、FD、FD数、resource、kind、accessがあります。`peer` はローカルの相手を持たなければ null です。`candidate` は接続候補、`shared` は同じリソースの共有で、一意な通信相手とは区別します。
 - `socket`：protocol、state、local/remoteアドレス、network_peer、remote_hostname。socket情報や未取得のアドレス・名前は null になり得ます。
 - `warnings` と探索件数：取得不能・打ち切りなどの警告と、走査したプロセス・FDの件数。
 
@@ -231,9 +233,9 @@ watch channelは接続ごとに独立し、遅い購読者へ古い状態を蓄�
 
 ### システム全体の活動収集と SSE 配信処理
 
-`GET /api/system/events` は閲覧者を登録して broadcast channel を購読します。最初に保持済みの構造を `topology` として返し、その後は構造・メトリクス・活動を配信します。センサー状態と収集統計は `activity` イベントの `status` に含まれます。切断・配信終了で登録を解除し、アプリ終了時にはストリームを終了します。
+`GET /api/system/events` は閲覧者を登録して broadcast channel を購読します。最初に保持済みの構造を `snapshot` として返し、その後は構造・メトリクス・活動を配信します。センサー状態と収集統計は `activity` イベントの `status` に含まれます。切断・配信終了で登録を解除し、アプリ終了時にはストリームを終了します。
 
-購読側が遅延した場合は `gap` と最新の `topology` を送り、失われた活動を再生しません。keep-alive は10秒間隔です。活動は最大10Hzで集計・配信します。
+購読側が遅延した場合は `gap` と最新の `snapshot` を送り、失われた活動を再生しません。keep-alive は10秒間隔です。活動は最大10Hzで集計・配信します。
 
 いずれのセンサーも CO-RE eBPF で実装しています。CPU と IPC は同じ eBPF プログラム、ファイル I/O は別の eBPF プログラムで収集します。
 
@@ -290,7 +292,7 @@ watch channelは接続ごとに独立し、遅い購読者へ古い状態を蓄�
 
 Three.js でプロセスの親子関係、仮想アドレス空間、接続先、ファイル I/O を3D表示します。マップのアドレスの隙間を圧縮し、高さを正規化するため、プロセス間の同じ高さは同じアドレスを意味しません。検索、選択、カメラ操作、再配置もブラウザ内の処理です。タイトルは `procinsh / graph` です。
 
-- `topology`：構造を更新し、プロセスと接続先の配置を維持しながら追加・削除を反映します。
+- `snapshot`：構造を更新し、プロセスと接続先の配置を維持しながら追加・削除を反映します。
 - `metrics`：各プロセスの CPU/RSS と選択中の詳細を更新します。
 - `activity`：CPU の発光、IPC・ネットワークの流れ、ファイル I/O の表示を更新します。CPU の発光は実行中に強まり、活動が途絶えると約500msで減衰します。ファイル表示は最終アクセスから30秒、各プロセス32個・全体512個まで保持します。
 - `gap`：描画中の粒子をクリアし、続く構造イベントを反映します。

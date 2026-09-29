@@ -6,7 +6,7 @@ assert.ok(regions[2].z > regions[1].z);
 assert.ok(regions.every(region => region.h > 0));
 assert.deepEqual(layoutMaps([]),[]);
 const a={process_id:{pid:1,start_time_ticks:2},resource:'pipe:1:2'},b={process_id:{pid:2,start_time_ticks:3},resource:'pipe:1:2'};
-const edge={a,b,shared:false};
+const edge={endpoint:a,peer:b,shared:false};
 assert.equal(edgeDirection(edge,{...a,write:true}),1);
 assert.equal(edgeDirection(edge,{...b,write:false}),1);
 assert.equal(edgeDirection({...edge,shared:true},{...a,write:true}),null);
@@ -75,13 +75,13 @@ assert.ok([...stableCycle.values()].every(p=>Number.isFinite(p.x)&&Number.isFini
 console.log('Stable layout checks passed: additions, exits, reparenting, PID reuse, vacant slots, cycles, and 1000 newcomers.');
 
 const {networkGroups,networkLayout,connectionState}=await import('../dist/web/space-model.js');
-const netEdge=(id,remote='203.0.113.1:443',pid=1,protocol='TCP')=>({id,a:{process_id:{pid,start_time_ticks:1},resource:`socket:${id}`,fd:Number(id)||1},b:null,shared:false,socket:{protocol,state:'ESTABLISHED',remote,local:'127.0.0.1:5000',network_peer:true}});
+const netEdge=(id,remote='203.0.113.1:443',pid=1,protocol='TCP')=>({id,endpoint:{process_id:{pid,start_time_ticks:1},resource:`socket:${id}`,fd:Number(id)||1},peer:null,shared:false,socket:{protocol,state:'ESTABLISHED',remote,local:'127.0.0.1:5000',network_peer:true}});
 const connections=[netEdge('1'),netEdge('2'),netEdge('3','[2001:db8::1]:443'),netEdge('4','203.0.113.1:443',2),netEdge('5','203.0.113.1:443',1,'UDP')];
 const groups=networkGroups(connections);
 assert.equal(groups.size,4);
 assert.equal([...groups.values()][0].members.length,2);
 assert.match([...groups.values()][1].label,/\[2001:db8::1\]:443/);
-assert.equal(networkGroups([{...connections[0],shared:true},{...connections[0],b:connections[1].a},{...connections[0],socket:null},{...connections[0],socket:{...connections[0].socket,network_peer:false}}]).size,0);
+assert.equal(networkGroups([{...connections[0],shared:true},{...connections[0],peer:connections[1].endpoint},{...connections[0],socket:null},{...connections[0],socket:{...connections[0].socket,network_peer:false}}]).size,0);
 const owners=new Map([['1:1',{x:0,y:0}],['2:1',{x:0,y:0}]]);
 const netLayout=networkLayout(groups,owners);
 assert.equal(new Set([...netLayout.values()].map(p=>JSON.stringify(p))).size,4);
@@ -93,8 +93,8 @@ assert.deepEqual(networkLayout(networkGroups([...connections].reverse()),owners)
 assert.equal(connectionState({...connections[0],socket:{protocol:'TCP',state:'LISTEN',network_peer:false}}),'Listening');
 assert.equal(connectionState({...connections[0],socket:{protocol:'UDP',network_peer:false}}),'No destination set');
 assert.equal(connectionState(connections[0]),'Network destination');
-assert.equal(edgeDirection(connections[0],{...connections[0].a,write:true}),1);
-assert.equal(edgeDirection(connections[0],{...connections[0].a,write:false}),-1);
+assert.equal(edgeDirection(connections[0],{...connections[0].endpoint,write:true}),1);
+assert.equal(edgeDirection(connections[0],{...connections[0].endpoint,write:false}),-1);
 console.log('Network model checks passed: grouping, IPv6, classification, stable placement, and direction.');
 
 const {remoteLabel}=await import('../dist/web/space-model.js');
