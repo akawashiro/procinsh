@@ -1,6 +1,6 @@
 //! Process observation and collector lifecycle.
 mod history;
 mod service;
-pub use service::Monitoring;
+pub(in crate::http_server) use service::Monitoring;
 use service::ProcessObservation;
-pub use service::observation;
+pub(super) use service::observation;

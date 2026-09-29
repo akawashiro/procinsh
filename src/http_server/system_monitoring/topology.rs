@@ -69,7 +69,7 @@ pub(super) struct Edge {
 }
 #[derive(Clone, Default, Serialize)]
 // Re-exported by system_monitoring for subscription consumers.
-pub struct Topology {
+pub(in crate::http_server) struct Topology {
     pub(super) captured_at: u64,
     pub(super) nodes: Vec<Node>,
     pub(super) edges: Vec<Edge>,

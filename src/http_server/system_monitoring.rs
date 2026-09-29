@@ -6,6 +6,6 @@ mod service;
 mod status;
 mod topology;
 use service::monotonic_ns;
-pub use service::{SubscribeError, System, SystemEvent};
+pub(super) use service::{SubscribeError, System, SystemEvent};
 use status::StatusLog;
-pub use topology::Topology;
+pub(super) use topology::Topology;

@@ -6,4 +6,4 @@ mod registers;
 mod stack;
 mod symbol;
 mod unwind_fp;
-pub use capture::Snapshotter;
+pub(super) use capture::Snapshotter;

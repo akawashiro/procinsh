@@ -8,7 +8,7 @@ use anyhow::Result;
 use serde::Serialize;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-pub fn timestamp_ms() -> u64 {
+pub(in crate::http_server) fn timestamp_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -22,15 +22,15 @@ pub(super) fn permission_help(operation: &str, error: impl std::fmt::Display) ->
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum SubscribeError {
+pub(in crate::http_server) enum SubscribeError {
     Stopped,
     TooManySubscribers,
 }
 
-pub fn observation(id: ProcessId) -> Result<impl Serialize> {
+pub(in crate::http_server) fn observation(id: ProcessId) -> Result<impl Serialize> {
     monitoring::observation(id, None)
 }
-pub fn threads(id: ProcessId) -> Result<impl Serialize> {
+pub(in crate::http_server) fn threads(id: ProcessId) -> Result<impl Serialize> {
     Ok(monitoring::observation(id, None)?.threads)
 }
 #[derive(Serialize)]
@@ -41,7 +41,7 @@ struct MemoryMaps {
     captured_at: Option<u64>,
     rollup: Option<maps::MemoryRollup>,
 }
-pub fn maps(id: ProcessId) -> Result<impl Serialize> {
+pub(in crate::http_server) fn maps(id: ProcessId) -> Result<impl Serialize> {
     check_identity(id)?;
     let result = maps::read(id.pid, true);
     let rollup = maps::rollup(id.pid);
@@ -58,49 +58,60 @@ pub fn maps(id: ProcessId) -> Result<impl Serialize> {
         rollup,
     })
 }
-pub fn environment(id: ProcessId) -> Result<impl Serialize> {
+pub(in crate::http_server) fn environment(id: ProcessId) -> Result<impl Serialize> {
     details::environment(id)
 }
-pub fn auxv(id: ProcessId) -> Result<impl Serialize> {
+pub(in crate::http_server) fn auxv(id: ProcessId) -> Result<impl Serialize> {
     details::auxv(id)
 }
-pub fn fds(id: ProcessId) -> Result<impl Serialize> {
+pub(in crate::http_server) fn fds(id: ProcessId) -> Result<impl Serialize> {
     super::fds::read(id)
 }
-pub fn signals(id: ProcessId) -> Result<impl Serialize> {
+pub(in crate::http_server) fn signals(id: ProcessId) -> Result<impl Serialize> {
     super::signals::read(id)
 }
-pub const MAX_READ: usize = super::memory::MAX_READ;
-pub fn memory(id: ProcessId, address: u64, length: usize) -> Result<impl Serialize> {
+pub(in crate::http_server) const MAX_READ: usize = super::memory::MAX_READ;
+pub(in crate::http_server) fn memory(
+    id: ProcessId,
+    address: u64,
+    length: usize,
+) -> Result<impl Serialize> {
     super::memory::read(id, address, length)
 }
 #[derive(Default)]
-pub struct Snapshotter(snapshot::Snapshotter);
+pub(in crate::http_server) struct Snapshotter(snapshot::Snapshotter);
 impl Snapshotter {
     pub(in crate::http_server) fn capture(&self, id: ProcessId) -> Result<impl Serialize> {
         self.0.capture(id)
     }
 }
 // Minimal primitives also used by system-wide monitoring.
-pub fn memory_maps(pid: i32) -> Result<Vec<MemoryMap>> {
+pub(in crate::http_server) fn memory_maps(pid: i32) -> Result<Vec<MemoryMap>> {
     maps::read(pid, false)
 }
-pub fn ticks_per_second() -> f64 {
+pub(in crate::http_server) fn ticks_per_second() -> f64 {
     procfs::ticks_per_second()
 }
-pub fn fields(path: &str) -> Result<std::collections::HashMap<String, String>> {
+pub(in crate::http_server) fn fields(
+    path: &str,
+) -> Result<std::collections::HashMap<String, String>> {
     procfs::fields(path)
 }
-pub fn socket_text(path: &str) -> Result<String> {
+pub(in crate::http_server) fn socket_text(path: &str) -> Result<String> {
     sockets::read_text(path)
 }
-pub fn inet_sockets(text: &str, protocol: &str) -> std::collections::HashMap<u64, SocketInfo> {
+pub(in crate::http_server) fn inet_sockets(
+    text: &str,
+    protocol: &str,
+) -> std::collections::HashMap<u64, SocketInfo> {
     sockets::parse_inet(text, protocol)
 }
-pub fn unix_sockets(text: &str) -> std::collections::HashMap<u64, SocketInfo> {
+pub(in crate::http_server) fn unix_sockets(
+    text: &str,
+) -> std::collections::HashMap<u64, SocketInfo> {
     sockets::parse_unix(text)
 }
-pub fn unix_socket_peers(
+pub(in crate::http_server) fn unix_socket_peers(
     deadline: std::time::Instant,
 ) -> Result<std::collections::HashMap<u64, SocketInfo>> {
     sockets::unix_diag(deadline)
