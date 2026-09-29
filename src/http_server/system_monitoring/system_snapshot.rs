@@ -8,8 +8,9 @@ use std::{
     os::unix::fs::{FileTypeExt, MetadataExt},
     time::{Duration, Instant},
 };
+/// A Linux process and its observed address space.
 #[derive(Clone, Serialize)]
-pub(super) struct Node {
+pub(super) struct Process {
     pub(super) identity: ProcessId,
     pub(super) parent_id: Option<ProcessId>,
     pub(super) name: String,
@@ -23,8 +24,9 @@ pub(super) struct Node {
     pub(super) maps_epoch: u64,
     pub(super) maps_error: Option<String>,
 }
+/// A process-owned file descriptor endpoint, including coalesced shared FDs.
 #[derive(Clone, Serialize)]
-pub(super) struct Port {
+pub(super) struct FdEndpoint {
     pub(super) process_id: ProcessId,
     pub(super) fd: u32,
     pub(super) fd_count: usize,
@@ -57,28 +59,34 @@ impl From<&SocketInfo> for SocketEndpoint {
         }
     }
 }
+/// A socket, pipe, or shared-ownership relation between file descriptor endpoints.
+/// An absent peer represents an external or unidentified process endpoint.
 #[derive(Clone, Serialize)]
-pub(super) struct Edge {
+pub(super) struct FdRelation {
     pub(super) id: String,
-    pub(super) a: Port,
-    pub(super) b: Option<Port>,
+    pub(super) endpoint: FdEndpoint,
+    pub(super) peer: Option<FdEndpoint>,
     pub(super) label: String,
     pub(super) socket: Option<SocketEndpoint>,
     pub(super) candidate: bool,
     pub(super) shared: bool,
 }
+/// A system-wide observation of processes and their file descriptor relations.
 #[derive(Clone, Default, Serialize)]
 // Re-exported by system_monitoring for subscription consumers.
-pub(in crate::http_server) struct Topology {
+pub(in crate::http_server) struct SystemSnapshot {
     pub(super) captured_at: u64,
-    pub(super) nodes: Vec<Node>,
-    pub(super) edges: Vec<Edge>,
+    pub(super) processes: Vec<Process>,
+    pub(super) fd_relations: Vec<FdRelation>,
     pub(super) warnings: Vec<String>,
     pub(super) inspected_processes: usize,
     pub(super) inspected_fds: usize,
 }
-pub(super) fn node(summary: ProcessSummary, parent_id: Option<ProcessId>) -> Node {
-    Node {
+pub(super) fn process_from_summary(
+    summary: ProcessSummary,
+    parent_id: Option<ProcessId>,
+) -> Process {
+    Process {
         identity: summary.identity,
         parent_id,
         name: summary.name,
@@ -96,8 +104,8 @@ pub(super) fn node(summary: ProcessSummary, parent_id: Option<ProcessId>) -> Nod
 pub(super) fn resource(kind: &str, dev: u64, inode: u64) -> String {
     format!("{kind}:{dev}:{inode}")
 }
-pub(super) fn collect(discovery: &mut Discovery) -> Topology {
-    let mut result = Topology {
+pub(super) fn collect(discovery: &mut Discovery) -> SystemSnapshot {
+    let mut result = SystemSnapshot {
         captured_at: process::timestamp_ms(),
         ..Default::default()
     };
@@ -112,7 +120,7 @@ pub(super) fn collect(discovery: &mut Discovery) -> Topology {
         .iter()
         .map(|summary| (summary.identity.pid, summary.identity))
         .collect();
-    let mut owners: HashMap<String, Vec<Port>> = HashMap::new();
+    let mut owners: HashMap<String, Vec<FdEndpoint>> = HashMap::new();
     let mut infos = HashMap::new();
     let mut inode_ns = HashMap::new();
     let mut namespaces = HashSet::new();
@@ -124,12 +132,12 @@ pub(super) fn collect(discovery: &mut Discovery) -> Topology {
             .get(&summary.parent_pid)
             .copied()
             .filter(|parent| *parent != summary.identity);
-        let mut n = node(summary, parent_id);
+        let mut n = process_from_summary(summary, parent_id);
         let pid = n.identity.pid;
         if Instant::now() >= deadline {
             n.maps_error = Some("Scan time limit reached. Retrying on the next update.".into());
             truncated = true;
-            result.nodes.push(n);
+            result.processes.push(n);
             continue;
         }
         n.maps_epoch = super::monotonic_ns();
@@ -166,7 +174,7 @@ pub(super) fn collect(discovery: &mut Discovery) -> Topology {
                 }
             }
         }
-        let mut ports = Vec::new();
+        let mut endpoints = Vec::new();
         match fs::read_dir(format!("/proc/{pid}/fd")) {
             Ok(fds) => {
                 result.inspected_processes += 1;
@@ -199,7 +207,7 @@ pub(super) fn collect(discovery: &mut Discovery) -> Topology {
                         .ok()
                         .and_then(|f| f.get("flags").and_then(|v| u32::from_str_radix(v, 8).ok()))
                         .unwrap_or(u32::MAX);
-                    ports.push(Port {
+                    endpoints.push(FdEndpoint {
                         process_id: n.identity,
                         fd: number,
                         fd_count: 1,
@@ -220,7 +228,7 @@ pub(super) fn collect(discovery: &mut Discovery) -> Topology {
             }
         }
         if process::check_identity(n.identity).is_ok() {
-            for p in ports {
+            for p in endpoints {
                 let list = owners.entry(p.resource.clone()).or_default();
                 if let Some(existing) = list
                     .iter_mut()
@@ -232,7 +240,7 @@ pub(super) fn collect(discovery: &mut Discovery) -> Topology {
                     list.push(p);
                 }
             }
-            result.nodes.push(n);
+            result.processes.push(n);
         }
     }
     match process::unix_socket_peers(Instant::now() + Duration::from_millis(500)) {
@@ -266,31 +274,37 @@ pub(super) fn collect(discovery: &mut Discovery) -> Topology {
             by_inode.insert(inode, key.clone());
         }
     }
-    for ports in owners.values_mut() {
-        ports.sort_by_key(|p| (p.process_id.pid, p.process_id.start_time_ticks, p.fd));
+    for endpoints in owners.values_mut() {
+        endpoints.sort_by_key(|p| (p.process_id.pid, p.process_id.start_time_ticks, p.fd));
     }
     let mut seen = HashSet::new();
-    for (key, ports) in &owners {
-        for a in ports {
-            let mut matches: Vec<(&Port, bool, bool, String)> = Vec::new();
-            for b in ports {
-                if a.process_id == b.process_id && a.fd == b.fd {
+    for (key, endpoints) in &owners {
+        for endpoint in endpoints {
+            let mut matches: Vec<(&FdEndpoint, bool, bool, String)> = Vec::new();
+            for peer in endpoints {
+                if endpoint.process_id == peer.process_id && endpoint.fd == peer.fd {
                     continue;
                 }
-                let shared = a.kind == "socket"
-                    || !matches!((a.access, b.access), (0, 1 | 2) | (1, 0 | 2) | (2, 0..=2));
+                let shared = endpoint.kind == "socket"
+                    || !matches!(
+                        (endpoint.access, peer.access),
+                        (0, 1 | 2) | (1, 0 | 2) | (2, 0..=2)
+                    );
                 // Shared ownership is a group, not a full mesh of communication links.
-                if shared && !std::ptr::eq(a, &ports[0]) && !std::ptr::eq(b, &ports[0]) {
+                if shared
+                    && !std::ptr::eq(endpoint, &endpoints[0])
+                    && !std::ptr::eq(peer, &endpoints[0])
+                {
                     continue;
                 }
-                matches.push((b, false, shared, a.kind.clone()));
+                matches.push((peer, false, shared, endpoint.kind.clone()));
             }
             let inode = key
                 .rsplit(':')
                 .next()
                 .and_then(|s| s.parse().ok())
                 .unwrap_or(0);
-            let info = if a.kind == "socket" {
+            let info = if endpoint.kind == "socket" {
                 infos.get(&inode)
             } else {
                 None
@@ -310,9 +324,9 @@ pub(super) fn collect(discovery: &mut Discovery) -> Topology {
                     peers.extend(ids.iter().filter(|&&v| v != inode).map(|&v| (v, true)));
                 }
                 for (peer, candidate) in peers {
-                    if let Some(peerports) = by_inode.get(&peer).and_then(|k| owners.get(k)) {
-                        for b in peerports {
-                            matches.push((b, candidate, false, info.protocol.clone()));
+                    if let Some(peer_endpoints) = by_inode.get(&peer).and_then(|k| owners.get(k)) {
+                        for peer in peer_endpoints {
+                            matches.push((peer, candidate, false, info.protocol.clone()));
                         }
                     }
                 }
@@ -335,13 +349,13 @@ pub(super) fn collect(discovery: &mut Discovery) -> Topology {
                         )
                     })
                     .unwrap_or_else(|| "Unknown peer".into());
-                result.edges.push(Edge {
+                result.fd_relations.push(FdRelation {
                     id: format!(
                         "{}:{}:{}:external",
-                        a.process_id.pid, a.process_id.start_time_ticks, a.fd
+                        endpoint.process_id.pid, endpoint.process_id.start_time_ticks, endpoint.fd
                     ),
-                    a: a.clone(),
-                    b: None,
+                    endpoint: endpoint.clone(),
+                    peer: None,
                     label,
                     socket: info.map(SocketEndpoint::from),
                     candidate: false,
@@ -352,24 +366,24 @@ pub(super) fn collect(discovery: &mut Discovery) -> Topology {
             if matches.len() > 64 {
                 truncated = true;
             }
-            for (b, candidate, shared, label) in matches.into_iter().take(64) {
+            for (peer, candidate, shared, label) in matches.into_iter().take(64) {
                 let mut ends = [
                     format!(
                         "{}:{}:{}",
-                        a.process_id.pid, a.process_id.start_time_ticks, a.fd
+                        endpoint.process_id.pid, endpoint.process_id.start_time_ticks, endpoint.fd
                     ),
                     format!(
                         "{}:{}:{}",
-                        b.process_id.pid, b.process_id.start_time_ticks, b.fd
+                        peer.process_id.pid, peer.process_id.start_time_ticks, peer.fd
                     ),
                 ];
                 ends.sort();
                 let id = ends.join("/");
                 if seen.insert(id.clone()) {
-                    result.edges.push(Edge {
+                    result.fd_relations.push(FdRelation {
                         id,
-                        a: a.clone(),
-                        b: Some(b.clone()),
+                        endpoint: endpoint.clone(),
+                        peer: Some(peer.clone()),
                         label,
                         socket: info.map(SocketEndpoint::from),
                         candidate,
@@ -377,12 +391,12 @@ pub(super) fn collect(discovery: &mut Discovery) -> Topology {
                     });
                 }
             }
-            if result.edges.len() >= 20_000 {
+            if result.fd_relations.len() >= 20_000 {
                 truncated = true;
                 break;
             }
         }
-        if result.edges.len() >= 20_000 {
+        if result.fd_relations.len() >= 20_000 {
             break;
         }
     }
@@ -394,7 +408,7 @@ pub(super) fn collect(discovery: &mut Discovery) -> Topology {
     if truncated {
         result
             .warnings
-            .push("Scan, mapping, or connection limit reached. Some topology is missing.".into());
+            .push("Scan, mapping, or connection limit reached. Some process or FD information is missing.".into());
     }
     if namespaces.len() > 1 {
         result.warnings.push(
@@ -440,5 +454,5 @@ mod tests {
 }
 
 #[cfg(test)]
-#[path = "topology_tests.rs"]
+#[path = "system_snapshot_tests.rs"]
 mod fixture_tests;
