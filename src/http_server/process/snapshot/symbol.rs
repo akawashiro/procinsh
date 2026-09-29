@@ -7,5 +7,5 @@
 
 mod cache;
 mod resolve;
-pub(super) use cache::ElfCache;
-pub(super) use resolve::{SymbolInfo, elf_address, instruction_address, resolve_frame};
+pub use cache::ElfCache;
+pub use resolve::{SymbolInfo, elf_address, instruction_address, resolve_frame};

@@ -2,7 +2,7 @@ use super::cache::ElfSymbols;
 use crate::http_server::process::{maps::MemoryMap, snapshot::stack::SourceFrame};
 /// Symbol and source information for one ELF address.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub(in crate::http_server::process::snapshot) struct SymbolInfo {
+pub struct SymbolInfo {
     pub(in crate::http_server::process::snapshot) name: Option<String>,
     pub(in crate::http_server::process::snapshot) offset: Option<u64>,
     pub(in crate::http_server::process::snapshot) file: Option<String>,
@@ -12,21 +12,13 @@ pub(in crate::http_server::process::snapshot) struct SymbolInfo {
 
 /// Correct a saved return address before selecting its mapping.
 /// The currently executing instruction must be passed with `return_address = false`.
-pub(in crate::http_server::process::snapshot) fn instruction_address(
-    address: u64,
-    return_address: bool,
-) -> u64 {
+pub fn instruction_address(address: u64, return_address: bool) -> u64 {
     address.saturating_sub(u64::from(return_address))
 }
 
 /// Convert a corrected runtime address into an ELF address, accounting for the
 /// mapping offset, PIE/ASLR load bias, and page-aligned segment mappings.
-pub(in crate::http_server::process::snapshot) fn elf_address(
-    address: u64,
-    map: &MemoryMap,
-    elf: &ElfSymbols,
-    page: u64,
-) -> Option<u64> {
+pub fn elf_address(address: u64, map: &MemoryMap, elf: &ElfSymbols, page: u64) -> Option<u64> {
     if page == 0 || !map.contains(address) {
         return None;
     }
@@ -45,10 +37,7 @@ pub(in crate::http_server::process::snapshot) fn elf_address(
 /// Resolve an ELF address without changing a frame or the ELF cache.
 /// Returns `None` only when no symbol, source location, or inline frame is found.
 /// addr2line may perform lazy debug-file I/O under the ELF's private lock.
-pub(in crate::http_server::process::snapshot) fn resolve_frame(
-    address: u64,
-    elf: &ElfSymbols,
-) -> Option<SymbolInfo> {
+pub fn resolve_frame(address: u64, elf: &ElfSymbols) -> Option<SymbolInfo> {
     let mut info = SymbolInfo::default();
     if let Some((start, _, name)) = elf.symbols.iter().rev().find(|(start, size, _)| {
         *start <= address && (*size == 0 || address < start.saturating_add(*size))

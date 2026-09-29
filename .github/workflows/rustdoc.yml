@@ -1,4 +1,4 @@
-name: Publish rustdoc
+name: Publish documentation
 
 on:
   push:
@@ -50,39 +50,45 @@ jobs:
       - name: Install dependency graph tool
         run: cargo install cargo-modules --version 0.27.0 --locked
 
-      - name: Build rustdoc
-        run: cargo doc --locked --workspace --no-deps --document-private-items
+      - name: Install documentation nightly
+        run: rustup toolchain install nightly-2026-09-28 --profile minimal
+
+      - name: Build internal API documentation
+        run: |
+          cargo fmt --manifest-path tools/internal-api-docs/Cargo.toml --check
+          cargo test --locked --manifest-path tools/internal-api-docs/Cargo.toml
+          cargo clippy --locked --manifest-path tools/internal-api-docs/Cargo.toml --all-targets -- -D warnings
+          # Keep build artifacts and JSON outside the published site.
+          cargo +nightly-2026-09-28 rustdoc --locked --bin procinsh \
+            --target-dir target/internal-api-json -- \
+            --document-private-items --document-hidden-items -Z unstable-options --output-format json
+          cargo run --locked --manifest-path tools/internal-api-docs/Cargo.toml -- \
+            target/internal-api-json/doc/procinsh.json target/pages/internal-api
 
       - name: Build module dependency graphs
         run: |
           python3 -m unittest discover -s scripts -p 'test_*.py'
-          mkdir -p target/doc/architecture
+          mkdir -p target/pages/architecture
           # The item filters fold references into the containing modules.
           # Keep uses edges; --no-uses would produce only an ownership tree.
           cargo modules dependencies --bin procinsh --no-externs --no-sysroot \
-            --no-fns --no-traits --no-types > target/doc/architecture/modules-raw.dot
-          python3 scripts/module_dependencies.py target/doc/architecture/modules-raw.dot
+            --no-fns --no-traits --no-types > target/pages/architecture/modules-raw.dot
+          python3 scripts/module_dependencies.py target/pages/architecture/modules-raw.dot \
+            --output target/pages/architecture
 
       - name: Create index page
         run: |
           echo '<!doctype html><html lang="ja">' \
             '<meta charset="utf-8">' \
             '<meta name="viewport" content="width=device-width,initial-scale=1">' \
-            '<title>Rust API Docs</title>' \
-            '<h1>Rust API Docs</h1><ul>' \
-            > target/doc/index.html
+            '<title>ProcInSh Documentation</title>' \
+            '<h1>ProcInSh Documentation</h1><ul>' \
+            > target/pages/index.html
 
-          for file in target/doc/*/index.html; do
-            [ -f "$file" ] || continue
-            [ "$file" != target/doc/architecture/index.html ] || continue
-            crate=$(basename "$(dirname "$file")")
-            echo "<li><a href=\"$crate/index.html\">$crate</a></li>" \
-              >> target/doc/index.html
-          done
-
-          echo '<li><a href="architecture/">Module dependency graph</a></li>' >> target/doc/index.html
-          echo '</ul></html>' >> target/doc/index.html
-          touch target/doc/.nojekyll
+          echo '<li><a href="architecture/">Module dependency graph</a></li>' >> target/pages/index.html
+          echo '<li><a href="internal-api/">Internal API</a></li>' >> target/pages/index.html
+          echo '</ul></html>' >> target/pages/index.html
+          touch target/pages/.nojekyll
 
       - uses: actions/configure-pages@v5
         if: github.event_name != 'pull_request'
@@ -90,7 +96,7 @@ jobs:
       - uses: actions/upload-pages-artifact@v4
         if: github.event_name != 'pull_request'
         with:
-          path: target/doc
+          path: target/pages
 
   deploy:
     if: github.event_name != 'pull_request'

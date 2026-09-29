@@ -165,7 +165,7 @@ mod tests {
 }
 
 #[derive(Default)]
-pub(in crate::http_server::process) struct Snapshotter {
+pub struct Snapshotter {
     lock: Mutex<()>,
     symbols: Arc<Mutex<ElfCache>>,
 }

@@ -5,7 +5,7 @@ use axum::{
     routing::{get, post},
 };
 use std::sync::Arc;
-pub(in crate::http_server) fn router() -> Router<Arc<AppState>> {
+pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/api/system/events", get(system::events))
         .route("/api/config", get(process::config))

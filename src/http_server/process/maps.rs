@@ -4,7 +4,7 @@ use serde::Serialize;
 use std::fs;
 
 #[derive(Clone, Debug, Serialize)]
-pub(in crate::http_server) struct MemoryMap {
+pub struct MemoryMap {
     #[serde(serialize_with = "hex")]
     pub(super) start: u64,
     #[serde(serialize_with = "hex")]

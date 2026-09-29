@@ -2,7 +2,7 @@ use super::{AppState, router::router};
 use anyhow::{Context, Result};
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
-pub(crate) async fn run(listen: SocketAddr, interval: Duration) -> Result<()> {
+pub async fn run(listen: SocketAddr, interval: Duration) -> Result<()> {
     let state = Arc::new(AppState::new(interval));
     let listener = tokio::net::TcpListener::bind(listen)
         .await
