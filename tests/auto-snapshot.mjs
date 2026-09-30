@@ -22,8 +22,9 @@ export async function checkAutoSnapshot({evaluate, waitFor, delay, choose, other
   const checked = () => evaluate("document.getElementById('auto-snapshot').checked");
   const calls = () => evaluate('window.snapshotTest.calls');
   const idle = () => waitFor('window.snapshotTest.active === 0 && !snapshotBusy', 'snapshot idle');
-  assert.equal(await checked(), false);
-  await toggle();
+  await evaluate("document.getElementById('back').click()");
+  await choose(originalPid);
+  assert.equal(await checked(), true, 'new target starts continuous capture by default');
   assert.equal(await evaluate("document.getElementById('snapshot').disabled"), true);
   await waitFor('window.snapshotTest.completed >= 3', 'repeated automatic snapshots');
   await idle();
@@ -67,7 +68,8 @@ export async function checkAutoSnapshot({evaluate, waitFor, delay, choose, other
   await waitFor('window.snapshotTest.release !== null', 'response before target change');
   await evaluate("document.getElementById('back').click()");
   await waitFor("document.getElementById('inspector').hidden", 'back while capturing');
-  await choose(otherPid); assert.equal(await checked(), false);
+  await choose(otherPid); assert.equal(await checked(), true, 'new target enables continuous capture');
+  await toggle();
   await evaluate('window.snapshotTest.release(); window.snapshotTest.release = null'); await idle();
   assert.equal(await evaluate("document.querySelectorAll('#registers tr').length"), 0, 'discard previous target result');
   assert.equal(await evaluate("document.querySelectorAll('#disassembly tr').length"), 0, 'discard previous target disassembly');
@@ -82,7 +84,16 @@ export async function checkAutoSnapshot({evaluate, waitFor, delay, choose, other
   await toggle(); await idle();
   await evaluate("document.getElementById('back').click()");
   await waitFor("document.getElementById('inspector').hidden", 'return for manual regression tests');
+  // An unavailable default capture turns off once and stays off on later observations.
+  await evaluate("window.snapshotTest.mode = 'denied'");
   await choose(originalPid);
+  await waitFor("!document.getElementById('auto-snapshot').checked && !document.getElementById('error').hidden", 'unavailable default capture turns off');
+  await idle(); count = await calls();
+  await delay(1200); assert.equal(await calls(), count, 'failed default capture must not retry on observations');
+  await evaluate("window.snapshotTest.mode = 'normal'; document.getElementById('back').click()");
+  await choose(originalPid);
+  assert.equal(await checked(), true);
+  await toggle(); await idle();
   await evaluate('window.fetch = window.originalFetch');
   console.log('Auto snapshot checks passed: cadence, stop, slow response, non-overlap, errors, hidden tab, stale result, thread selection.');
 }

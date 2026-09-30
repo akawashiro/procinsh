@@ -464,7 +464,8 @@ function acceptTarget(next: Target | null) {
     refresh();
     return;
   }
-  if (!same(identity(), next.summary.identity)) resetCapture();
+  const changed = !same(identity(), next.summary.identity);
+  if (changed) resetCapture();
   target = next;
   $("explorer").hidden = true;
   $("inspector").hidden = false;
@@ -473,6 +474,7 @@ function acceptTarget(next: Target | null) {
   history.replaceState(null, "", `/process/${next.summary.identity.pid}`);
   document.title = `procinsh / ${target.summary.name}`;
   renderTarget();
+  if (changed) startAutoSnapshot();
 }
 async function back(event?: Event) {
   event?.preventDefault();
