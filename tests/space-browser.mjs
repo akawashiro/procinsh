@@ -220,6 +220,26 @@ try {
   assert.ok(await evaluate("(()=>{const r=document.querySelector('.tools').getBoundingClientRect();return r.left>=0&&r.right<=390&&r.top>=0&&r.bottom<=844})()"),'mobile tools remain in the viewport');
   await evaluate("window.dispatchEvent(new Event('pagehide'))");
   await waitFor('window.spaceTestSources.every(s=>s.readyState===EventSource.CLOSED)', 'pagehide closes viewers');
+  // A live update between mouse down/up must not detach the detail link.
+  await cdp('Emulation.setDeviceMetricsOverride',{width:1440,height:1100,deviceScaleFactor:1,mobile:false});
+  await evaluate(`(async()=>{
+    const m=await import('/space.js');
+    window.linkSnapshot={processes:[${JSON.stringify(n)}],fd_relations:[{
+      id:'click-link',endpoint:{process_id:${JSON.stringify(n.identity)},fd:4,fd_count:1,resource:'pipe:click',kind:'pipe',access:2},
+      peer:null,label:'click regression',shared:false,candidate:false
+    }]};
+    document.getElementById('search').value='';
+    m.renderSystemSnapshot(window.linkSnapshot);
+    m.selectConnection('click-link');
+    window.detailLink=document.querySelector('#connection-endpoints a');
+    window.detailLink.focus();
+  })()`);
+  const linkPoint=await evaluate("(()=>{const r=window.detailLink.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()");
+  await cdp('Input.dispatchMouseEvent',{type:'mousePressed',...linkPoint,button:'left',buttons:1,clickCount:1});
+  await evaluate("import('/space.js').then(m=>{m.renderActivity({window_ms:100,cpu:[],ipc:[]});m.renderSystemSnapshot(window.linkSnapshot)})");
+  assert.ok(await evaluate("window.detailLink.isConnected && document.activeElement===window.detailLink"),'live activity and snapshots preserve the focused link');
+  await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',...linkPoint,button:'left',buttons:0,clickCount:1});
+  await waitFor(`location.pathname==='/process/${app.pid}' && document.getElementById('inspector')?.hidden===false`, 'connection link opens process inspector');
   await cdp('Page.navigate',{url});
   assert.deepEqual(errors.filter(e=>!/favicon.ico/.test(e)),[]);
   console.log('Space browser checks passed: WebGL, snapshot, minimal tools, connection details/states/links, CPU base glow/fade, stale identity, process selection, independent graph selection, mobile, SSE connection lifecycle.');

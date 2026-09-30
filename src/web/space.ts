@@ -894,7 +894,7 @@ function fileDetails() {
   const link = document.createElement("a");
   link.href = `/process/${f.process_id.pid}`;
   link.textContent = "Open process details ↗";
-  $("connection-endpoints").replaceChildren(path, identity, link);
+  updateConnectionEndpoints([path, identity, link]);
 }
 function fileVisuals() {
   return [...fileViews.values()].map((v) => ({
@@ -965,6 +965,19 @@ function endpoint(
   div.append(identity, fd, resource, link);
   return div;
 }
+// Keep unchanged links attached across live updates so pointer presses and
+// keyboard focus survive until the user activates them.
+function updateConnectionEndpoints(children: HTMLElement[]) {
+  const container = $("connection-endpoints");
+  children.forEach((child, index) => {
+    const current = container.children[index];
+    if (!current) container.append(child);
+    else if (!current.isEqualNode(child)) current.replaceWith(child);
+  });
+  while (container.children.length > children.length) {
+    container.lastElementChild!.remove();
+  }
+}
 function details() {
   $("connection-kind").textContent = selectedFile
     ? "SELECTED FILE"
@@ -1012,14 +1025,14 @@ function details() {
   $("connection-facts").textContent = stat
     ? `Latest activity: ${stat.bytes} bytes / ${stat.count} operations · ${((performance.now() - stat.time) / 1000).toFixed(1)}s ago`
     : "Recent traffic —";
-  $("connection-endpoints").replaceChildren(
+  const endpoints: HTMLElement[] = [
     endpoint(e.endpoint, "ENDPOINT"),
     endpoint(e.peer, "PEER", e.socket),
-  );
+  ];
   if (e.socket) {
     const info = document.createElement("p");
     info.textContent = `${e.socket.protocol} ${e.socket!.state} · ${e.socket!.local || "—"} → ${e.socket.remote || "—"}`;
-    $("connection-endpoints").append(info);
+    endpoints.push(info);
   }
   const group = [...network.values()].find((g) =>
     g.members.some((member) => member.id === e.id),
@@ -1027,9 +1040,11 @@ function details() {
   if (group) {
     const back = document.createElement("button");
     back.textContent = "Show all connections to this destination";
+    back.dataset.networkId = group.id;
     back.onclick = () => selectNetwork(group.id);
-    $("connection-endpoints").append(back);
+    endpoints.push(back);
   }
+  updateConnectionEndpoints(endpoints);
 }
 function updateParentSelection() {
   if (!parentLines?.geometry.attributes.color) return;
