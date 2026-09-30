@@ -109,6 +109,8 @@ try {
   await checkAutoSnapshot({evaluate, waitFor, delay, choose, otherPid: threads.pid, originalPid: recursive.pid});
   await checkProcessDetails({evaluate, waitFor, delay, choose, otherPid: threads.pid, originalPid: recursive.pid});
   await checkDescriptors({evaluate, waitFor, delay, choose, originalPid: recursive.pid, ipcPid: ipc.pid, peerPid});
+  await evaluate("if (document.getElementById('auto-snapshot').checked) document.getElementById('auto-snapshot').click()");
+  await waitFor('!snapshotBusy', 'default capture finishes before manual checks');
   await waitFor("document.querySelectorAll('#maps tr').length > 5", 'memory maps');
   await evaluate("document.getElementById('snapshot').click()");
   await waitFor("document.querySelectorAll('#registers tr').length === 18", 'register snapshot');
@@ -143,6 +145,9 @@ try {
   await waitFor("document.getElementById('inspector').hidden", 'return to explorer');
   assert.equal(await evaluate("document.querySelectorAll('#disassembly tr').length"), 0);
   await choose(threads.pid);
+  assert.equal(await evaluate("document.getElementById('auto-snapshot').checked"), true);
+  await evaluate("document.getElementById('auto-snapshot').click()");
+  await waitFor('!snapshotBusy', 'default worker capture finishes');
   await waitFor("document.querySelectorAll('#threads tr').length >= 6", 'thread view');
   await evaluate("document.getElementById('snapshot').click()");
   await waitFor("document.querySelectorAll('#registers tr').length === 18", 'multi-thread snapshot');
