@@ -1,3 +1,7 @@
+export interface CpuRange { start: number; end: number }
+export type SchedulerPolicy = {kind:"other" | "fifo" | "rr" | "batch" | "idle" | "deadline" | "ext"} | {kind:"unknown";code:number};
+export interface Signal { number: number; name: string }
+export interface SignalQueue { count: string; limit: string }
 export type FdAccess = "read" | "write" | "read_write" | "unknown";
 export type FdKind = "pipe" | "socket" | "fifo";
 export interface InetAddress { ip: string; port: number }
@@ -50,8 +54,8 @@ export interface ThreadObservation {
   cpu_percent: number | null;
   priority: number;
   nice: number;
-  scheduler: string;
-  affinity: string | null;
+  scheduler: SchedulerPolicy;
+  affinity: CpuRange[] | null;
   voluntary_context_switches: number | null;
   nonvoluntary_context_switches: number | null;
 }
@@ -197,7 +201,7 @@ export interface FileDescriptors extends ProcessDetail {
 }
 export interface SignalMask {
   hex: string;
-  signals: string[];
+  signals: Signal[];
 }
 interface SignalStatus {
   tid: number;
@@ -207,7 +211,7 @@ interface SignalStatus {
   blocked: SignalMask;
   ignored: SignalMask;
   caught: SignalMask;
-  queued: string;
+  queued: SignalQueue;
 }
 export interface Signals extends ProcessDetail {
   leader: SignalStatus;

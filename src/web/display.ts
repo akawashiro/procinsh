@@ -1,5 +1,15 @@
 // Shared formatting. Values remain structured in models and API contracts.
 namespace Display {
+  export function scheduler(p: import('./api-types.js').SchedulerPolicy): string {
+    return p.kind === 'unknown' ? `UNKNOWN (${p.code})` : p.kind.toUpperCase();
+  }
+  export function affinity(ranges: import('./api-types.js').CpuRange[] | null): string {
+    return ranges === null ? 'N/A' : ranges.map(r=>r.start===r.end ? String(r.start) : `${r.start}-${r.end}`).join(',');
+  }
+  export function signal(signal: import('./api-types.js').Signal): string {
+    const name=signal.name === 'RT' ? `RT (kernel ${signal.number})` : signal.name;
+    return `${name} [${signal.number}]`;
+  }
   export function address(a: import('./api-types.js').InetAddress | null | undefined): string {
     return a ? `${a.ip.includes(':') ? `[${a.ip}]` : a.ip}:${a.port}` : '';
   }

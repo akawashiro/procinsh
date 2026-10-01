@@ -148,3 +148,8 @@ console.log('File model checks passed: aggregation, direction, stale identity, s
 assert.equal(Display.state({kind:'unknown_inet',code:255}),'FF');
 assert.equal(Display.protocol({kind:'unix',socket_type:{kind:'seqpacket'}}),'UNIX SEQPACKET');
 assert.equal(Display.access('unknown'),'N/A');
+
+assert.equal(Display.affinity([{start:0,end:3},{start:8,end:8}]),'0-3,8');
+assert.equal(Display.affinity(null),'N/A');
+assert.equal(Display.scheduler({kind:'unknown',code:99}),'UNKNOWN (99)');
+assert.equal(Display.signal({number:64,name:'RT'}),'RT (kernel 64) [64]');

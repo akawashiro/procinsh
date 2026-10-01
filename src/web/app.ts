@@ -567,7 +567,7 @@ function renderTarget() {
   );
   const thread = threads.find((t) => t.tid === selectedTid);
   $("thread-detail").textContent = thread
-    ? `TID ${thread.tid} · ${thread.scheduler} · priority ${thread.priority} · nice ${thread.nice} · affinity ${thread.affinity ?? "N/A"} · ctx ${num(thread.voluntary_context_switches, 0)} voluntary / ${num(thread.nonvoluntary_context_switches, 0)} involuntary`
+    ? `TID ${thread.tid} · ${Display.scheduler(thread.scheduler)} · priority ${thread.priority} · nice ${thread.nice} · affinity ${Display.affinity(thread.affinity)} · ctx ${num(thread.voluntary_context_switches, 0)} voluntary / ${num(thread.nonvoluntary_context_switches, 0)} involuntary`
     : "The selected thread has exited.";
   if (mapsTimestamp !== target.maps_captured_at || target.maps_error) {
     mapsTimestamp = target.maps_captured_at;
@@ -825,13 +825,13 @@ start();
 
 function renderSignals(data: Signals, time: string) {
   $("signals-info").textContent =
-    `${data.threads.length} threads · ${time} · SigQ ${data.leader.queued} (queued for real UID / target limit)`;
+    `${data.threads.length} threads · ${time} · SigQ ${data.leader.queued.count}/${data.leader.queued.limit} (queued for real UID / target limit)`;
   const rows: HTMLTableRowElement[] = [];
   const add = (label: string, mask: SignalMask) => {
     const row = node("tr");
     cell(row, label);
     cell(row, mask.hex, "mono");
-    cell(row, mask.signals.join(", ") || "None", "mono");
+    cell(row, mask.signals.map(Display.signal).join(", ") || "None", "mono");
     rows.push(row);
   };
   add("Process-shared pending · ShdPnd", data.leader.shared_pending);

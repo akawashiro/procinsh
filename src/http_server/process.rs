@@ -23,6 +23,15 @@
 //! [`fds::Descriptor`] uses `kind: FdKind, access: FdAccess, protocol: Option<SocketProtocol>, state: Option<SocketState>, local: Option<InetAddress>, remote: Option<InetAddress>, path: Option<String>`;
 //! [`fds::Endpoint::access`] is `pub(super) access: FdAccess`.
 //!
+//! Structured thread/signal payloads (types and fields `pub(super)`):
+//! - [`threads::SchedulerPolicy`]: `Other, Fifo, Rr, Batch, Idle, Deadline, Ext, Unknown(u32)`.
+//! - [`threads::CpuRange`]: `start: u32, end: u32` (inclusive).
+//! - [`threads::ThreadObservation`]: `scheduler: SchedulerPolicy, affinity: Option<Vec<CpuRange>>`.
+//! - [`signals::Signal`]: `number: u32, name: String`.
+//! - [`signals::SignalQueue`]: `count: u64, limit: u64` (decimal strings in JSON).
+//! - [`signals::Mask`]: `bits: u64` (serialized as `hex`), `signals: Vec<Signal>`.
+//! - [`signals::SignalStatus::queued`]: `pub(super) queued: SignalQueue`.
+//!
 //! ## Functions
 //!
 //! | Definition | Visibility | Signature |

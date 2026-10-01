@@ -413,3 +413,5 @@ tests/targets/bin/recursive --allow-inspector
 識別情報は構造化されています。IPC 活動と system snapshot の FD の `resource` は `{kind: "pipe" | "socket", device: {major, minor}, inode: "…"}`、memory map の `device` は `{major, minor}` です。inode は全て十進文字列で送ります。
 
 ソケットの protocol は `{kind: "tcp" | "udp", family: "ipv4" | "ipv6"}` または `{kind: "unix", socket_type: {kind, code?}}`、state は `{kind, code?}` です。未知のコードは数値を保持します。INET の local/remote は `{ip, port}`、UNIX パスは `path` に分離しています。FD の access は `read`, `write`, `read_write`, `unknown`、kind は `pipe`, `socket`, `fifo` です。
+
+thread の scheduler は `{kind, code?}`、affinity は両端を含む `{start, end}` の配列（取得不能は null）です。シグナルの queued は `{count, limit}`（十進文字列）、signals は `{number, name}` の配列です。mask の hex は精度を保持する16進文字列です。
