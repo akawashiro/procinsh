@@ -1,5 +1,11 @@
 // Shared formatting. Values remain structured in models and API contracts.
 namespace Display {
+  export function permissions(m: import('./api-types.js').MappingPermissions): string {
+    return `${m.readable?'r':'-'}${m.writable?'w':'-'}${m.executable?'x':'-'}${m.private?'p':'s'}`;
+  }
+  export function mapping(m: import('./api-types.js').RegisterMapping): string {
+    return `${m.pathname ?? '[anonymous]'} [${permissions(m)}]`;
+  }
   export function scheduler(p: import('./api-types.js').SchedulerPolicy): string {
     return p.kind === 'unknown' ? `UNKNOWN (${p.code})` : p.kind.toUpperCase();
   }

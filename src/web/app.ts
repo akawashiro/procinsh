@@ -582,7 +582,7 @@ function renderTarget() {
           node("span", m.start),
           node("div", m.end, "muted"),
         );
-        cell(row, m.permissions, "mono");
+        cell(row, Display.permissions(m), "mono");
         cell(row, bytes(m.rss_bytes));
         cell(row, bytes(m.pss_bytes));
         cell(row, m.file_offset, "mono");
@@ -692,7 +692,7 @@ function renderDisassembly(thread: ThreadSnapshot | undefined) {
   const rip = thread.registers.find((r) => r.name === "RIP");
   const frame = thread.call_stack[0];
   $("disasm-location").textContent =
-    `RIP ${code.address} · ${rip?.mapping || "mapping N/A"}${frame?.symbol ? ` · ${frame.symbol}${frame.symbol_offset ? ` +${frame.symbol_offset}` : ""}` : ""}${frame?.source_file ? ` · ${frame.source_file}:${frame.line ?? "?"}` : ""} · ${code.bytes.length} bytes captured`;
+    `RIP ${code.address} · ${rip?.mapping ? Display.mapping(rip.mapping) : "mapping N/A"}${frame?.symbol ? ` · ${frame.symbol}${frame.symbol_offset ? ` +${frame.symbol_offset}` : ""}` : ""}${frame?.source_file ? ` · ${frame.source_file}:${frame.line ?? "?"}` : ""} · ${code.bytes.length} bytes captured`;
   if (code.error) {
     $("disasm-error").textContent = code.error;
     $("disasm-error").hidden = false;
@@ -737,7 +737,7 @@ function renderSnapshot() {
     cell(row, r.value, "mono");
     cell(
       row,
-      r.mapping ? `→ ${r.mapping} +${r.offset} (${r.kind})` : `→ ${r.decimal}`,
+      r.mapping ? `→ ${Display.mapping(r.mapping)} +${r.offset} (${r.kind.replaceAll("_", " ")})` : `→ ${r.decimal}`,
       "muted",
     );
     $("registers").append(row);

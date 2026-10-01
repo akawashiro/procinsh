@@ -1252,7 +1252,7 @@ canvas.addEventListener("pointermove", (e) => {
     const id = hullIds[h.instanceId!],
       n = nodes.get(id)!,
       r = n.regions.find((r) => h.point.z >= r.z && h.point.z <= r.z + r.h);
-    text = `${n.name} / ${n.identity.pid}\n${cpuText(id)}${r ? `\n${r.permissions} ${r.pathname || "anonymous"}\n${r.start} → ${r.end}` : ""}`;
+    text = `${n.name} / ${n.identity.pid}\n${cpuText(id)}${r ? `\n${Display.permissions(r)} ${r.pathname || "anonymous"}\n${r.start} → ${r.end}` : ""}`;
   } else {
     const edge = edgeHit(e);
     if (edge && "fileId" in edge) {

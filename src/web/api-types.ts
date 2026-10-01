@@ -1,3 +1,6 @@
+export interface MappingPermissions { readable: boolean; writable: boolean; executable: boolean; private: boolean }
+export interface RegisterMapping extends MappingPermissions { pathname: string | null }
+export type MemoryKind = "integer" | "stack" | "heap" | "shared_library" | "executable" | "file" | "anonymous";
 export interface CpuRange { start: number; end: number }
 export type SchedulerPolicy = {kind:"other" | "fifo" | "rr" | "batch" | "idle" | "deadline" | "ext"} | {kind:"unknown";code:number};
 export interface Signal { number: number; name: string }
@@ -38,7 +41,6 @@ export interface MemoryMap {
   writable: boolean;
   executable: boolean;
   private: boolean;
-  permissions: string;
   file_offset: string;
   device: DeviceId;
   inode: string;
@@ -109,8 +111,8 @@ export interface ThreadSnapshot {
     name: string;
     value: string;
     decimal: string;
-    kind: string;
-    mapping: string | null;
+    kind: MemoryKind;
+    mapping: RegisterMapping | null;
     offset: string | null;
   }[];
   call_stack: {

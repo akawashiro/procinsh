@@ -16,6 +16,9 @@
 //! | [`SocketInfo`] | `pub(super)` | `struct `[`SocketInfo`] |
 //! | [`MAX_READ`] | `pub(super)` | `const MAX_READ: `[`usize`] |
 //!
+//! [`maps::MemoryKind`] is `pub(in crate::http_server) enum MemoryKind { Integer, Stack, Heap, SharedLibrary, Executable, File, Anonymous }`.
+//! [`maps::MemoryMap::kind`] is `pub(super) fn kind(&self) -> MemoryKind`.
+//! [`MemoryMap`] exposes the existing `readable`, `writable`, `executable`, `private` booleans; the redundant `permissions` string is removed.
 //! [`MemoryMap`] uses `device: DeviceId` ([`super::resource::DeviceId`]) and `inode: u64` serialized as a decimal string.
 //!
 //! [`SocketInfo`] fields use [`super::socket_types::SocketProtocol`] and [`super::socket_types::SocketState`];

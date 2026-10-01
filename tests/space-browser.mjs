@@ -107,7 +107,7 @@ try {
   await evaluate(`(async()=>{
     window.spaceTestSources.forEach(source=>source.close());
     const m=await import('/space.js'), id={pid:424242,start_time_ticks:7}, peerId={pid:434343,start_time_ticks:8};
-    const node={identity:id,name:'cpu-glow-test',uid:1000,username:'test',rss_bytes:4096,cpu_percent:0,maps_epoch:1,maps:[{start:'0x1000',end:'0x2000',permissions:'rw-p',writable:true,executable:false,pathname:'[heap]'}]};
+    const node={identity:id,name:'cpu-glow-test',uid:1000,username:'test',rss_bytes:4096,cpu_percent:0,maps_epoch:1,maps:[{start:'0x1000',end:'0x2000',readable:true,private:true,writable:true,executable:false,pathname:'[heap]'}]};
     const peer={...node,identity:peerId,parent_id:id,name:'connection-peer',username:'peer'};
     const a={process_id:id,fd:4,fd_count:1,resource:{kind:'socket',device:{major:0,minor:1},inode:'10'},kind:'socket',access:'read_write'};
     const b={process_id:peerId,fd:9,fd_count:2,resource:{kind:'socket',device:{major:0,minor:1},inode:'11'},kind:'socket',access:'read_write'};
@@ -206,7 +206,7 @@ try {
   const png=await cdp('Page.captureScreenshot',{format:'png'});await writeFile('target/browser-space.png',Buffer.from(png.data,'base64'));
   await evaluate(`(async()=>{
     const {renderSystemSnapshot,renderActivity,fitScene}=await import('/space.js');
-    const nodes=Array.from({length:1000},(_,i)=>({identity:{pid:100000+i,start_time_ticks:1},name:'load-'+i,uid:99999,username:'fixture',rss_bytes:1048576,cpu_percent:0,maps_epoch:1,maps:Array.from({length:16},(_,j)=>({start:'0x'+(4096+j*8192).toString(16),end:'0x'+(8192+j*8192).toString(16),permissions:'rw-p',writable:true,executable:false,pathname:j===0?'[heap]':null}))}));
+    const nodes=Array.from({length:1000},(_,i)=>({identity:{pid:100000+i,start_time_ticks:1},name:'load-'+i,uid:99999,username:'fixture',rss_bytes:1048576,cpu_percent:0,maps_epoch:1,maps:Array.from({length:16},(_,j)=>({start:'0x'+(4096+j*8192).toString(16),end:'0x'+(8192+j*8192).toString(16),readable:true,private:true,writable:true,executable:false,pathname:j===0?'[heap]':null}))}));
     for(let i=1;i<nodes.length;i++)nodes[i].parent_id=nodes[Math.floor((i-1)/4)].identity;
     const edges=Array.from({length:5000},(_,i)=>({id:'load-'+i,endpoint:{process_id:nodes[i%1000].identity,fd:i,resource:{kind:'pipe',device:{major:0,minor:0},inode:String(i)}},peer:{process_id:nodes[(i*7+1)%1000].identity,fd:i,resource:{kind:'pipe',device:{major:0,minor:0},inode:String(i)}},label:'PIPE',shared:false,candidate:false}));
     for(let i=0;i<1000;i++)edges.push({id:'network-load-'+i,endpoint:{process_id:nodes[i%100].identity,fd:6000+i,resource:{kind:'socket',device:{major:0,minor:0},inode:String(i)}},peer:null,label:'TCP network',shared:false,candidate:false,socket:{protocol:{kind:'tcp',family:'ipv4'},state:{kind:'established'},local:{ip:'127.0.0.1',port:5000},remote:{ip:'203.0.113.1',port:4000+i},network_peer:true}});
