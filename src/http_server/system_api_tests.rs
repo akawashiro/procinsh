@@ -1,4 +1,5 @@
 use std::{sync::Arc, time::Duration};
+
 #[tokio::test]
 async fn sse_connections_own_viewer_lifetimes() {
     use super::AppState;

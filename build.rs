@@ -1,4 +1,5 @@
 use std::{env, path::PathBuf, process::Command};
+
 fn main() {
     let root = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap());
     for asset in ["app.js", "space.js", "space-model.js", "display.js"] {

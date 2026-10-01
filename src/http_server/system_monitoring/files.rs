@@ -22,6 +22,7 @@ pub(in crate::http_server) struct FileActivity {
     bytes: u64,
     count: u64,
 }
+
 fn decode(data: &[u8]) -> Option<FileActivity> {
     if data.len() != 4144 {
         return None;
@@ -120,6 +121,7 @@ impl Files {
             batch,
         })
     }
+
     pub(super) fn poll(&self) -> Result<()> {
         let result = self.ring.consume_raw_n(8192);
         if result < 0 {
@@ -127,6 +129,7 @@ impl Files {
         }
         Ok(())
     }
+
     pub(super) fn drain(&self) -> Vec<FileActivity> {
         self.batch
             .lock()
@@ -136,6 +139,7 @@ impl Files {
             .map(|(_, event)| event)
             .collect()
     }
+
     pub(super) fn lost(&self) -> u64 {
         self.obj
             .maps()
@@ -150,6 +154,7 @@ impl Files {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     fn event() -> Vec<u8> {
         let mut data = vec![0; 4144];
         data[0..8].copy_from_slice(&1_000_000_000u64.to_ne_bytes());
@@ -162,6 +167,7 @@ mod tests {
         data[40..44].copy_from_slice(&7u32.to_ne_bytes());
         data
     }
+
     #[test]
     fn file_activity_preserves_wire_fields_and_null_path() {
         let mut activity = decode(&event()).unwrap();
@@ -174,6 +180,7 @@ mod tests {
             })
         );
     }
+
     #[test]
     fn decoding_and_path_failure() {
         let mut raw = event();
@@ -199,6 +206,7 @@ mod tests {
         raw[24..32].fill(0);
         assert!(decode(&raw).is_none());
     }
+
     #[test]
     fn aggregation_separates_direction_and_process_lifetime_and_is_bounded() {
         let e = decode(&event()).unwrap();

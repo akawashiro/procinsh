@@ -10,6 +10,7 @@ impl Drop for Child {
         let _ = self.0.wait();
     }
 }
+
 #[test]
 fn snapshot_finds_pipe_and_unix_peers_and_bounds_work() {
     super::super::super::test_support::build_targets();

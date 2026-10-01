@@ -39,6 +39,7 @@ impl SocketProtocol {
     pub(super) fn is_tcp(self) -> bool {
         matches!(self, Self::Tcp { .. })
     }
+
     pub(super) fn is_inet(self) -> bool {
         !matches!(self, Self::Unix { .. })
     }
@@ -105,6 +106,7 @@ impl SocketState {
             n => Self::UnknownInet(n),
         }
     }
+
     pub(super) fn unix_proc(code: u32, listening: bool) -> Self {
         if listening {
             Self::Listen
@@ -118,6 +120,7 @@ impl SocketState {
             }
         }
     }
+
     pub(super) fn unix_diag(code: u32) -> Self {
         match code {
             1 => Self::Connected,
@@ -183,6 +186,7 @@ impl FdAccess {
             Self::from_mode(Some(flags & libc::O_ACCMODE as u32))
         }
     }
+
     pub(super) fn from_mode(mode: Option<u32>) -> Self {
         match mode {
             Some(0) => Self::Read,
@@ -191,6 +195,7 @@ impl FdAccess {
             _ => Self::Unknown,
         }
     }
+
     pub(super) fn opposite(self, other: Self) -> bool {
         matches!(
             (self, other),
@@ -226,6 +231,7 @@ impl From<SocketAddr> for InetAddress {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn unknown_codes_and_descriptor_capabilities_are_preserved() {
         assert_eq!(

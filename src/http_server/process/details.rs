@@ -219,6 +219,7 @@ pub(super) fn auxv(id: ProcessId) -> Result<AuxVector> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn environment_preserves_duplicates_empty_values_and_equals() {
         let entries = parse_environment(b"X=a=b\0EMPTY=\0X=second\0ODD\0RAW=\xff\0");

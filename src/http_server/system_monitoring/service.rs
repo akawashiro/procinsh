@@ -57,10 +57,12 @@ impl SystemMonitor {
     pub(in crate::http_server) fn stopped(&self) -> bool {
         self.stop.load(Ordering::Relaxed)
     }
+
     pub(in crate::http_server) fn stop(&self) {
         let _viewers = self.viewers.lock().unwrap();
         self.stop.store(true, Ordering::Relaxed);
     }
+
     pub(in crate::http_server) fn join_workers(&self) -> anyhow::Result<()> {
         let workers = std::mem::take(&mut *self.workers.lock().unwrap());
         let mut failed = false;
@@ -70,9 +72,11 @@ impl SystemMonitor {
         anyhow::ensure!(!failed, "system monitoring worker panicked");
         Ok(())
     }
+
     pub(in crate::http_server) fn active(&self) -> bool {
         !self.stopped() && *self.viewers.lock().unwrap() > 0
     }
+
     pub(in crate::http_server) fn subscribe(
         self: &Arc<Self>,
     ) -> Result<Subscription, SubscribeError> {
@@ -93,12 +97,15 @@ impl SystemMonitor {
         drop(viewers);
         Ok(viewer)
     }
+
     fn send(&self, event: SystemMonitorEvent) {
         let _ = self.events.send(event);
     }
+
     pub(in crate::http_server) fn snapshot(&self) -> Arc<SystemSnapshot> {
         self.snapshot.read().unwrap().clone()
     }
+
     fn run_activity(&self) {
         let mut collector: Option<activity::ActivityCollector> = None;
         let mut last = Instant::now();
@@ -136,6 +143,7 @@ impl SystemMonitor {
         }
         log::info!("System activity worker stopped");
     }
+
     fn start(self: &Arc<Self>) {
         if self.started.swap(true, Ordering::SeqCst) {
             return;
@@ -220,6 +228,7 @@ impl SystemMonitor {
         }));
     }
 }
+
 pub(in crate::http_server) fn monotonic_ns() -> u64 {
     let mut ts = libc::timespec {
         tv_sec: 0,

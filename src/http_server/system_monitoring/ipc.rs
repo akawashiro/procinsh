@@ -17,6 +17,7 @@ struct Event {
     write: bool,
     worker: bool,
 }
+
 fn event(bytes: &[u8]) -> Option<Event> {
     if bytes.len() != 56 {
         return None;
@@ -89,6 +90,7 @@ impl Ipc {
             pending: HashMap::new(),
         })
     }
+
     pub(super) fn lost(&self) -> u64 {
         self.obj
             .maps()
@@ -144,6 +146,7 @@ impl Ipc {
         }
         Ok(())
     }
+
     pub(super) fn drain(&mut self) -> Vec<IpcActivity> {
         self.pending
             .drain()
@@ -158,6 +161,7 @@ impl Ipc {
             )
             .collect()
     }
+
     pub(super) fn unresolved(&self) -> u64 {
         self.unresolved
     }
@@ -165,6 +169,7 @@ impl Ipc {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn decodes_bpf_event_without_unaligned_reads() {
         assert!(event(&[0; 55]).is_none());

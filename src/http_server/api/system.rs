@@ -12,6 +12,7 @@ use axum::{
 };
 use serde_json::json;
 use std::{convert::Infallible, sync::Arc, time::Duration};
+
 pub(super) async fn events(State(s): State<Arc<AppState>>) -> Result<Response, StatusCode> {
     let mut subscription = s.system_monitor.subscribe().map_err(|error| match error {
         SubscribeError::Stopped => StatusCode::SERVICE_UNAVAILABLE,

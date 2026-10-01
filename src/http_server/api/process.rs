@@ -49,15 +49,19 @@ pub(super) async fn config(State(s): State<Arc<AppState>>) -> Json<Value> {
         json!({"version":env!("CARGO_PKG_VERSION"),"interval_ms":s.interval.as_millis(),"history_seconds":60}),
     )
 }
+
 pub(super) async fn processes(State(s): State<Arc<AppState>>) -> ApiResult {
     blocking(move || Ok(Json(json!(s.discovery.lock().unwrap().collect()?)))).await
 }
+
 pub(super) async fn stats(Query(id): Query<ProcessId>) -> ApiResult {
     blocking(move || Ok(Json(json!(process::observation(id)?)))).await
 }
+
 pub(super) async fn threads(Query(id): Query<ProcessId>) -> ApiResult {
     blocking(move || Ok(Json(json!(process::threads(id)?)))).await
 }
+
 pub(super) async fn maps(Query(id): Query<ProcessId>) -> ApiResult {
     blocking(move || Ok(Json(json!(process::maps(id)?)))).await
 }
@@ -69,6 +73,7 @@ pub(super) async fn environment(Query(id): Query<ProcessId>) -> ApiResult {
     })
     .await
 }
+
 pub(super) async fn fds(Query(id): Query<ProcessId>) -> ApiResult {
     blocking(move || {
         process::check_identity(id)?;
@@ -76,6 +81,7 @@ pub(super) async fn fds(Query(id): Query<ProcessId>) -> ApiResult {
     })
     .await
 }
+
 pub(super) async fn signals(Query(id): Query<ProcessId>) -> ApiResult {
     blocking(move || {
         process::check_identity(id)?;
@@ -83,6 +89,7 @@ pub(super) async fn signals(Query(id): Query<ProcessId>) -> ApiResult {
     })
     .await
 }
+
 pub(super) async fn auxv(Query(id): Query<ProcessId>) -> ApiResult {
     blocking(move || {
         process::check_identity(id)?;
@@ -99,9 +106,11 @@ pub(super) struct MemoryQuery {
     #[serde(default = "default_length")]
     length: usize,
 }
+
 fn default_length() -> usize {
     256
 }
+
 pub(super) async fn memory(Query(q): Query<MemoryQuery>) -> ApiResult {
     let address = if let Some(hex) = q
         .address
@@ -136,12 +145,14 @@ pub(super) async fn memory(Query(q): Query<MemoryQuery>) -> ApiResult {
     })
     .await
 }
+
 pub(super) async fn snapshot(
     State(s): State<Arc<AppState>>,
     Json(id): Json<ProcessId>,
 ) -> ApiResult {
     blocking(move || Ok(Json(json!(s.snapshotter.capture(id)?)))).await
 }
+
 pub(super) async fn events(
     State(s): State<Arc<AppState>>,
     Query(id): Query<ProcessId>,

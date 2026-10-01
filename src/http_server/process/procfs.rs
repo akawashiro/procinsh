@@ -24,6 +24,7 @@ pub(super) struct Stat {
 pub(super) fn page_size() -> u64 {
     unsafe { libc::sysconf(libc::_SC_PAGESIZE) }.max(1) as u64
 }
+
 pub(super) fn ticks_per_second() -> f64 {
     unsafe { libc::sysconf(libc::_SC_CLK_TCK) }.max(1) as f64
 }
@@ -67,6 +68,7 @@ pub(super) fn parse_stat(text: &str) -> Result<Stat> {
 pub(super) fn read_stat(path: &str) -> Result<Stat> {
     parse_stat(&fs::read_to_string(path).with_context(|| format!("read {path}"))?)
 }
+
 pub(super) fn fields(path: &str) -> Result<HashMap<String, String>> {
     Ok(fs::read_to_string(path)?
         .lines()
@@ -74,6 +76,7 @@ pub(super) fn fields(path: &str) -> Result<HashMap<String, String>> {
         .map(|(k, v)| (k.to_owned(), v.trim().to_owned()))
         .collect())
 }
+
 pub(super) fn field_u64(fields: &HashMap<String, String>, key: &str) -> Option<u64> {
     fields.get(key)?.split_whitespace().next()?.parse().ok()
 }
@@ -83,6 +86,7 @@ pub(super) struct IoStats {
     pub(super) read_bytes: u64,
     pub(super) write_bytes: u64,
 }
+
 pub(super) fn read_io(pid: i32) -> Result<IoStats> {
     let f = fields(&format!("/proc/{pid}/io"))?;
     Ok(IoStats {
@@ -94,6 +98,7 @@ pub(super) fn read_io(pid: i32) -> Result<IoStats> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn stat_handles_spaces_and_parentheses_and_signed_priority() {
         let mut f = vec!["0"; 50];

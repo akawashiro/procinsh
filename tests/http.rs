@@ -40,6 +40,7 @@ impl Server {
             .unwrap();
         server
     }
+
     fn connect(&self, path: &str, host: &str) -> BufReader<TcpStream> {
         let mut stream = TcpStream::connect_timeout(&self.address, Duration::from_secs(3)).unwrap();
         stream
@@ -48,6 +49,7 @@ impl Server {
         write!(stream, "GET {path} HTTP/1.0\r\nHost: {host}\r\n\r\n").unwrap();
         BufReader::new(stream)
     }
+
     fn get(&self, path: &str) -> (u16, String, String) {
         let mut response = String::new();
         self.connect(path, &self.address.to_string())
@@ -57,6 +59,7 @@ impl Server {
         let status = headers.split_whitespace().nth(1).unwrap().parse().unwrap();
         (status, headers.to_owned(), body.to_owned())
     }
+
     fn events(&self, path: &str, event: &str) -> BufReader<TcpStream> {
         let mut reader = self.connect(path, &self.address.to_string());
         let mut line = String::new();
@@ -75,6 +78,7 @@ impl Server {
             .unwrap();
         reader
     }
+
     fn shutdown(&mut self) {
         assert_eq!(
             unsafe { libc::kill(self.child.id() as i32, libc::SIGTERM) },

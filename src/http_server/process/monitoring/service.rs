@@ -63,10 +63,12 @@ impl Monitoring {
             workers: Mutex::new(Vec::new()),
         }
     }
+
     #[cfg(test)]
     pub(in crate::http_server) fn observer_count(&self) -> usize {
         *self.viewers.lock().unwrap()
     }
+
     pub(in crate::http_server) fn reserve(
         self: &Arc<Self>,
     ) -> Result<ObservationPermit, SubscribeError> {
@@ -83,6 +85,7 @@ impl Monitoring {
             cancelled: Arc::new(AtomicBool::new(false)),
         })
     }
+
     pub(in crate::http_server) fn observe(
         self: &Arc<Self>,
         id: ProcessId,
@@ -168,13 +171,16 @@ impl Monitoring {
             _permit: permit,
         })
     }
+
     pub(in crate::http_server) fn stop(&self) {
         let _workers = self.workers.lock().unwrap();
         self.stopped.store(true, Ordering::Relaxed);
     }
+
     pub(in crate::http_server) fn is_stopped(&self) -> bool {
         self.stopped.load(Ordering::Relaxed)
     }
+
     pub(in crate::http_server) fn join_collectors(&self) -> Result<()> {
         let workers = std::mem::take(&mut *self.workers.lock().unwrap());
         let mut failed = false;
@@ -185,6 +191,7 @@ impl Monitoring {
         Ok(())
     }
 }
+
 pub(in crate::http_server::process) fn capture_target(
     id: ProcessId,
 ) -> Result<(Target, ProcessSample)> {
@@ -211,6 +218,7 @@ pub(in crate::http_server::process) fn capture_target(
     process::check_identity(id)?;
     Ok((target, sample))
 }
+
 fn refresh_maps(target: &mut Target) {
     let id = target.summary.identity;
     match maps::read(id.pid, true).and_then(|m| {

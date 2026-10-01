@@ -1,5 +1,6 @@
 use super::{self as process, maps, memory, test_support::Target};
 use std::time::Duration;
+
 #[test]
 fn memory_partial_reads_and_map_statistics() {
     let target = Target::new("mmap_test");

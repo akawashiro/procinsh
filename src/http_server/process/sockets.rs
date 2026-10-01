@@ -302,6 +302,7 @@ pub(super) fn unix_diag(deadline: Instant) -> Result<HashMap<u64, SocketInfo>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn parses_ipv4_ipv6_and_mapped_addresses() {
         assert_eq!(
@@ -322,6 +323,7 @@ mod tests {
         );
         assert!(address("bad").is_err());
     }
+
     #[test]
     fn proc_tables_and_diag_preserve_unknown_socket_codes() {
         use crate::http_server::socket_types::AddressFamily;
@@ -361,6 +363,7 @@ mod tests {
         );
         assert_eq!(info.state, SocketState::UnknownUnix(255));
     }
+
     #[test]
     fn diag_peer_and_malformed_attributes() {
         let mut bytes = vec![0u8; 24];

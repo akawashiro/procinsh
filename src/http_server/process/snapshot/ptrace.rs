@@ -28,6 +28,7 @@ fn ptrace(request: libc::c_uint, tid: i32, data: usize) -> std::io::Result<()> {
         Ok(())
     }
 }
+
 fn gone(e: &std::io::Error) -> bool {
     matches!(e.raw_os_error(), Some(libc::ESRCH) | Some(libc::ECHILD))
 }
@@ -154,6 +155,7 @@ impl SnapshotGuard {
         }
         bail!("thread set did not stabilize after 16 passes")
     }
+
     pub(super) fn tids(&self) -> Vec<i32> {
         self.tracees
             .iter()
@@ -161,6 +163,7 @@ impl SnapshotGuard {
             .map(|t| t.tid)
             .collect()
     }
+
     pub(super) fn registers(&self, tid: i32) -> Result<libc::user_regs_struct> {
         let mut regs: libc::user_regs_struct = unsafe { std::mem::zeroed() };
         ptrace(libc::PTRACE_GETREGS, tid, &mut regs as *mut _ as usize)?;

@@ -34,6 +34,7 @@ pub(super) struct CpuRange {
     pub(super) start: u32,
     pub(super) end: u32,
 }
+
 fn affinity(text: &str) -> Option<Vec<CpuRange>> {
     text.split(',')
         .map(|item| {
@@ -125,6 +126,7 @@ pub(super) fn read(pid: i32, tid: i32) -> Result<ThreadSample> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn affinity_ranges_and_unknown_scheduler_keep_values() {
         assert_eq!(

@@ -22,10 +22,12 @@ impl AppState {
             interval,
         }
     }
+
     pub(super) fn stop(&self) {
         self.monitoring.stop();
         self.system_monitor.stop();
     }
+
     pub(super) fn join_collectors(&self) -> Result<()> {
         let process_result = self.monitoring.join_collectors();
         let system_result = self.system_monitor.join_workers();

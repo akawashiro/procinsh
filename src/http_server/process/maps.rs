@@ -34,6 +34,7 @@ pub(in crate::http_server) struct MemoryMap {
     pub(super) rss_bytes: Option<u64>,
     pub(super) pss_bytes: Option<u64>,
 }
+
 pub(super) fn hex<S: serde::Serializer>(value: &u64, serializer: S) -> Result<S::Ok, S::Error> {
     serializer.serialize_str(&format!("0x{value:016x}"))
 }
@@ -41,6 +42,7 @@ impl MemoryMap {
     pub(super) fn contains(&self, address: u64) -> bool {
         self.start <= address && address < self.end
     }
+
     pub(super) fn kind(&self) -> MemoryKind {
         match self.pathname.as_deref() {
             Some(p) if p.starts_with("[stack") => MemoryKind::Stack,
@@ -134,6 +136,7 @@ pub(super) struct MemoryRollup {
     pub(super) pss_bytes: Option<u64>,
     pub(super) private_bytes: Option<u64>,
 }
+
 pub(super) fn rollup(pid: i32) -> Option<MemoryRollup> {
     let f = super::procfs::fields(&format!("/proc/{pid}/smaps_rollup")).ok()?;
     let bytes = |k| super::procfs::field_u64(&f, k).and_then(|v| v.checked_mul(1024));
@@ -149,6 +152,7 @@ pub(super) fn rollup(pid: i32) -> Option<MemoryRollup> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn maps_and_smaps_keep_paths_and_boundaries() {
         let maps = parse_smaps("1000-2000 r-xp 00001000 08:01 10 /tmp/a b (deleted)\nRss: 4 kB\nPss: 2 kB\n2000-3000 rw-p 0 00:00 0\n").unwrap();

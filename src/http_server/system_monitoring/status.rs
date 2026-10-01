@@ -19,6 +19,7 @@ impl StatusLog {
         }
         changes
     }
+
     pub(super) fn observe(&mut self, status: &super::model::SystemMonitorStatus) {
         for (key, value) in self.changes(status) {
             if matches!(
@@ -37,6 +38,7 @@ impl StatusLog {
 mod logging_tests {
     use super::*;
     use crate::http_server::system_monitoring::model::{SensorState, SystemMonitorStatus};
+
     #[test]
     fn logs_changes_recovery_and_recurrence_without_repeating_errors() {
         let mut log = StatusLog::default();
