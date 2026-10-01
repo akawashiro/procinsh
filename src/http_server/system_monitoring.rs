@@ -28,10 +28,23 @@
 //! | [`model::CpuActivity`] | `process_id: ProcessId, runtime_ns: u64, switches: u64, running_threads: usize, cpus: Vec<usize>` |
 //! | [`model::SystemStatus`] | `active: bool, ipc: SensorState, cpu: SensorState, files: SensorState, coverage: Option<&'static str>, files_coverage: Option<&'static str>, lost: Option<u64>, unresolved: Option<u64>, files_lost: Option<u64>` |
 //! | [`model::SensorState`] | `Idle, Starting, Observing, Unavailable(String), Error(String)`; serializes as the existing state string |
+//!
+//! Collector interfaces (all `pub(super)`, within `system_monitoring`):
+//! - [`sched::Scheduler`]: scheduling maps and previous CPU totals.
+//!   [`sched::Scheduler::new`]: `fn new() -> anyhow::Result<Self>`;
+//!   [`sched::Scheduler::collect`]: `fn collect(&mut self, now: u64, snapshot: &SystemSnapshot) -> anyhow::Result<Vec<CpuActivity>>`.
+//! - [`ipc::Ipc`]: IPC ring buffer, pending activity and loss accounting.
+//!   [`ipc::Ipc::new`]: `fn new() -> anyhow::Result<Self>`;
+//!   [`ipc::Ipc::poll`]: `fn poll(&mut self, snapshot: &SystemSnapshot) -> anyhow::Result<()>`;
+//!   [`ipc::Ipc::drain`]: `fn drain(&mut self) -> Vec<IpcActivity>`;
+//!   [`ipc::Ipc::lost`]: `fn lost(&self) -> u64`;
+//!   [`ipc::Ipc::unresolved`]: `fn unresolved(&self) -> u64`.
 mod activity;
 mod files;
+mod ipc;
 mod model;
 mod resolver;
+mod sched;
 mod service;
 mod status;
 mod system_snapshot;
