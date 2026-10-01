@@ -57,10 +57,40 @@ pub(super) struct ThreadObservation {
     pub(super) affinity: Option<Vec<CpuRange>>,
     pub(super) voluntary_context_switches: Option<u64>,
     pub(super) nonvoluntary_context_switches: Option<u64>,
-    #[serde(skip)]
+}
+
+#[derive(Clone, Debug)]
+pub(super) struct ThreadSample {
+    pub(super) tid: i32,
+    pub(super) name: String,
+    pub(super) state: String,
+    pub(super) cpu: i32,
+    pub(super) priority: i64,
+    pub(super) nice: i64,
+    pub(super) scheduler: SchedulerPolicy,
+    pub(super) affinity: Option<Vec<CpuRange>>,
+    pub(super) voluntary_context_switches: Option<u64>,
+    pub(super) nonvoluntary_context_switches: Option<u64>,
     pub(super) ticks: u64,
-    #[serde(skip)]
     pub(super) start_time: u64,
+}
+
+impl ThreadSample {
+    pub(super) fn observation(&self) -> ThreadObservation {
+        ThreadObservation {
+            tid: self.tid,
+            name: self.name.clone(),
+            state: self.state.clone(),
+            cpu: self.cpu,
+            priority: self.priority,
+            nice: self.nice,
+            scheduler: self.scheduler,
+            affinity: self.affinity.clone(),
+            voluntary_context_switches: self.voluntary_context_switches,
+            nonvoluntary_context_switches: self.nonvoluntary_context_switches,
+            cpu_percent: None,
+        }
+    }
 }
 
 pub(super) fn tids(pid: i32) -> Result<Vec<i32>> {
@@ -72,16 +102,15 @@ pub(super) fn tids(pid: i32) -> Result<Vec<i32>> {
     Ok(tids)
 }
 
-pub(super) fn read(pid: i32, tid: i32) -> Result<ThreadObservation> {
+pub(super) fn read(pid: i32, tid: i32) -> Result<ThreadSample> {
     let path = format!("/proc/{pid}/task/{tid}");
     let s: Stat = procfs::read_stat(&format!("{path}/stat"))?;
     let f = procfs::fields(&format!("{path}/status")).unwrap_or_default();
-    Ok(ThreadObservation {
+    Ok(ThreadSample {
         tid,
         name: s.name,
         state: s.state,
         cpu: s.cpu,
-        cpu_percent: None,
         priority: s.priority,
         nice: s.nice,
         scheduler: SchedulerPolicy::from_code(s.policy),
