@@ -191,7 +191,7 @@ function renderProcessDetails(kind: DetailKind) {
 function renderDescriptors(data: FileDescriptors, time: string) {
   const search = $("fds-search").value.toLowerCase();
   const entries = data.entries.filter((e) =>
-    `${e.fd} ${e.kind} ${e.protocol || ""} ${e.local || ""} ${e.remote || ""} ${e.target} ${[...e.peers, ...e.holders].map((p) => `${p.process_id.pid} ${p.name}`).join(" ")}`
+    `${e.fd} ${e.kind} ${Display.protocol(e.protocol)} ${Display.address(e.local) || e.path || ""} ${Display.address(e.remote)} ${e.target} ${[...e.peers, ...e.holders].map((p) => `${p.process_id.pid} ${p.name}`).join(" ")}`
       .toLowerCase()
       .includes(search),
   );
@@ -204,11 +204,12 @@ function renderDescriptors(data: FileDescriptors, time: string) {
       const row = node("tr");
       row.dataset.fd = String(e.fd);
       cell(row, e.fd, "mono");
-      cell(row, `${e.protocol || e.kind}\n${e.access}`, "mono");
+      cell(row, `${Display.protocol(e.protocol) || e.kind}\n${Display.access(e.access)}`, "mono");
       const resource = cell(row, e.target, "mono muted");
-      if (e.state) resource.append(node("div", e.state));
-      if (e.local) resource.append(node("div", `Local: ${e.local}`));
-      if (e.remote) resource.append(node("div", `Remote: ${e.remote}`));
+      if (e.state) resource.append(node("div", Display.state(e.state)));
+      if (e.path) resource.append(node("div", `Path: ${e.path}`));
+      if (e.local) resource.append(node("div", `Local: ${Display.address(e.local)}`));
+      if (e.remote) resource.append(node("div", `Remote: ${Display.address(e.remote)}`));
       if (e.peer_inode)
         resource.append(node("div", `Peer inode: ${e.peer_inode}`));
       const peers = cell(row);
@@ -221,7 +222,7 @@ function renderDescriptors(data: FileDescriptors, time: string) {
         link.dataset.pid = String(p.process_id.pid);
         div.append(
           link,
-          node("div", `FD ${p.fd} · ${p.access} · ${p.relation}`, "muted"),
+          node("div", `FD ${p.fd} · ${Display.access(p.access)} · ${p.relation}`, "muted"),
         );
         return div;
       };
@@ -566,7 +567,7 @@ function renderTarget() {
   );
   const thread = threads.find((t) => t.tid === selectedTid);
   $("thread-detail").textContent = thread
-    ? `TID ${thread.tid} · ${thread.scheduler} · priority ${thread.priority} · nice ${thread.nice} · affinity ${thread.affinity ?? "N/A"} · ctx ${num(thread.voluntary_context_switches, 0)} voluntary / ${num(thread.nonvoluntary_context_switches, 0)} involuntary`
+    ? `TID ${thread.tid} · ${Display.scheduler(thread.scheduler)} · priority ${thread.priority} · nice ${thread.nice} · affinity ${Display.affinity(thread.affinity)} · ctx ${num(thread.voluntary_context_switches, 0)} voluntary / ${num(thread.nonvoluntary_context_switches, 0)} involuntary`
     : "The selected thread has exited.";
   if (mapsTimestamp !== target.maps_captured_at || target.maps_error) {
     mapsTimestamp = target.maps_captured_at;
@@ -581,7 +582,7 @@ function renderTarget() {
           node("span", m.start),
           node("div", m.end, "muted"),
         );
-        cell(row, m.permissions, "mono");
+        cell(row, Display.permissions(m), "mono");
         cell(row, bytes(m.rss_bytes));
         cell(row, bytes(m.pss_bytes));
         cell(row, m.file_offset, "mono");
@@ -691,7 +692,7 @@ function renderDisassembly(thread: ThreadSnapshot | undefined) {
   const rip = thread.registers.find((r) => r.name === "RIP");
   const frame = thread.call_stack[0];
   $("disasm-location").textContent =
-    `RIP ${code.address} · ${rip?.mapping || "mapping N/A"}${frame?.symbol ? ` · ${frame.symbol}${frame.symbol_offset ? ` +${frame.symbol_offset}` : ""}` : ""}${frame?.source_file ? ` · ${frame.source_file}:${frame.line ?? "?"}` : ""} · ${code.bytes.length} bytes captured`;
+    `RIP ${code.address} · ${rip?.mapping ? Display.mapping(rip.mapping) : "mapping N/A"}${frame?.symbol ? ` · ${frame.symbol}${frame.symbol_offset ? ` +${frame.symbol_offset}` : ""}` : ""}${frame?.source_file ? ` · ${frame.source_file}:${frame.line ?? "?"}` : ""} · ${code.bytes.length} bytes captured`;
   if (code.error) {
     $("disasm-error").textContent = code.error;
     $("disasm-error").hidden = false;
@@ -736,7 +737,7 @@ function renderSnapshot() {
     cell(row, r.value, "mono");
     cell(
       row,
-      r.mapping ? `→ ${r.mapping} +${r.offset} (${r.kind})` : `→ ${r.decimal}`,
+      r.mapping ? `→ ${Display.mapping(r.mapping)} +${r.offset} (${r.kind.replaceAll("_", " ")})` : `→ ${r.decimal}`,
       "muted",
     );
     $("registers").append(row);
@@ -824,13 +825,13 @@ start();
 
 function renderSignals(data: Signals, time: string) {
   $("signals-info").textContent =
-    `${data.threads.length} threads · ${time} · SigQ ${data.leader.queued} (queued for real UID / target limit)`;
+    `${data.threads.length} threads · ${time} · SigQ ${data.leader.queued.count}/${data.leader.queued.limit} (queued for real UID / target limit)`;
   const rows: HTMLTableRowElement[] = [];
   const add = (label: string, mask: SignalMask) => {
     const row = node("tr");
     cell(row, label);
     cell(row, mask.hex, "mono");
-    cell(row, mask.signals.join(", ") || "None", "mono");
+    cell(row, mask.signals.map(Display.signal).join(", ") || "None", "mono");
     rows.push(row);
   };
   add("Process-shared pending · ShdPnd", data.leader.shared_pending);

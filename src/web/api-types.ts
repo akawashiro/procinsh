@@ -1,3 +1,24 @@
+export type SensorState = {state:"idle" | "starting" | "observing"} | {state:"unavailable" | "error";message:string};
+export interface SystemMonitorStatus {
+  active:boolean; ipc:SensorState; cpu:SensorState; files:SensorState;
+  coverage?:string; files_coverage?:string; lost?:number; unresolved?:number; files_lost?:number;
+}
+export interface MappingPermissions { readable: boolean; writable: boolean; executable: boolean; private: boolean }
+export interface RegisterMapping extends MappingPermissions { pathname: string | null }
+export type MemoryKind = "integer" | "stack" | "heap" | "shared_library" | "executable" | "file" | "anonymous";
+export interface CpuRange { start: number; end: number }
+export type SchedulerPolicy = {kind:"other" | "fifo" | "rr" | "batch" | "idle" | "deadline" | "ext"} | {kind:"unknown";code:number};
+export interface Signal { number: number; name: string }
+export interface SignalQueue { count: string; limit: string }
+export type FdAccess = "read" | "write" | "read_write" | "unknown";
+export type FdKind = "pipe" | "socket" | "fifo";
+export interface InetAddress { ip: string; port: number }
+export type SocketType = {kind: "stream" | "dgram" | "seqpacket"} | {kind:"unknown";code:number};
+export type SocketProtocol = {kind:"tcp" | "udp";family:"ipv4" | "ipv6"} | {kind:"unix";socket_type:SocketType};
+export type SocketState = {kind:"established" | "syn_sent" | "syn_recv" | "fin_wait1" | "fin_wait2" | "time_wait" | "close" | "close_wait" | "last_ack" | "listen" | "closing" | "new_syn_recv" | "unconnected" | "connecting" | "connected" | "disconnecting"} | {kind:"unknown_inet" | "unknown_unix";code:number};
+export interface DeviceId { major: number; minor: number }
+export interface FileIdentity { device: DeviceId; inode: string; generation: number }
+export interface IpcIdentity { kind: "pipe" | "socket"; device: DeviceId; inode: string }
 // JSON contracts consumed by the UI. Keep these aligned with the Rust Serialize
 // structs in process/, state/, snapshot/ and space/. Addresses stay hex strings.
 export interface ProcessId {
@@ -25,10 +46,9 @@ export interface MemoryMap {
   writable: boolean;
   executable: boolean;
   private: boolean;
-  permissions: string;
   file_offset: string;
-  device: string;
-  inode: number;
+  device: DeviceId;
+  inode: string;
   pathname: string | null;
   rss_bytes: number | null;
   pss_bytes: number | null;
@@ -41,8 +61,8 @@ export interface ThreadObservation {
   cpu_percent: number | null;
   priority: number;
   nice: number;
-  scheduler: string;
-  affinity: string | null;
+  scheduler: SchedulerPolicy;
+  affinity: CpuRange[] | null;
   voluntary_context_switches: number | null;
   nonvoluntary_context_switches: number | null;
 }
@@ -96,8 +116,8 @@ export interface ThreadSnapshot {
     name: string;
     value: string;
     decimal: string;
-    kind: string;
-    mapping: string | null;
+    kind: MemoryKind;
+    mapping: RegisterMapping | null;
     offset: string | null;
   }[];
   call_stack: {
@@ -164,21 +184,22 @@ export interface DescriptorEndpoint {
   process_id: ProcessId;
   name: string;
   fd: number;
-  access: string;
+  access: FdAccess;
   relation: string;
 }
 export interface FileDescriptors extends ProcessDetail {
   warnings: string[];
   entries: {
     fd: number;
-    kind: string;
+    kind: FdKind;
     inode: string;
     target: string;
-    access: string;
-    protocol: string | null;
-    state: string | null;
-    local: string | null;
-    remote: string | null;
+    access: FdAccess;
+    protocol: SocketProtocol | null;
+    state: SocketState | null;
+    local: InetAddress | null;
+    remote: InetAddress | null;
+    path: string | null;
     peer_inode: string | null;
     peers: DescriptorEndpoint[];
     holders: DescriptorEndpoint[];
@@ -187,7 +208,7 @@ export interface FileDescriptors extends ProcessDetail {
 }
 export interface SignalMask {
   hex: string;
-  signals: string[];
+  signals: Signal[];
 }
 interface SignalStatus {
   tid: number;
@@ -197,7 +218,7 @@ interface SignalStatus {
   blocked: SignalMask;
   ignored: SignalMask;
   caught: SignalMask;
-  queued: string;
+  queued: SignalQueue;
 }
 export interface Signals extends ProcessDetail {
   leader: SignalStatus;
@@ -228,15 +249,16 @@ export interface FdEndpoint {
   process_id: ProcessId;
   fd: number;
   fd_count: number;
-  resource: string;
-  kind: string;
-  access: number;
+  resource: IpcIdentity;
+  kind: FdKind;
+  access: FdAccess;
 }
 export interface SocketEndpoint {
-  protocol: string;
-  state: string;
-  local: string | null;
-  remote: string | null;
+  protocol: SocketProtocol;
+  state: SocketState;
+  local: InetAddress | null;
+  remote: InetAddress | null;
+  path: string | null;
   network_peer: boolean;
   remote_hostname: string | null;
 }
@@ -255,13 +277,14 @@ export interface SystemSnapshot {
 }
 export interface IoActivity {
   process_id: ProcessId;
-  resource: string;
+  resource: IpcIdentity;
   write: boolean;
   bytes: number;
   count: number;
 }
-export interface FileActivity extends IoActivity {
-  path: string | null;
+export interface FileActivity {
+  process_id: ProcessId; file: FileIdentity; path: string | null;
+  write: boolean; bytes: number; count: number;
 }
 export interface CpuActivity {
   process_id: ProcessId;
@@ -271,6 +294,7 @@ export interface CpuActivity {
   cpus: number[];
 }
 export interface SpaceActivity {
+  status: SystemMonitorStatus;
   window_ms: number;
   files?: FileActivity[];
   cpu?: CpuActivity[];

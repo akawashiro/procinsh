@@ -107,19 +107,19 @@ try {
   await evaluate(`(async()=>{
     window.spaceTestSources.forEach(source=>source.close());
     const m=await import('/space.js'), id={pid:424242,start_time_ticks:7}, peerId={pid:434343,start_time_ticks:8};
-    const node={identity:id,name:'cpu-glow-test',uid:1000,username:'test',rss_bytes:4096,cpu_percent:0,maps_epoch:1,maps:[{start:'0x1000',end:'0x2000',permissions:'rw-p',writable:true,executable:false,pathname:'[heap]'}]};
+    const node={identity:id,name:'cpu-glow-test',uid:1000,username:'test',rss_bytes:4096,cpu_percent:0,maps_epoch:1,maps:[{start:'0x1000',end:'0x2000',readable:true,private:true,writable:true,executable:false,pathname:'[heap]'}]};
     const peer={...node,identity:peerId,parent_id:id,name:'connection-peer',username:'peer'};
-    const a={process_id:id,fd:4,fd_count:1,resource:'socket:1:10',kind:'socket',access:2};
-    const b={process_id:peerId,fd:9,fd_count:2,resource:'socket:1:11',kind:'socket',access:2};
+    const a={process_id:id,fd:4,fd_count:1,resource:{kind:'socket',device:{major:0,minor:1},inode:'10'},kind:'socket',access:'read_write'};
+    const b={process_id:peerId,fd:9,fd_count:2,resource:{kind:'socket',device:{major:0,minor:1},inode:'11'},kind:'socket',access:'read_write'};
     const edges=[
       {id:'unix-exact',endpoint:a,peer:b,label:'UNIX STREAM',shared:false,candidate:false},
       {id:'tcp-candidate',endpoint:a,peer:b,label:'TCP ESTABLISHED',shared:false,candidate:true},
-      {id:'pipe-shared',endpoint:{...a,kind:'pipe',resource:'pipe:1:20'},peer:{...b,kind:'pipe',resource:'pipe:1:20'},label:'pipe',shared:true,candidate:false},
-      {id:'external',endpoint:{...a,resource:'socket:1:99'},peer:null,label:'UNIX STREAM external',shared:false,candidate:false},
+      {id:'pipe-shared',endpoint:{...a,kind:'pipe',resource:{kind:'pipe',device:{major:0,minor:1},inode:'20'}},peer:{...b,kind:'pipe',resource:{kind:'pipe',device:{major:0,minor:1},inode:'20'}},label:'pipe',shared:true,candidate:false},
+      {id:'external',endpoint:{...a,resource:{kind:'socket',device:{major:0,minor:1},inode:'99'}},peer:null,label:'UNIX STREAM external',shared:false,candidate:false},
     ];
     m.renderSystemSnapshot({processes:[node,peer],fd_relations:edges,captured_at:Date.now(),inspected_processes:2,inspected_fds:4,warnings:[]});
     m.selectConnection('unix-exact');
-    m.renderActivity({window_ms:100,cpu:[{process_id:id,runtime_ns:40000000,switches:2,running_threads:1,cpus:[3]}],ipc:[{process_id:id,resource:'socket:1:10',write:true,bytes:4096,count:16}],status:{cpu:'observing',ipc:'observing'}});
+    m.renderActivity({window_ms:100,cpu:[{process_id:id,runtime_ns:40000000,switches:2,running_threads:1,cpus:[3]}],ipc:[{process_id:id,resource:{kind:'socket',device:{major:0,minor:1},inode:'10'},write:true,bytes:4096,count:16}],status:{cpu:{state:'observing'},ipc:{state:'observing'}}});
   })()`);
   await delay(50);
   assert.ok(await evaluate("import('/space.js').then(m=>m.processPosition('434343:8').y>m.processPosition('424242:7').y)"),'child is placed in a deeper generation');
@@ -141,9 +141,9 @@ try {
   assert.match(await evaluate("document.getElementById('connection-endpoints').textContent"),/External \/ unknown/);
   await evaluate("import('/space.js').then(m=>m.renderSystemSnapshot({processes:[{identity:{pid:424242,start_time_ticks:7},name:'cpu-glow-test',uid:1000,username:'test',rss_bytes:4096,cpu_percent:0,maps_epoch:1,maps:[]}],fd_relations:[],captured_at:Date.now(),inspected_processes:1,inspected_fds:0,warnings:[]}))");
   assert.equal(await evaluate("document.getElementById('details').hidden"),true,'removed connection clears selection');
-  await evaluate("import('/space.js').then(m=>m.renderActivity({window_ms:100,cpu:[{process_id:{pid:424242,start_time_ticks:7},runtime_ns:40000000,switches:2,running_threads:1,cpus:[3]}],ipc:[],status:{cpu:'observing'}}))");
+  await evaluate("import('/space.js').then(m=>m.renderActivity({window_ms:100,cpu:[{process_id:{pid:424242,start_time_ticks:7},runtime_ns:40000000,switches:2,running_threads:1,cpus:[3]}],ipc:[],status:{cpu:{state:'observing'}}}))");
   await until(()=>evaluate("import('/space.js').then(m=>m.cpuGlowVisual('424242:7').g)"),'CPU activity lights the base',400);
-  await evaluate("import('/space.js').then(m=>m.renderActivity({window_ms:100,cpu:[{process_id:{pid:424242,start_time_ticks:999},runtime_ns:100000000,switches:1,running_threads:1,cpus:[2]}],ipc:[],status:{cpu:'observing'}}))");
+  await evaluate("import('/space.js').then(m=>m.renderActivity({window_ms:100,cpu:[{process_id:{pid:424242,start_time_ticks:999},runtime_ns:100000000,switches:1,running_threads:1,cpus:[2]}],ipc:[],status:{cpu:{state:'observing'}}}))");
   assert.equal(await evaluate("import('/space.js').then(m=>m.cpuGlowStates.has('424242:999'))"),false,'stale identity is ignored');
   await delay(550);
   assert.ok(await evaluate("import('/space.js').then(m=>m.cpuGlowVisual('424242:7').g)")<0.01,'CPU afterglow ends');
@@ -151,7 +151,7 @@ try {
     const m=await import('/space.js'), model=await import('/space-model.js');
     const make=(pid,parent=null)=>({identity:{pid,start_time_ticks:1},parent_id:parent&&{pid:parent,start_time_ticks:1},name:'stable-'+pid,uid:1000,rss_bytes:4096,cpu_percent:0,maps_epoch:1,maps:[]});
     const root=make(800001),child=make(800002,800001),sibling=make(800003,800001);
-    const edge={id:'stable-edge',endpoint:{process_id:root.identity,fd:1,resource:'pipe:stable'},peer:{process_id:child.identity,fd:2,resource:'pipe:stable'},label:'stable pipe',shared:false,candidate:false};
+    const edge={id:'stable-edge',endpoint:{process_id:root.identity,fd:1,resource:{kind:'pipe',device:{major:0,minor:0},inode:'2176'}},peer:{process_id:child.identity,fd:2,resource:{kind:'pipe',device:{major:0,minor:0},inode:'2176'}},label:'stable pipe',shared:false,candidate:false};
     const render=nodes=>m.renderSystemSnapshot({processes:nodes,fd_relations:nodes.includes(root)&&nodes.includes(child)?[edge]:[]});
     const coords=nodes=>nodes.map(n=>m.processPosition(model.key(n.identity)));
     render([root,child,sibling]);
@@ -206,12 +206,12 @@ try {
   const png=await cdp('Page.captureScreenshot',{format:'png'});await writeFile('target/browser-space.png',Buffer.from(png.data,'base64'));
   await evaluate(`(async()=>{
     const {renderSystemSnapshot,renderActivity,fitScene}=await import('/space.js');
-    const nodes=Array.from({length:1000},(_,i)=>({identity:{pid:100000+i,start_time_ticks:1},name:'load-'+i,uid:99999,username:'fixture',rss_bytes:1048576,cpu_percent:0,maps_epoch:1,maps:Array.from({length:16},(_,j)=>({start:'0x'+(4096+j*8192).toString(16),end:'0x'+(8192+j*8192).toString(16),permissions:'rw-p',writable:true,executable:false,pathname:j===0?'[heap]':null}))}));
+    const nodes=Array.from({length:1000},(_,i)=>({identity:{pid:100000+i,start_time_ticks:1},name:'load-'+i,uid:99999,username:'fixture',rss_bytes:1048576,cpu_percent:0,maps_epoch:1,maps:Array.from({length:16},(_,j)=>({start:'0x'+(4096+j*8192).toString(16),end:'0x'+(8192+j*8192).toString(16),readable:true,private:true,writable:true,executable:false,pathname:j===0?'[heap]':null}))}));
     for(let i=1;i<nodes.length;i++)nodes[i].parent_id=nodes[Math.floor((i-1)/4)].identity;
-    const edges=Array.from({length:5000},(_,i)=>({id:'load-'+i,endpoint:{process_id:nodes[i%1000].identity,fd:i,resource:'pipe:0:'+i},peer:{process_id:nodes[(i*7+1)%1000].identity,fd:i,resource:'pipe:0:'+i},label:'PIPE',shared:false,candidate:false}));
-    for(let i=0;i<1000;i++)edges.push({id:'network-load-'+i,endpoint:{process_id:nodes[i%100].identity,fd:6000+i,resource:'socket:load:'+i},peer:null,label:'TCP network',shared:false,candidate:false,socket:{protocol:'TCP',state:'ESTABLISHED',local:'127.0.0.1:5000',remote:'203.0.113.1:'+ (4000+i),network_peer:true}});
+    const edges=Array.from({length:5000},(_,i)=>({id:'load-'+i,endpoint:{process_id:nodes[i%1000].identity,fd:i,resource:{kind:'pipe',device:{major:0,minor:0},inode:String(i)}},peer:{process_id:nodes[(i*7+1)%1000].identity,fd:i,resource:{kind:'pipe',device:{major:0,minor:0},inode:String(i)}},label:'PIPE',shared:false,candidate:false}));
+    for(let i=0;i<1000;i++)edges.push({id:'network-load-'+i,endpoint:{process_id:nodes[i%100].identity,fd:6000+i,resource:{kind:'socket',device:{major:0,minor:0},inode:String(i)}},peer:null,label:'TCP network',shared:false,candidate:false,socket:{protocol:{kind:'tcp',family:'ipv4'},state:{kind:'established'},local:{ip:'127.0.0.1',port:5000},remote:{ip:'203.0.113.1',port:4000+i},network_peer:true}});
     renderSystemSnapshot({processes:nodes,fd_relations:edges,captured_at:Date.now(),inspected_processes:1000,inspected_fds:10000,warnings:[]});
-    renderActivity({files:Array.from({length:512},(_,i)=>({process_id:nodes[i%100].identity,resource:'file:load:'+i,path:'/tmp/load-'+i,write:i%2===0,bytes:4096,count:1}))});fitScene();
+    renderActivity({files:Array.from({length:512},(_,i)=>({process_id:nodes[i%100].identity,file:{device:{major:0,minor:0},inode:String(i),generation:0},path:'/tmp/load-'+i,write:i%2===0,bytes:4096,count:1}))});fitScene();
   })()`);
   assert.equal(await evaluate("import('/space.js').then(m=>m.networkVisuals().length)"),1000,'large network snapshot renders all destination markers');
   assert.equal(await evaluate("import('/space.js').then(m=>m.fileVisuals().length)"),512,'file marker display limit renders alongside network snapshot');
@@ -226,7 +226,7 @@ try {
   await evaluate(`(async()=>{
     const m=await import('/space.js');
     window.linkSnapshot={processes:[${JSON.stringify(n)}],fd_relations:[{
-      id:'click-link',endpoint:{process_id:${JSON.stringify(n.identity)},fd:4,fd_count:1,resource:'pipe:click',kind:'pipe',access:2},
+      id:'click-link',endpoint:{process_id:${JSON.stringify(n.identity)},fd:4,fd_count:1,resource:{kind:'pipe',device:{major:0,minor:0},inode:'1561'},kind:'pipe',access:'read_write'},
       peer:null,label:'click regression',shared:false,candidate:false
     }]};
     m.renderSystemSnapshot(window.linkSnapshot);

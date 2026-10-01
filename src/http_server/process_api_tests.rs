@@ -247,6 +247,7 @@ async fn generated_javascript_is_embedded_at_existing_urls() {
     let state = Arc::new(AppState::new(Duration::from_secs(1)));
     let app = super::router::router(state, "127.0.0.1:8080".parse().unwrap());
     for (path, expected) in [
+        ("/display.js", include_str!("../../dist/web/display.js")),
         ("/app.js", include_str!("../../dist/web/app.js")),
         ("/space.js", include_str!("../../dist/web/space.js")),
         (

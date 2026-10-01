@@ -102,7 +102,7 @@ pub(in crate::http_server) fn socket_text(path: &str) -> Result<String> {
 }
 pub(in crate::http_server) fn inet_sockets(
     text: &str,
-    protocol: &str,
+    protocol: crate::http_server::socket_types::SocketProtocol,
 ) -> std::collections::HashMap<u64, SocketInfo> {
     sockets::parse_inet(text, protocol)
 }

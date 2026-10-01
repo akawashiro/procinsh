@@ -1,6 +1,9 @@
 use crate::http_server::process::{
     self, Discovery, MemoryMap, ProcessId, ProcessSummary, SocketInfo,
 };
+use crate::http_server::resource::{DeviceId, IpcIdentity, IpcKind};
+use crate::http_server::socket_types::{AddressFamily, SocketProtocol, SocketState, SocketType};
+use crate::http_server::socket_types::{FdAccess, FdKind, InetAddress};
 use serde::Serialize;
 use std::{
     collections::{HashMap, HashSet},
@@ -30,29 +33,31 @@ pub(super) struct FdEndpoint {
     pub(super) process_id: ProcessId,
     pub(super) fd: u32,
     pub(super) fd_count: usize,
-    pub(super) resource: String,
-    pub(super) kind: String,
-    pub(super) access: u32,
+    pub(super) resource: IpcIdentity,
+    pub(super) kind: FdKind,
+    pub(super) access: FdAccess,
 }
 #[derive(Clone, Serialize)]
 pub(super) struct SocketEndpoint {
-    pub(super) protocol: String,
-    pub(super) state: String,
-    pub(super) local: Option<std::net::SocketAddr>,
-    pub(super) remote: Option<std::net::SocketAddr>,
+    pub(super) protocol: SocketProtocol,
+    pub(super) state: SocketState,
+    pub(super) local: Option<InetAddress>,
+    pub(super) remote: Option<InetAddress>,
+    pub(super) path: Option<String>,
     pub(super) network_peer: bool,
     pub(super) remote_hostname: Option<String>,
 }
 impl From<&SocketInfo> for SocketEndpoint {
     fn from(info: &SocketInfo) -> Self {
         Self {
-            protocol: info.protocol.clone(),
+            protocol: info.protocol,
             remote_hostname: None,
-            state: info.state.clone(),
-            local: info.local,
-            remote: info.remote,
-            network_peer: (info.protocol.starts_with("TCP") || info.protocol.starts_with("UDP"))
-                && info.state != "LISTEN"
+            state: info.state,
+            local: info.local.map(InetAddress::from),
+            remote: info.remote.map(InetAddress::from),
+            path: info.path.clone(),
+            network_peer: info.protocol.is_inet()
+                && info.state != SocketState::Listen
                 && info
                     .remote
                     .is_some_and(|remote| remote.port() != 0 && !remote.ip().is_unspecified()),
@@ -101,9 +106,6 @@ pub(super) fn process_from_summary(
         maps_error: None,
     }
 }
-pub(super) fn resource(kind: &str, dev: u64, inode: u64) -> String {
-    format!("{kind}:{dev}:{inode}")
-}
 pub(super) fn collect(discovery: &mut Discovery) -> SystemSnapshot {
     let mut result = SystemSnapshot {
         captured_at: process::timestamp_ms(),
@@ -120,7 +122,7 @@ pub(super) fn collect(discovery: &mut Discovery) -> SystemSnapshot {
         .iter()
         .map(|summary| (summary.identity.pid, summary.identity))
         .collect();
-    let mut owners: HashMap<String, Vec<FdEndpoint>> = HashMap::new();
+    let mut owners: HashMap<IpcIdentity, Vec<FdEndpoint>> = HashMap::new();
     let mut infos = HashMap::new();
     let mut inode_ns = HashMap::new();
     let mut namespaces = HashSet::new();
@@ -155,11 +157,36 @@ pub(super) fn collect(discovery: &mut Discovery) -> SystemSnapshot {
             && namespaces.insert(ns.ino())
         {
             for (file, protocol) in [
-                ("tcp", "TCP"),
-                ("tcp6", "TCP6"),
-                ("udp", "UDP"),
-                ("udp6", "UDP6"),
-                ("unix", "UNIX"),
+                (
+                    "tcp",
+                    SocketProtocol::Tcp {
+                        family: AddressFamily::Ipv4,
+                    },
+                ),
+                (
+                    "tcp6",
+                    SocketProtocol::Tcp {
+                        family: AddressFamily::Ipv6,
+                    },
+                ),
+                (
+                    "udp",
+                    SocketProtocol::Udp {
+                        family: AddressFamily::Ipv4,
+                    },
+                ),
+                (
+                    "udp6",
+                    SocketProtocol::Udp {
+                        family: AddressFamily::Ipv6,
+                    },
+                ),
+                (
+                    "unix",
+                    SocketProtocol::Unix {
+                        socket_type: SocketType::Unknown(0),
+                    },
+                ),
             ] {
                 if let Ok(text) = process::socket_text(&format!("/proc/{pid}/net/{file}")) {
                     let table = if file == "unix" {
@@ -197,9 +224,9 @@ pub(super) fn collect(discovery: &mut Discovery) -> SystemSnapshot {
                         }
                     };
                     let kind = if meta.file_type().is_socket() {
-                        "socket"
+                        FdKind::Socket
                     } else if meta.file_type().is_fifo() {
-                        "pipe"
+                        FdKind::Pipe
                     } else {
                         continue;
                     };
@@ -211,13 +238,17 @@ pub(super) fn collect(discovery: &mut Discovery) -> SystemSnapshot {
                         process_id: n.identity,
                         fd: number,
                         fd_count: 1,
-                        resource: resource(kind, meta.dev(), meta.ino()),
-                        kind: kind.into(),
-                        access: if flags & libc::O_PATH as u32 != 0 {
-                            u32::MAX
-                        } else {
-                            flags & 3
+                        resource: IpcIdentity {
+                            kind: if kind == FdKind::Pipe {
+                                IpcKind::Pipe
+                            } else {
+                                IpcKind::Socket
+                            },
+                            device: DeviceId::from_stat(meta.dev()),
+                            inode: meta.ino(),
                         },
+                        kind,
+                        access: FdAccess::from_flags(flags),
                     });
                 }
             }
@@ -229,7 +260,7 @@ pub(super) fn collect(discovery: &mut Discovery) -> SystemSnapshot {
         }
         if process::check_identity(n.identity).is_ok() {
             for p in endpoints {
-                let list = owners.entry(p.resource.clone()).or_default();
+                let list = owners.entry(p.resource).or_default();
                 if let Some(existing) = list
                     .iter_mut()
                     .find(|e| e.process_id == p.process_id && e.access == p.access)
@@ -253,12 +284,12 @@ pub(super) fn collect(discovery: &mut Discovery) -> SystemSnapshot {
         if let (Some(local), Some(remote)) = (info.local, info.remote)
             && remote.port() != 0
             && !remote.ip().is_unspecified()
-            && info.state != "LISTEN"
+            && info.state != SocketState::Listen
         {
             reverse
                 .entry((
                     inode_ns.get(&inode).copied(),
-                    info.protocol.starts_with("TCP"),
+                    info.protocol.is_tcp(),
                     local,
                     remote,
                 ))
@@ -268,10 +299,8 @@ pub(super) fn collect(discovery: &mut Discovery) -> SystemSnapshot {
     }
     let mut by_inode = HashMap::new();
     for key in owners.keys() {
-        if key.starts_with("socket:")
-            && let Some(inode) = key.rsplit(':').next().and_then(|v| v.parse::<u64>().ok())
-        {
-            by_inode.insert(inode, key.clone());
+        if key.kind == IpcKind::Socket {
+            by_inode.insert(key.inode, *key);
         }
     }
     for endpoints in owners.values_mut() {
@@ -285,11 +314,8 @@ pub(super) fn collect(discovery: &mut Discovery) -> SystemSnapshot {
                 if endpoint.process_id == peer.process_id && endpoint.fd == peer.fd {
                     continue;
                 }
-                let shared = endpoint.kind == "socket"
-                    || !matches!(
-                        (endpoint.access, peer.access),
-                        (0, 1 | 2) | (1, 0 | 2) | (2, 0..=2)
-                    );
+                let shared =
+                    endpoint.kind == FdKind::Socket || !endpoint.access.opposite(peer.access);
                 // Shared ownership is a group, not a full mesh of communication links.
                 if shared
                     && !std::ptr::eq(endpoint, &endpoints[0])
@@ -297,14 +323,10 @@ pub(super) fn collect(discovery: &mut Discovery) -> SystemSnapshot {
                 {
                     continue;
                 }
-                matches.push((peer, false, shared, endpoint.kind.clone()));
+                matches.push((peer, false, shared, endpoint.kind.to_string()));
             }
-            let inode = key
-                .rsplit(':')
-                .next()
-                .and_then(|s| s.parse().ok())
-                .unwrap_or(0);
-            let info = if endpoint.kind == "socket" {
+            let inode = key.inode;
+            let info = if endpoint.kind == FdKind::Socket {
                 infos.get(&inode)
             } else {
                 None
@@ -316,7 +338,7 @@ pub(super) fn collect(discovery: &mut Discovery) -> SystemSnapshot {
                 } else if let (Some(local), Some(remote)) = (info.local, info.remote)
                     && let Some(ids) = reverse.get(&(
                         inode_ns.get(&inode).copied(),
-                        info.protocol.starts_with("TCP"),
+                        info.protocol.is_tcp(),
                         remote,
                         local,
                     ))
@@ -326,7 +348,7 @@ pub(super) fn collect(discovery: &mut Discovery) -> SystemSnapshot {
                 for (peer, candidate) in peers {
                     if let Some(peer_endpoints) = by_inode.get(&peer).and_then(|k| owners.get(k)) {
                         for peer in peer_endpoints {
-                            matches.push((peer, candidate, false, info.protocol.clone()));
+                            matches.push((peer, candidate, false, info.protocol.to_string()));
                         }
                     }
                 }
@@ -425,8 +447,10 @@ mod tests {
     fn socket_destination_classification() {
         use crate::http_server::process::SocketInfo;
         let mut info = SocketInfo {
-            protocol: "TCP6".into(),
-            state: "ESTABLISHED".into(),
+            protocol: SocketProtocol::Tcp {
+                family: AddressFamily::Ipv6,
+            },
+            state: SocketState::Established,
             local: Some("[::1]:5000".parse().unwrap()),
             remote: Some("[2001:db8::1]:443".parse().unwrap()),
             path: None,
@@ -436,19 +460,23 @@ mod tests {
         assert!(endpoint.network_peer);
         assert_eq!(
             serde_json::to_value(endpoint).unwrap()["remote"],
-            "[2001:db8::1]:443"
+            serde_json::json!({"ip":"2001:db8::1","port":443})
         );
-        info.state = "LISTEN".into();
+        info.state = SocketState::Listen;
         assert!(!SocketEndpoint::from(&info).network_peer);
-        info.protocol = "UDP".into();
-        info.state = "UNCONN".into();
+        info.protocol = SocketProtocol::Udp {
+            family: AddressFamily::Ipv4,
+        };
+        info.state = SocketState::Unconnected;
         for address in ["0.0.0.0:0", "127.0.0.1:0", "[::]:123"] {
             info.remote = Some(address.parse().unwrap());
             assert!(!SocketEndpoint::from(&info).network_peer);
         }
         info.remote = None;
         assert!(!SocketEndpoint::from(&info).network_peer);
-        info.protocol = "UNIX".into();
+        info.protocol = SocketProtocol::Unix {
+            socket_type: SocketType::Unknown(0),
+        };
         assert!(!SocketEndpoint::from(&info).network_peer);
     }
 }

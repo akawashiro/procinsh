@@ -3,6 +3,8 @@ import { OrbitControls } from "/vendor/OrbitControls.js";
 import {
   RecentFiles,
   fileKey,
+  fileLabel,
+  ipcLabel,
   fileLayout,
   processColors,
   remoteLabel,
@@ -758,16 +760,16 @@ function networkDetails() {
     : "Recent traffic —";
   const content = document.createDocumentFragment(),
     heading = document.createElement("p");
-  heading.textContent = `${nodes.get(key(group.endpoint.process_id))?.name || ""} · PID ${group.endpoint.process_id.pid} → ${remoteLabel(group.socket)} (${group.socket.remote}) · ${group.members.length} connections`;
+  heading.textContent = `${nodes.get(key(group.endpoint.process_id))?.name || ""} · PID ${group.endpoint.process_id.pid} → ${remoteLabel(group.socket)} (${Display.address(group.socket.remote)}) · ${group.members.length} connections`;
   content.append(heading);
   for (const e of group.members) {
     const row = document.createElement("div");
     row.className = "endpoint";
     const button = document.createElement("button");
-    button.textContent = `FD ${e.endpoint.fd}${e.endpoint.fd_count > 1 ? ` (+${e.endpoint.fd_count - 1} shared FDs)` : ""} · ${e.socket!.state}`;
+    button.textContent = `FD ${e.endpoint.fd}${e.endpoint.fd_count > 1 ? ` (+${e.endpoint.fd_count - 1} shared FDs)` : ""} · ${Display.state(e.socket!.state)}`;
     button.onclick = () => selectConnection(e.id);
     const address = document.createElement("span");
-    address.textContent = `${e.socket!.local || "—"} → ${e.socket!.remote}`;
+    address.textContent = `${Display.address(e.socket!.local) || e.socket!.path || "—"} → ${e.socket!.remote}`;
     const stat = edgeStats.get(e.id),
       observed = document.createElement("span");
     observed.textContent = stat
@@ -880,9 +882,9 @@ function fileDetails() {
   $("connection-facts").textContent =
     `Observed READ: ${f.readBytes} bytes / ${f.readCount} operations · WRITE: ${f.writeBytes} bytes / ${f.writeCount} operations`;
   const path = document.createElement("p");
-  path.textContent = f.path || `Path unavailable · ${f.resource}`;
+  path.textContent = f.path || `Path unavailable · ${fileLabel(f.file)}`;
   const identity = document.createElement("p");
-  identity.textContent = `${nodes.get(key(f.process_id))?.name || "Unknown process"} · PID ${f.process_id.pid} · ${f.resource}`;
+  identity.textContent = `${nodes.get(key(f.process_id))?.name || "Unknown process"} · PID ${f.process_id.pid} · ${fileLabel(f.file)}`;
   const link = document.createElement("a");
   link.href = `/process/${f.process_id.pid}`;
   link.textContent = "Open process details ↗";
@@ -913,15 +915,7 @@ function cpuText(id: string) {
   const cpus = state.cpus.length ? `CPU ${state.cpus.join(", ")}` : "Off CPU";
   return `${cpus} · ${state.running_threads} threads · ${(state.runtime_ns / 1e6).toFixed(2)} ms / ${state.window_ms} ms`;
 }
-function accessText(access: number) {
-  return access === 0
-    ? "READ"
-    : access === 1
-      ? "WRITE"
-      : access === 2
-        ? "READ / WRITE"
-        : "UNKNOWN";
-}
+
 function endpoint(
   fdEndpoint: FdEndpoint | null,
   title: string,
@@ -940,7 +934,7 @@ function endpoint(
   if (!fdEndpoint) {
     const note = document.createElement("span");
     note.textContent = socket?.network_peer
-      ? `${socket.protocol} · ${socket.state}`
+      ? `${Display.protocol(socket.protocol)} · ${Display.state(socket.state)}`
       : "The peer process could not be identified.";
     div.append(note);
     return div;
@@ -948,9 +942,9 @@ function endpoint(
   const identity = document.createElement("span");
   identity.textContent = `${title} · PID ${fdEndpoint.process_id.pid} · ${n?.username ?? n?.uid ?? "unknown"}`;
   const fd = document.createElement("span");
-  fd.textContent = `FD ${fdEndpoint.fd}${fdEndpoint.fd_count > 1 ? ` (+${fdEndpoint.fd_count - 1} shared FDs)` : ""} · ${accessText(fdEndpoint.access)}`;
+  fd.textContent = `FD ${fdEndpoint.fd}${fdEndpoint.fd_count > 1 ? ` (+${fdEndpoint.fd_count - 1} shared FDs)` : ""} · ${Display.access(fdEndpoint.access)}`;
   const resource = document.createElement("span");
-  resource.textContent = fdEndpoint.resource;
+  resource.textContent = ipcLabel(fdEndpoint.resource);
   const link = document.createElement("a");
   link.href = `/process/${fdEndpoint.process_id.pid}`;
   link.textContent = "Open process details ↗";
@@ -1023,7 +1017,7 @@ function details() {
   ];
   if (e.socket) {
     const info = document.createElement("p");
-    info.textContent = `${e.socket.protocol} ${e.socket!.state} · ${e.socket!.local || "—"} → ${e.socket.remote || "—"}`;
+    info.textContent = `${Display.protocol(e.socket.protocol)} ${Display.state(e.socket!.state)} · ${Display.address(e.socket!.local) || e.socket!.path || "—"} → ${Display.address(e.socket.remote) || "—"}`;
     endpoints.push(info);
   }
   const group = [...network.values()].find((g) =>
@@ -1258,13 +1252,13 @@ canvas.addEventListener("pointermove", (e) => {
     const id = hullIds[h.instanceId!],
       n = nodes.get(id)!,
       r = n.regions.find((r) => h.point.z >= r.z && h.point.z <= r.z + r.h);
-    text = `${n.name} / ${n.identity.pid}\n${cpuText(id)}${r ? `\n${r.permissions} ${r.pathname || "anonymous"}\n${r.start} → ${r.end}` : ""}`;
+    text = `${n.name} / ${n.identity.pid}\n${cpuText(id)}${r ? `\n${Display.permissions(r)} ${r.pathname || "anonymous"}\n${r.start} → ${r.end}` : ""}`;
   } else {
     const edge = edgeHit(e);
     if (edge && "fileId" in edge) {
       hoveredFile = edge.fileId;
       const f = recentFiles.entries.get(edge.fileId)!;
-      text = `${f.path || f.resource}\nPID ${f.process_id.pid} · READ ${f.readBytes} bytes · WRITE ${f.writeBytes} bytes`;
+      text = `${f.path || fileLabel(f.file)}\nPID ${f.process_id.pid} · READ ${f.readBytes} bytes · WRITE ${f.writeBytes} bytes`;
     } else if (edge) {
       hoveredNetwork = edge.networkId || null;
       const stat = edgeStats.get(edge.id);

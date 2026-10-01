@@ -67,14 +67,11 @@ fn matching_file(pid: i32, map: &MemoryMap) -> Option<(PathBuf, fs::Metadata)> {
     {
         paths.push(PathBuf::from(format!("/proc/{pid}/root{path}")));
     }
-    let (major, minor) = map.device.split_once(':')?;
-    let major = u64::from_str_radix(major, 16).ok()?;
-    let minor = u64::from_str_radix(minor, 16).ok()?;
     paths.into_iter().find_map(|path| {
         let meta = fs::metadata(&path).ok()?;
         (meta.ino() == map.inode
-            && libc::major(meta.dev()) as u64 == major
-            && libc::minor(meta.dev()) as u64 == minor)
+            && libc::major(meta.dev()) == map.device.major
+            && libc::minor(meta.dev()) == map.device.minor)
             .then_some((path, meta))
     })
 }

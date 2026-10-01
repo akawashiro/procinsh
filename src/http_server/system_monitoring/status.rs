@@ -5,7 +5,7 @@ impl StatusLog {
     fn changes(
         &mut self,
         status: &super::model::SystemMonitorStatus,
-    ) -> Vec<(&'static str, String)> {
+    ) -> Vec<(&'static str, super::model::SensorState)> {
         let mut changes = Vec::new();
         for (key, state) in [
             ("ipc", &status.ipc),
@@ -14,14 +14,17 @@ impl StatusLog {
         ] {
             if self.0.get(key) != Some(state) {
                 self.0.insert(key, state.clone());
-                changes.push((key, state.to_string()));
+                changes.push((key, state.clone()));
             }
         }
         changes
     }
     pub(super) fn observe(&mut self, status: &super::model::SystemMonitorStatus) {
         for (key, value) in self.changes(status) {
-            if value.starts_with("unavailable:") || value.starts_with("error:") {
+            if matches!(
+                value,
+                super::model::SensorState::Unavailable(_) | super::model::SensorState::Error(_)
+            ) {
                 log::warn!("System {key}: {value}");
             } else {
                 log::info!("System {key}: {value}");

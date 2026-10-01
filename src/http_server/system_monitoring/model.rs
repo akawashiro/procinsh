@@ -1,6 +1,7 @@
 //! Typed monitoring data; serialization preserves the existing SSE schema.
 use super::files::FileActivity;
 use crate::http_server::process::ProcessId;
+use crate::http_server::resource::IpcIdentity;
 use serde::Serialize;
 
 /// Metrics are a JSON array on the wire, without an enclosing object.
@@ -27,7 +28,7 @@ pub(in crate::http_server) struct SystemActivity {
 #[derive(Clone, Serialize)]
 pub(in crate::http_server) struct IpcActivity {
     pub(super) process_id: ProcessId,
-    pub(super) resource: String,
+    pub(super) resource: IpcIdentity,
     pub(super) write: bool,
     pub(super) bytes: u64,
     pub(super) count: u64,
@@ -58,7 +59,8 @@ pub(in crate::http_server) struct SystemMonitorStatus {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) files_lost: Option<u64>,
 }
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
+#[serde(tag = "state", content = "message", rename_all = "snake_case")]
 pub(in crate::http_server) enum SensorState {
     #[default]
     Idle,
@@ -78,12 +80,6 @@ impl std::fmt::Display for SensorState {
         }
     }
 }
-impl Serialize for SensorState {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.collect_str(self)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -125,7 +121,7 @@ mod tests {
     }
 
     #[test]
-    fn activity_preserves_fields_counters_and_sensor_strings() {
+    fn activity_preserves_fields_counters_and_structured_sensor_states() {
         let id = ProcessId {
             pid: 42,
             start_time_ticks: 123,
@@ -136,7 +132,11 @@ mod tests {
             files: vec![],
             ipc: vec![IpcActivity {
                 process_id: id,
-                resource: "pipe:1:2:3".into(),
+                resource: IpcIdentity {
+                    kind: crate::http_server::resource::IpcKind::Pipe,
+                    device: crate::http_server::resource::DeviceId::from_stat(1),
+                    inode: 2,
+                },
                 write: true,
                 bytes: 256,
                 count: 2,
@@ -164,9 +164,9 @@ mod tests {
             to_value(activity).unwrap(),
             json!({
                 "captured_at":1000,"window_ms":100,"files":[],
-                "ipc":[{"process_id":{"pid":42,"start_time_ticks":123},"resource":"pipe:1:2:3","write":true,"bytes":256,"count":2}],
+                "ipc":[{"process_id":{"pid":42,"start_time_ticks":123},"resource":{"kind":"pipe","device":{"major":0,"minor":1},"inode":"2"},"write":true,"bytes":256,"count":2}],
                 "cpu":[{"process_id":{"pid":42,"start_time_ticks":123},"runtime_ns":500,"switches":3,"running_threads":2,"cpus":[0,2]}],
-                "status":{"active":true,"ipc":"observing","cpu":"unavailable: permission denied","files":"error: poll failed","coverage":"ipc coverage","files_coverage":"file coverage","lost":0,"unresolved":1,"files_lost":2}
+                "status":{"active":true,"ipc":{"state":"observing"},"cpu":{"state":"unavailable","message":"permission denied"},"files":{"state":"error","message":"poll failed"},"coverage":"ipc coverage","files_coverage":"file coverage","lost":0,"unresolved":1,"files_lost":2}
             })
         );
     }
@@ -175,8 +175,11 @@ mod tests {
     fn idle_and_starting_preserve_absent_status_fields() {
         assert_eq!(
             to_value(SystemMonitorStatus::default()).unwrap(),
-            json!({"active":false,"ipc":"idle","cpu":"idle","files":"idle"})
+            json!({"active":false,"ipc":{"state":"idle"},"cpu":{"state":"idle"},"files":{"state":"idle"}})
         );
-        assert_eq!(to_value(SensorState::Starting).unwrap(), json!("starting"));
+        assert_eq!(
+            to_value(SensorState::Starting).unwrap(),
+            json!({"state":"starting"})
+        );
     }
 }

@@ -1,8 +1,20 @@
 // Visibility is scoped to the consumers of the parent process façade.
+use crate::http_server::resource::{DeviceId, decimal};
 use anyhow::{Context, Result, ensure};
 use serde::Serialize;
 use std::fs;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(in crate::http_server) enum MemoryKind {
+    Integer,
+    Stack,
+    Heap,
+    SharedLibrary,
+    Executable,
+    File,
+    Anonymous,
+}
 #[derive(Clone, Debug, Serialize)]
 pub(in crate::http_server) struct MemoryMap {
     #[serde(serialize_with = "hex")]
@@ -13,10 +25,10 @@ pub(in crate::http_server) struct MemoryMap {
     pub(super) writable: bool,
     pub(super) executable: bool,
     pub(super) private: bool,
-    pub(super) permissions: String,
     #[serde(serialize_with = "hex")]
     pub(super) file_offset: u64,
-    pub(super) device: String,
+    pub(super) device: DeviceId,
+    #[serde(serialize_with = "decimal")]
     pub(super) inode: u64,
     pub(super) pathname: Option<String>,
     pub(super) rss_bytes: Option<u64>,
@@ -29,14 +41,14 @@ impl MemoryMap {
     pub(super) fn contains(&self, address: u64) -> bool {
         self.start <= address && address < self.end
     }
-    pub(super) fn kind(&self) -> &'static str {
+    pub(super) fn kind(&self) -> MemoryKind {
         match self.pathname.as_deref() {
-            Some(p) if p.starts_with("[stack") => "stack",
-            Some("[heap]") => "heap",
-            Some(p) if p.contains(".so") => "shared library",
-            _ if self.executable => "executable",
-            Some(p) if p.starts_with('/') => "file",
-            _ => "anonymous",
+            Some(p) if p.starts_with("[stack") => MemoryKind::Stack,
+            Some("[heap]") => MemoryKind::Heap,
+            Some(p) if p.contains(".so") => MemoryKind::SharedLibrary,
+            _ if self.executable => MemoryKind::Executable,
+            Some(p) if p.starts_with('/') => MemoryKind::File,
+            _ => MemoryKind::Anonymous,
         }
     }
 }
@@ -64,9 +76,14 @@ pub(super) fn parse_map(line: &str) -> Result<MemoryMap> {
         writable: permissions.as_bytes()[1] == b'w',
         executable: permissions.as_bytes()[2] == b'x',
         private: permissions.as_bytes()[3] == b'p',
-        permissions: permissions.into(),
         file_offset: u64::from_str_radix(columns[2], 16)?,
-        device: columns[3].into(),
+        device: {
+            let (major, minor) = columns[3].split_once(':').context("maps: invalid device")?;
+            DeviceId {
+                major: u32::from_str_radix(major, 16)?,
+                minor: u32::from_str_radix(minor, 16)?,
+            }
+        },
         inode: columns[4].parse()?,
         pathname: (!rest.is_empty()).then(|| rest.to_owned()),
         rss_bytes: None,

@@ -1,3 +1,4 @@
+import "./display.js";
 import type {
   ProcessId,
   SocketEndpoint,
@@ -5,6 +6,8 @@ import type {
   FdEndpoint,
   IoActivity,
   FileActivity,
+  FileIdentity,
+  IpcIdentity,
   MemoryMap,
   CpuActivity,
 } from "./api-types.js";
@@ -38,7 +41,7 @@ export interface NetworkGroup {
 export interface RecentFile {
   id: string;
   process_id: ProcessId;
-  resource: string;
+  file: FileIdentity;
   path: string | null;
   readBytes: number;
   writeBytes: number;
@@ -50,9 +53,7 @@ export interface RecentFile {
 export type CpuGlow = CpuActivity & { last: number; window_ms: number };
 export type Region = MemoryMap & { z: number; h: number };
 export const remoteLabel = (socket: SocketEndpoint | null | undefined) =>
-  socket?.remote_hostname && socket.remote
-    ? `${socket.remote_hostname}:${socket.remote.slice(socket.remote.lastIndexOf(":") + 1)}`
-    : socket?.remote;
+  socket?.remote_hostname && socket.remote ? `${socket.remote_hostname}:${socket.remote.port}` : Display.address(socket?.remote);
 export const key = (id: ProcessId) => `${id.pid}:${id.start_time_ticks}`;
 export function networkGroups(fd_relations: FdRelation[]) {
   const groups = new Map<string, NetworkGroup>();
@@ -60,8 +61,8 @@ export function networkGroups(fd_relations: FdRelation[]) {
     if (e.peer || e.shared || !e.socket?.network_peer) continue;
     const id = JSON.stringify([
       key(e.endpoint.process_id),
-      e.socket.protocol,
-      e.socket.remote,
+      Display.protocol(e.socket.protocol),
+      e.socket.remote?.ip, e.socket.remote?.port,
     ]);
     if (!groups.has(id))
       groups.set(id, { id, endpoint: e.endpoint, socket: e.socket, members: [], label: "" });
@@ -69,7 +70,7 @@ export function networkGroups(fd_relations: FdRelation[]) {
   }
   for (const group of groups.values()) {
     group.members.sort((a, b) => a.endpoint.fd - b.endpoint.fd || a.id.localeCompare(b.id));
-    group.label = `${group.socket.protocol} ${remoteLabel(group.socket)} ×${group.members.length}`;
+    group.label = `${Display.protocol(group.socket.protocol)} ${remoteLabel(group.socket)} ×${group.members.length}`;
   }
   return groups;
 }
@@ -120,8 +121,8 @@ export function connectionState(
   if (e.candidate) return "Candidate peer";
   if (e.peer) return "Confirmed process connection";
   if (e.socket?.network_peer) return "Network destination";
-  if (e.socket?.state === "LISTEN") return "Listening";
-  if (e.socket?.protocol.startsWith("UDP")) return "No destination set";
+  if (e.socket?.state.kind === "listen") return "Listening";
+  if (e.socket?.protocol.kind === "udp") return "No destination set";
   return "Unknown destination";
 }
 export function layoutMaps<M extends Pick<MemoryMap, "start" | "end">>(
@@ -149,11 +150,11 @@ export function edgeDirection(
 ) {
   const a =
     key(edge.endpoint.process_id) === key(event.process_id) &&
-    edge.endpoint.resource === event.resource;
+    ipcKey(edge.endpoint.resource) === ipcKey(event.resource);
   const b =
     edge.peer &&
     key(edge.peer.process_id) === key(event.process_id) &&
-    edge.peer.resource === event.resource;
+    ipcKey(edge.peer.resource) === ipcKey(event.resource);
   if (edge.shared || (!a && !b) || (a && b)) return null;
   return a ? (event.write ? 1 : -1) : event.write ? -1 : 1;
 }
@@ -402,9 +403,13 @@ export const processColors = (n: {
   euid?: number | null;
 }) => ({ real: userColor(n.uid), effective: userColor(n.euid) });
 
+export const ipcKey = (r: IpcIdentity) => JSON.stringify([r.kind, r.device.major, r.device.minor, r.inode]);
+export const ipcLabel = (r: IpcIdentity) => `${r.kind}:${r.device.major}:${r.device.minor}:${r.inode}`;
+export const fileLabel = (r: FileIdentity) => `file:${r.device.major}:${r.device.minor}:${r.inode}:${r.generation}`;
+
 // Recent file activity is independent of the five-second system snapshot.
-export const fileKey = (event: Pick<IoActivity, "process_id" | "resource">) =>
-  JSON.stringify([key(event.process_id), event.resource]);
+export const fileKey = (event: Pick<FileActivity, "process_id" | "file">) =>
+  JSON.stringify([key(event.process_id), event.file.device.major, event.file.device.minor, event.file.inode, event.file.generation]);
 export class RecentFiles {
   entries = new Map<string, RecentFile>();
   evicted = 0;
@@ -446,9 +451,9 @@ export class RecentFiles {
         file = {
           id,
           process_id: e.process_id,
-          resource: e.resource,
+          file: e.file,
           path: null,
-          label: e.resource,
+          label: fileLabel(e.file),
           last: now,
           readBytes: 0,
           writeBytes: 0,
@@ -458,7 +463,7 @@ export class RecentFiles {
         changed = true;
       }
       if (e.path) file.path = e.path;
-      file.label = file.path?.split("/").pop() || file.resource;
+      file.label = file.path?.split("/").pop() || fileLabel(file.file);
       file.last = now;
       file[e.write ? "writeBytes" : "readBytes"] += e.bytes;
       file[e.write ? "writeCount" : "readCount"] += e.count;

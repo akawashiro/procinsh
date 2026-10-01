@@ -16,6 +16,25 @@
 //! | [`SocketInfo`] | `pub(super)` | `struct `[`SocketInfo`] |
 //! | [`MAX_READ`] | `pub(super)` | `const MAX_READ: `[`usize`] |
 //!
+//! [`maps::MemoryKind`] is `pub(in crate::http_server) enum MemoryKind { Integer, Stack, Heap, SharedLibrary, Executable, File, Anonymous }`.
+//! [`maps::MemoryMap::kind`] is `pub(super) fn kind(&self) -> MemoryKind`.
+//! [`MemoryMap`] exposes the existing `readable`, `writable`, `executable`, `private` booleans; the redundant `permissions` string is removed.
+//! [`MemoryMap`] uses `device: DeviceId` ([`super::resource::DeviceId`]) and `inode: u64` serialized as a decimal string.
+//!
+//! [`SocketInfo`] fields use [`super::socket_types::SocketProtocol`] and [`super::socket_types::SocketState`];
+//! `local` and `remote` remain `Option<std::net::SocketAddr>` internally.
+//! [`fds::Descriptor`] uses `kind: FdKind, access: FdAccess, protocol: Option<SocketProtocol>, state: Option<SocketState>, local: Option<InetAddress>, remote: Option<InetAddress>, path: Option<String>`;
+//! [`fds::Endpoint::access`] is `pub(super) access: FdAccess`.
+//!
+//! Structured thread/signal payloads (types and fields `pub(super)`):
+//! - [`threads::SchedulerPolicy`]: `Other, Fifo, Rr, Batch, Idle, Deadline, Ext, Unknown(u32)`.
+//! - [`threads::CpuRange`]: `start: u32, end: u32` (inclusive).
+//! - [`threads::ThreadObservation`]: `scheduler: SchedulerPolicy, affinity: Option<Vec<CpuRange>>`.
+//! - [`signals::Signal`]: `number: u32, name: String`.
+//! - [`signals::SignalQueue`]: `count: u64, limit: u64` (decimal strings in JSON).
+//! - [`signals::Mask`]: `bits: u64` (serialized as `hex`), `signals: Vec<Signal>`.
+//! - [`signals::SignalStatus::queued`]: `pub(super) queued: SignalQueue`.
+//!
 //! ## Functions
 //!
 //! | Definition | Visibility | Signature |
@@ -33,7 +52,7 @@
 //! | [`ticks_per_second`] | `pub(super)` | `fn ticks_per_second() -> `[`f64`] |
 //! | [`fields`] | `pub(super)` | `fn fields(path: &`[`str`]`) -> `[`Result`](anyhow::Result)`<`[`HashMap`](std::collections::HashMap)`<`[`String`]`, `[`String`]`>>` |
 //! | [`socket_text`] | `pub(super)` | `fn socket_text(path: &`[`str`]`) -> `[`Result`](anyhow::Result)`<`[`String`]`>` |
-//! | [`inet_sockets`] | `pub(super)` | `fn inet_sockets(text: &`[`str`]`, protocol: &`[`str`]`) -> `[`HashMap`](std::collections::HashMap)`<`[`u64`]`, `[`SocketInfo`]`>` |
+//! | [`inet_sockets`] | `pub(super)` | `fn inet_sockets(text: &`[`str`]`, protocol: `[`super::socket_types::SocketProtocol`]`) -> `[`HashMap`](std::collections::HashMap)`<`[`u64`]`, `[`SocketInfo`]`>` |
 //! | [`unix_sockets`] | `pub(super)` | `fn unix_sockets(text: &`[`str`]`) -> `[`HashMap`](std::collections::HashMap)`<`[`u64`]`, `[`SocketInfo`]`>` |
 //! | [`unix_socket_peers`] | `pub(super)` | `fn unix_socket_peers(deadline: `[`Instant`](std::time::Instant)`) -> `[`Result`](anyhow::Result)`<`[`HashMap`](std::collections::HashMap)`<`[`u64`]`, `[`SocketInfo`]`>>` |
 //! | [`timestamp_ms`] | `pub(super)` | `fn timestamp_ms() -> `[`u64`] |

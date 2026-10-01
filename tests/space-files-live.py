@@ -112,10 +112,10 @@ try:
         deadline = time.monotonic() + 20
         while time.monotonic() < deadline:
             status = latest['status']
-            if str(status.get('files', '')).startswith('unavailable'):
+            if status.get('files', {}).get('state') == 'unavailable':
                 raise AssertionError(status['files'])
             snapshot = latest['snapshot']
-            if status.get('files') == 'observing' and any(n['identity']['pid'] == ready['pid'] for n in snapshot.get('processes', [])):
+            if status.get('files', {}).get('state') == 'observing' and any(n['identity']['pid'] == ready['pid'] for n in snapshot.get('processes', [])):
                 break
             time.sleep(.2)
         else:
@@ -137,7 +137,7 @@ try:
                 break
             time.sleep(.1)
         assert actual == expected, (actual, expected, [f['status'] for f in frames[-1:]])
-        assert len({e['resource'] for e in events}) == 1
+        assert len({json.dumps(e['file'], sort_keys=True) for e in events}) == 1
         assert not Path(ready['path']).exists()
         response.close(reader)
         response = None

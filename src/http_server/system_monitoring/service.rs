@@ -180,7 +180,7 @@ impl SystemMonitor {
                             && socket.network_peer
                         {
                             socket.remote_hostname =
-                                socket.remote.and_then(|a| resolver.lookup(a.ip()));
+                                socket.remote.and_then(|a| resolver.lookup(a.ip));
                         }
                     }
                     let data = Arc::new(data);

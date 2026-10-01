@@ -17,6 +17,15 @@ pub(super) fn router() -> Router<Arc<AppState>> {
             get(|| async { Html(include_str!("../web/index.html")) }),
         )
         .route(
+            "/display.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("../../dist/web/display.js"),
+                )
+            }),
+        )
+        .route(
             "/app.js",
             get(|| async {
                 (

@@ -8,8 +8,28 @@ use std::{
 
 #[derive(Debug, Serialize)]
 pub(super) struct Mask {
-    pub(super) hex: String,
-    pub(super) signals: Vec<String>,
+    #[serde(rename = "hex", serialize_with = "super::maps::hex")]
+    pub(super) bits: u64,
+    pub(super) signals: Vec<Signal>,
+}
+#[derive(Debug, PartialEq, Eq, Serialize)]
+pub(super) struct Signal {
+    pub(super) number: u32,
+    pub(super) name: String,
+}
+#[derive(Debug, Serialize)]
+pub(super) struct SignalQueue {
+    #[serde(serialize_with = "crate::http_server::resource::decimal")]
+    pub(super) count: u64,
+    #[serde(serialize_with = "crate::http_server::resource::decimal")]
+    pub(super) limit: u64,
+}
+fn queue(text: &str) -> Result<SignalQueue> {
+    let (count, limit) = text.split_once('/').context("Invalid SigQ")?;
+    Ok(SignalQueue {
+        count: count.parse()?,
+        limit: limit.parse()?,
+    })
 }
 #[derive(Debug, Serialize)]
 pub(super) struct SignalStatus {
@@ -20,7 +40,7 @@ pub(super) struct SignalStatus {
     pub(super) blocked: Mask,
     pub(super) ignored: Mask,
     pub(super) caught: Mask,
-    pub(super) queued: String,
+    pub(super) queued: SignalQueue,
 }
 #[derive(Serialize)]
 pub(super) struct Signals {
@@ -71,15 +91,15 @@ fn mask(value: &str) -> Result<Mask> {
             let name = if n <= 31 {
                 NAMES[n - 1].to_string()
             } else {
-                format!("RT (kernel {})", n)
+                "RT".to_owned()
             };
-            format!("{name} [{n}]")
+            Signal {
+                number: n as u32,
+                name,
+            }
         })
         .collect();
-    Ok(Mask {
-        hex: format!("0x{bits:016x}"),
-        signals,
-    })
+    Ok(Mask { bits, signals })
 }
 fn parse(tid: i32, text: &str) -> Result<SignalStatus> {
     let field = |key: &str| -> Result<&str> {
@@ -103,7 +123,7 @@ fn parse(tid: i32, text: &str) -> Result<SignalStatus> {
         blocked: mask(field("SigBlk")?)?,
         ignored: mask(field("SigIgn")?)?,
         caught: mask(field("SigCgt")?)?,
-        queued: field("SigQ")?.to_string(),
+        queued: queue(field("SigQ")?)?,
     })
 }
 pub(super) fn read(id: ProcessId) -> Result<Signals> {
@@ -152,10 +172,37 @@ mod tests {
     #[test]
     fn masks_preserve_high_bit_and_signal_numbers() {
         let m = mask("8000000000000200").unwrap();
-        assert_eq!(m.signals, ["SIGUSR1 [10]", "RT (kernel 64) [64]"]);
-        assert_eq!(m.hex, "0x8000000000000200");
+        assert_eq!(
+            m.signals,
+            [
+                Signal {
+                    number: 10,
+                    name: "SIGUSR1".into()
+                },
+                Signal {
+                    number: 64,
+                    name: "RT".into()
+                }
+            ]
+        );
+        assert_eq!(m.bits, 0x8000000000000200);
+        assert_eq!(
+            serde_json::to_value(&m).unwrap()["hex"],
+            "0x8000000000000200"
+        );
         assert!(mask("0").unwrap().signals.is_empty());
         assert!(mask("not hex").is_err());
+    }
+    #[test]
+    fn signal_queue_preserves_large_counts_and_rejects_bad_values() {
+        let q = queue("18446744073709551615/18446744073709551614").unwrap();
+        assert_eq!(
+            serde_json::to_value(q).unwrap(),
+            serde_json::json!({"count":"18446744073709551615","limit":"18446744073709551614"})
+        );
+        for value in ["1", "1/x", "1/2/3", "18446744073709551616/1"] {
+            assert!(queue(value).is_err());
+        }
     }
     #[test]
     fn reads_live_threads_and_rejects_reused_identity() {

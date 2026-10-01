@@ -1,4 +1,5 @@
 use super::model::IpcActivity;
+use crate::http_server::resource::{DeviceId, IpcIdentity, IpcKind};
 use anyhow::{Context, Result};
 use libbpf_rs::{MapCore, MapFlags, ObjectBuilder, RingBufferBuilder};
 use std::{
@@ -40,7 +41,7 @@ pub(super) struct Ipc {
     queue: Arc<Mutex<Vec<Event>>>,
     drops: Arc<std::sync::atomic::AtomicU64>,
     unresolved: u64,
-    pending: HashMap<(crate::http_server::process::ProcessId, String, bool), (u64, u64)>,
+    pending: HashMap<(crate::http_server::process::ProcessId, IpcIdentity, bool), (u64, u64)>,
 }
 
 impl Ipc {
@@ -121,12 +122,15 @@ impl Ipc {
                 self.unresolved += 1;
                 continue;
             }
-            let dev = libc::makedev((e.device >> 20) as u32, (e.device & ((1 << 20) - 1)) as u32);
-            let resource = super::system_snapshot::resource(
-                if e.kind == 1 { "pipe" } else { "socket" },
-                dev,
-                e.inode,
-            );
+            let resource = IpcIdentity {
+                kind: if e.kind == 1 {
+                    IpcKind::Pipe
+                } else {
+                    IpcKind::Socket
+                },
+                device: DeviceId::from_kernel(e.device),
+                inode: e.inode,
+            };
             if self.pending.len() >= 8192 {
                 self.unresolved += 1;
                 continue;

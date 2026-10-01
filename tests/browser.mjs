@@ -83,13 +83,13 @@ try {
     await evaluate(`document.getElementById('search').value = '${pid}'; document.getElementById('search').dispatchEvent(new Event('input'));`);
     await waitFor(`Array.from(document.querySelectorAll('#process-list tr')).some(r => r.cells[0].textContent === '${pid}')`, 'process search');
     await evaluate(`Array.from(document.querySelectorAll('#process-list tr')).find(r => r.cells[0].textContent === '${pid}').querySelector('button').click()`);
-    await waitFor(`!document.getElementById('inspector').hidden && document.getElementById('identity').textContent.includes('PID ${pid} /')`, 'process selection');
+    await waitFor(`!document.getElementById('inspector').hidden && document.getElementById('identity')?.textContent.includes('PID ${pid} /')`, 'process selection');
   }
   await choose(recursive.pid);
   await evaluate("window.currentIdentity=JSON.stringify(target.summary.identity);const reused=structuredClone(target);reused.summary.identity.start_time_ticks++;window.targetSources.at(-1).dispatchEvent(new MessageEvent('observation',{data:JSON.stringify(reused)}))");
   assert.equal(await evaluate("JSON.stringify(target.summary.identity)"),await evaluate("window.currentIdentity"),'SSE cannot switch to a reused PID');
   await cdp('Page.navigate',{url:url+'/process/'+threads.pid});
-  await waitFor(`document.getElementById('identity').textContent.includes('PID ${threads.pid} /')`,'direct URL selects requested target');
+  await waitFor(`document.getElementById('identity')?.textContent.includes('PID ${threads.pid} /')`,'direct URL selects requested target');
   await waitFor("window.targetSources.length===1",'direct URL opens one identified stream');
   await evaluate("window.oldSource=window.targetSources[0];document.getElementById('back').click()");
   await evaluate("window.oldSource.dispatchEvent(new MessageEvent('observation',{data:'invalid stale data'}))");
@@ -97,10 +97,10 @@ try {
   await choose(threads.pid);
   assert.ok(await evaluate(`document.getElementById('identity').textContent.includes('PID ${threads.pid} /')`),'stale initial stream is ignored');
   await cdp('Page.navigate',{url:url+'/process/2147483647'});
-  await waitFor("document.getElementById('error').textContent.includes('Process exited')",'missing direct PID');
+  await waitFor("document.getElementById('error')?.textContent.includes('Process exited')",'missing direct PID');
   assert.equal(await evaluate("document.getElementById('inspector').hidden"),true,'missing PID leaves list visible');
   await cdp('Page.navigate',{url:url+'/process/'+recursive.pid});
-  await waitFor(`document.getElementById('identity').textContent.includes('PID ${recursive.pid} /')`,'direct URL original target');
+  await waitFor(`document.getElementById('identity')?.textContent.includes('PID ${recursive.pid} /')`,'direct URL original target');
   assert.equal(await evaluate("document.getElementById('target-status').hidden"), true);
   assert.equal(await evaluate("document.querySelector('header #back').hidden"), false);
   assert.equal(await evaluate("document.querySelector('header #back').textContent"), 'Go to list view');
@@ -113,6 +113,7 @@ try {
   await waitFor('!snapshotBusy', 'default capture finishes before manual checks');
   await waitFor("document.querySelectorAll('#maps tr').length > 5", 'memory maps');
   await evaluate("document.getElementById('snapshot').click()");
+  await waitFor("!snapshotBusy", 'manual snapshot completes');
   await waitFor("document.querySelectorAll('#registers tr').length === 18", 'register snapshot');
   assert.match(await evaluate("document.getElementById('call-stack').textContent"), /foo/);
   assert.match(await evaluate("document.getElementById('call-stack').textContent"), /recursive\.c/);
@@ -150,6 +151,7 @@ try {
   await waitFor('!snapshotBusy', 'default worker capture finishes');
   await waitFor("document.querySelectorAll('#threads tr').length >= 6", 'thread view');
   await evaluate("document.getElementById('snapshot').click()");
+  await waitFor("!snapshotBusy", 'manual snapshot completes');
   await waitFor("document.querySelectorAll('#registers tr').length === 18", 'multi-thread snapshot');
   await evaluate("document.querySelectorAll('#threads button')[1].click()");
   assert.match(await evaluate("document.getElementById('stack-tid').textContent"), /TID \d+/);
