@@ -11,7 +11,7 @@ use std::{
 pub(super) const COVERAGE: &str = "Regular-file read/write, pread/pwrite and vectored I/O, including page cache. Not physical disk traffic. mmap, io_uring, splice/sendfile and kernel workers are not observed.";
 const MAX_AGGREGATES: usize = 8192;
 #[derive(Clone, Debug, Serialize)]
-pub(super) struct FileActivity {
+pub(in crate::http_server) struct FileActivity {
     process_id: ProcessId,
     resource: String,
     path: Option<String>,
@@ -160,6 +160,18 @@ mod tests {
         data[48..54].copy_from_slice(b"/tmp/x");
         data[40..44].copy_from_slice(&7u32.to_ne_bytes());
         data
+    }
+    #[test]
+    fn file_activity_preserves_wire_fields_and_null_path() {
+        let mut activity = decode(&event()).unwrap();
+        activity.path = None;
+        assert_eq!(
+            serde_json::to_value(&activity).unwrap(),
+            serde_json::json!({
+                "process_id": {"pid": 123, "start_time_ticks": crate::http_server::process::ticks_per_second() as u64},
+                "resource": "file:8:1:42:0", "path": null, "write": false, "bytes": 7, "count": 1
+            })
+        );
     }
     #[test]
     fn decoding_and_path_failure() {

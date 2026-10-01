@@ -1,20 +1,22 @@
 /// Remembers only operational states, not continuously changing counters.
 #[derive(Default)]
-pub(super) struct StatusLog(std::collections::HashMap<&'static str, String>);
+pub(super) struct StatusLog(std::collections::HashMap<&'static str, super::model::SensorState>);
 impl StatusLog {
-    fn changes(&mut self, status: &serde_json::Value) -> Vec<(&'static str, String)> {
+    fn changes(&mut self, status: &super::model::SystemStatus) -> Vec<(&'static str, String)> {
         let mut changes = Vec::new();
-        for key in ["ipc", "cpu", "files"] {
-            if let Some(value) = status[key].as_str()
-                && self.0.get(key).is_none_or(|old| old != value)
-            {
-                self.0.insert(key, value.to_owned());
-                changes.push((key, value.to_owned()));
+        for (key, state) in [
+            ("ipc", &status.ipc),
+            ("cpu", &status.cpu),
+            ("files", &status.files),
+        ] {
+            if self.0.get(key) != Some(state) {
+                self.0.insert(key, state.clone());
+                changes.push((key, state.to_string()));
             }
         }
         changes
     }
-    pub(super) fn observe(&mut self, status: &serde_json::Value) {
+    pub(super) fn observe(&mut self, status: &super::model::SystemStatus) {
         for (key, value) in self.changes(status) {
             if value.starts_with("unavailable:") || value.starts_with("error:") {
                 log::warn!("System {key}: {value}");
@@ -28,23 +30,22 @@ impl StatusLog {
 #[cfg(test)]
 mod logging_tests {
     use super::*;
-    use serde_json::json;
+    use crate::http_server::system_monitoring::model::{SensorState, SystemStatus};
     #[test]
     fn logs_changes_recovery_and_recurrence_without_repeating_errors() {
         let mut log = StatusLog::default();
-        let error = json!({"cpu":"unavailable: permission denied", "lost":1});
-        assert_eq!(log.changes(&error).len(), 1);
-        assert!(log.changes(&error).is_empty());
-        assert!(
-            log.changes(&json!({"cpu":"unavailable: permission denied", "lost":2}))
-                .is_empty()
-        );
-        assert_eq!(
-            log.changes(&json!({"cpu":"unavailable: unsupported"}))
-                .len(),
-            1
-        );
-        assert_eq!(log.changes(&json!({"cpu":"observing"})).len(), 1);
-        assert_eq!(log.changes(&error).len(), 1);
+        let mut status = SystemStatus::default();
+        assert_eq!(log.changes(&status).len(), 3);
+        status.cpu = SensorState::Unavailable("permission denied".into());
+        assert_eq!(log.changes(&status).len(), 1);
+        assert!(log.changes(&status).is_empty());
+        status.lost = Some(2);
+        assert!(log.changes(&status).is_empty());
+        status.cpu = SensorState::Unavailable("unsupported".into());
+        assert_eq!(log.changes(&status).len(), 1);
+        status.cpu = SensorState::Observing;
+        assert_eq!(log.changes(&status).len(), 1);
+        status.cpu = SensorState::Unavailable("permission denied".into());
+        assert_eq!(log.changes(&status).len(), 1);
     }
 }
