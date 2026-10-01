@@ -3,11 +3,33 @@
 #include <bpf/bpf_core_read.h>
 #include <bpf/bpf_tracing.h>
 char LICENSE[] SEC("license") = "GPL";
-struct process_key { __u64 start; __u32 pid; __u32 pad; };
-struct cpu_slot { struct process_key process; __u64 since; __u32 tid; __u32 pad; };
-struct cpu_total { __u64 runtime; __u64 switches; };
-struct { __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY); __uint(max_entries, 1); __type(key, __u32); __type(value, struct cpu_slot); } cpu_current SEC(".maps");
-struct { __uint(type, BPF_MAP_TYPE_LRU_PERCPU_HASH); __uint(max_entries, 65536); __type(key, struct process_key); __type(value, struct cpu_total); } cpu_totals SEC(".maps");
+struct process_key {
+    __u64 start;
+    __u32 pid;
+    __u32 pad;
+};
+struct cpu_slot {
+    struct process_key process;
+    __u64 since;
+    __u32 tid;
+    __u32 pad;
+};
+struct cpu_total {
+    __u64 runtime;
+    __u64 switches;
+};
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __uint(max_entries, 1);
+    __type(key, __u32);
+    __type(value, struct cpu_slot);
+} cpu_current SEC(".maps");
+struct {
+    __uint(type, BPF_MAP_TYPE_LRU_PERCPU_HASH);
+    __uint(max_entries, 65536);
+    __type(key, struct process_key);
+    __type(value, struct cpu_total);
+} cpu_totals SEC(".maps");
 
 static __always_inline struct process_key process_key(struct task_struct *task) {
     struct task_struct *leader = BPF_CORE_READ(task, group_leader);
@@ -19,8 +41,8 @@ static __always_inline struct process_key process_key(struct task_struct *task) 
 }
 
 SEC("tp_btf/sched_switch")
-int BPF_PROG(schedule, bool preempt, struct task_struct *prev,
-             struct task_struct *next, unsigned int prev_state) {
+int BPF_PROG(schedule, bool preempt, struct task_struct *prev, struct task_struct *next,
+             unsigned int prev_state) {
     __u32 zero = 0;
     __u64 now = bpf_ktime_get_ns();
     struct cpu_slot *slot = bpf_map_lookup_elem(&cpu_current, &zero);
