@@ -6,6 +6,10 @@
 //! | --- | --- | --- |
 //! | [`run`] | `pub(super)` | `async fn run(listen: `[`SocketAddr`](std::net::SocketAddr)`, interval: `[`Duration`](std::time::Duration)`) -> `[`anyhow::Result`]`<()>` |
 //!
+//! Shared state: [`state::AppState::system_monitor`] is
+//! `pub(super) system_monitor: Arc<system_monitoring::SystemMonitor>`
+//! ([`system_monitoring::SystemMonitor`]).
+//!
 mod api;
 mod middleware;
 mod process;

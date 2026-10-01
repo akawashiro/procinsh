@@ -22,7 +22,7 @@ pub(in crate::http_server) struct SystemActivity {
     pub(super) files: Vec<FileActivity>,
     pub(super) ipc: Vec<IpcActivity>,
     pub(super) cpu: Vec<CpuActivity>,
-    pub(super) status: SystemStatus,
+    pub(super) status: SystemMonitorStatus,
 }
 #[derive(Clone, Serialize)]
 pub(in crate::http_server) struct IpcActivity {
@@ -41,7 +41,8 @@ pub(in crate::http_server) struct CpuActivity {
     pub(super) cpus: Vec<usize>,
 }
 #[derive(Clone, Default, Serialize)]
-pub(in crate::http_server) struct SystemStatus {
+/// State and collection health of the system monitoring sensors.
+pub(in crate::http_server) struct SystemMonitorStatus {
     pub(super) active: bool,
     pub(super) ipc: SensorState,
     pub(super) cpu: SensorState,
@@ -147,7 +148,7 @@ mod tests {
                 running_threads: 2,
                 cpus: vec![0, 2],
             }],
-            status: SystemStatus {
+            status: SystemMonitorStatus {
                 active: true,
                 ipc: SensorState::Observing,
                 cpu: SensorState::Unavailable("permission denied".into()),
@@ -173,7 +174,7 @@ mod tests {
     #[test]
     fn idle_and_starting_preserve_absent_status_fields() {
         assert_eq!(
-            to_value(SystemStatus::default()).unwrap(),
+            to_value(SystemMonitorStatus::default()).unwrap(),
             json!({"active":false,"ipc":"idle","cpu":"idle","files":"idle"})
         );
         assert_eq!(to_value(SensorState::Starting).unwrap(), json!("starting"));
