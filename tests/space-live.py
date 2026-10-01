@@ -36,20 +36,22 @@ try:
     ipc=[e for f in frames for e in f['ipc'] if e['process_id']['pid']==pid and e['write'] and e['bytes']>0]
     from collections import defaultdict
     sends=defaultdict(lambda:[0,0]);receives=defaultdict(lambda:[0,0])
+    def resource_key(resource):
+        return (resource['kind'], resource['device']['major'], resource['device']['minor'], resource['inode'])
     for f in frames:
         for e in f['ipc']:
-            if e['process_id']['pid']==pid and e['write']:sends[e['resource']][0]+=e['bytes'];sends[e['resource']][1]+=e['count']
-            if e['process_id']['pid']==peer and not e['write']:receives[e['resource']][0]+=e['bytes'];receives[e['resource']][1]+=e['count']
-    pipe_sends=[v for k,v in sends.items() if k.startswith('pipe:') and v==[256,1]]
-    socket_sends=[v for k,v in sends.items() if k.startswith('socket:')]
-    socket_receives=[v for k,v in receives.items() if k.startswith('socket:')]
+            if e['process_id']['pid']==pid and e['write']:sends[resource_key(e['resource'])][0]+=e['bytes'];sends[resource_key(e['resource'])][1]+=e['count']
+            if e['process_id']['pid']==peer and not e['write']:receives[resource_key(e['resource'])][0]+=e['bytes'];receives[resource_key(e['resource'])][1]+=e['count']
+    pipe_sends=[v for k,v in sends.items() if k[0]=='pipe' and v==[256,1]]
+    socket_sends=[v for k,v in sends.items() if k[0]=='socket']
+    socket_receives=[v for k,v in receives.items() if k[0]=='socket']
     cpu=[e for f in frames for e in f.get('cpu',[]) if e['process_id']['pid']==pid]
     assert cpu and sum(e['runtime_ns'] for e in cpu)>500_000_000,cpu
     assert any(e['running_threads']>0 and e['cpus'] for e in cpu),cpu
     assert any(e['running_threads']==0 for e in cpu),cpu
     assert pipe_sends and len(socket_sends)==3 and all(v==[384,2] for v in socket_sends),sends
     assert len(socket_receives)==3 and all(v==[384,2] for v in socket_receives),receives
-    assert any(k.startswith('pipe:') and v==[256,1] for k,v in receives.items()),receives
+    assert any(k[0]=='pipe' and v==[256,1] for k,v in receives.items()),receives
     print('Live sensors passed: scheduler runtime/current CPU; pipe/UNIX/TCP/UDP send and receive; exact bytes/counts; MSG_PEEK and failed send excluded')
 
 finally:

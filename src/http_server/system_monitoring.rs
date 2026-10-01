@@ -22,14 +22,17 @@
 //! | Definition | Fields / variants |
 //! | --- | --- |
 //! | [`model::ProcessMetrics`] | `identity: ProcessId, cpu_percent: Option<f64>, rss_bytes: u64` |
-//! | [`files::FileActivity`] | `process_id: ProcessId, resource: String, path: Option<String>, write: bool, bytes: u64, count: u64` (private fields) |
-//! | [`model::IpcActivity`] | `process_id: ProcessId, resource: String, write: bool, bytes: u64, count: u64` |
+//! | [`files::FileActivity`] | `process_id: ProcessId, file: FileIdentity, path: Option<String>, write: bool, bytes: u64, count: u64` (private fields) |
+//! | [`model::IpcActivity`] | `process_id: ProcessId, resource: IpcIdentity, write: bool, bytes: u64, count: u64` |
 //! | [`model::CpuActivity`] | `process_id: ProcessId, runtime_ns: u64, switches: u64, running_threads: usize, cpus: Vec<usize>` |
 //! | [`model::SystemMonitorStatus`] | `active: bool, ipc: SensorState, cpu: SensorState, files: SensorState, coverage: Option<&'static str>, files_coverage: Option<&'static str>, lost: Option<u64>, unresolved: Option<u64>, files_lost: Option<u64>` |
 //! | [`model::SensorState`] | `Idle, Starting, Observing, Unavailable(String), Error(String)`; serializes as the existing state string |
 //!
 //! [`service::Subscription::receiver`] is
 //! `pub(in crate::http_server) receiver: broadcast::Receiver<SystemMonitorEvent>`.
+//!
+//! File and IPC identities are defined in [`super::resource`].
+//! [`system_snapshot::FdEndpoint::resource`] is `pub(super) resource: IpcIdentity`.
 //!
 //! Collector interfaces (all `pub(super)`, within `system_monitoring`):
 //! - [`activity::ActivityCollector`]: owns sensors and collection health; no service dependency.

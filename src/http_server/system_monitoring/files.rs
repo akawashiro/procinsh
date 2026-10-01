@@ -1,5 +1,8 @@
 //! Regular-file activity, independent of IPC/CPU availability.
-use crate::http_server::process::ProcessId;
+use crate::http_server::{
+    process::ProcessId,
+    resource::{DeviceId, FileIdentity},
+};
 use anyhow::{Context, Result};
 use libbpf_rs::{MapCore, MapFlags, ObjectBuilder, RingBufferBuilder};
 use serde::Serialize;
@@ -13,7 +16,7 @@ const MAX_AGGREGATES: usize = 8192;
 #[derive(Clone, Debug, Serialize)]
 pub(in crate::http_server) struct FileActivity {
     process_id: ProcessId,
-    resource: String,
+    file: FileIdentity,
     path: Option<String>,
     write: bool,
     bytes: u64,
@@ -43,13 +46,11 @@ fn decode(data: &[u8]) -> Option<FileActivity> {
                 * crate::http_server::process::ticks_per_second() as u128)
                 / 1_000_000_000) as u64,
         },
-        resource: format!(
-            "file:{}:{}:{}:{}",
-            dev >> 20,
-            dev & ((1 << 20) - 1),
-            u64_at(8),
-            u32_at(44)
-        ),
+        file: FileIdentity {
+            device: DeviceId::from_kernel(dev),
+            inode: u64_at(8),
+            generation: u32_at(44),
+        },
         path,
         write: u32_at(36) != 0,
         bytes,
@@ -58,12 +59,12 @@ fn decode(data: &[u8]) -> Option<FileActivity> {
 }
 #[derive(Default)]
 struct Batch {
-    events: HashMap<(ProcessId, String, bool), FileActivity>,
+    events: HashMap<(ProcessId, FileIdentity, bool), FileActivity>,
     dropped: u64,
 }
 impl Batch {
     fn add(&mut self, event: FileActivity) {
-        let key = (event.process_id, event.resource.clone(), event.write);
+        let key = (event.process_id, event.file, event.write);
         if let Some(prior) = self.events.get_mut(&key) {
             prior.bytes = prior.bytes.saturating_add(event.bytes);
             prior.count = prior.count.saturating_add(event.count);
@@ -169,7 +170,7 @@ mod tests {
             serde_json::to_value(&activity).unwrap(),
             serde_json::json!({
                 "process_id": {"pid": 123, "start_time_ticks": crate::http_server::process::ticks_per_second() as u64},
-                "resource": "file:8:1:42:0", "path": null, "write": false, "bytes": 7, "count": 1
+                "file": {"device":{"major":8,"minor":1},"inode":"42","generation":0}, "path": null, "write": false, "bytes": 7, "count": 1
             })
         );
     }
@@ -178,7 +179,14 @@ mod tests {
         let mut raw = event();
         let e = decode(&raw).unwrap();
         assert_eq!(e.path.as_deref(), Some("/tmp/x"));
-        assert_eq!(e.resource, "file:8:1:42:0");
+        assert_eq!(
+            e.file,
+            FileIdentity {
+                device: DeviceId { major: 8, minor: 1 },
+                inode: 42,
+                generation: 0
+            }
+        );
         assert_eq!(
             e.process_id.start_time_ticks,
             crate::http_server::process::ticks_per_second() as u64
@@ -204,18 +212,15 @@ mod tests {
         reused.process_id.start_time_ticks += 1;
         batch.add(reused);
         assert_eq!(batch.events.len(), 3);
-        assert_eq!(
-            batch.events[&(e.process_id, e.resource.clone(), false)].bytes,
-            14
-        );
+        assert_eq!(batch.events[&(e.process_id, e.file, false)].bytes, 14);
         for i in 0..MAX_AGGREGATES {
             let mut next = e.clone();
-            next.resource = i.to_string();
+            next.file.inode = i as u64 + 1000;
             batch.add(next);
         }
         assert_eq!(batch.events.len(), MAX_AGGREGATES);
         assert_eq!(batch.dropped, 3);
         batch.add(e.clone());
-        assert_eq!(batch.events[&(e.process_id, e.resource, false)].count, 3);
+        assert_eq!(batch.events[&(e.process_id, e.file, false)].count, 3);
     }
 }

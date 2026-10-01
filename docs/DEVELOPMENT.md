@@ -156,7 +156,7 @@ SSE は `Content-Type: text/event-stream` で接続を維持し、`event:` に�
 |---|---|
 | `cpu` | `process_id`、`runtime_ns`（実行時間、ナノ秒）、`switches`（切替回数）、`running_threads`（実行中スレッド数）、`cpus`（実行中CPU番号） |
 | `ipc` | `process_id`、`resource`、`write`、`bytes`、`count`。送信／書き込みがtrue、受信／読み取りがfalse。ペイロードは含まない |
-| `files` | IPCと同じ項目に `path` を追加。パスが取得不能なら null。resourceはdevice/inode/generationを含む識別子 |
+| `files` | `process_id`, `file: {device: {major, minor}, inode, generation}`, `path`, `write`, `bytes`, `count`。inode は十進文字列。パスが取得不能なら null。 |
 | `status` | `active`、CPU・IPC・filesのセンサー状態、観測範囲の説明、`lost`・`files_lost`・`unresolved` などの収集統計 |
 
 該当活動がない場合やセンサーが利用不能の場合、活動配列は空になります。空配列だけで「活動がなかった」とは判断せず、`status` の observing・unavailable・error なども確認します。CPU/RSSメトリクスのCPU使用率が算出不能なら null です。
@@ -409,3 +409,5 @@ tests/targets/bin/recursive --allow-inspector
 `process::discovery` と `state::history` は非公開にし、必要な型を親モジュールから公開します。`snapshot` の unwind・レジスタ変換・逆アセンブルの実装も非公開にし、応答に現れる型を親から公開します。`process` のリソース別 API（`maps`、`memory`、`threads` 等）と scoped guard を提供する `snapshot::ptrace` は意図的に公開を維持します。
 
 シンボル解決の単体テストは clang で一時 ELF を生成し、DWARF のインラインフレームと行番号のみの情報を検証します。既存の結合テストは PIE / 非 PIE / デバッグ情報なしの対象を実際にキャプチャします。
+
+識別情報は構造化されています。IPC 活動と system snapshot の FD の `resource` は `{kind: "pipe" | "socket", device: {major, minor}, inode: "…"}`、memory map の `device` は `{major, minor}` です。inode は全て十進文字列で送ります。

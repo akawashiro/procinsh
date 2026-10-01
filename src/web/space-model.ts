@@ -5,6 +5,8 @@ import type {
   FdEndpoint,
   IoActivity,
   FileActivity,
+  FileIdentity,
+  IpcIdentity,
   MemoryMap,
   CpuActivity,
 } from "./api-types.js";
@@ -38,7 +40,7 @@ export interface NetworkGroup {
 export interface RecentFile {
   id: string;
   process_id: ProcessId;
-  resource: string;
+  file: FileIdentity;
   path: string | null;
   readBytes: number;
   writeBytes: number;
@@ -149,11 +151,11 @@ export function edgeDirection(
 ) {
   const a =
     key(edge.endpoint.process_id) === key(event.process_id) &&
-    edge.endpoint.resource === event.resource;
+    ipcKey(edge.endpoint.resource) === ipcKey(event.resource);
   const b =
     edge.peer &&
     key(edge.peer.process_id) === key(event.process_id) &&
-    edge.peer.resource === event.resource;
+    ipcKey(edge.peer.resource) === ipcKey(event.resource);
   if (edge.shared || (!a && !b) || (a && b)) return null;
   return a ? (event.write ? 1 : -1) : event.write ? -1 : 1;
 }
@@ -402,9 +404,13 @@ export const processColors = (n: {
   euid?: number | null;
 }) => ({ real: userColor(n.uid), effective: userColor(n.euid) });
 
+export const ipcKey = (r: IpcIdentity) => JSON.stringify([r.kind, r.device.major, r.device.minor, r.inode]);
+export const ipcLabel = (r: IpcIdentity) => `${r.kind}:${r.device.major}:${r.device.minor}:${r.inode}`;
+export const fileLabel = (r: FileIdentity) => `file:${r.device.major}:${r.device.minor}:${r.inode}:${r.generation}`;
+
 // Recent file activity is independent of the five-second system snapshot.
-export const fileKey = (event: Pick<IoActivity, "process_id" | "resource">) =>
-  JSON.stringify([key(event.process_id), event.resource]);
+export const fileKey = (event: Pick<FileActivity, "process_id" | "file">) =>
+  JSON.stringify([key(event.process_id), event.file.device.major, event.file.device.minor, event.file.inode, event.file.generation]);
 export class RecentFiles {
   entries = new Map<string, RecentFile>();
   evicted = 0;
@@ -446,9 +452,9 @@ export class RecentFiles {
         file = {
           id,
           process_id: e.process_id,
-          resource: e.resource,
+          file: e.file,
           path: null,
-          label: e.resource,
+          label: fileLabel(e.file),
           last: now,
           readBytes: 0,
           writeBytes: 0,
@@ -458,7 +464,7 @@ export class RecentFiles {
         changed = true;
       }
       if (e.path) file.path = e.path;
-      file.label = file.path?.split("/").pop() || file.resource;
+      file.label = file.path?.split("/").pop() || fileLabel(file.file);
       file.last = now;
       file[e.write ? "writeBytes" : "readBytes"] += e.bytes;
       file[e.write ? "writeCount" : "readCount"] += e.count;

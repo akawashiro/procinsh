@@ -5,7 +5,7 @@ assert.equal(regions[0].start,'0x1000');
 assert.ok(regions[2].z > regions[1].z);
 assert.ok(regions.every(region => region.h > 0));
 assert.deepEqual(layoutMaps([]),[]);
-const a={process_id:{pid:1,start_time_ticks:2},resource:'pipe:1:2'},b={process_id:{pid:2,start_time_ticks:3},resource:'pipe:1:2'};
+const a={process_id:{pid:1,start_time_ticks:2},resource:{kind:'pipe',device:{major:0,minor:1},inode:'2'}},b={process_id:{pid:2,start_time_ticks:3},resource:{kind:'pipe',device:{major:0,minor:1},inode:'2'}};
 const edge={endpoint:a,peer:b,shared:false};
 assert.equal(edgeDirection(edge,{...a,write:true}),1);
 assert.equal(edgeDirection(edge,{...b,write:false}),1);
@@ -75,7 +75,7 @@ assert.ok([...stableCycle.values()].every(p=>Number.isFinite(p.x)&&Number.isFini
 console.log('Stable layout checks passed: additions, exits, reparenting, PID reuse, vacant slots, cycles, and 1000 newcomers.');
 
 const {networkGroups,networkLayout,connectionState}=await import('../dist/web/space-model.js');
-const netEdge=(id,remote='203.0.113.1:443',pid=1,protocol='TCP')=>({id,endpoint:{process_id:{pid,start_time_ticks:1},resource:`socket:${id}`,fd:Number(id)||1},peer:null,shared:false,socket:{protocol,state:'ESTABLISHED',remote,local:'127.0.0.1:5000',network_peer:true}});
+const netEdge=(id,remote='203.0.113.1:443',pid=1,protocol='TCP')=>({id,endpoint:{process_id:{pid,start_time_ticks:1},resource:{kind:'socket',device:{major:0,minor:0},inode:String(Number(id)||1)},fd:Number(id)||1},peer:null,shared:false,socket:{protocol,state:'ESTABLISHED',remote,local:'127.0.0.1:5000',network_peer:true}});
 const connections=[netEdge('1'),netEdge('2'),netEdge('3','[2001:db8::1]:443'),netEdge('4','203.0.113.1:443',2),netEdge('5','203.0.113.1:443',1,'UDP')];
 const groups=networkGroups(connections);
 assert.equal(groups.size,4);
@@ -109,7 +109,7 @@ assert.equal(processColors({}).real,'#889299');
 const {RecentFiles,fileKey,fileLayout}=await import('../dist/web/space-model.js');
 {
   const files=new RecentFiles(),owner={pid:1,start_time_ticks:1},live=new Set(['1:1']);
-  const event={process_id:owner,resource:'file:8:1:42:0',path:'/tmp/example',write:false,bytes:7,count:1};
+  const event={process_id:owner,file:{device:{major:8,minor:1},inode:'42',generation:0},path:'/tmp/example',write:false,bytes:7,count:1};
   assert.equal(files.ingest([event,{...event,write:true,bytes:11}],100,live),true);
   const id=fileKey(event),file=files.entries.get(id);
   assert.equal(file.readBytes,7);assert.equal(file.writeBytes,11);assert.equal(file.label,'example');
@@ -119,7 +119,7 @@ const {RecentFiles,fileKey,fileLayout}=await import('../dist/web/space-model.js'
   assert.equal(file.label,'renamed');
   files.ingest([{...event,process_id:{pid:1,start_time_ticks:2}},{...event,bytes:0}],300,live);
   assert.equal(files.entries.size,1,'stale process and empty events ignored');
-  for(let i=0;i<35;i++)files.ingest([{...event,resource:'file:'+i,path:null}],400+i,live);
+  for(let i=0;i<35;i++)files.ingest([{...event,file:{device:{major:8,minor:1},inode:String(i+1000),generation:0},path:null}],400+i,live);
   assert.equal(files.entries.size,32);assert.equal(files.evicted,4);
   const stable=fileLayout(files.entries,positions,before);
   assert.equal(new Set([...stable.values()].map(p=>JSON.stringify(p))).size,32,'markers never overlap');
@@ -128,10 +128,19 @@ const {RecentFiles,fileKey,fileLayout}=await import('../dist/web/space-model.js'
   assert.equal(files.prune(30434,live),true);assert.equal(files.entries.size,0);
   for(let p=1;p<=20;p++){
     live.add(`${p}:1`);
-    for(let i=0;i<32;i++)files.ingest([{...event,process_id:{pid:p,start_time_ticks:1},resource:'file:'+i}],40000,live);
+    for(let i=0;i<32;i++)files.ingest([{...event,process_id:{pid:p,start_time_ticks:1},file:{device:{major:8,minor:1},inode:String(i+1000),generation:0}}],40000,live);
   }
   assert.equal(files.entries.size,512,'global display limit enforced');
   files.prune(40001,new Set(['20:1']));assert.equal(files.entries.size,32,'removed processes lose file markers');
   files.clear();assert.equal(files.entries.size,0);assert.equal(files.evicted,0);
 }
 console.log('File model checks passed: aggregation, direction, stale identity, stable placement, TTL, per-process and global limits.');
+// Identity equality is field based and large inode strings remain distinct.
+{
+  const resource={kind:'pipe',device:{major:8,minor:1},inode:'18446744073709551615'};
+  const endpoint={process_id:{pid:1,start_time_ticks:2},resource};
+  assert.equal(edgeDirection({endpoint,peer:null,shared:false},{...endpoint,resource:{inode:resource.inode,device:{minor:1,major:8},kind:'pipe'},write:true}),1);
+  assert.equal(edgeDirection({endpoint,peer:null,shared:false},{...endpoint,resource:{...resource,inode:'18446744073709551614'},write:true}),null);
+  const base={process_id:endpoint.process_id,file:{device:resource.device,inode:resource.inode,generation:0}};
+  for(const file of [{...base.file,inode:'18446744073709551614'},{...base.file,generation:1},{...base.file,device:{major:9,minor:1}},{...base.file,device:{major:8,minor:2}}])assert.notEqual(fileKey({...base,file}),fileKey(base));
+}

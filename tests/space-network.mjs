@@ -5,7 +5,7 @@ export async function checkNetworkSpace(evaluate, delay, cdp) {
   await evaluate(`(async()=>{
     const m=await import('/space.js');
     const node={identity:{pid:900001,start_time_ticks:1},name:'network-browser',uid:1000,euid:0,rss_bytes:4096,maps:[]};
-    const edge=(id,remote,fd)=>({id,endpoint:{process_id:node.identity,fd,fd_count:1,resource:'socket:'+id,access:2},peer:null,label:'TCP '+remote,shared:false,candidate:false,socket:{protocol:'TCP',state:'ESTABLISHED',local:'127.0.0.1:'+fd,remote,remote_hostname:remote.startsWith('203.')?'example.test':null,network_peer:true}});
+    const edge=(id,remote,fd)=>({id,endpoint:{process_id:node.identity,fd,fd_count:1,resource:{kind:'socket',device:{major:0,minor:0},inode:String(fd)},access:2},peer:null,label:'TCP '+remote,shared:false,candidate:false,socket:{protocol:'TCP',state:'ESTABLISHED',local:'127.0.0.1:'+fd,remote,remote_hostname:remote.startsWith('203.')?'example.test':null,network_peer:true}});
     const edges=[edge('net-a','203.0.113.10:443',40),edge('net-b','203.0.113.10:443',41),edge('net-v6','[2001:db8::1]:443',42)];
     edges.push({...edge('listen','0.0.0.0:0',43),socket:{protocol:'TCP',state:'LISTEN',local:'0.0.0.0:8080',remote:'0.0.0.0:0',network_peer:false}});
     window.networkFixture={processes:[node],fd_relations:edges};m.renderSystemSnapshot(window.networkFixture,true);m.fitScene();
@@ -32,7 +32,7 @@ export async function checkNetworkSpace(evaluate, delay, cdp) {
   assert.equal(await evaluate("document.getElementById('details').hidden"),false,'path selects group');
   const animated=await evaluate(`(async()=>{
     const m=await import('/space.js'),f=window.networkFixture;
-    m.renderActivity({window_ms:100,ipc:[{process_id:f.processes[0].identity,resource:'socket:net-a',write:true,bytes:100,count:1},{process_id:f.processes[0].identity,resource:'socket:net-b',write:false,bytes:200,count:1}]});
+    m.renderActivity({window_ms:100,ipc:[{process_id:f.processes[0].identity,resource:f.fd_relations.find(e=>e.id==='net-a').endpoint.resource,write:true,bytes:100,count:1},{process_id:f.processes[0].identity,resource:f.fd_relations.find(e=>e.id==='net-b').endpoint.resource,write:false,bytes:200,count:1}]});
     return {particles:m.networkParticles(),facts:document.getElementById('connection-facts').textContent};
   })()`);
   assert.deepEqual([...new Set(animated.particles.map(p=>p.direction))].sort(),[-1,1]);

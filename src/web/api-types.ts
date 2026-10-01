@@ -1,3 +1,6 @@
+export interface DeviceId { major: number; minor: number }
+export interface FileIdentity { device: DeviceId; inode: string; generation: number }
+export interface IpcIdentity { kind: "pipe" | "socket"; device: DeviceId; inode: string }
 // JSON contracts consumed by the UI. Keep these aligned with the Rust Serialize
 // structs in process/, state/, snapshot/ and space/. Addresses stay hex strings.
 export interface ProcessId {
@@ -27,8 +30,8 @@ export interface MemoryMap {
   private: boolean;
   permissions: string;
   file_offset: string;
-  device: string;
-  inode: number;
+  device: DeviceId;
+  inode: string;
   pathname: string | null;
   rss_bytes: number | null;
   pss_bytes: number | null;
@@ -228,7 +231,7 @@ export interface FdEndpoint {
   process_id: ProcessId;
   fd: number;
   fd_count: number;
-  resource: string;
+  resource: IpcIdentity;
   kind: string;
   access: number;
 }
@@ -255,13 +258,14 @@ export interface SystemSnapshot {
 }
 export interface IoActivity {
   process_id: ProcessId;
-  resource: string;
+  resource: IpcIdentity;
   write: boolean;
   bytes: number;
   count: number;
 }
-export interface FileActivity extends IoActivity {
-  path: string | null;
+export interface FileActivity {
+  process_id: ProcessId; file: FileIdentity; path: string | null;
+  write: boolean; bytes: number; count: number;
 }
 export interface CpuActivity {
   process_id: ProcessId;

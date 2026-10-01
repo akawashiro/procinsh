@@ -16,6 +16,8 @@
 //! | [`SocketInfo`] | `pub(super)` | `struct `[`SocketInfo`] |
 //! | [`MAX_READ`] | `pub(super)` | `const MAX_READ: `[`usize`] |
 //!
+//! [`MemoryMap`] uses `device: DeviceId` ([`super::resource::DeviceId`]) and `inode: u64` serialized as a decimal string.
+//!
 //! ## Functions
 //!
 //! | Definition | Visibility | Signature |

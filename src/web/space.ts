@@ -3,6 +3,8 @@ import { OrbitControls } from "/vendor/OrbitControls.js";
 import {
   RecentFiles,
   fileKey,
+  fileLabel,
+  ipcLabel,
   fileLayout,
   processColors,
   remoteLabel,
@@ -880,9 +882,9 @@ function fileDetails() {
   $("connection-facts").textContent =
     `Observed READ: ${f.readBytes} bytes / ${f.readCount} operations · WRITE: ${f.writeBytes} bytes / ${f.writeCount} operations`;
   const path = document.createElement("p");
-  path.textContent = f.path || `Path unavailable · ${f.resource}`;
+  path.textContent = f.path || `Path unavailable · ${fileLabel(f.file)}`;
   const identity = document.createElement("p");
-  identity.textContent = `${nodes.get(key(f.process_id))?.name || "Unknown process"} · PID ${f.process_id.pid} · ${f.resource}`;
+  identity.textContent = `${nodes.get(key(f.process_id))?.name || "Unknown process"} · PID ${f.process_id.pid} · ${fileLabel(f.file)}`;
   const link = document.createElement("a");
   link.href = `/process/${f.process_id.pid}`;
   link.textContent = "Open process details ↗";
@@ -950,7 +952,7 @@ function endpoint(
   const fd = document.createElement("span");
   fd.textContent = `FD ${fdEndpoint.fd}${fdEndpoint.fd_count > 1 ? ` (+${fdEndpoint.fd_count - 1} shared FDs)` : ""} · ${accessText(fdEndpoint.access)}`;
   const resource = document.createElement("span");
-  resource.textContent = fdEndpoint.resource;
+  resource.textContent = ipcLabel(fdEndpoint.resource);
   const link = document.createElement("a");
   link.href = `/process/${fdEndpoint.process_id.pid}`;
   link.textContent = "Open process details ↗";
@@ -1264,7 +1266,7 @@ canvas.addEventListener("pointermove", (e) => {
     if (edge && "fileId" in edge) {
       hoveredFile = edge.fileId;
       const f = recentFiles.entries.get(edge.fileId)!;
-      text = `${f.path || f.resource}\nPID ${f.process_id.pid} · READ ${f.readBytes} bytes · WRITE ${f.writeBytes} bytes`;
+      text = `${f.path || fileLabel(f.file)}\nPID ${f.process_id.pid} · READ ${f.readBytes} bytes · WRITE ${f.writeBytes} bytes`;
     } else if (edge) {
       hoveredNetwork = edge.networkId || null;
       const stat = edgeStats.get(edge.id);

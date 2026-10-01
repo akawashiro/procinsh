@@ -137,7 +137,7 @@ try:
                 break
             time.sleep(.1)
         assert actual == expected, (actual, expected, [f['status'] for f in frames[-1:]])
-        assert len({e['resource'] for e in events}) == 1
+        assert len({json.dumps(e['file'], sort_keys=True) for e in events}) == 1
         assert not Path(ready['path']).exists()
         response.close(reader)
         response = None

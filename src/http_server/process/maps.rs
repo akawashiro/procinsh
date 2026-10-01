@@ -1,4 +1,5 @@
 // Visibility is scoped to the consumers of the parent process façade.
+use crate::http_server::resource::{DeviceId, decimal};
 use anyhow::{Context, Result, ensure};
 use serde::Serialize;
 use std::fs;
@@ -16,7 +17,8 @@ pub(in crate::http_server) struct MemoryMap {
     pub(super) permissions: String,
     #[serde(serialize_with = "hex")]
     pub(super) file_offset: u64,
-    pub(super) device: String,
+    pub(super) device: DeviceId,
+    #[serde(serialize_with = "decimal")]
     pub(super) inode: u64,
     pub(super) pathname: Option<String>,
     pub(super) rss_bytes: Option<u64>,
@@ -66,7 +68,13 @@ pub(super) fn parse_map(line: &str) -> Result<MemoryMap> {
         private: permissions.as_bytes()[3] == b'p',
         permissions: permissions.into(),
         file_offset: u64::from_str_radix(columns[2], 16)?,
-        device: columns[3].into(),
+        device: {
+            let (major, minor) = columns[3].split_once(':').context("maps: invalid device")?;
+            DeviceId {
+                major: u32::from_str_radix(major, 16)?,
+                minor: u32::from_str_radix(minor, 16)?,
+            }
+        },
         inode: columns[4].parse()?,
         pathname: (!rest.is_empty()).then(|| rest.to_owned()),
         rss_bytes: None,

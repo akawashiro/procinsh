@@ -1,6 +1,7 @@
 use crate::http_server::process::{
     self, Discovery, MemoryMap, ProcessId, ProcessSummary, SocketInfo,
 };
+use crate::http_server::resource::{DeviceId, IpcIdentity, IpcKind};
 use serde::Serialize;
 use std::{
     collections::{HashMap, HashSet},
@@ -30,7 +31,7 @@ pub(super) struct FdEndpoint {
     pub(super) process_id: ProcessId,
     pub(super) fd: u32,
     pub(super) fd_count: usize,
-    pub(super) resource: String,
+    pub(super) resource: IpcIdentity,
     pub(super) kind: String,
     pub(super) access: u32,
 }
@@ -101,9 +102,6 @@ pub(super) fn process_from_summary(
         maps_error: None,
     }
 }
-pub(super) fn resource(kind: &str, dev: u64, inode: u64) -> String {
-    format!("{kind}:{dev}:{inode}")
-}
 pub(super) fn collect(discovery: &mut Discovery) -> SystemSnapshot {
     let mut result = SystemSnapshot {
         captured_at: process::timestamp_ms(),
@@ -120,7 +118,7 @@ pub(super) fn collect(discovery: &mut Discovery) -> SystemSnapshot {
         .iter()
         .map(|summary| (summary.identity.pid, summary.identity))
         .collect();
-    let mut owners: HashMap<String, Vec<FdEndpoint>> = HashMap::new();
+    let mut owners: HashMap<IpcIdentity, Vec<FdEndpoint>> = HashMap::new();
     let mut infos = HashMap::new();
     let mut inode_ns = HashMap::new();
     let mut namespaces = HashSet::new();
@@ -211,7 +209,15 @@ pub(super) fn collect(discovery: &mut Discovery) -> SystemSnapshot {
                         process_id: n.identity,
                         fd: number,
                         fd_count: 1,
-                        resource: resource(kind, meta.dev(), meta.ino()),
+                        resource: IpcIdentity {
+                            kind: if kind == "pipe" {
+                                IpcKind::Pipe
+                            } else {
+                                IpcKind::Socket
+                            },
+                            device: DeviceId::from_stat(meta.dev()),
+                            inode: meta.ino(),
+                        },
                         kind: kind.into(),
                         access: if flags & libc::O_PATH as u32 != 0 {
                             u32::MAX
@@ -229,7 +235,7 @@ pub(super) fn collect(discovery: &mut Discovery) -> SystemSnapshot {
         }
         if process::check_identity(n.identity).is_ok() {
             for p in endpoints {
-                let list = owners.entry(p.resource.clone()).or_default();
+                let list = owners.entry(p.resource).or_default();
                 if let Some(existing) = list
                     .iter_mut()
                     .find(|e| e.process_id == p.process_id && e.access == p.access)
@@ -268,10 +274,8 @@ pub(super) fn collect(discovery: &mut Discovery) -> SystemSnapshot {
     }
     let mut by_inode = HashMap::new();
     for key in owners.keys() {
-        if key.starts_with("socket:")
-            && let Some(inode) = key.rsplit(':').next().and_then(|v| v.parse::<u64>().ok())
-        {
-            by_inode.insert(inode, key.clone());
+        if key.kind == IpcKind::Socket {
+            by_inode.insert(key.inode, *key);
         }
     }
     for endpoints in owners.values_mut() {
@@ -299,11 +303,7 @@ pub(super) fn collect(discovery: &mut Discovery) -> SystemSnapshot {
                 }
                 matches.push((peer, false, shared, endpoint.kind.clone()));
             }
-            let inode = key
-                .rsplit(':')
-                .next()
-                .and_then(|s| s.parse().ok())
-                .unwrap_or(0);
+            let inode = key.inode;
             let info = if endpoint.kind == "socket" {
                 infos.get(&inode)
             } else {
