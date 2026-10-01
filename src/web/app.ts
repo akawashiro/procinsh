@@ -191,7 +191,7 @@ function renderProcessDetails(kind: DetailKind) {
 function renderDescriptors(data: FileDescriptors, time: string) {
   const search = $("fds-search").value.toLowerCase();
   const entries = data.entries.filter((e) =>
-    `${e.fd} ${e.kind} ${e.protocol || ""} ${e.local || ""} ${e.remote || ""} ${e.target} ${[...e.peers, ...e.holders].map((p) => `${p.process_id.pid} ${p.name}`).join(" ")}`
+    `${e.fd} ${e.kind} ${Display.protocol(e.protocol)} ${Display.address(e.local) || e.path || ""} ${Display.address(e.remote)} ${e.target} ${[...e.peers, ...e.holders].map((p) => `${p.process_id.pid} ${p.name}`).join(" ")}`
       .toLowerCase()
       .includes(search),
   );
@@ -204,11 +204,12 @@ function renderDescriptors(data: FileDescriptors, time: string) {
       const row = node("tr");
       row.dataset.fd = String(e.fd);
       cell(row, e.fd, "mono");
-      cell(row, `${e.protocol || e.kind}\n${e.access}`, "mono");
+      cell(row, `${Display.protocol(e.protocol) || e.kind}\n${Display.access(e.access)}`, "mono");
       const resource = cell(row, e.target, "mono muted");
-      if (e.state) resource.append(node("div", e.state));
-      if (e.local) resource.append(node("div", `Local: ${e.local}`));
-      if (e.remote) resource.append(node("div", `Remote: ${e.remote}`));
+      if (e.state) resource.append(node("div", Display.state(e.state)));
+      if (e.path) resource.append(node("div", `Path: ${e.path}`));
+      if (e.local) resource.append(node("div", `Local: ${Display.address(e.local)}`));
+      if (e.remote) resource.append(node("div", `Remote: ${Display.address(e.remote)}`));
       if (e.peer_inode)
         resource.append(node("div", `Peer inode: ${e.peer_inode}`));
       const peers = cell(row);
@@ -221,7 +222,7 @@ function renderDescriptors(data: FileDescriptors, time: string) {
         link.dataset.pid = String(p.process_id.pid);
         div.append(
           link,
-          node("div", `FD ${p.fd} · ${p.access} · ${p.relation}`, "muted"),
+          node("div", `FD ${p.fd} · ${Display.access(p.access)} · ${p.relation}`, "muted"),
         );
         return div;
       };

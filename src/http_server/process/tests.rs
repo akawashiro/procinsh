@@ -115,7 +115,10 @@ fn pipe_unix_tcp_udp_peers_are_distinct_from_shared_descriptors() {
     );
     assert!(!unix.peers.iter().any(|p| p.fd == 63));
     let listener = details.entries.iter().find(|e| e.fd == 65).unwrap();
-    assert_eq!(listener.state.as_deref(), Some("LISTEN"));
+    assert_eq!(
+        listener.state,
+        Some(crate::http_server::socket_types::SocketState::Listen)
+    );
     assert!(listener.peers.is_empty());
     let stale = process::ProcessId {
         start_time_ticks: target.id.start_time_ticks + 1,

@@ -75,7 +75,7 @@ assert.ok([...stableCycle.values()].every(p=>Number.isFinite(p.x)&&Number.isFini
 console.log('Stable layout checks passed: additions, exits, reparenting, PID reuse, vacant slots, cycles, and 1000 newcomers.');
 
 const {networkGroups,networkLayout,connectionState}=await import('../dist/web/space-model.js');
-const netEdge=(id,remote='203.0.113.1:443',pid=1,protocol='TCP')=>({id,endpoint:{process_id:{pid,start_time_ticks:1},resource:{kind:'socket',device:{major:0,minor:0},inode:String(Number(id)||1)},fd:Number(id)||1},peer:null,shared:false,socket:{protocol,state:'ESTABLISHED',remote,local:'127.0.0.1:5000',network_peer:true}});
+const netEdge=(id,remote='203.0.113.1:443',pid=1,protocol='TCP')=>({id,endpoint:{process_id:{pid,start_time_ticks:1},resource:{kind:'socket',device:{major:0,minor:0},inode:String(Number(id)||1)},fd:Number(id)||1},peer:null,shared:false,socket:{protocol:{kind:protocol.startsWith('UDP')?'udp':'tcp',family:protocol.endsWith('6')?'ipv6':'ipv4'},state:{kind:'established'},remote:(()=>{const i=remote.lastIndexOf(':');return {ip:remote.slice(0,i).replace(/^\[|\]$/g,''),port:Number(remote.slice(i+1))}})(),local:{ip:'127.0.0.1',port:5000},network_peer:true}});
 const connections=[netEdge('1'),netEdge('2'),netEdge('3','[2001:db8::1]:443'),netEdge('4','203.0.113.1:443',2),netEdge('5','203.0.113.1:443',1,'UDP')];
 const groups=networkGroups(connections);
 assert.equal(groups.size,4);
@@ -90,16 +90,16 @@ const netGrown=networkLayout(grownGroups,owners,netLayout);
 for(const [id,p] of netLayout)assert.deepEqual(netGrown.get(id),p);
 assert.deepEqual(networkLayout(new Map(),owners,netGrown),new Map());
 assert.deepEqual(networkLayout(networkGroups([...connections].reverse()),owners),netLayout);
-assert.equal(connectionState({...connections[0],socket:{protocol:'TCP',state:'LISTEN',network_peer:false}}),'Listening');
-assert.equal(connectionState({...connections[0],socket:{protocol:'UDP',network_peer:false}}),'No destination set');
+assert.equal(connectionState({...connections[0],socket:{protocol:{kind:'tcp',family:'ipv4'},state:{kind:'listen'},network_peer:false}}),'Listening');
+assert.equal(connectionState({...connections[0],socket:{protocol:{kind:'udp',family:'ipv4'},state:{kind:'unconnected'},network_peer:false}}),'No destination set');
 assert.equal(connectionState(connections[0]),'Network destination');
 assert.equal(edgeDirection(connections[0],{...connections[0].endpoint,write:true}),1);
 assert.equal(edgeDirection(connections[0],{...connections[0].endpoint,write:false}),-1);
 console.log('Network model checks passed: grouping, IPv6, classification, stable placement, and direction.');
 
 const {remoteLabel}=await import('../dist/web/space-model.js');
-assert.equal(remoteLabel({remote:'[2001:db8::1]:443',remote_hostname:'example.test'}),'example.test:443');
-assert.equal(remoteLabel({remote:'192.0.2.1:80'}),'192.0.2.1:80');
+assert.equal(remoteLabel({remote:{ip:'2001:db8::1',port:443},remote_hostname:'example.test'}),'example.test:443');
+assert.equal(remoteLabel({remote:{ip:'192.0.2.1',port:80}}),'192.0.2.1:80');
 
 const {processColors}=await import('../dist/web/space-model.js');
 assert.equal(processColors({uid:1000,euid:1000}).real,processColors({uid:1000,euid:1000}).effective);
@@ -144,3 +144,7 @@ console.log('File model checks passed: aggregation, direction, stale identity, s
   const base={process_id:endpoint.process_id,file:{device:resource.device,inode:resource.inode,generation:0}};
   for(const file of [{...base.file,inode:'18446744073709551614'},{...base.file,generation:1},{...base.file,device:{major:9,minor:1}},{...base.file,device:{major:8,minor:2}}])assert.notEqual(fileKey({...base,file}),fileKey(base));
 }
+
+assert.equal(Display.state({kind:'unknown_inet',code:255}),'FF');
+assert.equal(Display.protocol({kind:'unix',socket_type:{kind:'seqpacket'}}),'UNIX SEQPACKET');
+assert.equal(Display.access('unknown'),'N/A');

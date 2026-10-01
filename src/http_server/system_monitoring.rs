@@ -34,6 +34,11 @@
 //! File and IPC identities are defined in [`super::resource`].
 //! [`system_snapshot::FdEndpoint::resource`] is `pub(super) resource: IpcIdentity`.
 //!
+//! [`system_snapshot::FdEndpoint`] also has `pub(super) kind: FdKind, access: FdAccess`.
+//! [`system_snapshot::SocketEndpoint`] fields (all `pub(super)`):
+//! `protocol: SocketProtocol, state: SocketState, local: Option<InetAddress>, remote: Option<InetAddress>, path: Option<String>, network_peer: bool, remote_hostname: Option<String>`.
+//! Socket types are defined in [`super::socket_types`].
+//!
 //! Collector interfaces (all `pub(super)`, within `system_monitoring`):
 //! - [`activity::ActivityCollector`]: owns sensors and collection health; no service dependency.
 //!   [`activity::ActivityCollector::new`]: `fn new() -> Self`;

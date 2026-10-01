@@ -81,13 +81,18 @@ fn network_destination_survives_shared_socket_ownership() {
                     && e.peer.is_none()
                     && e.socket
                         .as_ref()
-                        .is_some_and(|s| s.remote == Some(socket.peer_addr().unwrap()))
+                        .is_some_and(|s| s.remote == Some(socket.peer_addr().unwrap().into()))
             })
             .expect("shared socket retains a network destination for each owner");
         let info = relation.socket.as_ref().unwrap();
         assert!(info.network_peer);
-        assert_eq!(info.local, Some(socket.local_addr().unwrap()));
-        assert_eq!(info.protocol, "UDP");
+        assert_eq!(info.local, Some(socket.local_addr().unwrap().into()));
+        assert_eq!(
+            info.protocol,
+            crate::http_server::socket_types::SocketProtocol::Udp {
+                family: crate::http_server::socket_types::AddressFamily::Ipv4
+            }
+        );
     }
     assert!(data.fd_relations.iter().any(|e| {
         e.shared

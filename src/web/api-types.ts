@@ -1,3 +1,9 @@
+export type FdAccess = "read" | "write" | "read_write" | "unknown";
+export type FdKind = "pipe" | "socket" | "fifo";
+export interface InetAddress { ip: string; port: number }
+export type SocketType = {kind: "stream" | "dgram" | "seqpacket"} | {kind:"unknown";code:number};
+export type SocketProtocol = {kind:"tcp" | "udp";family:"ipv4" | "ipv6"} | {kind:"unix";socket_type:SocketType};
+export type SocketState = {kind:"established" | "syn_sent" | "syn_recv" | "fin_wait1" | "fin_wait2" | "time_wait" | "close" | "close_wait" | "last_ack" | "listen" | "closing" | "new_syn_recv" | "unconnected" | "connecting" | "connected" | "disconnecting"} | {kind:"unknown_inet" | "unknown_unix";code:number};
 export interface DeviceId { major: number; minor: number }
 export interface FileIdentity { device: DeviceId; inode: string; generation: number }
 export interface IpcIdentity { kind: "pipe" | "socket"; device: DeviceId; inode: string }
@@ -167,21 +173,22 @@ export interface DescriptorEndpoint {
   process_id: ProcessId;
   name: string;
   fd: number;
-  access: string;
+  access: FdAccess;
   relation: string;
 }
 export interface FileDescriptors extends ProcessDetail {
   warnings: string[];
   entries: {
     fd: number;
-    kind: string;
+    kind: FdKind;
     inode: string;
     target: string;
-    access: string;
-    protocol: string | null;
-    state: string | null;
-    local: string | null;
-    remote: string | null;
+    access: FdAccess;
+    protocol: SocketProtocol | null;
+    state: SocketState | null;
+    local: InetAddress | null;
+    remote: InetAddress | null;
+    path: string | null;
     peer_inode: string | null;
     peers: DescriptorEndpoint[];
     holders: DescriptorEndpoint[];
@@ -232,14 +239,15 @@ export interface FdEndpoint {
   fd: number;
   fd_count: number;
   resource: IpcIdentity;
-  kind: string;
-  access: number;
+  kind: FdKind;
+  access: FdAccess;
 }
 export interface SocketEndpoint {
-  protocol: string;
-  state: string;
-  local: string | null;
-  remote: string | null;
+  protocol: SocketProtocol;
+  state: SocketState;
+  local: InetAddress | null;
+  remote: InetAddress | null;
+  path: string | null;
   network_peer: boolean;
   remote_hostname: string | null;
 }

@@ -1,3 +1,4 @@
+import "./display.js";
 import type {
   ProcessId,
   SocketEndpoint,
@@ -52,9 +53,7 @@ export interface RecentFile {
 export type CpuGlow = CpuActivity & { last: number; window_ms: number };
 export type Region = MemoryMap & { z: number; h: number };
 export const remoteLabel = (socket: SocketEndpoint | null | undefined) =>
-  socket?.remote_hostname && socket.remote
-    ? `${socket.remote_hostname}:${socket.remote.slice(socket.remote.lastIndexOf(":") + 1)}`
-    : socket?.remote;
+  socket?.remote_hostname && socket.remote ? `${socket.remote_hostname}:${socket.remote.port}` : Display.address(socket?.remote);
 export const key = (id: ProcessId) => `${id.pid}:${id.start_time_ticks}`;
 export function networkGroups(fd_relations: FdRelation[]) {
   const groups = new Map<string, NetworkGroup>();
@@ -62,8 +61,8 @@ export function networkGroups(fd_relations: FdRelation[]) {
     if (e.peer || e.shared || !e.socket?.network_peer) continue;
     const id = JSON.stringify([
       key(e.endpoint.process_id),
-      e.socket.protocol,
-      e.socket.remote,
+      Display.protocol(e.socket.protocol),
+      e.socket.remote?.ip, e.socket.remote?.port,
     ]);
     if (!groups.has(id))
       groups.set(id, { id, endpoint: e.endpoint, socket: e.socket, members: [], label: "" });
@@ -71,7 +70,7 @@ export function networkGroups(fd_relations: FdRelation[]) {
   }
   for (const group of groups.values()) {
     group.members.sort((a, b) => a.endpoint.fd - b.endpoint.fd || a.id.localeCompare(b.id));
-    group.label = `${group.socket.protocol} ${remoteLabel(group.socket)} ×${group.members.length}`;
+    group.label = `${Display.protocol(group.socket.protocol)} ${remoteLabel(group.socket)} ×${group.members.length}`;
   }
   return groups;
 }
@@ -122,8 +121,8 @@ export function connectionState(
   if (e.candidate) return "Candidate peer";
   if (e.peer) return "Confirmed process connection";
   if (e.socket?.network_peer) return "Network destination";
-  if (e.socket?.state === "LISTEN") return "Listening";
-  if (e.socket?.protocol.startsWith("UDP")) return "No destination set";
+  if (e.socket?.state.kind === "listen") return "Listening";
+  if (e.socket?.protocol.kind === "udp") return "No destination set";
   return "Unknown destination";
 }
 export function layoutMaps<M extends Pick<MemoryMap, "start" | "end">>(

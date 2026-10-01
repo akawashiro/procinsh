@@ -1,3 +1,4 @@
+use crate::http_server::socket_types::{SocketProtocol, SocketState, SocketType};
 // Visibility is scoped to the consumers of the parent process façade.
 use anyhow::{Context, Result, bail, ensure};
 use std::{
@@ -11,8 +12,8 @@ use std::{
 
 #[derive(Clone, Debug)]
 pub(in crate::http_server) struct SocketInfo {
-    pub(in crate::http_server) protocol: String,
-    pub(in crate::http_server) state: String,
+    pub(in crate::http_server) protocol: SocketProtocol,
+    pub(in crate::http_server) state: SocketState,
     pub(in crate::http_server) local: Option<SocketAddr>,
     pub(in crate::http_server) remote: Option<SocketAddr>,
     pub(in crate::http_server) path: Option<String>,
@@ -56,26 +57,7 @@ fn address(text: &str) -> Result<SocketAddr> {
     Ok(SocketAddr::new(ip, u16::from_str_radix(port, 16)?))
 }
 
-fn tcp_state(state: &str) -> String {
-    match state {
-        "01" => "ESTABLISHED",
-        "02" => "SYN_SENT",
-        "03" => "SYN_RECV",
-        "04" => "FIN_WAIT1",
-        "05" => "FIN_WAIT2",
-        "06" => "TIME_WAIT",
-        "07" => "CLOSE",
-        "08" => "CLOSE_WAIT",
-        "09" => "LAST_ACK",
-        "0A" => "LISTEN",
-        "0B" => "CLOSING",
-        "0C" => "NEW_SYN_RECV",
-        _ => state,
-    }
-    .into()
-}
-
-pub(super) fn parse_inet(text: &str, protocol: &str) -> HashMap<u64, SocketInfo> {
+pub(super) fn parse_inet(text: &str, protocol: SocketProtocol) -> HashMap<u64, SocketInfo> {
     text.lines()
         .skip(1)
         .filter_map(|line| {
@@ -87,8 +69,8 @@ pub(super) fn parse_inet(text: &str, protocol: &str) -> HashMap<u64, SocketInfo>
             Some((
                 inode,
                 SocketInfo {
-                    protocol: protocol.into(),
-                    state: tcp_state(f.get(3)?),
+                    protocol,
+                    state: SocketState::inet(u32::from_str_radix(f.get(3)?, 16).ok()?),
                     local: Some(address(f.get(1)?).ok()?),
                     remote: Some(address(f.get(2)?).ok()?),
                     path: None,
@@ -113,28 +95,18 @@ pub(super) fn parse_unix(text: &str) -> HashMap<u64, SocketInfo> {
                 f.push(&rest[..end]);
                 rest = rest[end..].trim_start();
             }
-            let protocol = match f[4] {
-                "0001" => "UNIX STREAM",
-                "0002" => "UNIX DGRAM",
-                "0005" => "UNIX SEQPACKET",
-                _ => "UNIX",
+            let protocol = SocketProtocol::Unix {
+                socket_type: SocketType::from_code(u32::from_str_radix(f[4], 16).ok()?),
             };
-            let state = if u32::from_str_radix(f[3], 16).ok()? & 0x10000 != 0 {
-                "LISTEN"
-            } else {
-                match f[5] {
-                    "01" => "UNCONNECTED",
-                    "02" => "CONNECTING",
-                    "03" => "CONNECTED",
-                    "04" => "DISCONNECTING",
-                    _ => f[5],
-                }
-            };
+            let state = SocketState::unix_proc(
+                u32::from_str_radix(f[5], 16).ok()?,
+                u32::from_str_radix(f[3], 16).ok()? & 0x10000 != 0,
+            );
             Some((
                 f[6].parse().ok()?,
                 SocketInfo {
-                    protocol: protocol.into(),
-                    state: state.into(),
+                    protocol,
+                    state,
                     local: None,
                     remote: None,
                     path: (!rest.is_empty()).then(|| rest.to_owned()),
@@ -160,20 +132,10 @@ fn parse_diag(bytes: &[u8]) -> Result<(u64, SocketInfo)> {
         "invalid UNIX diag message"
     );
     let mut info = SocketInfo {
-        protocol: match bytes[1] {
-            1 => "UNIX STREAM",
-            2 => "UNIX DGRAM",
-            5 => "UNIX SEQPACKET",
-            _ => "UNIX",
-        }
-        .into(),
-        state: match bytes[2] {
-            1 => "CONNECTED",
-            10 => "LISTEN",
-            7 => "UNCONNECTED",
-            _ => "UNKNOWN",
-        }
-        .into(),
+        protocol: SocketProtocol::Unix {
+            socket_type: SocketType::from_code(bytes[1] as u32),
+        },
+        state: SocketState::unix_diag(bytes[2] as u32),
         local: None,
         remote: None,
         path: None,
@@ -359,6 +321,45 @@ mod tests {
             "127.0.0.1:80"
         );
         assert!(address("bad").is_err());
+    }
+    #[test]
+    fn proc_tables_and_diag_preserve_unknown_socket_codes() {
+        use crate::http_server::socket_types::AddressFamily;
+        let protocol = SocketProtocol::Tcp {
+            family: AddressFamily::Ipv4,
+        };
+        let table = parse_inet(
+            "header\n0: 0100007F:1F90 0200007F:0050 FE 0:0 0:0 0 0 0 18446744073709551615\n",
+            protocol,
+        );
+        let info = &table[&u64::MAX];
+        assert_eq!(info.protocol, protocol);
+        assert_eq!(info.state, SocketState::UnknownInet(254));
+        assert_eq!(info.local.unwrap().port(), 8080);
+        let unix = parse_unix(
+            "header\n000: 2 0 00010000 0001 01 42 /tmp/name with spaces\n000: 2 0 0 00FF FF 43\n",
+        );
+        assert_eq!(unix[&42].state, SocketState::Listen);
+        assert_eq!(unix[&42].path.as_deref(), Some("/tmp/name with spaces"));
+        assert_eq!(
+            unix[&43].protocol,
+            SocketProtocol::Unix {
+                socket_type: SocketType::Unknown(255)
+            }
+        );
+        assert_eq!(unix[&43].state, SocketState::UnknownUnix(255));
+        let mut bytes = vec![0u8; 16];
+        bytes[0] = libc::AF_UNIX as u8;
+        bytes[1] = 254;
+        bytes[2] = 255;
+        let (_, info) = parse_diag(&bytes).unwrap();
+        assert_eq!(
+            info.protocol,
+            SocketProtocol::Unix {
+                socket_type: SocketType::Unknown(254)
+            }
+        );
+        assert_eq!(info.state, SocketState::UnknownUnix(255));
     }
     #[test]
     fn diag_peer_and_malformed_attributes() {

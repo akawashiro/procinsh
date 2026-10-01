@@ -3,6 +3,8 @@ use super::{
     sockets::{self, SocketInfo},
     timestamp_ms,
 };
+use crate::http_server::socket_types::{AddressFamily, SocketProtocol, SocketState, SocketType};
+use crate::http_server::socket_types::{FdAccess, FdKind, InetAddress};
 use anyhow::Result;
 use serde::Serialize;
 use std::{
@@ -15,7 +17,7 @@ use std::{
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 struct Key {
-    kind: &'static str,
+    kind: FdKind,
     device: u64,
     inode: u64,
 }
@@ -25,20 +27,21 @@ pub(super) struct Endpoint {
     pub(super) process_id: ProcessId,
     pub(super) name: String,
     pub(super) fd: u32,
-    pub(super) access: &'static str,
+    pub(super) access: FdAccess,
     pub(super) relation: String,
 }
 #[derive(Debug, Serialize)]
 pub(super) struct Descriptor {
     pub(super) fd: u32,
-    pub(super) kind: &'static str,
+    pub(super) kind: FdKind,
     pub(super) inode: String,
     pub(super) target: String,
-    pub(super) access: &'static str,
-    pub(super) protocol: Option<String>,
-    pub(super) state: Option<String>,
-    pub(super) local: Option<String>,
-    pub(super) remote: Option<String>,
+    pub(super) access: FdAccess,
+    pub(super) protocol: Option<SocketProtocol>,
+    pub(super) state: Option<SocketState>,
+    pub(super) local: Option<InetAddress>,
+    pub(super) remote: Option<InetAddress>,
+    pub(super) path: Option<String>,
     pub(super) peer_inode: Option<String>,
     pub(super) peers: Vec<Endpoint>,
     pub(super) holders: Vec<Endpoint>,
@@ -62,14 +65,14 @@ fn inode(link: &str, prefix: &str) -> Option<u64> {
 fn resource(path: &std::path::Path, link: &str, fifo: bool) -> Option<Key> {
     if let Some(inode) = inode(link, "socket:[") {
         return Some(Key {
-            kind: "socket",
+            kind: FdKind::Socket,
             device: 0,
             inode,
         });
     }
     if let Some(inode) = inode(link, "pipe:[") {
         return Some(Key {
-            kind: "pipe",
+            kind: FdKind::Pipe,
             device: 0,
             inode,
         });
@@ -78,7 +81,7 @@ fn resource(path: &std::path::Path, link: &str, fifo: bool) -> Option<Key> {
         let meta = fs::metadata(path).ok()?;
         if meta.file_type().is_fifo() {
             return Some(Key {
-                kind: "fifo",
+                kind: FdKind::Fifo,
                 device: meta.dev(),
                 inode: meta.ino(),
             });
@@ -95,13 +98,8 @@ fn mode(pid: i32, fd: u32) -> Option<u32> {
     }
     Some(flags & libc::O_ACCMODE as u32)
 }
-fn access(mode: Option<u32>) -> &'static str {
-    match mode {
-        Some(0) => "read",
-        Some(1) => "write",
-        Some(2) => "read/write",
-        _ => "N/A",
-    }
+fn access(mode: Option<u32>) -> FdAccess {
+    FdAccess::from_mode(mode)
 }
 fn pipe_opposite(a: Option<u32>, b: Option<u32>) -> bool {
     matches!(
@@ -123,7 +121,7 @@ fn owners(
     let mut denied = 0;
     let mut count = 0;
     let mut matches = 0;
-    let fifo = keys.iter().any(|k| k.kind == "fifo");
+    let fifo = keys.iter().any(|k| k.kind == FdKind::Fifo);
     let mut pids: Vec<i32> = fs::read_dir("/proc")?
         .flatten()
         .filter_map(|e| e.file_name().to_str()?.parse().ok())
@@ -220,11 +218,36 @@ fn socket_table(
 ) -> HashMap<u64, SocketInfo> {
     let mut result = HashMap::new();
     for (file, protocol) in [
-        ("tcp", "TCP"),
-        ("tcp6", "TCP6"),
-        ("udp", "UDP"),
-        ("udp6", "UDP6"),
-        ("unix", "UNIX"),
+        (
+            "tcp",
+            SocketProtocol::Tcp {
+                family: AddressFamily::Ipv4,
+            },
+        ),
+        (
+            "tcp6",
+            SocketProtocol::Tcp {
+                family: AddressFamily::Ipv6,
+            },
+        ),
+        (
+            "udp",
+            SocketProtocol::Udp {
+                family: AddressFamily::Ipv4,
+            },
+        ),
+        (
+            "udp6",
+            SocketProtocol::Udp {
+                family: AddressFamily::Ipv6,
+            },
+        ),
+        (
+            "unix",
+            SocketProtocol::Unix {
+                socket_type: SocketType::Unknown(0),
+            },
+        ),
     ] {
         match sockets::read_text(&format!("/proc/{pid}/net/{file}")) {
             Ok(text) => result.extend(if file == "unix" {
@@ -240,7 +263,7 @@ fn socket_table(
     if unix_needed.iter().any(|inode| {
         result
             .get(inode)
-            .is_some_and(|s| s.protocol.starts_with("UNIX"))
+            .is_some_and(|s| matches!(s.protocol, SocketProtocol::Unix { .. }))
     }) {
         let same_ns = fs::metadata(format!("/proc/{pid}/ns/net"))
             .ok()
@@ -263,10 +286,10 @@ type InetKey = (bool, SocketAddr, SocketAddr);
 fn inet_key(info: &SocketInfo) -> Option<InetKey> {
     let local = info.local?;
     let remote = info.remote?;
-    if info.state == "LISTEN" || remote.port() == 0 || remote.ip().is_unspecified() {
+    if info.state == SocketState::Listen || remote.port() == 0 || remote.ip().is_unspecified() {
         return None;
     }
-    Some((info.protocol.starts_with("TCP"), local, remote))
+    Some((info.protocol.is_tcp(), local, remote))
 }
 
 pub(super) fn read(id: ProcessId) -> Result<FileDescriptors> {
@@ -308,6 +331,7 @@ pub(super) fn read(id: ProcessId) -> Result<FileDescriptors> {
             state: None,
             local: None,
             remote: None,
+            path: None,
             peer_inode: None,
             peers: Vec::new(),
             holders: Vec::new(),
@@ -324,7 +348,7 @@ pub(super) fn read(id: ProcessId) -> Result<FileDescriptors> {
     entries.sort_by_key(|e| e.fd);
     let needed: HashSet<_> = entries
         .iter()
-        .filter(|e| e.kind == "socket")
+        .filter(|e| e.kind == FdKind::Socket)
         .map(|e| e.key.inode)
         .collect();
     let sockets = if needed.is_empty() {
@@ -343,15 +367,13 @@ pub(super) fn read(id: ProcessId) -> Result<FileDescriptors> {
     for entry in &mut entries {
         if let Some(info) = sockets
             .get(&entry.key.inode)
-            .filter(|_| entry.kind == "socket")
+            .filter(|_| entry.kind == FdKind::Socket)
         {
-            entry.protocol = Some(info.protocol.clone());
-            entry.state = Some(info.state.clone());
-            entry.local = info
-                .local
-                .map(|a| a.to_string())
-                .or_else(|| info.path.clone());
-            entry.remote = info.remote.map(|a| a.to_string());
+            entry.protocol = Some(info.protocol);
+            entry.state = Some(info.state);
+            entry.local = info.local.map(InetAddress::from);
+            entry.remote = info.remote.map(InetAddress::from);
+            entry.path = info.path.clone();
             let mut peers = Vec::new();
             if let Some(inode) = info.peer_inode {
                 entry.peer_inode = Some(inode.to_string());
@@ -364,7 +386,7 @@ pub(super) fn read(id: ProcessId) -> Result<FileDescriptors> {
             let peers: Vec<_> = peers
                 .into_iter()
                 .map(|inode| Key {
-                    kind: "socket",
+                    kind: FdKind::Socket,
                     device: 0,
                     inode,
                 })
@@ -385,11 +407,11 @@ pub(super) fn read(id: ProcessId) -> Result<FileDescriptors> {
                     continue;
                 }
                 let mut endpoint = owner.endpoint.clone();
-                if entry.kind != "socket" && pipe_opposite(entry.mode, owner.mode) {
+                if entry.kind != FdKind::Socket && pipe_opposite(entry.mode, owner.mode) {
                     endpoint.relation = format!("{} end of the same pipe", endpoint.access);
                     entry.peers.push(endpoint);
                 } else {
-                    endpoint.relation = if entry.kind == "socket" {
+                    endpoint.relation = if entry.kind == FdKind::Socket {
                         "Holder of the same socket"
                     } else {
                         "Same pipe, same or unknown direction"
@@ -422,7 +444,7 @@ pub(super) fn read(id: ProcessId) -> Result<FileDescriptors> {
             }
         }
         if entry.peers.is_empty() && entry.note.is_empty() {
-            entry.note = if entry.state.as_deref() == Some("LISTEN") {
+            entry.note = if entry.state == Some(SocketState::Listen) {
                 "Listening (no peer PID)"
             } else {
                 "Peer PID unknown (remote, unconnected, exited, unobserved, or access denied)"
@@ -454,15 +476,17 @@ mod tests {
     #[test]
     fn reverse_matching_excludes_listeners_and_unconnected_sockets() {
         let mut info = SocketInfo {
-            protocol: "TCP".into(),
-            state: "LISTEN".into(),
+            protocol: SocketProtocol::Tcp {
+                family: AddressFamily::Ipv4,
+            },
+            state: SocketState::Listen,
             local: Some("127.0.0.1:80".parse().unwrap()),
             remote: Some("127.0.0.1:1234".parse().unwrap()),
             path: None,
             peer_inode: None,
         };
         assert!(inet_key(&info).is_none());
-        info.state = "ESTABLISHED".into();
+        info.state = SocketState::Established;
         assert!(inet_key(&info).is_some());
         info.remote = Some("0.0.0.0:0".parse().unwrap());
         assert!(inet_key(&info).is_none());

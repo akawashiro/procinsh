@@ -5,9 +5,9 @@ export async function checkNetworkSpace(evaluate, delay, cdp) {
   await evaluate(`(async()=>{
     const m=await import('/space.js');
     const node={identity:{pid:900001,start_time_ticks:1},name:'network-browser',uid:1000,euid:0,rss_bytes:4096,maps:[]};
-    const edge=(id,remote,fd)=>({id,endpoint:{process_id:node.identity,fd,fd_count:1,resource:{kind:'socket',device:{major:0,minor:0},inode:String(fd)},access:2},peer:null,label:'TCP '+remote,shared:false,candidate:false,socket:{protocol:'TCP',state:'ESTABLISHED',local:'127.0.0.1:'+fd,remote,remote_hostname:remote.startsWith('203.')?'example.test':null,network_peer:true}});
+    const edge=(id,remote,fd)=>({id,endpoint:{process_id:node.identity,fd,fd_count:1,resource:{kind:'socket',device:{major:0,minor:0},inode:String(fd)},access:'read_write'},peer:null,label:'TCP '+remote,shared:false,candidate:false,socket:{protocol:{kind:'tcp',family:'ipv4'},state:{kind:'established'},local:{ip:'127.0.0.1',port:fd},remote:(()=>{const i=remote.lastIndexOf(':');return {ip:remote.slice(0,i),port:Number(remote.slice(i+1))}})(),remote_hostname:remote.startsWith('203.')?'example.test':null,network_peer:true}});
     const edges=[edge('net-a','203.0.113.10:443',40),edge('net-b','203.0.113.10:443',41),edge('net-v6','[2001:db8::1]:443',42)];
-    edges.push({...edge('listen','0.0.0.0:0',43),socket:{protocol:'TCP',state:'LISTEN',local:'0.0.0.0:8080',remote:'0.0.0.0:0',network_peer:false}});
+    edges.push({...edge('listen','0.0.0.0:0',43),socket:{protocol:{kind:'tcp',family:'ipv4'},state:{kind:'listen'},local:{ip:'0.0.0.0',port:8080},remote:{ip:'0.0.0.0',port:0},network_peer:false}});
     window.networkFixture={processes:[node],fd_relations:edges};m.renderSystemSnapshot(window.networkFixture,true);m.fitScene();
   })()`);
   await delay(100);
