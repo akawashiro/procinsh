@@ -21,8 +21,15 @@ jobs:
       - name: Install Rust
         # rustup reads the version and components from rust-toolchain.toml.
         run: rustup show active-toolchain
-      - name: Check formatting
+      - name: Check Rust formatting
         run: cargo fmt --all --check
+      - name: Install pinned clang-format
+        run: |
+          python3 -m venv "$RUNNER_TEMP/clang-format"
+          "$RUNNER_TEMP/clang-format/bin/python" -m pip install -r requirements-format.txt
+          echo "$RUNNER_TEMP/clang-format/bin" >> "$GITHUB_PATH"
+      - name: Check C formatting
+        run: python3 scripts/format_c.py --check
 
   build:
     name: Build and test
