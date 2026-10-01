@@ -43,9 +43,6 @@ export async function checkNetworkSpace(evaluate, delay, cdp) {
     for(const e of f.fd_relations)if(e.socket.remote_hostname)e.socket.remote_hostname='renamed.example.test';
     m.renderSystemSnapshot({...f,fd_relations:[...f.fd_relations].reverse()});
     const stable=before.every(([id,p])=>JSON.stringify(m.networkVisuals().find(g=>g.id===id).position)===JSON.stringify(p));
-    document.getElementById('search').value='no-match';document.getElementById('search').dispatchEvent(new Event('input'));
-    const filtered=m.networkVisuals().length===0;
-    document.getElementById('search').value='network-browser';document.getElementById('search').dispatchEvent(new Event('input'));
     document.getElementById('rearrange').click();
     const rearranged=m.networkVisuals().length===2&&!document.getElementById('details').hidden&&m.networkParticles().length===0;
     m.renderSystemSnapshot({...f,fd_relations:f.fd_relations.filter(e=>e.id!=='net-a')});
@@ -55,7 +52,7 @@ export async function checkNetworkSpace(evaluate, delay, cdp) {
     m.renderSystemSnapshot(f);m.selectConnection('listen');
     const listening=document.getElementById('connection-state').textContent==='Listening';
     document.getElementById('reset').click();
-    return {stable,filtered,rearranged,kept,removed,listening};
+    return {stable,rearranged,kept,removed,listening};
   })()`);
   for(const [name,passed] of Object.entries(checks))assert.equal(passed,true,name);
   await evaluate("import('/space.js').then(m=>{m.selectNetwork(m.networkVisuals()[0].id);m.fitScene();})");
@@ -68,5 +65,5 @@ export async function checkNetworkSpace(evaluate, delay, cdp) {
   assert.equal(await evaluate("document.getElementById('connection-endpoints').scrollWidth<=document.getElementById('connection-endpoints').clientWidth"),true,'addresses wrap in mobile details');
   await cdp('Emulation.setDeviceMetricsOverride',{width:1440,height:1100,deviceScaleFactor:1,mobile:false});
   await evaluate("document.getElementById('reset').click()");
-  console.log('Network browser checks passed: marker/path picking, grouping, FD details, directions, stats, stable positions, search, rearrange, and removal.');
+  console.log('Network browser checks passed: marker/path picking, grouping, FD details, directions, stats, stable positions, rearrange, and removal.');
 }

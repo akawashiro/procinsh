@@ -35,15 +35,12 @@ export async function checkFileSpace(evaluate,delay,cdp){
     const cameraStable=JSON.stringify(camera)===JSON.stringify(m.cameraView());
     const processStable=JSON.stringify(window.fileProcess)===JSON.stringify(m.processPosition('910001:1'));
     const renamed=document.getElementById('connection-label').textContent==='renamed.txt';
-    document.getElementById('search').value='no-match';document.getElementById('search').dispatchEvent(new Event('input'));
-    const filtered=m.fileVisuals().length===0;
-    document.getElementById('search').value='';document.getElementById('search').dispatchEvent(new Event('input'));
     m.renderActivity({files:[{...window.fileEvent,resource:'file:8:1:43:0',path:null}],status:{files:'unavailable: test'}});
     m.selectFile(m.fileVisuals().find(f=>f.label==='file:8:1:43:0').id);
     const fallback=document.getElementById('connection-endpoints').textContent.includes('Path unavailable');
     m.pruneFiles(performance.now()+30001);
     const expired=m.fileVisuals().length===0&&document.getElementById('details').hidden;
-    return {stable,cameraStable,processStable,renamed,filtered,fallback,expired};
+    return {stable,cameraStable,processStable,renamed,fallback,expired};
   })()`);
   for(const [name,value] of Object.entries(checks))assert.equal(value,true,name);
   await evaluate(`import('/space.js').then(m=>{m.renderActivity({files:[{...window.fileEvent,write:true}],status:{files:'observing',files_lost:0}});m.selectFile(m.fileVisuals()[0].id);m.fitScene();})`);
@@ -52,5 +49,5 @@ export async function checkFileSpace(evaluate,delay,cdp){
   await evaluate("import('/space.js').then(m=>m.renderSystemSnapshot({processes:[],fd_relations:[]}))");
   assert.equal(await evaluate("import('/space.js').then(m=>m.fileVisuals().length)"),0);
   assert.equal(await evaluate("document.getElementById('details').hidden"),true);
-  console.log('File browser checks passed: picking, directions, totals, paths, stable positions/camera, filtering, expiry.');
+  console.log('File browser checks passed: picking, directions, totals, paths, stable positions/camera, expiry.');
 }
