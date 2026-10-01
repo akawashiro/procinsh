@@ -34,7 +34,6 @@ impl Drop for Subscription {
 /// Manages subscribers, collection workers, snapshots, and event delivery.
 pub(in crate::http_server) struct SystemMonitor {
     viewers: Mutex<usize>,
-    pub(super) status: Mutex<SystemMonitorStatus>,
     snapshot: RwLock<Arc<system_snapshot::SystemSnapshot>>,
     events: broadcast::Sender<SystemMonitorEvent>,
     stop: AtomicBool,
@@ -46,7 +45,6 @@ impl Default for SystemMonitor {
         let (events, _) = broadcast::channel(16);
         Self {
             viewers: Mutex::new(0),
-            status: Mutex::new(SystemMonitorStatus::default()),
             snapshot: RwLock::new(Arc::new(system_snapshot::SystemSnapshot::default())),
             events,
             stop: AtomicBool::new(false),
@@ -95,11 +93,48 @@ impl SystemMonitor {
         drop(viewers);
         Ok(viewer)
     }
-    pub(super) fn send(&self, event: SystemMonitorEvent) {
+    fn send(&self, event: SystemMonitorEvent) {
         let _ = self.events.send(event);
     }
     pub(in crate::http_server) fn snapshot(&self) -> Arc<SystemSnapshot> {
         self.snapshot.read().unwrap().clone()
+    }
+    fn run_activity(&self) {
+        let mut collector: Option<activity::ActivityCollector> = None;
+        let mut last = Instant::now();
+        let mut logged = super::StatusLog::default();
+        log::info!("System activity worker started");
+        while !self.stopped() {
+            if !self.active() {
+                logged.observe(&SystemMonitorStatus::default());
+                collector = None;
+                std::thread::sleep(Duration::from_millis(100));
+                continue;
+            }
+            let collector = collector.get_or_insert_with(|| {
+                log::info!("System observation active");
+                activity::ActivityCollector::new()
+            });
+            let snapshot = self.snapshot();
+            collector.poll(&snapshot);
+            if last.elapsed() >= Duration::from_millis(100) {
+                let batch = collector.drain(monotonic_ns(), &snapshot);
+                let mut status = collector.status();
+                status.active = true;
+                self.send(SystemMonitorEvent::Activity(Arc::new(SystemActivity {
+                    captured_at: crate::http_server::process::timestamp_ms(),
+                    window_ms: last.elapsed().as_millis() as u64,
+                    files: batch.files,
+                    ipc: batch.ipc,
+                    cpu: batch.cpu,
+                    status,
+                })));
+                last = Instant::now();
+            }
+            logged.observe(&collector.status());
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        log::info!("System activity worker stopped");
     }
     fn start(self: &Arc<Self>) {
         if self.started.swap(true, Ordering::SeqCst) {
@@ -107,7 +142,7 @@ impl SystemMonitor {
         }
         let monitor = self.clone();
         let mut workers = self.workers.lock().unwrap();
-        workers.push(spawn_worker("activity", move || activity::run(monitor)));
+        workers.push(spawn_worker("activity", move || monitor.run_activity()));
         let monitor = self.clone();
         workers.push(spawn_worker("snapshot", move || {
             log::info!("System snapshot worker started");
@@ -119,7 +154,6 @@ impl SystemMonitor {
             let mut tick = Instant::now() - Duration::from_secs(2);
             while !monitor.stopped() {
                 if !monitor.active() {
-                    *monitor.status.lock().unwrap() = SystemMonitorStatus::default();
                     full = Instant::now() - Duration::from_secs(10);
                     std::thread::sleep(Duration::from_millis(100));
                     continue;
