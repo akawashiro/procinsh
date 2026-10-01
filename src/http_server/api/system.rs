@@ -26,8 +26,8 @@ pub(super) async fn events(State(s): State<Arc<AppState>>) -> Result<Response, S
                 Ok(Ok(message)) => {
                     let (event, data) = match message {
                         SystemEvent::Snapshot(data) => ("snapshot", serde_json::to_string(&*data).unwrap()),
-                        SystemEvent::Metrics(data) => ("metrics", data.to_string()),
-                        SystemEvent::Activity(data) => ("activity", data.to_string()),
+                        SystemEvent::Metrics(data) => ("metrics", serde_json::to_string(&data).unwrap()),
+                        SystemEvent::Activity(data) => ("activity", serde_json::to_string(&*data).unwrap()),
                     };
                     log::debug!("SSE /api/system/events event={event}");
                     yield Ok(Event::default().event(event).data(data));

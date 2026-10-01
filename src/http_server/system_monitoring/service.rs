@@ -1,3 +1,4 @@
+use super::model::{ProcessMetrics, SystemActivity, SystemMetrics, SystemStatus};
 use super::{SystemSnapshot, activity, resolver, system_snapshot};
 #[derive(Debug, PartialEq, Eq)]
 pub(in crate::http_server) enum SubscribeError {
@@ -7,10 +8,9 @@ pub(in crate::http_server) enum SubscribeError {
 #[derive(Clone)]
 pub(in crate::http_server) enum SystemEvent {
     Snapshot(std::sync::Arc<SystemSnapshot>),
-    Metrics(serde_json::Value),
-    Activity(serde_json::Value),
+    Metrics(SystemMetrics),
+    Activity(std::sync::Arc<SystemActivity>),
 }
-use serde_json::{Value, json};
 use std::{
     sync::{
         Arc, Mutex, RwLock,
@@ -32,7 +32,7 @@ impl Drop for Subscription {
 }
 pub(in crate::http_server) struct System {
     viewers: Mutex<usize>,
-    pub(super) status: Mutex<Value>,
+    pub(super) status: Mutex<SystemStatus>,
     snapshot: RwLock<Arc<system_snapshot::SystemSnapshot>>,
     events: broadcast::Sender<SystemEvent>,
     stop: AtomicBool,
@@ -44,7 +44,7 @@ impl Default for System {
         let (events, _) = broadcast::channel(16);
         Self {
             viewers: Mutex::new(0),
-            status: Mutex::new(json!({"active":false,"ipc":"idle","cpu":"idle","files":"idle"})),
+            status: Mutex::new(SystemStatus::default()),
             snapshot: RwLock::new(Arc::new(system_snapshot::SystemSnapshot::default())),
             events,
             stop: AtomicBool::new(false),
@@ -117,8 +117,7 @@ impl System {
             let mut tick = Instant::now() - Duration::from_secs(2);
             while !system.stopped() {
                 if !system.active() {
-                    *system.status.lock().unwrap() =
-                        json!({"active":false,"ipc":"idle","cpu":"idle","files":"idle"});
+                    *system.status.lock().unwrap() = SystemStatus::default();
                     full = Instant::now() - Duration::from_secs(10);
                     std::thread::sleep(Duration::from_millis(100));
                     continue;
@@ -159,8 +158,15 @@ impl System {
                             if metrics_error.take().is_some() {
                                 log::info!("System metrics recovered");
                             }
-                            let metrics:Vec<_>=summaries.iter().map(|s|json!({"identity":s.identity,"cpu_percent":s.cpu_percent,"rss_bytes":s.rss_bytes})).collect();
-                            system.send(SystemEvent::Metrics(json!(metrics)));
+                            let processes = summaries
+                                .iter()
+                                .map(|s| ProcessMetrics {
+                                    identity: s.identity,
+                                    cpu_percent: s.cpu_percent,
+                                    rss_bytes: s.rss_bytes,
+                                })
+                                .collect();
+                            system.send(SystemEvent::Metrics(SystemMetrics { processes }));
                         }
                         Err(error) => {
                             let error = format!("{error:#}");

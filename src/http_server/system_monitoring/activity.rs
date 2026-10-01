@@ -1,7 +1,7 @@
 use super::System;
+use super::model::{CpuActivity, IpcActivity, SensorState, SystemActivity, SystemStatus};
 use anyhow::{Context, Result};
 use libbpf_rs::{MapCore, MapFlags, ObjectBuilder, RingBufferBuilder};
-use serde_json::json;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
@@ -127,7 +127,7 @@ impl Bpf {
         &mut self,
         now: u64,
         snapshot: &super::system_snapshot::SystemSnapshot,
-    ) -> Result<Vec<serde_json::Value>> {
+    ) -> Result<Vec<CpuActivity>> {
         let current = self
             .obj
             .maps()
@@ -196,13 +196,13 @@ impl Bpf {
             let switches = total.1.saturating_sub(previous.1);
             let cpus = running.remove(&key).unwrap_or_default();
             if runtime_ns > 0 || switches > 0 || !cpus.is_empty() {
-                result.push(json!({
-                    "process_id": identity,
-                    "runtime_ns": runtime_ns,
-                    "switches": switches,
-                    "running_threads": cpus.len(),
-                    "cpus": cpus,
-                }));
+                result.push(CpuActivity {
+                    process_id: identity,
+                    runtime_ns,
+                    switches,
+                    running_threads: cpus.len(),
+                    cpus,
+                });
             }
             next_previous.insert(key, total);
         }
@@ -221,7 +221,7 @@ pub(super) fn run(system: Arc<System>) {
     log::info!("System activity worker started");
     while !system.stopped() {
         if !system.active() {
-            logged.observe(&json!({"ipc":"idle", "cpu":"idle", "files":"idle"}));
+            logged.observe(&SystemStatus::default());
             bpf = None;
             files = None;
             active = false;
@@ -231,46 +231,54 @@ pub(super) fn run(system: Arc<System>) {
         }
         if !active {
             log::info!("System observation active");
-            let mut status = json!({"active":true,"ipc":"starting","cpu":"starting","coverage":"pipe read/write; socket send/recv. splice, sendfile and some io_uring paths are not observed; worker attribution is excluded."});
+            let mut status = SystemStatus {
+                active: true,
+                ipc: SensorState::Starting,
+                cpu: SensorState::Starting,
+                coverage: Some(
+                    "pipe read/write; socket send/recv. splice, sendfile and some io_uring paths are not observed; worker attribution is excluded.",
+                ),
+                ..SystemStatus::default()
+            };
             if bpf.is_none() {
                 match Bpf::new() {
                     Ok(v) => {
                         bpf = Some(v);
-                        status["ipc"] = json!("observing");
-                        status["cpu"] = json!("observing");
+                        status.ipc = SensorState::Observing;
+                        status.cpu = SensorState::Observing;
                     }
                     Err(e) => {
-                        let message = json!(format!("unavailable: {e:#}"));
-                        status["ipc"] = message.clone();
-                        status["cpu"] = message;
+                        let message = SensorState::Unavailable(format!("{e:#}"));
+                        status.ipc = message.clone();
+                        status.cpu = message;
                     }
                 }
             } else {
-                status["ipc"] = json!("observing");
-                status["cpu"] = json!("observing");
+                status.ipc = SensorState::Observing;
+                status.cpu = SensorState::Observing;
             }
             if files.is_none() {
                 match super::files::Files::new() {
                     Ok(sensor) => {
                         files = Some(sensor);
-                        status["files"] = json!("observing");
+                        status.files = SensorState::Observing;
                     }
                     Err(error) => {
-                        status["files"] = json!(format!("unavailable: {error:#}"));
+                        status.files = SensorState::Unavailable(format!("{error:#}"));
                     }
                 }
             } else {
-                status["files"] = json!("observing");
+                status.files = SensorState::Observing;
             }
-            status["files_coverage"] = json!(super::files::COVERAGE);
+            status.files_coverage = Some(super::files::COVERAGE);
             *system.status.lock().unwrap() = status;
             active = true;
             unresolved = 0;
         }
         if let Some(sensor) = &files {
-            system.status.lock().unwrap()["files"] = match sensor.poll() {
-                Ok(()) => json!("observing"),
-                Err(error) => json!(format!("error: {error:#}")),
+            system.status.lock().unwrap().files = match sensor.poll() {
+                Ok(()) => SensorState::Observing,
+                Err(error) => SensorState::Error(format!("{error:#}")),
             };
         }
         let snapshot = system.snapshot();
@@ -283,9 +291,9 @@ pub(super) fn run(system: Arc<System>) {
             let consumed = b.ring.consume_raw_n(8192);
             if consumed < 0 {
                 let e = std::io::Error::from_raw_os_error(-consumed);
-                system.status.lock().unwrap()["ipc"] = json!(format!("error: {e}"));
+                system.status.lock().unwrap().ipc = SensorState::Error(e.to_string());
             } else {
-                system.status.lock().unwrap()["ipc"] = json!("observing");
+                system.status.lock().unwrap().ipc = SensorState::Observing;
             }
             for e in b.queue.lock().unwrap().drain(..) {
                 let Some(n) = processes.get(&(e.pid as i32)) else {
@@ -318,15 +326,27 @@ pub(super) fn run(system: Arc<System>) {
             }
         }
         if last.elapsed() >= Duration::from_millis(100) {
-            let ipc:Vec<_>=comm.drain().map(|((id,resource,write),(bytes,count))|json!({"process_id":id,"resource":resource,"write":write,"bytes":bytes,"count":count})).collect();
+            let ipc = comm
+                .drain()
+                .map(
+                    |((process_id, resource, write), (bytes, count))| IpcActivity {
+                        process_id,
+                        resource,
+                        write,
+                        bytes,
+                        count,
+                    },
+                )
+                .collect();
             let cpu = if let Some(bpf) = &mut bpf {
                 match bpf.cpu_activity(super::monotonic_ns(), &snapshot) {
                     Ok(activity) => {
-                        system.status.lock().unwrap()["cpu"] = json!("observing");
+                        system.status.lock().unwrap().cpu = SensorState::Observing;
                         activity
                     }
                     Err(error) => {
-                        system.status.lock().unwrap()["cpu"] = json!(format!("error: {error:#}"));
+                        system.status.lock().unwrap().cpu =
+                            SensorState::Error(format!("{error:#}"));
                         Vec::new()
                     }
                 }
@@ -334,13 +354,20 @@ pub(super) fn run(system: Arc<System>) {
                 Vec::new()
             };
             let mut status = system.status.lock().unwrap();
-            status["lost"] = json!(bpf.as_ref().map_or(0, Bpf::lost));
-            status["unresolved"] = json!(unresolved);
-            status["files_lost"] = json!(files.as_ref().map_or(0, |sensor| sensor.lost()));
+            status.lost = Some(bpf.as_ref().map_or(0, Bpf::lost));
+            status.unresolved = Some(unresolved);
+            status.files_lost = Some(files.as_ref().map_or(0, |sensor| sensor.lost()));
             let file_events = files
                 .as_ref()
                 .map_or_else(Vec::new, |sensor| sensor.drain());
-            system.send(super::SystemEvent::Activity(json!({"captured_at":crate::http_server::process::timestamp_ms(),"window_ms":last.elapsed().as_millis(),"files":file_events,"ipc":ipc,"cpu":cpu,"status":*status})));
+            system.send(super::SystemEvent::Activity(Arc::new(SystemActivity {
+                captured_at: crate::http_server::process::timestamp_ms(),
+                window_ms: last.elapsed().as_millis() as u64,
+                files: file_events,
+                ipc,
+                cpu,
+                status: status.clone(),
+            })));
             last = Instant::now();
         }
         logged.observe(&system.status.lock().unwrap());

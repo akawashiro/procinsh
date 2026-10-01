@@ -81,6 +81,47 @@ async fn sse_connections_own_viewer_lifetimes() {
     assert!(payload["fd_relations"].is_array());
     assert!(payload.get("nodes").is_none());
     assert!(payload.get("edges").is_none());
+    // Exercise the HTTP boundary as well as the payload serialization fixtures.
+    tokio::time::timeout(Duration::from_secs(5), async {
+        let mut saw_activity = false;
+        let mut saw_metrics = false;
+        while !saw_activity || !saw_metrics {
+            let frame = std::future::poll_fn(|cx| std::pin::Pin::new(&mut body).poll_frame(cx))
+                .await
+                .unwrap()
+                .unwrap()
+                .into_data()
+                .unwrap();
+            let text = std::str::from_utf8(&frame).unwrap();
+            let Some(data) = text.lines().find_map(|line| line.strip_prefix("data: ")) else {
+                continue;
+            };
+            let payload: serde_json::Value = serde_json::from_str(data).unwrap();
+            if text.contains("event: metrics\n") {
+                assert!(payload.is_array());
+                for process in payload.as_array().unwrap() {
+                    assert!(process["identity"].is_object());
+                    assert!(process.get("cpu_percent").is_some());
+                    assert!(process["rss_bytes"].is_u64());
+                }
+                saw_metrics = true;
+            } else if text.contains("event: activity\n") {
+                assert!(payload["captured_at"].is_u64());
+                assert!(payload["window_ms"].is_u64());
+                for key in ["files", "ipc", "cpu"] {
+                    assert!(payload[key].is_array());
+                    assert!(payload["status"][key].is_string());
+                }
+                for key in ["lost", "unresolved", "files_lost"] {
+                    assert!(payload["status"][key].is_u64());
+                }
+                assert!(payload["status"]["active"].is_boolean());
+                saw_activity = true;
+            }
+        }
+    })
+    .await
+    .unwrap();
     responses.clear();
     assert!(state.system.active());
     drop(body);
