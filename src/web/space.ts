@@ -916,10 +916,8 @@ function pruneFiles(now = performance.now()) {
 
 function cpuText(id: string) {
   const state = cpuGlows.get(id);
-  if (!state) return "Observed CPU —";
-  if (performance.now() - state.last >= 500) return "Observed CPU idle";
-  const cpus = state.cpus.length ? `CPU ${state.cpus.join(", ")}` : "Off CPU";
-  return `${cpus} · ${state.running_threads} threads · ${(state.runtime_ns / 1e6).toFixed(2)} ms / ${state.window_ms} ms`;
+  if (!state || state.cpu_percent === null) return "CPU usage unavailable";
+  return `CPU ${state.cpu_percent.toFixed(1)}%`;
 }
 function accessText(access: number) {
   return access === 0
@@ -1146,11 +1144,6 @@ function activity(data: SpaceActivity) {
       });
   }
 
-  for (const e of data.cpu || []) {
-    const id = key(e.process_id);
-    if (!nodes.has(id)) continue;
-    cpuGlows.set(id, { ...e, window_ms: data.window_ms || 100, last: now });
-  }
   for (const e of data.ipc || []) {
     const links = edgeViews.filter((v) => edgeDirection(v.e, e) !== null);
     const exact = links.filter((v) => !v.e.candidate);
@@ -1400,6 +1393,17 @@ function parentLineVisual(parent: string, child: string) {
     b: color.getZ(index * 2),
   };
 }
+function metrics(data: Pick<ProcessSummary, "identity" | "cpu_percent" | "rss_bytes">[]) {
+  const now = performance.now();
+  for (const m of data) {
+    const id = key(m.identity),
+      n = nodes.get(id);
+    if (!n) continue;
+    Object.assign(n, m);
+    cpuGlows.set(id, { last: now, cpu_percent: m.cpu_percent });
+  }
+  if (selected) details();
+}
 let source: EventSource | null = null;
 let retry: number | undefined;
 function start() {
@@ -1425,14 +1429,7 @@ function start() {
   });
   current.addEventListener("metrics", (event) => {
     if (source !== current) return;
-    for (const m of JSON.parse(event.data) as Pick<
-      ProcessSummary,
-      "identity" | "cpu_percent" | "rss_bytes"
-    >[]) {
-      const n = nodes.get(key(m.identity));
-      if (n) Object.assign(n, m);
-    }
-    if (selected) details();
+    metrics(JSON.parse(event.data));
   });
   current.addEventListener("gap", () => {
     if (source === current) particles = [];
@@ -1465,6 +1462,7 @@ export {
   pruneFiles,
   rebuild as renderSystemSnapshot,
   activity as renderActivity,
+  metrics as renderMetrics,
   fit as fitScene,
   select as selectProcess,
   selectConnection,

@@ -13,7 +13,7 @@
 //! (`{ processes: Vec<ProcessMetrics> }`, serialized as an array), and
 //! [`SystemEvent::Activity`] carries `Arc<SystemActivity>` ([`model::SystemActivity`])
 //! (`{ captured_at: u64, window_ms: u64, files: Vec<FileActivity>,
-//! ipc: Vec<IpcActivity>, cpu: Vec<CpuActivity>, status: SystemStatus }`).
+//! ipc: Vec<IpcActivity>, status: SystemStatus }`).
 //! [`service::System::status`] is `pub(super) status: Mutex<SystemStatus>`.
 //! [`status::StatusLog::observe`] is `pub(super) fn observe(&mut self, status: &SystemStatus)`.
 //!
@@ -25,11 +25,11 @@
 //! | [`model::ProcessMetrics`] | `identity: ProcessId, cpu_percent: Option<f64>, rss_bytes: u64` |
 //! | [`files::FileActivity`] | `process_id: ProcessId, resource: String, path: Option<String>, write: bool, bytes: u64, count: u64` (private fields) |
 //! | [`model::IpcActivity`] | `process_id: ProcessId, resource: String, write: bool, bytes: u64, count: u64` |
-//! | [`model::CpuActivity`] | `process_id: ProcessId, runtime_ns: u64, switches: u64, running_threads: usize, cpus: Vec<usize>` |
-//! | [`model::SystemStatus`] | `active: bool, ipc: SensorState, cpu: SensorState, files: SensorState, coverage: Option<&'static str>, files_coverage: Option<&'static str>, lost: Option<u64>, unresolved: Option<u64>, files_lost: Option<u64>` |
+//! | [`model::SystemStatus`] | `active: bool, ipc: SensorState, files: SensorState, coverage: Option<&'static str>, files_coverage: Option<&'static str>, lost: Option<u64>, unresolved: Option<u64>, files_lost: Option<u64>` |
 //! | [`model::SensorState`] | `Idle, Starting, Observing, Unavailable(String), Error(String)`; serializes as the existing state string |
-mod activity;
+//! [`ipc::run`] is `pub(super) fn run(system: Arc<System>)`; it collects IPC and file activity.
 mod files;
+mod ipc;
 mod model;
 mod resolver;
 mod service;

@@ -138,7 +138,7 @@ SSE は `Content-Type: text/event-stream` で接続を維持し、`event:` に�
 |---|---|
 | `snapshot` | 接続直後の保持済み構造、約5秒ごとの構造更新、配信欠落後の再同期。全体を置き換えるデータ |
 | `metrics` | 約1秒ごとのCPU/RSS更新。`{identity, cpu_percent, rss_bytes}` の配列。構造そのものは含まない |
-| `activity` | 最大10Hzの活動集計。`captured_at`、`window_ms`、`cpu`、`ipc`、`files`、`status` |
+| `activity` | 最大10Hzの活動集計。`captured_at`、`window_ms`、`ipc`、`files`、`status` |
 | `gap` | 購読遅延時の `{dropped_frames: 件数}`。続けて最新 `snapshot` を送り、失われた活動は再送しない |
 
 `system_monitoring/system_snapshot.rs` の `SystemSnapshot` を配信します。`Process` はプロセス、`FdEndpoint` はプロセスの FD 端点、`FdRelation` は socket・pipe・共有所有の関係を表します。
@@ -154,10 +154,9 @@ SSE は `Content-Type: text/event-stream` で接続を維持し、`event:` に�
 
 | フィールド | 要素の内容 |
 |---|---|
-| `cpu` | `process_id`、`runtime_ns`（実行時間、ナノ秒）、`switches`（切替回数）、`running_threads`（実行中スレッド数）、`cpus`（実行中CPU番号） |
 | `ipc` | `process_id`、`resource`、`write`、`bytes`、`count`。送信／書き込みがtrue、受信／読み取りがfalse。ペイロードは含まない |
 | `files` | IPCと同じ項目に `path` を追加。パスが取得不能なら null。resourceはdevice/inode/generationを含む識別子 |
-| `status` | `active`、CPU・IPC・filesのセンサー状態、観測範囲の説明、`lost`・`files_lost`・`unresolved` などの収集統計 |
+| `status` | `active`、IPC・filesのセンサー状態、観測範囲の説明、`lost`・`files_lost`・`unresolved` などの収集統計 |
 
 該当活動がない場合やセンサーが利用不能の場合、活動配列は空になります。空配列だけで「活動がなかった」とは判断せず、`status` の observing・unavailable・error なども確認します。CPU/RSSメトリクスのCPU使用率が算出不能なら null です。
 
@@ -237,12 +236,11 @@ watch channelは接続ごとに独立し、遅い購読者へ古い状態を蓄�
 
 購読側が遅延した場合は `gap` と最新の `snapshot` を送り、失われた活動を再生しません。keep-alive は10秒間隔です。活動は最大10Hzで集計・配信します。
 
-いずれのセンサーも CO-RE eBPF で実装しています。CPU と IPC は同じ eBPF プログラム、ファイル I/O は別の eBPF プログラムで収集します。
+CPU は procfs の ticks 差分から使用率を求め、`metrics` の `cpu_percent` を SPACE の glow に使います。glow は毎秒の更新間隔をまたいで保持し、更新が途絶えると1.5秒で消えます。IPC とファイル I/O は独立した CO-RE eBPF プログラムで収集します。
 
 | センサー | バックエンドの観測内容と制約 | eBPF ソース |
 |---|---|---|
-| CPU | `sched_switch` で実行時間と実行中 CPU を集計 | [activity.bpf.c](../src/http_server/system_monitoring/activity.bpf.c) |
-| IPC | pipe read/write と socket の送受信結果を観測。ペイロードは読まず、MSG_PEEK は加算しない。splice/sendfile、一部 io_uring、帰属不明のワーカーは対象外 | [activity.bpf.c](../src/http_server/system_monitoring/activity.bpf.c) |
+| IPC | pipe read/write と socket の送受信結果を観測。ペイロードは読まず、MSG_PEEK は加算しない。splice/sendfile、一部 io_uring、帰属不明のワーカーは対象外 | [ipc.bpf.c](../src/http_server/system_monitoring/ipc.bpf.c) |
 | ファイル I/O | VFS の read/write、ベクトル I/O の成功バイト数と回数を観測。ページキャッシュ経由も含む。mmap、io_uring、splice/sendfile、物理ディスク転送量は対象外 | [files.bpf.c](../src/http_server/system_monitoring/files.bpf.c) |
 
 ファイルのパスは操作時に取得し、取得できない場合は device/inode 等の識別子を使います。BPF のフックが利用できない場合はセンサーごとの理由を状態 API とログに出し、利用可能な情報の収集を継続します。必要なカーネル機能・権限はセンサーごとに異なります。
@@ -293,8 +291,8 @@ watch channelは接続ごとに独立し、遅い購読者へ古い状態を蓄�
 Three.js でプロセスの親子関係、仮想アドレス空間、接続先、ファイル I/O を3D表示します。マップのアドレスの隙間を圧縮し、高さを正規化するため、プロセス間の同じ高さは同じアドレスを意味しません。検索、選択、カメラ操作、再配置もブラウザ内の処理です。タイトルは `procinsh / graph` です。
 
 - `snapshot`：構造を更新し、プロセスと接続先の配置を維持しながら追加・削除を反映します。
-- `metrics`：各プロセスの CPU/RSS と選択中の詳細を更新します。
-- `activity`：CPU の発光、IPC・ネットワークの流れ、ファイル I/O の表示を更新します。CPU の発光は実行中に強まり、活動が途絶えると約500msで減衰します。ファイル表示は最終アクセスから30秒、各プロセス32個・全体512個まで保持します。
+- `metrics`：CPU使用率・RSS・選択中の詳細を更新し、CPU使用率に応じて発光します。使用率が0またはnullなら消灯し、更新が途絶えた場合は1.5秒で消灯します。
+- `activity`：IPC・ネットワークの流れ、ファイル I/O の表示を更新します。ファイル表示は最終アクセスから30秒、各プロセス32個・全体512個まで保持します。
 - `gap`：描画中の粒子をクリアし、続く構造イベントを反映します。
 
 タブ非表示・ページ離脱時は SSE と再接続タイマーを止め、活動表示をクリアします。再表示時は接続し直します。接続エラーでは現在の EventSource を閉じ、エラーを表示して、表示中に限り3秒後に新しい接続を作ります。自動再接続との二重実行を避け、古い接続からのイベントは無視します。接続成功時にエラー表示を消します。

@@ -4,11 +4,7 @@ pub(super) struct StatusLog(std::collections::HashMap<&'static str, super::model
 impl StatusLog {
     fn changes(&mut self, status: &super::model::SystemStatus) -> Vec<(&'static str, String)> {
         let mut changes = Vec::new();
-        for (key, state) in [
-            ("ipc", &status.ipc),
-            ("cpu", &status.cpu),
-            ("files", &status.files),
-        ] {
+        for (key, state) in [("ipc", &status.ipc), ("files", &status.files)] {
             if self.0.get(key) != Some(state) {
                 self.0.insert(key, state.clone());
                 changes.push((key, state.to_string()));
@@ -35,17 +31,17 @@ mod logging_tests {
     fn logs_changes_recovery_and_recurrence_without_repeating_errors() {
         let mut log = StatusLog::default();
         let mut status = SystemStatus::default();
-        assert_eq!(log.changes(&status).len(), 3);
-        status.cpu = SensorState::Unavailable("permission denied".into());
+        assert_eq!(log.changes(&status).len(), 2);
+        status.ipc = SensorState::Unavailable("permission denied".into());
         assert_eq!(log.changes(&status).len(), 1);
         assert!(log.changes(&status).is_empty());
         status.lost = Some(2);
         assert!(log.changes(&status).is_empty());
-        status.cpu = SensorState::Unavailable("unsupported".into());
+        status.ipc = SensorState::Unavailable("unsupported".into());
         assert_eq!(log.changes(&status).len(), 1);
-        status.cpu = SensorState::Observing;
+        status.ipc = SensorState::Observing;
         assert_eq!(log.changes(&status).len(), 1);
-        status.cpu = SensorState::Unavailable("permission denied".into());
+        status.ipc = SensorState::Unavailable("permission denied".into());
         assert_eq!(log.changes(&status).len(), 1);
     }
 }

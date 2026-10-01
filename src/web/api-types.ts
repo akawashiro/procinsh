@@ -263,16 +263,8 @@ export interface IoActivity {
 export interface FileActivity extends IoActivity {
   path: string | null;
 }
-export interface CpuActivity {
-  process_id: ProcessId;
-  runtime_ns: number;
-  switches: number;
-  running_threads: number;
-  cpus: number[];
-}
 export interface SpaceActivity {
   window_ms: number;
   files?: FileActivity[];
-  cpu?: CpuActivity[];
   ipc?: IoActivity[];
 }

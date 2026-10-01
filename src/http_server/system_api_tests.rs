@@ -108,7 +108,7 @@ async fn sse_connections_own_viewer_lifetimes() {
             } else if text.contains("event: activity\n") {
                 assert!(payload["captured_at"].is_u64());
                 assert!(payload["window_ms"].is_u64());
-                for key in ["files", "ipc", "cpu"] {
+                for key in ["files", "ipc"] {
                     assert!(payload[key].is_array());
                     assert!(payload["status"][key].is_string());
                 }
@@ -116,6 +116,8 @@ async fn sse_connections_own_viewer_lifetimes() {
                     assert!(payload["status"][key].is_u64());
                 }
                 assert!(payload["status"]["active"].is_boolean());
+                assert!(payload.get("cpu").is_none());
+                assert!(payload["status"].get("cpu").is_none());
                 saw_activity = true;
             }
         }

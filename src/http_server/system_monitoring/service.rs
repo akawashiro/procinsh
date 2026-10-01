@@ -1,5 +1,5 @@
 use super::model::{ProcessMetrics, SystemActivity, SystemMetrics, SystemStatus};
-use super::{SystemSnapshot, activity, resolver, system_snapshot};
+use super::{SystemSnapshot, ipc, resolver, system_snapshot};
 #[derive(Debug, PartialEq, Eq)]
 pub(in crate::http_server) enum SubscribeError {
     Stopped,
@@ -105,7 +105,7 @@ impl System {
         }
         let system = self.clone();
         let mut workers = self.workers.lock().unwrap();
-        workers.push(spawn_worker("activity", move || activity::run(system)));
+        workers.push(spawn_worker("ipc", move || ipc::run(system)));
         let system = self.clone();
         workers.push(spawn_worker("snapshot", move || {
             log::info!("System snapshot worker started");

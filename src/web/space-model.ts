@@ -6,7 +6,6 @@ import type {
   IoActivity,
   FileActivity,
   MemoryMap,
-  CpuActivity,
 } from "./api-types.js";
 export interface Position {
   x: number;
@@ -47,7 +46,7 @@ export interface RecentFile {
   label: string;
   last: number;
 }
-export type CpuGlow = CpuActivity & { last: number; window_ms: number };
+export type CpuGlow = { last: number; cpu_percent: number | null };
 export type Region = MemoryMap & { z: number; h: number };
 export const remoteLabel = (socket: SocketEndpoint | null | undefined) =>
   socket?.remote_hostname && socket.remote
@@ -181,22 +180,14 @@ export function ipcParticlePlan(operationCount: number, reducedMotion = false) {
   };
 }
 
-export function cpuGlowLevel(
-  state:
-    | Pick<CpuGlow, "last" | "window_ms" | "runtime_ns" | "running_threads">
-    | undefined,
-  now: number,
-  afterglowMs = 500,
-) {
-  if (!state || now < state.last || now - state.last >= afterglowMs) return 0;
-  const windowNs = Math.max(1, state.window_ms * 1e6);
-  const utilization = Math.min(1, state.runtime_ns / windowNs);
-  const activity = Math.min(1, 0.2 + Math.sqrt(utilization) * 0.8);
-  const peak =
-    state.running_threads > 0
-      ? Math.min(1, 0.82 + Math.log2(state.running_threads + 1) * 0.12)
-      : activity;
-  return peak * (1 - (now - state.last) / afterglowMs);
+// Hold through the one-second metrics interval, then fade if updates stop.
+export function cpuGlowLevel(state: CpuGlow | undefined, now: number) {
+  if (!state || now < state.last) return 0;
+  const percent = state.cpu_percent;
+  if (percent === null || !Number.isFinite(percent) || percent <= 0) return 0;
+  const age = now - state.last;
+  const decay = Math.max(0, Math.min(1, (1500 - age) / 500));
+  return Math.sqrt(Math.min(1, percent / 100)) * decay;
 }
 
 export function treeLayout(processes: TreeNode[], xGap = 4.8, yGap = 6.5) {

@@ -1,4 +1,4 @@
-//! Typed monitoring data; serialization preserves the existing SSE schema.
+//! Typed metrics and IPC/file activity payloads for SSE.
 use super::files::FileActivity;
 use crate::http_server::process::ProcessId;
 use serde::Serialize;
@@ -21,7 +21,6 @@ pub(in crate::http_server) struct SystemActivity {
     pub(super) window_ms: u64,
     pub(super) files: Vec<FileActivity>,
     pub(super) ipc: Vec<IpcActivity>,
-    pub(super) cpu: Vec<CpuActivity>,
     pub(super) status: SystemStatus,
 }
 #[derive(Clone, Serialize)]
@@ -32,19 +31,10 @@ pub(in crate::http_server) struct IpcActivity {
     pub(super) bytes: u64,
     pub(super) count: u64,
 }
-#[derive(Clone, Serialize)]
-pub(in crate::http_server) struct CpuActivity {
-    pub(super) process_id: ProcessId,
-    pub(super) runtime_ns: u64,
-    pub(super) switches: u64,
-    pub(super) running_threads: usize,
-    pub(super) cpus: Vec<usize>,
-}
 #[derive(Clone, Default, Serialize)]
 pub(in crate::http_server) struct SystemStatus {
     pub(super) active: bool,
     pub(super) ipc: SensorState,
-    pub(super) cpu: SensorState,
     pub(super) files: SensorState,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) coverage: Option<&'static str>,
@@ -140,17 +130,9 @@ mod tests {
                 bytes: 256,
                 count: 2,
             }],
-            cpu: vec![CpuActivity {
-                process_id: id,
-                runtime_ns: 500,
-                switches: 3,
-                running_threads: 2,
-                cpus: vec![0, 2],
-            }],
             status: SystemStatus {
                 active: true,
                 ipc: SensorState::Observing,
-                cpu: SensorState::Unavailable("permission denied".into()),
                 files: SensorState::Error("poll failed".into()),
                 coverage: Some("ipc coverage"),
                 files_coverage: Some("file coverage"),
@@ -164,8 +146,7 @@ mod tests {
             json!({
                 "captured_at":1000,"window_ms":100,"files":[],
                 "ipc":[{"process_id":{"pid":42,"start_time_ticks":123},"resource":"pipe:1:2:3","write":true,"bytes":256,"count":2}],
-                "cpu":[{"process_id":{"pid":42,"start_time_ticks":123},"runtime_ns":500,"switches":3,"running_threads":2,"cpus":[0,2]}],
-                "status":{"active":true,"ipc":"observing","cpu":"unavailable: permission denied","files":"error: poll failed","coverage":"ipc coverage","files_coverage":"file coverage","lost":0,"unresolved":1,"files_lost":2}
+                "status":{"active":true,"ipc":"observing","files":"error: poll failed","coverage":"ipc coverage","files_coverage":"file coverage","lost":0,"unresolved":1,"files_lost":2}
             })
         );
     }
@@ -174,7 +155,7 @@ mod tests {
     fn idle_and_starting_preserve_absent_status_fields() {
         assert_eq!(
             to_value(SystemStatus::default()).unwrap(),
-            json!({"active":false,"ipc":"idle","cpu":"idle","files":"idle"})
+            json!({"active":false,"ipc":"idle","files":"idle"})
         );
         assert_eq!(to_value(SensorState::Starting).unwrap(), json!("starting"));
     }
