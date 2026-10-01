@@ -80,11 +80,12 @@ try {
   assert.equal(await evaluate("document.getElementById('connection')"),null,'live status label is removed');
   assert.equal(await evaluate("document.getElementById('shared')"),null,'shared FD connections are always enabled without a toggle');
   assert.equal(await evaluate("document.getElementById('connected')"),null,'connected-only filter is removed');
-  assert.deepEqual(await evaluate("Array.from(document.querySelector('.tools').children,e=>e.id)"),['search','reset','rearrange']);
+  assert.deepEqual(await evaluate("Array.from(document.querySelector('.tools').children,e=>e.id)"),['reset','rearrange']);
   await delay(1000);
   assert.ok(snapshot.processes.length>2);
   const n=snapshot.processes.find(n=>n.identity.pid===app.pid);
-  await evaluate(`document.getElementById('search').value='${app.pid}'; document.getElementById('search').dispatchEvent(new Event('input')); document.getElementById('search').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter'}));`);
+  assert.equal(await evaluate("document.getElementById('search')"),null,'process search is removed');
+  await evaluate(`import('/space.js').then(m=>m.selectProcess('${n.identity.pid}:${n.identity.start_time_ticks}',true))`);
   assert.match(await evaluate("document.getElementById('pid').textContent"),new RegExp(String(app.pid)));
   assert.equal(await evaluate("document.getElementById('inspect').getAttribute('href')"), `/process/${app.pid}`);
   await evaluate("document.getElementById('close').click()");
@@ -116,7 +117,6 @@ try {
       {id:'pipe-shared',endpoint:{...a,kind:'pipe',resource:'pipe:1:20'},peer:{...b,kind:'pipe',resource:'pipe:1:20'},label:'pipe',shared:true,candidate:false},
       {id:'external',endpoint:{...a,resource:'socket:1:99'},peer:null,label:'UNIX STREAM external',shared:false,candidate:false},
     ];
-    document.getElementById('search').value='';
     m.renderSystemSnapshot({processes:[node,peer],fd_relations:edges,captured_at:Date.now(),inspected_processes:2,inspected_fds:4,warnings:[]});
     m.selectConnection('unix-exact');
     m.renderActivity({window_ms:100,cpu:[{process_id:id,runtime_ns:40000000,switches:2,running_threads:1,cpus:[3]}],ipc:[{process_id:id,resource:'socket:1:10',write:true,bytes:4096,count:16}],status:{cpu:'observing',ipc:'observing'}});
@@ -164,21 +164,18 @@ try {
     const freshDetails=document.getElementById('facts').textContent.includes('RSS 2.0 MiB');
     render([root,child,sibling,make(800020,800002)]);
     m.selectConnection('stable-edge');
-    document.getElementById('search').value='stable';
-    document.getElementById('search').dispatchEvent(new Event('input'));
     document.getElementById('rearrange').click();
     const expected=model.treeLayout([root,child,sibling,make(800020,800002)]);
     const arranged=[root,child,sibling].every(n=>{const actual=m.processPosition(model.key(n.identity)),p=expected.get(model.key(n.identity));return actual.x===p.x&&actual.y===p.y;});
     const selectionKept=!document.getElementById('details').hidden&&document.getElementById('connection-label').textContent==='stable pipe';
-    const searchKept=document.getElementById('search').value==='stable';
     const linesKept=Boolean(m.parentLineVisual('800001:1','800002:1'));
     const after=coords([root,child,sibling]);
     document.getElementById('reset').click();
     const resetStable=JSON.stringify(after)===JSON.stringify(coords([root,child,sibling]));
-    const resetCleared=document.getElementById('search').value===''&&document.getElementById('details').hidden;
+    const resetCleared=document.getElementById('details').hidden;
     m.selectProcess('800002:1');document.getElementById('rearrange').click();
     const processKept=!document.getElementById('details').hidden&&document.getElementById('name').textContent==='stable-800002';
-    return {stable,cameraStable,freshDetails,arranged,selectionKept,searchKept,linesKept,resetStable,resetCleared,processKept};
+    return {stable,cameraStable,freshDetails,arranged,selectionKept,linesKept,resetStable,resetCleared,processKept};
   })()`);
   for(const [check,passed] of Object.entries(stableChecks)) assert.equal(passed,true,check);
   await checkFileSpace(evaluate,delay,cdp);
@@ -232,7 +229,6 @@ try {
       id:'click-link',endpoint:{process_id:${JSON.stringify(n.identity)},fd:4,fd_count:1,resource:'pipe:click',kind:'pipe',access:2},
       peer:null,label:'click regression',shared:false,candidate:false
     }]};
-    document.getElementById('search').value='';
     m.renderSystemSnapshot(window.linkSnapshot);
     m.selectConnection('click-link');
     window.detailLink=document.querySelector('#connection-endpoints a');

@@ -381,15 +381,7 @@ function fit() {
     .add(new T.Vector3(distance * 0.55, -distance * 0.8, distance * 0.85));
 }
 function visibleIds() {
-  const term = $("search").value.trim().toLowerCase();
-  return new Set(
-    snapshot.processes
-      .filter(
-        (n) =>
-          !term || `${n.identity.pid} ${n.name}`.toLowerCase().includes(term),
-      )
-      .map((n) => key(n.identity)),
-  );
+  return new Set(snapshot.processes.map((n) => key(n.identity)));
 }
 function disposeGroup() {
   geometryGroup.traverse(disposeObject);
@@ -1296,19 +1288,8 @@ $("rearrange").onclick = () => {
 $("close").onclick = () => select(null);
 $("reset").onclick = () => {
   fit();
-  $("search").value = "";
   select(null);
   buildScene();
-};
-$("search").oninput = () => {
-  particles = [];
-  buildScene();
-};
-$("search").onkeydown = (e) => {
-  if (e.key === "Enter") {
-    const ids = visibleIds();
-    if (ids.size) select([...ids][0], true);
-  }
 };
 addEventListener("resize", () => {
   renderer.setSize(innerWidth, innerHeight);
