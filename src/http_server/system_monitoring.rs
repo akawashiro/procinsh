@@ -14,7 +14,6 @@
 //! [`SystemMonitorEvent::Activity`] carries `Arc<SystemActivity>` ([`model::SystemActivity`])
 //! (`{ captured_at: u64, window_ms: u64, files: Vec<FileActivity>,
 //! ipc: Vec<IpcActivity>, cpu: Vec<CpuActivity>, status: SystemMonitorStatus }`).
-//! [`service::SystemMonitor::status`] is `pub(super) status: Mutex<SystemMonitorStatus>`.
 //! [`status::StatusLog::observe`] is `pub(super) fn observe(&mut self, status: &SystemMonitorStatus)`.
 //!
 //! All payload types below have `pub(in crate::http_server)` visibility;
@@ -29,13 +28,17 @@
 //! | [`model::SystemMonitorStatus`] | `active: bool, ipc: SensorState, cpu: SensorState, files: SensorState, coverage: Option<&'static str>, files_coverage: Option<&'static str>, lost: Option<u64>, unresolved: Option<u64>, files_lost: Option<u64>` |
 //! | [`model::SensorState`] | `Idle, Starting, Observing, Unavailable(String), Error(String)`; serializes as the existing state string |
 //!
-//! [`service::SystemMonitor::send`] is
-//! `pub(super) fn send(&self, event: SystemMonitorEvent)`.
-//! [`activity::run`] is `pub(super) fn run(monitor: Arc<SystemMonitor>)`.
 //! [`service::Subscription::receiver`] is
 //! `pub(in crate::http_server) receiver: broadcast::Receiver<SystemMonitorEvent>`.
 //!
 //! Collector interfaces (all `pub(super)`, within `system_monitoring`):
+//! - [`activity::ActivityCollector`]: owns sensors and collection health; no service dependency.
+//!   [`activity::ActivityCollector::new`]: `fn new() -> Self`;
+//!   [`activity::ActivityCollector::poll`]: `fn poll(&mut self, snapshot: &SystemSnapshot)`;
+//!   [`activity::ActivityCollector::drain`]: `fn drain(&mut self, now_ns: u64, snapshot: &SystemSnapshot) -> ActivityBatch`;
+//!   [`activity::ActivityCollector::status`]: `fn status(&self) -> SystemMonitorStatus` (service sets `active`).
+//! - [`activity::ActivityBatch`]: `files: Vec<FileActivity>, ipc: Vec<IpcActivity>, cpu: Vec<CpuActivity>`;
+//!   all fields are `pub(super)`.
 //! - [`sched::Scheduler`]: scheduling maps and previous CPU totals.
 //!   [`sched::Scheduler::new`]: `fn new() -> anyhow::Result<Self>`;
 //!   [`sched::Scheduler::collect`]: `fn collect(&mut self, now: u64, snapshot: &SystemSnapshot) -> anyhow::Result<Vec<CpuActivity>>`.
