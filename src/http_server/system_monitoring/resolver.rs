@@ -42,6 +42,7 @@ impl Resolver {
         }
         Self { cache, tx }
     }
+
     pub(super) fn lookup(&self, ip: IpAddr) -> Option<String> {
         let mut cache = self.cache.lock().unwrap();
         if let Some(entry) = cache.get(&ip)
@@ -66,6 +67,7 @@ impl Resolver {
         None
     }
 }
+
 fn reverse(ip: IpAddr) -> Option<String> {
     let mut host = [0i8; 1025];
     let addr = SocketAddr::new(ip, 0);
@@ -114,6 +116,7 @@ fn reverse(ip: IpAddr) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn queues_once_and_retries_expired_negative_entries() {
         let (tx, rx) = mpsc::sync_channel(4096);
@@ -149,6 +152,7 @@ mod tests {
         assert_eq!(r.lookup("192.0.2.1".parse().unwrap()), None);
         assert!(rx.try_recv().is_err());
     }
+
     #[test]
     fn cached_positive_negative_and_pending() {
         let r = Resolver::new();

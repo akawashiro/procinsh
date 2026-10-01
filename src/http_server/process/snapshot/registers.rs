@@ -9,6 +9,7 @@ pub(super) struct RegisterMapping {
     pub(super) executable: bool,
     pub(super) private: bool,
 }
+
 fn optional_hex<S: serde::Serializer>(
     value: &Option<u64>,
     serializer: S,
@@ -77,6 +78,7 @@ pub(super) fn from_raw(r: &libc::user_regs_struct, maps: &[MemoryMap]) -> Vec<Re
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn register_mapping_keeps_fields_and_offset_or_integer() {
         let map = crate::http_server::process::maps::parse_map(

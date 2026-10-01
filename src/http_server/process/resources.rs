@@ -32,6 +32,7 @@ pub(in crate::http_server) fn observation(id: ProcessId) -> Result<impl Serializ
         &monitoring::capture_sample(id)?,
     ))
 }
+
 pub(in crate::http_server) fn threads(id: ProcessId) -> Result<impl Serialize> {
     Ok(monitoring::initial_observation(&monitoring::capture_sample(id)?).threads)
 }
@@ -43,6 +44,7 @@ struct MemoryMaps {
     captured_at: Option<u64>,
     rollup: Option<maps::MemoryRollup>,
 }
+
 pub(in crate::http_server) fn maps(id: ProcessId) -> Result<impl Serialize> {
     check_identity(id)?;
     let result = maps::read(id.pid, true);
@@ -60,19 +62,24 @@ pub(in crate::http_server) fn maps(id: ProcessId) -> Result<impl Serialize> {
         rollup,
     })
 }
+
 pub(in crate::http_server) fn environment(id: ProcessId) -> Result<impl Serialize> {
     details::environment(id)
 }
+
 pub(in crate::http_server) fn auxv(id: ProcessId) -> Result<impl Serialize> {
     details::auxv(id)
 }
+
 pub(in crate::http_server) fn fds(id: ProcessId) -> Result<impl Serialize> {
     super::fds::read(id)
 }
+
 pub(in crate::http_server) fn signals(id: ProcessId) -> Result<impl Serialize> {
     super::signals::read(id)
 }
 pub(in crate::http_server) const MAX_READ: usize = super::memory::MAX_READ;
+
 pub(in crate::http_server) fn memory(
     id: ProcessId,
     address: u64,
@@ -87,32 +94,39 @@ impl Snapshotter {
         self.0.capture(id)
     }
 }
+
 // Minimal primitives also used by system-wide monitoring.
 pub(in crate::http_server) fn memory_maps(pid: i32) -> Result<Vec<MemoryMap>> {
     maps::read(pid, false)
 }
+
 pub(in crate::http_server) fn ticks_per_second() -> f64 {
     procfs::ticks_per_second()
 }
+
 pub(in crate::http_server) fn fields(
     path: &str,
 ) -> Result<std::collections::HashMap<String, String>> {
     procfs::fields(path)
 }
+
 pub(in crate::http_server) fn socket_text(path: &str) -> Result<String> {
     sockets::read_text(path)
 }
+
 pub(in crate::http_server) fn inet_sockets(
     text: &str,
     protocol: crate::http_server::socket_types::SocketProtocol,
 ) -> std::collections::HashMap<u64, SocketInfo> {
     sockets::parse_inet(text, protocol)
 }
+
 pub(in crate::http_server) fn unix_sockets(
     text: &str,
 ) -> std::collections::HashMap<u64, SocketInfo> {
     sockets::parse_unix(text)
 }
+
 pub(in crate::http_server) fn unix_socket_peers(
     deadline: std::time::Instant,
 ) -> Result<std::collections::HashMap<u64, SocketInfo>> {

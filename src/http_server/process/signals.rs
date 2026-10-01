@@ -24,6 +24,7 @@ pub(super) struct SignalQueue {
     #[serde(serialize_with = "crate::http_server::resource::decimal")]
     pub(super) limit: u64,
 }
+
 fn queue(text: &str) -> Result<SignalQueue> {
     let (count, limit) = text.split_once('/').context("Invalid SigQ")?;
     Ok(SignalQueue {
@@ -50,6 +51,7 @@ pub(super) struct Signals {
     pub(super) threads: Vec<SignalStatus>,
     pub(super) warnings: Vec<String>,
 }
+
 fn mask(value: &str) -> Result<Mask> {
     let bits = u64::from_str_radix(value, 16).context("Invalid signal mask")?;
     const NAMES: [&str; 31] = [
@@ -101,6 +103,7 @@ fn mask(value: &str) -> Result<Mask> {
         .collect();
     Ok(Mask { bits, signals })
 }
+
 fn parse(tid: i32, text: &str) -> Result<SignalStatus> {
     let field = |key: &str| -> Result<&str> {
         text.lines()
@@ -126,6 +129,7 @@ fn parse(tid: i32, text: &str) -> Result<SignalStatus> {
         queued: queue(field("SigQ")?)?,
     })
 }
+
 pub(super) fn read(id: ProcessId) -> Result<Signals> {
     check_identity(id)?;
     let leader = parse(
@@ -169,6 +173,7 @@ pub(super) fn read(id: ProcessId) -> Result<Signals> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn masks_preserve_high_bit_and_signal_numbers() {
         let m = mask("8000000000000200").unwrap();
@@ -193,6 +198,7 @@ mod tests {
         assert!(mask("0").unwrap().signals.is_empty());
         assert!(mask("not hex").is_err());
     }
+
     #[test]
     fn signal_queue_preserves_large_counts_and_rejects_bad_values() {
         let q = queue("18446744073709551615/18446744073709551614").unwrap();
@@ -204,6 +210,7 @@ mod tests {
             assert!(queue(value).is_err());
         }
     }
+
     #[test]
     fn reads_live_threads_and_rejects_reused_identity() {
         let id = super::super::identity(std::process::id() as i32).unwrap();

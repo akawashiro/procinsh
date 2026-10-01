@@ -4,12 +4,14 @@ use std::{sync::Arc, time::Duration};
 
 use axum::body::Body;
 use tower::ServiceExt;
+
 fn app() -> Router {
     router(
         Arc::new(AppState::new(Duration::from_secs(1))),
         "127.0.0.1:8080".parse().unwrap(),
     )
 }
+
 #[tokio::test]
 async fn security_and_embedded_resources() {
     for (host, origin, path, status) in [

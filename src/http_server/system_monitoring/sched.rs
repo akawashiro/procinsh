@@ -51,6 +51,7 @@ impl Scheduler {
             previous_cpu: HashMap::new(),
         })
     }
+
     pub(super) fn collect(
         &mut self,
         now: u64,
@@ -141,6 +142,7 @@ impl Scheduler {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn decodes_process_key_with_kernel_layout_padding() {
         let mut bytes = [0u8; 16];

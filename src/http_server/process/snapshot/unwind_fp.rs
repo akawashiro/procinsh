@@ -69,6 +69,7 @@ pub(super) fn capture(
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn walk_stops_on_cycles_and_never_reads_outside_stack() {
         let maps = vec![

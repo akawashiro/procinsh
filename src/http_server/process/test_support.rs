@@ -31,6 +31,7 @@ impl Target {
         std::thread::sleep(Duration::from_millis(30));
         Self { child, id, address }
     }
+
     pub(in crate::http_server) fn assert_detached(&self) {
         for tid in threads::tids(self.id.pid).unwrap() {
             if let Ok(status) =

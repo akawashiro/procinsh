@@ -14,6 +14,7 @@ impl DeviceId {
             minor: libc::minor(device),
         }
     }
+
     pub(super) fn from_kernel(device: u64) -> Self {
         Self {
             major: (device >> 20) as u32,
@@ -21,6 +22,7 @@ impl DeviceId {
         }
     }
 }
+
 pub(super) fn decimal<S: serde::Serializer>(value: &u64, serializer: S) -> Result<S::Ok, S::Error> {
     serializer.collect_str(value)
 }
@@ -55,6 +57,7 @@ pub(super) struct FileIdentity {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn devices_and_large_inodes_keep_identity() {
         let device = DeviceId {

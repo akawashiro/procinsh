@@ -119,6 +119,7 @@ impl Disassembly {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn decodes_variable_length_instructions_and_runtime_branch_target() {
         let mut code = Disassembly::empty(0x7fff_1234_5000);

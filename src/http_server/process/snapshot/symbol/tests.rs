@@ -69,6 +69,7 @@ impl Fixture {
         fs::create_dir(&dir).unwrap();
         Self(dir)
     }
+
     fn compile(&self, debug: &str, name: &str) -> PathBuf {
         let source = self.0.join("fixture.c");
         fs::write(

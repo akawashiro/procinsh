@@ -123,6 +123,7 @@ fn parse_uids(value: &str) -> (Option<u32>, Option<u32>) {
 #[cfg(test)]
 mod uid_tests {
     use super::*;
+
     #[test]
     fn real_and_effective_users() {
         assert_eq!(parse_uids("1000 0 0 0"), (Some(1000), Some(0)));

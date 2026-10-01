@@ -62,6 +62,7 @@ pub(super) struct FileDescriptors {
 fn inode(link: &str, prefix: &str) -> Option<u64> {
     link.strip_prefix(prefix)?.strip_suffix(']')?.parse().ok()
 }
+
 fn resource(path: &std::path::Path, link: &str, fifo: bool) -> Option<Key> {
     if let Some(inode) = inode(link, "socket:[") {
         return Some(Key {
@@ -89,6 +90,7 @@ fn resource(path: &std::path::Path, link: &str, fifo: bool) -> Option<Key> {
     }
     None
 }
+
 fn mode(pid: i32, fd: u32) -> Option<u32> {
     let fields = procfs::fields(&format!("/proc/{pid}/fdinfo/{fd}")).ok()?;
     // O_PATH descriptors cannot send or receive, even if O_ACCMODE is zero.
@@ -98,9 +100,11 @@ fn mode(pid: i32, fd: u32) -> Option<u32> {
     }
     Some(flags & libc::O_ACCMODE as u32)
 }
+
 fn access(mode: Option<u32>) -> FdAccess {
     FdAccess::from_mode(mode)
 }
+
 fn pipe_opposite(a: Option<u32>, b: Option<u32>) -> bool {
     matches!(
         (a, b),
@@ -112,6 +116,7 @@ struct Owner {
     endpoint: Endpoint,
     mode: Option<u32>,
 }
+
 fn owners(
     keys: &HashSet<Key>,
     deadline: Instant,
@@ -283,6 +288,7 @@ fn socket_table(
 }
 
 type InetKey = (bool, SocketAddr, SocketAddr);
+
 fn inet_key(info: &SocketInfo) -> Option<InetKey> {
     let local = info.local?;
     let remote = info.remote?;
@@ -464,6 +470,7 @@ pub(super) fn read(id: ProcessId) -> Result<FileDescriptors> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn pipe_directions_are_not_confused_with_shared_ends() {
         assert!(pipe_opposite(Some(0), Some(1)));
@@ -473,6 +480,7 @@ mod tests {
         assert!(!pipe_opposite(Some(1), Some(1)));
         assert!(!pipe_opposite(None, Some(1)));
     }
+
     #[test]
     fn reverse_matching_excludes_listeners_and_unconnected_sockets() {
         let mut info = SocketInfo {

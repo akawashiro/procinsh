@@ -5,6 +5,7 @@ use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
+
 #[test]
 fn coherent_snapshot_unwinds_and_resolves_pie_source() {
     let target = Target::new("recursive");

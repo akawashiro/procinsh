@@ -62,6 +62,7 @@ pub(super) fn read(id: ProcessId, address: u64, length: usize) -> Result<MemoryR
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn reads_own_memory_and_rejects_invalid_ranges() {
         let value = *b"procinsh";

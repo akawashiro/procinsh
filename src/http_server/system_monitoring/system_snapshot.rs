@@ -87,6 +87,7 @@ pub(in crate::http_server) struct SystemSnapshot {
     pub(super) inspected_processes: usize,
     pub(super) inspected_fds: usize,
 }
+
 pub(super) fn process_from_summary(
     summary: ProcessSummary,
     parent_id: Option<ProcessId>,
@@ -106,6 +107,7 @@ pub(super) fn process_from_summary(
         maps_error: None,
     }
 }
+
 pub(super) fn collect(discovery: &mut Discovery) -> SystemSnapshot {
     let mut result = SystemSnapshot {
         captured_at: process::timestamp_ms(),
@@ -443,6 +445,7 @@ pub(super) fn collect(discovery: &mut Discovery) -> SystemSnapshot {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn socket_destination_classification() {
         use crate::http_server::process::SocketInfo;
