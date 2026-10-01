@@ -7,7 +7,7 @@ export async function checkFileSpace(evaluate,delay,cdp){
     window.fileFixture={processes:[node],fd_relations:[]};m.renderSystemSnapshot(window.fileFixture);
     const e={process_id:node.identity,file:{device:{major:8,minor:1},inode:'42',generation:0},path:'/tmp/example.txt',bytes:100,count:1};
     window.fileEvent=e;window.fileCamera=m.cameraView();window.fileProcess=m.processPosition('910001:1');
-    m.renderActivity({files:[{...e,write:true},{...e,write:false,bytes:200}],status:{files:'observing',files_lost:3}});
+    m.renderActivity({files:[{...e,write:true},{...e,write:false,bytes:200}],status:{files:{state:'observing'},files_lost:3}});
     window.fileCreationStable=JSON.stringify(window.fileCamera)===JSON.stringify(m.cameraView());window.fileDirections=m.fileParticles();m.fitScene();
   })()`);
   assert.equal(await evaluate('window.fileCreationStable'),true,'new file markers do not move the camera');
@@ -35,7 +35,7 @@ export async function checkFileSpace(evaluate,delay,cdp){
     const cameraStable=JSON.stringify(camera)===JSON.stringify(m.cameraView());
     const processStable=JSON.stringify(window.fileProcess)===JSON.stringify(m.processPosition('910001:1'));
     const renamed=document.getElementById('connection-label').textContent==='renamed.txt';
-    m.renderActivity({files:[{...window.fileEvent,file:{device:{major:8,minor:1},inode:'43',generation:0},path:null}],status:{files:'unavailable: test'}});
+    m.renderActivity({files:[{...window.fileEvent,file:{device:{major:8,minor:1},inode:'43',generation:0},path:null}],status:{files:{state:'unavailable',message:'test'}}});
     m.selectFile(m.fileVisuals().find(f=>f.label==='file:8:1:43:0').id);
     const fallback=document.getElementById('connection-endpoints').textContent.includes('Path unavailable');
     m.pruneFiles(performance.now()+30001);
@@ -43,7 +43,7 @@ export async function checkFileSpace(evaluate,delay,cdp){
     return {stable,cameraStable,processStable,renamed,fallback,expired};
   })()`);
   for(const [name,value] of Object.entries(checks))assert.equal(value,true,name);
-  await evaluate(`import('/space.js').then(m=>{m.renderActivity({files:[{...window.fileEvent,write:true}],status:{files:'observing',files_lost:0}});m.selectFile(m.fileVisuals()[0].id);m.fitScene();})`);
+  await evaluate(`import('/space.js').then(m=>{m.renderActivity({files:[{...window.fileEvent,write:true}],status:{files:{state:'observing'},files_lost:0}});m.selectFile(m.fileVisuals()[0].id);m.fitScene();})`);
   await delay(100);
   const png=await cdp('Page.captureScreenshot',{format:'png'});await writeFile('target/browser-space-files.png',Buffer.from(png.data,'base64'));
   await evaluate("import('/space.js').then(m=>m.renderSystemSnapshot({processes:[],fd_relations:[]}))");

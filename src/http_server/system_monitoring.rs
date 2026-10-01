@@ -26,7 +26,7 @@
 //! | [`model::IpcActivity`] | `process_id: ProcessId, resource: IpcIdentity, write: bool, bytes: u64, count: u64` |
 //! | [`model::CpuActivity`] | `process_id: ProcessId, runtime_ns: u64, switches: u64, running_threads: usize, cpus: Vec<usize>` |
 //! | [`model::SystemMonitorStatus`] | `active: bool, ipc: SensorState, cpu: SensorState, files: SensorState, coverage: Option<&'static str>, files_coverage: Option<&'static str>, lost: Option<u64>, unresolved: Option<u64>, files_lost: Option<u64>` |
-//! | [`model::SensorState`] | `Idle, Starting, Observing, Unavailable(String), Error(String)`; serializes as the existing state string |
+//! | [`model::SensorState`] | `Idle, Starting, Observing, Unavailable(String), Error(String)`; serializes as `{state, message?}`; message exists only for Unavailable/Error |
 //!
 //! [`service::Subscription::receiver`] is
 //! `pub(in crate::http_server) receiver: broadcast::Receiver<SystemMonitorEvent>`.

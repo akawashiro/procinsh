@@ -10,6 +10,7 @@
 //! - [`registers::RegisterMapping`]: `pathname: Option<String>, readable: bool, writable: bool, executable: bool, private: bool`.
 //! - [`registers::classify`]: `fn classify(name: &str, value: u64, maps: &[MemoryMap]) -> Register`.
 //! - [`registers::from_raw`]: `fn from_raw(r: &libc::user_regs_struct, maps: &[MemoryMap]) -> Vec<Register>`.
+//!
 //! Memory kinds are defined in [`super::maps::MemoryKind`].
 mod capture;
 mod disasm;

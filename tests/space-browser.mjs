@@ -119,7 +119,7 @@ try {
     ];
     m.renderSystemSnapshot({processes:[node,peer],fd_relations:edges,captured_at:Date.now(),inspected_processes:2,inspected_fds:4,warnings:[]});
     m.selectConnection('unix-exact');
-    m.renderActivity({window_ms:100,cpu:[{process_id:id,runtime_ns:40000000,switches:2,running_threads:1,cpus:[3]}],ipc:[{process_id:id,resource:{kind:'socket',device:{major:0,minor:1},inode:'10'},write:true,bytes:4096,count:16}],status:{cpu:'observing',ipc:'observing'}});
+    m.renderActivity({window_ms:100,cpu:[{process_id:id,runtime_ns:40000000,switches:2,running_threads:1,cpus:[3]}],ipc:[{process_id:id,resource:{kind:'socket',device:{major:0,minor:1},inode:'10'},write:true,bytes:4096,count:16}],status:{cpu:{state:'observing'},ipc:{state:'observing'}}});
   })()`);
   await delay(50);
   assert.ok(await evaluate("import('/space.js').then(m=>m.processPosition('434343:8').y>m.processPosition('424242:7').y)"),'child is placed in a deeper generation');
@@ -141,9 +141,9 @@ try {
   assert.match(await evaluate("document.getElementById('connection-endpoints').textContent"),/External \/ unknown/);
   await evaluate("import('/space.js').then(m=>m.renderSystemSnapshot({processes:[{identity:{pid:424242,start_time_ticks:7},name:'cpu-glow-test',uid:1000,username:'test',rss_bytes:4096,cpu_percent:0,maps_epoch:1,maps:[]}],fd_relations:[],captured_at:Date.now(),inspected_processes:1,inspected_fds:0,warnings:[]}))");
   assert.equal(await evaluate("document.getElementById('details').hidden"),true,'removed connection clears selection');
-  await evaluate("import('/space.js').then(m=>m.renderActivity({window_ms:100,cpu:[{process_id:{pid:424242,start_time_ticks:7},runtime_ns:40000000,switches:2,running_threads:1,cpus:[3]}],ipc:[],status:{cpu:'observing'}}))");
+  await evaluate("import('/space.js').then(m=>m.renderActivity({window_ms:100,cpu:[{process_id:{pid:424242,start_time_ticks:7},runtime_ns:40000000,switches:2,running_threads:1,cpus:[3]}],ipc:[],status:{cpu:{state:'observing'}}}))");
   await until(()=>evaluate("import('/space.js').then(m=>m.cpuGlowVisual('424242:7').g)"),'CPU activity lights the base',400);
-  await evaluate("import('/space.js').then(m=>m.renderActivity({window_ms:100,cpu:[{process_id:{pid:424242,start_time_ticks:999},runtime_ns:100000000,switches:1,running_threads:1,cpus:[2]}],ipc:[],status:{cpu:'observing'}}))");
+  await evaluate("import('/space.js').then(m=>m.renderActivity({window_ms:100,cpu:[{process_id:{pid:424242,start_time_ticks:999},runtime_ns:100000000,switches:1,running_threads:1,cpus:[2]}],ipc:[],status:{cpu:{state:'observing'}}}))");
   assert.equal(await evaluate("import('/space.js').then(m=>m.cpuGlowStates.has('424242:999'))"),false,'stale identity is ignored');
   await delay(550);
   assert.ok(await evaluate("import('/space.js').then(m=>m.cpuGlowVisual('424242:7').g)")<0.01,'CPU afterglow ends');

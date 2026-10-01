@@ -24,13 +24,13 @@ try:
     deadline=time.monotonic()+12
     while time.monotonic()<deadline:
         status=latest['status']
-        if any(str(status.get(sensor,'')).startswith('unavailable') for sensor in ('cpu','ipc')):raise AssertionError(status)
+        if any(status.get(sensor,{}).get('state')=='unavailable' for sensor in ('cpu','ipc')):raise AssertionError(status)
         snapshot=latest['snapshot']
-        if all(status.get(sensor)=='observing' for sensor in ('cpu','ipc')) and any(n['identity']['pid']==pid for n in snapshot.get('processes',[])):break
+        if all(status.get(sensor,{}).get('state')=='observing' for sensor in ('cpu','ipc')) and any(n['identity']['pid']==pid for n in snapshot.get('processes',[])):break
         time.sleep(.3)
     else:raise AssertionError(('sensor/snapshot did not become ready',latest))
     status=latest['status']
-    assert status['cpu']=='observing' and status['ipc']=='observing',status
+    assert status['cpu']['state']=='observing' and status['ipc']['state']=='observing',status
     p.stdin.write('go\n');p.stdin.flush();time.sleep(6)
     assert frames
     ipc=[e for f in frames for e in f['ipc'] if e['process_id']['pid']==pid and e['write'] and e['bytes']>0]

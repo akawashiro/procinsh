@@ -159,7 +159,17 @@ SSE は `Content-Type: text/event-stream` で接続を維持し、`event:` に�
 | `files` | `process_id`, `file: {device: {major, minor}, inode, generation}`, `path`, `write`, `bytes`, `count`。inode は十進文字列。パスが取得不能なら null。 |
 | `status` | `active`、CPU・IPC・filesのセンサー状態、観測範囲の説明、`lost`・`files_lost`・`unresolved` などの収集統計 |
 
-該当活動がない場合やセンサーが利用不能の場合、活動配列は空になります。空配列だけで「活動がなかった」とは判断せず、`status` の observing・unavailable・error なども確認します。CPU/RSSメトリクスのCPU使用率が算出不能なら null です。
+識別情報は構造化されています。IPC 活動と system snapshot の FD の `resource` は `{kind: "pipe" | "socket", device: {major, minor}, inode: "…"}`、memory map の `device` は `{major, minor}` です。inode は全て十進文字列で送ります。
+
+ソケットの protocol は `{kind: "tcp" | "udp", family: "ipv4" | "ipv6"}` または `{kind: "unix", socket_type: {kind, code?}}`、state は `{kind, code?}` です。未知のコードは数値を保持します。INET の local/remote は `{ip, port}`、UNIX パスは `path` に分離しています。FD の access は `read`, `write`, `read_write`, `unknown`、kind は `pipe`, `socket`, `fifo` です。
+
+thread の scheduler は `{kind, code?}`、affinity は両端を含む `{start, end}` の配列（取得不能は null）です。シグナルの queued は `{count, limit}`（十進文字列）、signals は `{number, name}` の配列です。mask の hex は精度を保持する16進文字列です。
+
+register の mapping は `{pathname, readable, writable, executable, private}` または null、offset は16進文字列または null、kind は分類 enum の snake_case 名です。memory map の permissions 文字列は廃止し、権限 boolean から表示を生成します。
+
+センサー状態は `{state: "idle" | "starting" | "observing"}` または `{state: "unavailable" | "error", message: "…"}` です。ログ文面は従来どおりですが、レベルの判定は enum に基づきます。
+
+該当活動がない場合やセンサーが利用不能の場合、活動配列は空になります。空配列だけで「活動がなかった」とは判断せず、`status` の各センサーの `state`（observing・unavailable・error） なども確認します。CPU/RSSメトリクスのCPU使用率が算出不能なら null です。
 
 ## バックエンド側の処理
 
@@ -409,11 +419,3 @@ tests/targets/bin/recursive --allow-inspector
 `process::discovery` と `state::history` は非公開にし、必要な型を親モジュールから公開します。`snapshot` の unwind・レジスタ変換・逆アセンブルの実装も非公開にし、応答に現れる型を親から公開します。`process` のリソース別 API（`maps`、`memory`、`threads` 等）と scoped guard を提供する `snapshot::ptrace` は意図的に公開を維持します。
 
 シンボル解決の単体テストは clang で一時 ELF を生成し、DWARF のインラインフレームと行番号のみの情報を検証します。既存の結合テストは PIE / 非 PIE / デバッグ情報なしの対象を実際にキャプチャします。
-
-識別情報は構造化されています。IPC 活動と system snapshot の FD の `resource` は `{kind: "pipe" | "socket", device: {major, minor}, inode: "…"}`、memory map の `device` は `{major, minor}` です。inode は全て十進文字列で送ります。
-
-ソケットの protocol は `{kind: "tcp" | "udp", family: "ipv4" | "ipv6"}` または `{kind: "unix", socket_type: {kind, code?}}`、state は `{kind, code?}` です。未知のコードは数値を保持します。INET の local/remote は `{ip, port}`、UNIX パスは `path` に分離しています。FD の access は `read`, `write`, `read_write`, `unknown`、kind は `pipe`, `socket`, `fifo` です。
-
-thread の scheduler は `{kind, code?}`、affinity は両端を含む `{start, end}` の配列（取得不能は null）です。シグナルの queued は `{count, limit}`（十進文字列）、signals は `{number, name}` の配列です。mask の hex は精度を保持する16進文字列です。
-
-register の mapping は `{pathname, readable, writable, executable, private}` または null、offset は16進文字列または null、kind は分類 enum の snake_case 名です。memory map の permissions 文字列は廃止し、権限 boolean から表示を生成します。

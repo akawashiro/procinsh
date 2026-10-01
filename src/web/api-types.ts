@@ -1,3 +1,8 @@
+export type SensorState = {state:"idle" | "starting" | "observing"} | {state:"unavailable" | "error";message:string};
+export interface SystemMonitorStatus {
+  active:boolean; ipc:SensorState; cpu:SensorState; files:SensorState;
+  coverage?:string; files_coverage?:string; lost?:number; unresolved?:number; files_lost?:number;
+}
 export interface MappingPermissions { readable: boolean; writable: boolean; executable: boolean; private: boolean }
 export interface RegisterMapping extends MappingPermissions { pathname: string | null }
 export type MemoryKind = "integer" | "stack" | "heap" | "shared_library" | "executable" | "file" | "anonymous";
@@ -289,6 +294,7 @@ export interface CpuActivity {
   cpus: number[];
 }
 export interface SpaceActivity {
+  status: SystemMonitorStatus;
   window_ms: number;
   files?: FileActivity[];
   cpu?: CpuActivity[];

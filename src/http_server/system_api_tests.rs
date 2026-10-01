@@ -110,7 +110,16 @@ async fn sse_connections_own_viewer_lifetimes() {
                 assert!(payload["window_ms"].is_u64());
                 for key in ["files", "ipc", "cpu"] {
                     assert!(payload[key].is_array());
-                    assert!(payload["status"][key].is_string());
+                    let sensor = &payload["status"][key];
+                    let state = sensor["state"].as_str().unwrap();
+                    assert!(matches!(
+                        state,
+                        "idle" | "starting" | "observing" | "unavailable" | "error"
+                    ));
+                    assert_eq!(
+                        sensor.get("message").is_some(),
+                        matches!(state, "unavailable" | "error")
+                    );
                 }
                 for key in ["lost", "unresolved", "files_lost"] {
                     assert!(payload["status"][key].is_u64());
