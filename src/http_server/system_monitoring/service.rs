@@ -1,12 +1,13 @@
-use super::model::{ProcessMetrics, SystemActivity, SystemMetrics, SystemStatus};
+use super::model::{ProcessMetrics, SystemActivity, SystemMetrics, SystemMonitorStatus};
 use super::{SystemSnapshot, activity, resolver, system_snapshot};
 #[derive(Debug, PartialEq, Eq)]
 pub(in crate::http_server) enum SubscribeError {
     Stopped,
     TooManySubscribers,
 }
+/// Events delivered by the system monitoring service.
 #[derive(Clone)]
-pub(in crate::http_server) enum SystemEvent {
+pub(in crate::http_server) enum SystemMonitorEvent {
     Snapshot(std::sync::Arc<SystemSnapshot>),
     Metrics(SystemMetrics),
     Activity(std::sync::Arc<SystemActivity>),
@@ -21,30 +22,31 @@ use std::{
 use tokio::sync::broadcast;
 /// Owns a monitoring registration until dropped.
 pub(in crate::http_server) struct Subscription {
-    system: Arc<System>,
-    pub(in crate::http_server) receiver: broadcast::Receiver<SystemEvent>,
+    monitor: Arc<SystemMonitor>,
+    pub(in crate::http_server) receiver: broadcast::Receiver<SystemMonitorEvent>,
     pub(in crate::http_server) initial: Arc<SystemSnapshot>,
 }
 impl Drop for Subscription {
     fn drop(&mut self) {
-        *self.system.viewers.lock().unwrap() -= 1;
+        *self.monitor.viewers.lock().unwrap() -= 1;
     }
 }
-pub(in crate::http_server) struct System {
+/// Manages subscribers, collection workers, snapshots, and event delivery.
+pub(in crate::http_server) struct SystemMonitor {
     viewers: Mutex<usize>,
-    pub(super) status: Mutex<SystemStatus>,
+    pub(super) status: Mutex<SystemMonitorStatus>,
     snapshot: RwLock<Arc<system_snapshot::SystemSnapshot>>,
-    events: broadcast::Sender<SystemEvent>,
+    events: broadcast::Sender<SystemMonitorEvent>,
     stop: AtomicBool,
     started: AtomicBool,
     workers: Mutex<Vec<std::thread::JoinHandle<()>>>,
 }
-impl Default for System {
+impl Default for SystemMonitor {
     fn default() -> Self {
         let (events, _) = broadcast::channel(16);
         Self {
             viewers: Mutex::new(0),
-            status: Mutex::new(SystemStatus::default()),
+            status: Mutex::new(SystemMonitorStatus::default()),
             snapshot: RwLock::new(Arc::new(system_snapshot::SystemSnapshot::default())),
             events,
             stop: AtomicBool::new(false),
@@ -53,7 +55,7 @@ impl Default for System {
         }
     }
 }
-impl System {
+impl SystemMonitor {
     pub(in crate::http_server) fn stopped(&self) -> bool {
         self.stop.load(Ordering::Relaxed)
     }
@@ -85,7 +87,7 @@ impl System {
         }
         *viewers += 1;
         let viewer = Subscription {
-            system: self.clone(),
+            monitor: self.clone(),
             receiver: self.events.subscribe(),
             initial: self.snapshot.read().unwrap().clone(),
         };
@@ -93,7 +95,7 @@ impl System {
         drop(viewers);
         Ok(viewer)
     }
-    pub(super) fn send(&self, event: SystemEvent) {
+    pub(super) fn send(&self, event: SystemMonitorEvent) {
         let _ = self.events.send(event);
     }
     pub(in crate::http_server) fn snapshot(&self) -> Arc<SystemSnapshot> {
@@ -103,10 +105,10 @@ impl System {
         if self.started.swap(true, Ordering::SeqCst) {
             return;
         }
-        let system = self.clone();
+        let monitor = self.clone();
         let mut workers = self.workers.lock().unwrap();
-        workers.push(spawn_worker("activity", move || activity::run(system)));
-        let system = self.clone();
+        workers.push(spawn_worker("activity", move || activity::run(monitor)));
+        let monitor = self.clone();
         workers.push(spawn_worker("snapshot", move || {
             log::info!("System snapshot worker started");
             let mut previous_warnings = Vec::new();
@@ -115,9 +117,9 @@ impl System {
             let mut discovery = crate::http_server::process::Discovery::default();
             let mut full = Instant::now() - Duration::from_secs(10);
             let mut tick = Instant::now() - Duration::from_secs(2);
-            while !system.stopped() {
-                if !system.active() {
-                    *system.status.lock().unwrap() = SystemStatus::default();
+            while !monitor.stopped() {
+                if !monitor.active() {
+                    *monitor.status.lock().unwrap() = SystemMonitorStatus::default();
                     full = Instant::now() - Duration::from_secs(10);
                     std::thread::sleep(Duration::from_millis(100));
                     continue;
@@ -148,8 +150,8 @@ impl System {
                         }
                     }
                     let data = Arc::new(data);
-                    system.send(SystemEvent::Snapshot(data.clone()));
-                    *system.snapshot.write().unwrap() = data;
+                    monitor.send(SystemMonitorEvent::Snapshot(data.clone()));
+                    *monitor.snapshot.write().unwrap() = data;
                     full = Instant::now();
                     tick = Instant::now();
                 } else if tick.elapsed() >= Duration::from_secs(1) {
@@ -166,7 +168,7 @@ impl System {
                                     rss_bytes: s.rss_bytes,
                                 })
                                 .collect();
-                            system.send(SystemEvent::Metrics(SystemMetrics { processes }));
+                            monitor.send(SystemMonitorEvent::Metrics(SystemMetrics { processes }));
                         }
                         Err(error) => {
                             let error = format!("{error:#}");

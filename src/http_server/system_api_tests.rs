@@ -21,7 +21,7 @@ async fn sse_connections_own_viewer_lifetimes() {
             app.clone().oneshot(request(path)).await.unwrap().status(),
             StatusCode::NOT_FOUND
         );
-        assert!(!state.system.active());
+        assert!(!state.system_monitor.active());
     }
     for method in ["POST", "DELETE"] {
         let mut req = request("/api/system/leases");
@@ -41,7 +41,7 @@ async fn sse_connections_own_viewer_lifetimes() {
         assert_eq!(response.status(), StatusCode::OK);
         responses.push(response);
     }
-    assert!(state.system.active());
+    assert!(state.system_monitor.active());
     assert_eq!(
         app.clone()
             .oneshot(request("/api/system/events"))
@@ -123,15 +123,15 @@ async fn sse_connections_own_viewer_lifetimes() {
     .await
     .unwrap();
     responses.clear();
-    assert!(state.system.active());
+    assert!(state.system_monitor.active());
     drop(body);
-    assert!(!state.system.active());
+    assert!(!state.system_monitor.active());
     let response = app
         .clone()
         .oneshot(request("/api/system/events"))
         .await
         .unwrap();
-    assert!(state.system.active());
+    assert!(state.system_monitor.active());
     state.stop();
     assert_eq!(
         app.clone()
@@ -148,6 +148,6 @@ async fn sse_connections_own_viewer_lifetimes() {
     .await
     .unwrap()
     .unwrap();
-    assert!(!state.system.active());
+    assert!(!state.system_monitor.active());
     state.join_collectors().unwrap();
 }
