@@ -29,6 +29,9 @@
 //! Structured thread/signal payloads (types and fields `pub(super)`):
 //! - [`threads::SchedulerPolicy`]: `Other, Fifo, Rr, Batch, Idle, Deadline, Ext, Unknown(u32)`.
 //! - [`threads::CpuRange`]: `start: u32, end: u32` (inclusive).
+//! - [`threads::ThreadSample`]: raw thread metadata and counters, including `ticks: u64, start_time: u64`; no CPU rate.
+//! - [`threads::read`]: `pub(super) fn read(pid: i32, tid: i32) -> anyhow::Result<ThreadSample>`.
+//! - [`threads::ThreadSample::observation`]: `pub(super) fn observation(&self) -> ThreadObservation`.
 //! - [`threads::ThreadObservation`]: `scheduler: SchedulerPolicy, affinity: Option<Vec<CpuRange>>`.
 //! - [`signals::Signal`]: `number: u32, name: String`.
 //! - [`signals::SignalQueue`]: `count: u64, limit: u64` (decimal strings in JSON).

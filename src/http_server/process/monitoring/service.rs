@@ -1,12 +1,14 @@
 // Session handles and lifecycle methods are re-exported by the process façade.
 use super::history::{self, HistoryPoint};
+use super::sampling::{
+    ProcessObservation, ProcessSample, capture_sample, initial_observation, next_observation,
+};
 use crate::http_server::process::SubscribeError;
 
 use crate::http_server::process::{
     self, ProcessId, ProcessSummary,
     maps::{self, MemoryMap, MemoryRollup},
-    procfs::{self, IoStats},
-    threads::{self, ThreadObservation},
+    procfs,
 };
 use anyhow::{Result, ensure};
 use serde::Serialize;
@@ -19,127 +21,6 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::sync::watch;
-
-#[derive(Clone, Debug, Default, Serialize)]
-struct Rates {
-    minor_faults: Option<f64>,
-    major_faults: Option<f64>,
-    voluntary_context_switches: Option<f64>,
-    nonvoluntary_context_switches: Option<f64>,
-    read_bytes: Option<f64>,
-    write_bytes: Option<f64>,
-}
-#[derive(Clone, Debug, Serialize)]
-pub(in crate::http_server::process) struct ProcessObservation {
-    pub(super) timestamp: u64,
-    process_id: ProcessId,
-    pub(super) cpu_percent: Option<f64>,
-    pub(super) rss_bytes: u64,
-    pub(super) vms_bytes: u64,
-    minor_faults: u64,
-    major_faults: u64,
-    voluntary_context_switches: Option<u64>,
-    nonvoluntary_context_switches: Option<u64>,
-    io: Option<IoStats>,
-    rates: Rates,
-    pub(in crate::http_server::process) threads: Vec<ThreadObservation>,
-    cpu: i32,
-    nice: i64,
-    priority: i64,
-    #[serde(skip)]
-    ticks: u64,
-    #[serde(skip)]
-    measured_at: Option<Instant>,
-}
-
-pub(in crate::http_server::process) fn observation(
-    id: ProcessId,
-    previous: Option<&ProcessObservation>,
-) -> Result<ProcessObservation> {
-    process::check_identity(id)?;
-    let stat = procfs::read_stat(&format!("/proc/{}/stat", id.pid))?;
-    let now = Instant::now();
-    let mut ts: Vec<_> = threads::tids(id.pid)?
-        .into_iter()
-        .filter_map(|tid| threads::read(id.pid, tid).ok())
-        .collect();
-    // /proc/PID/status contains only the leader's context switches: sum all live threads.
-    let voluntary = ts
-        .iter()
-        .map(|t| t.voluntary_context_switches)
-        .sum::<Option<u64>>();
-    let nonvoluntary = ts
-        .iter()
-        .map(|t| t.nonvoluntary_context_switches)
-        .sum::<Option<u64>>();
-    let io = procfs::read_io(id.pid).ok();
-    let mut rates = Rates::default();
-    let mut cpu_percent = None;
-    if let Some(p) = previous.filter(|p| p.process_id == id) {
-        let elapsed = now
-            .duration_since(p.measured_at.unwrap_or(now))
-            .as_secs_f64();
-        if elapsed > 0.0 {
-            let rate = |a: u64, b: u64| a.checked_sub(b).map(|d| d as f64 / elapsed);
-            cpu_percent = rate(stat.ticks, p.ticks).map(|r| r / procfs::ticks_per_second() * 100.0);
-            rates.minor_faults = rate(stat.minor_faults, p.minor_faults);
-            rates.major_faults = rate(stat.major_faults, p.major_faults);
-            // Match thread identities so churn cannot make process context-switch rates negative.
-            let mut v = Some(0u64);
-            let mut n = Some(0u64);
-            for t in &mut ts {
-                if let Some(old) = p
-                    .threads
-                    .iter()
-                    .find(|old| old.tid == t.tid && old.start_time == t.start_time)
-                {
-                    t.cpu_percent =
-                        rate(t.ticks, old.ticks).map(|r| r / procfs::ticks_per_second() * 100.0);
-                    v = v
-                        .zip(
-                            t.voluntary_context_switches
-                                .zip(old.voluntary_context_switches)
-                                .and_then(|(a, b)| a.checked_sub(b)),
-                        )
-                        .map(|(a, b)| a + b);
-                    n = n
-                        .zip(
-                            t.nonvoluntary_context_switches
-                                .zip(old.nonvoluntary_context_switches)
-                                .and_then(|(a, b)| a.checked_sub(b)),
-                        )
-                        .map(|(a, b)| a + b);
-                }
-            }
-            rates.voluntary_context_switches = v.map(|v| v as f64 / elapsed);
-            rates.nonvoluntary_context_switches = n.map(|v| v as f64 / elapsed);
-            if let (Some(a), Some(b)) = (&io, &p.io) {
-                rates.read_bytes = rate(a.read_bytes, b.read_bytes);
-                rates.write_bytes = rate(a.write_bytes, b.write_bytes);
-            }
-        }
-    }
-    process::check_identity(id)?;
-    Ok(ProcessObservation {
-        timestamp: process::timestamp_ms(),
-        process_id: id,
-        cpu_percent,
-        rss_bytes: stat.rss,
-        vms_bytes: stat.vms,
-        minor_faults: stat.minor_faults,
-        major_faults: stat.major_faults,
-        voluntary_context_switches: voluntary,
-        nonvoluntary_context_switches: nonvoluntary,
-        io,
-        rates,
-        threads: ts,
-        cpu: stat.cpu,
-        nice: stat.nice,
-        priority: stat.priority,
-        ticks: stat.ticks,
-        measured_at: Some(now),
-    })
-}
 
 #[derive(Clone, Debug, Serialize)]
 pub(in crate::http_server) struct Target {
@@ -207,7 +88,7 @@ impl Monitoring {
         id: ProcessId,
         permit: ObservationPermit,
     ) -> Result<ObservationSession> {
-        let mut target = capture_target(id)?;
+        let (mut target, mut previous_sample) = capture_target(id)?;
         let (tx, receiver) = watch::channel(target.clone());
         let state = self.clone();
         let cancelled = permit.cancelled.clone();
@@ -248,8 +129,10 @@ impl Monitoring {
                     if state.is_stopped() || cancelled.load(Ordering::Relaxed) || tx.is_closed() {
                         break;
                     }
-                    match observation(id, target.observation.as_ref()) {
-                        Ok(o) => {
+                    match capture_sample(id) {
+                        Ok(current) => {
+                            let o = next_observation(&previous_sample, &current);
+                            previous_sample = current;
                             history::push(&mut target.history, &o);
                             target.observation = Some(o);
                             if target.error.take().is_some() {
@@ -302,12 +185,15 @@ impl Monitoring {
         Ok(())
     }
 }
-pub(in crate::http_server::process) fn capture_target(id: ProcessId) -> Result<Target> {
+pub(in crate::http_server::process) fn capture_target(
+    id: ProcessId,
+) -> Result<(Target, ProcessSample)> {
     process::check_identity(id)?;
     let stat = procfs::read_stat(&format!("/proc/{}/stat", id.pid))?;
     let summary = process::summary(&stat, &process::users());
     ensure!(summary.identity == id, "Process exited (PID reused)");
-    let observation = observation(id, None)?;
+    let sample = capture_sample(id)?;
+    let observation = initial_observation(&sample);
     let mut history = VecDeque::new();
     history::push(&mut history, &observation);
     let mut target = Target {
@@ -323,7 +209,7 @@ pub(in crate::http_server::process) fn capture_target(id: ProcessId) -> Result<T
     };
     refresh_maps(&mut target);
     process::check_identity(id)?;
-    Ok(target)
+    Ok((target, sample))
 }
 fn refresh_maps(target: &mut Target) {
     let id = target.summary.identity;

@@ -28,10 +28,12 @@ pub(in crate::http_server) enum SubscribeError {
 }
 
 pub(in crate::http_server) fn observation(id: ProcessId) -> Result<impl Serialize> {
-    monitoring::observation(id, None)
+    Ok(monitoring::initial_observation(
+        &monitoring::capture_sample(id)?,
+    ))
 }
 pub(in crate::http_server) fn threads(id: ProcessId) -> Result<impl Serialize> {
-    Ok(monitoring::observation(id, None)?.threads)
+    Ok(monitoring::initial_observation(&monitoring::capture_sample(id)?).threads)
 }
 #[derive(Serialize)]
 struct MemoryMaps {
