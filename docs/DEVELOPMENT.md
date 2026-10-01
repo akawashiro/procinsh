@@ -237,12 +237,12 @@ watch channelは接続ごとに独立し、遅い購読者へ古い状態を蓄�
 
 購読側が遅延した場合は `gap` と最新の `snapshot` を送り、失われた活動を再生しません。keep-alive は10秒間隔です。活動は最大10Hzで集計・配信します。
 
-いずれのセンサーも CO-RE eBPF で実装しています。CPU と IPC は同じ eBPF プログラム、ファイル I/O は別の eBPF プログラムで収集します。
+いずれのセンサーも CO-RE eBPF で実装しています。CPU scheduling・IPC・ファイル I/O は独立した eBPF プログラムで収集し、各センサーのロード・状態・解放も独立しています。procfs の `cpu_percent` は約1秒周期の使用率表示、eBPF の `CpuActivity` は約100ms周期の scheduling activity・CPU glow・実行中CPU表示に使います。scheduler event はカーネルの map で集約し、userspace へ逐次転送しません。
 
 | センサー | バックエンドの観測内容と制約 | eBPF ソース |
 |---|---|---|
-| CPU | `sched_switch` で実行時間と実行中 CPU を集計 | [activity.bpf.c](../src/http_server/system_monitoring/activity.bpf.c) |
-| IPC | pipe read/write と socket の送受信結果を観測。ペイロードは読まず、MSG_PEEK は加算しない。splice/sendfile、一部 io_uring、帰属不明のワーカーは対象外 | [activity.bpf.c](../src/http_server/system_monitoring/activity.bpf.c) |
+| CPU | `sched_switch` で実行時間と実行中 CPU を集計 | [sched.bpf.c](../src/http_server/system_monitoring/sched.bpf.c) |
+| IPC | pipe read/write と socket の送受信結果を観測。ペイロードは読まず、MSG_PEEK は加算しない。splice/sendfile、一部 io_uring、帰属不明のワーカーは対象外 | [ipc.bpf.c](../src/http_server/system_monitoring/ipc.bpf.c) |
 | ファイル I/O | VFS の read/write、ベクトル I/O の成功バイト数と回数を観測。ページキャッシュ経由も含む。mmap、io_uring、splice/sendfile、物理ディスク転送量は対象外 | [files.bpf.c](../src/http_server/system_monitoring/files.bpf.c) |
 
 ファイルのパスは操作時に取得し、取得できない場合は device/inode 等の識別子を使います。BPF のフックが利用できない場合はセンサーごとの理由を状態 API とログに出し、利用可能な情報の収集を継続します。必要なカーネル機能・権限はセンサーごとに異なります。
