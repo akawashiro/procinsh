@@ -163,7 +163,7 @@ impl SystemMonitor {
                     std::thread::sleep(Duration::from_millis(100));
                     continue;
                 }
-                if full.elapsed() >= Duration::from_secs(5) {
+                if full.elapsed() >= Duration::from_secs(1) {
                     let mut data = system_snapshot::collect(&mut discovery);
                     if data.warnings != previous_warnings {
                         if data.warnings.is_empty() {

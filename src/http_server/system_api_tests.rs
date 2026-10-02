@@ -124,6 +124,40 @@ async fn sse_connections_own_viewer_lifetimes() {
     })
     .await
     .unwrap();
+    // Observe two newly collected snapshots; the initial cached snapshot does not count.
+    tokio::time::timeout(Duration::from_secs(10), async {
+        let mut previous_capture = None;
+        loop {
+            let frame = std::future::poll_fn(|cx| std::pin::Pin::new(&mut body).poll_frame(cx))
+                .await
+                .unwrap()
+                .unwrap()
+                .into_data()
+                .unwrap();
+            let text = std::str::from_utf8(&frame).unwrap();
+            if !text.contains("event: snapshot\n") {
+                continue;
+            }
+            let payload: serde_json::Value = serde_json::from_str(
+                text.lines()
+                    .find_map(|line| line.strip_prefix("data: "))
+                    .unwrap(),
+            )
+            .unwrap();
+            let captured_at = payload["captured_at"].as_u64().unwrap();
+            if let Some(previous) = previous_capture {
+                assert!(captured_at > previous);
+                assert!(
+                    captured_at - previous < 5000,
+                    "snapshot update still waits five seconds"
+                );
+                break;
+            }
+            previous_capture = Some(captured_at);
+        }
+    })
+    .await
+    .unwrap();
     responses.clear();
     assert!(state.system_monitor.active());
     drop(body);
