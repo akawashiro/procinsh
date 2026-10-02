@@ -417,3 +417,29 @@ tests/targets/bin/recursive --allow-inspector
 `process::discovery` と `state::history` は非公開にし、必要な型を親モジュールから公開します。`snapshot` の unwind・レジスタ変換・逆アセンブルの実装も非公開にし、応答に現れる型を親から公開します。`process` のリソース別 API（`maps`、`memory`、`threads` 等）と scoped guard を提供する `snapshot::ptrace` は意図的に公開を維持します。
 
 シンボル解決の単体テストは clang で一時 ELF を生成し、DWARF のインラインフレームと行番号のみの情報を検証します。既存の結合テストは PIE / 非 PIE / デバッグ情報なしの対象を実際にキャプチャします。
+
+### HTTP gzip 圧縮
+
+Web UI と API を統合した Router に `tower-http` の gzip compression を適用します。
+`Accept-Encoding` に従って gzip を選択します。大きな snapshot による activity の遅延を抑えるため、圧縮レベルは `Fastest` を使います。
+サイズが判明している 256 バイト未満の応答、画像、gRPC は圧縮しません。
+長さが不明な SSE は小さなイベントも含めて圧縮します。`snapshot` / `activity` / `gap` や keep-alive の形式・収集間隔は変えません。
+圧縮器は入力ストリームが待機状態になると flush するため、小さなイベントも接続終了を待たず配信します。
+
+実際の圧縮後の HTTP body と受信遅延は、ローカルサーバーに対して次で計測します。
+サーバーは `./scripts/dev_run.sh --listen 127.0.0.1:9090` で起動します。
+
+```sh
+python3 scripts/measure_http_compression.py http://127.0.0.1:9090 --seconds 60 --encoding identity --pid SERVER_PID
+python3 scripts/measure_http_compression.py http://127.0.0.1:9090 --seconds 60 --encoding gzip --pid SERVER_PID
+```
+
+`--pid` は省略可能です。指定すると `/proc/PID/stat` の CPU 時間の差から、1 CPU を 100% とするサーバー使用率を記録します。
+raw SSE bytes はイベントの行形式・keep-alive を含む展開後の HTTP body、transferred bytes は実際の HTTP body のバイト数です。
+HTTP/TCP ヘッダーと chunk framing は含みません。イベント別 raw payload bytes は JSON 本文のみです。
+イベント別 transferred bytes は、SSE の最終区切りを復号した圧縮バイトまでをそのイベントに割り当てた概算です。
+区切り後の gzip flush bytes は次のイベントへ割り当てられるため、イベント別値の合計とストリーム全体の値は末尾の未完了データ分だけ異なる場合があります。
+受信遅延は JSON の `captured_at` とクライアントの受信時刻の差で、圧縮だけでなく収集・シリアライズの時間も含みます。
+同じホストで測定し、センサー状態、欠落、負荷変動と合わせて比較してください。ペイロード本体は保存しません。
+
+計測スクリプトのストリーム解析は `python3 -m unittest discover -s scripts -p test_measure_http_compression.py` で検証できます。
