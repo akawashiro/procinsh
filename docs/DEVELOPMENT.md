@@ -28,8 +28,9 @@ HTML/CSS、生成した JavaScript、Three.js（revision 180）はバイナリ�
 |---|---|
 | `--listen ADDRESS` | 待受アドレス。既定は `127.0.0.1:8080` |
 | `--allow-non-loopback` | 非 loopback での待受を明示的に許可。認証・TLS なしでプロセスメモリや環境変数を公開するため注意 |
-| `--interval DURATION` | 詳細監視の更新間隔。既定は `1s`、範囲は `100ms`～`60s` |
 | `--help` / `--version` | ヘルプ / バージョン表示 |
+
+詳細監視の更新間隔は1秒固定です。
 
 SIGINT（Ctrl+C）または SIGTERM で収集停止と HTTP サーバーの終了処理を行います。起動・サーバーの致命的な失敗は非ゼロ終了です。
 

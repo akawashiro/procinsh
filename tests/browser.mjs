@@ -30,7 +30,7 @@ try {
   const ipc = launch('tests/targets/bin/ipc', ['--allow-inspector']);
   const peerPid = Number(await until(() => ipc.output.match(/^\d+ 0x0 (\d+)\n/)?.[1], 'IPC fixtures'));
   await until(() => recursive.output.includes('\n') && threads.output.includes('\n'), 'test fixtures');
-  const app = launch('target/debug/procinsh', ['--listen', '127.0.0.1:0', '--interval', '100ms']);
+  const app = launch('target/debug/procinsh', ['--listen', '127.0.0.1:0']);
   const url = await until(() => app.output.match(/http:\/\/127\.0\.0\.1:\d+/)?.[0], 'HTTP server');
   const chrome = launch(process.env.CHROME || '/opt/google/chrome/google-chrome', ['--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--no-first-run', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank']);
   const debugUrl = await until(() => chrome.output.match(/ws:\/\/127\.0\.0\.1:(\d+)\/devtools\/browser\/[\w-]+/)?.[0], 'Chrome DevTools');

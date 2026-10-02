@@ -14,7 +14,7 @@ struct Server {
 impl Server {
     fn start() -> Self {
         let mut child = Command::new(env!("CARGO_BIN_EXE_procinsh"))
-            .args(["--listen", "127.0.0.1:0", "--interval", "100ms"])
+            .args(["--listen", "127.0.0.1:0"])
             .env("RUST_LOG", "info")
             .stderr(Stdio::piped())
             .spawn()

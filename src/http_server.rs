@@ -4,7 +4,7 @@
 //!
 //! | Definition | Visibility | Signature |
 //! | --- | --- | --- |
-//! | [`run`] | `pub(super)` | `async fn run(listen: `[`SocketAddr`](std::net::SocketAddr)`, interval: `[`Duration`](std::time::Duration)`) -> `[`anyhow::Result`]`<()>` |
+//! | [`run`] | `pub(super)` | `async fn run(listen: `[`SocketAddr`](std::net::SocketAddr)`) -> `[`anyhow::Result`]`<()>` |
 //!
 //! Shared identities (all `pub(super)`, fields also `pub(super)`):
 //! - [`resource::DeviceId`]: `major: u32, minor: u32`;
