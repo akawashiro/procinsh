@@ -19,7 +19,8 @@ static void check(int n) {
 int main(void) {
     alarm(45);
     prctl(PR_SET_NAME, "procinsh-act");
-    int p[2], u[2], tcp[2], udp[2];
+    int p[2], u[2], tcp[2], udp[2], ready[2];
+    check(pipe(ready));
     check(pipe(p));
     check(socketpair(AF_UNIX, SOCK_STREAM, 0, u));
     int listener = socket(AF_INET, SOCK_STREAM, 0);
@@ -56,6 +57,11 @@ int main(void) {
         close(u[0]);
         close(tcp[0]);
         close(udp[0]);
+        close(ready[1]);
+        char start;
+        if (read(ready[0], &start, 1) != 1)
+            return 8;
+        close(ready[0]);
         char buf[256];
         int fds[] = {p[0], u[1], tcp[1], udp[1]};
         for (int i = 0; i < 4; i++) {
@@ -76,6 +82,7 @@ int main(void) {
         sleep(10);
         return 0;
     }
+    close(ready[0]);
     close(p[0]);
     close(u[1]);
     close(tcp[1]);
@@ -91,6 +98,10 @@ int main(void) {
         kill(child, SIGTERM);
         return 0;
     }
+    // Start the peer read only after the observer has attached its fexit hooks.
+    if (write(ready[1], "g", 1) != 1)
+        return 9;
+    close(ready[1]);
     char buf[256] = {0};
     int fds[] = {p[1], u[0], tcp[0], udp[0]};
     for (int i = 0; i < 4; i++)

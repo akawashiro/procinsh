@@ -2,6 +2,7 @@
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_core_read.h>
 #include <bpf/bpf_tracing.h>
+#include "pidns.bpf.h"
 char LICENSE[] SEC("license") = "GPL";
 struct event {
     __u64 time, start, inode, device, bytes;
@@ -21,6 +22,9 @@ static __always_inline int emit(struct file *file, long ret, __u32 kind, __u32 w
     if (ret <= 0 || !file)
         return 0;
     struct task_struct *task = (void *)bpf_get_current_task_btf();
+    __u32 pid = visible_tgid(task);
+    if (!pid)
+        return 0;
     struct inode *inode = BPF_CORE_READ(file, f_inode);
     if (!inode)
         return 0;
@@ -38,7 +42,7 @@ static __always_inline int emit(struct file *file, long ret, __u32 kind, __u32 w
     e->inode = BPF_CORE_READ(inode, i_ino);
     e->device = BPF_CORE_READ(inode, i_sb, s_dev);
     e->bytes = ret;
-    e->pid = bpf_get_current_pid_tgid() >> 32;
+    e->pid = pid;
     e->kind = kind;
     e->write = write;
     e->worker = (BPF_CORE_READ(task, flags) & (0x00200000 | 0x00000010)) != 0;

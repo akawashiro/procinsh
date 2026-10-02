@@ -26,7 +26,7 @@ try:
         status=latest['status']
         if any(status.get(sensor,{}).get('state')=='unavailable' for sensor in ('cpu','ipc')):raise AssertionError(status)
         snapshot=latest['snapshot']
-        if all(status.get(sensor,{}).get('state')=='observing' for sensor in ('cpu','ipc')) and any(n['identity']['pid']==pid for n in snapshot.get('processes',[])):break
+        if all(status.get(sensor,{}).get('state')=='observing' for sensor in ('cpu','ipc')) and all(any(n['identity']['pid']==wanted for n in snapshot.get('processes',[])) for wanted in (pid,peer)):break
         time.sleep(.3)
     else:raise AssertionError(('sensor/snapshot did not become ready',latest))
     status=latest['status']

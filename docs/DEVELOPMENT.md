@@ -6,7 +6,7 @@ ProcInSh は Linux x86-64 のプロセスを観測する Web アプリケーシ�
 
 ## ビルドと実行環境
 
-Rust edition は 2024 です。Rust は rustup 経由で利用し、`rust-toolchain.toml` でバージョンと rustfmt・clippy を固定しています。ローカルと CI は同じ設定を使い、必要なツールチェーンは rustup が自動インストールします。Rust の更新時はこのファイルを変更し、フォーマット・Clippy・テストを再確認します。ビルドには Node.js 22以降と npm、C コンパイラ、`ar`、BPF backend を持つ clang、bpftool、pkg-config、libelf・zlib 開発ファイル、実行カーネルの `/sys/kernel/btf/vmlinux` が必要です。
+Rust edition は 2024 です。Rust は rustup 経由で利用し、`rust-toolchain.toml` でバージョンと rustfmt・clippy を固定しています。ローカルと CI は同じ設定を使い、必要なツールチェーンは rustup が自動インストールします。Rust の更新時はこのファイルを変更し、フォーマット・Clippy・テストを再確認します。ビルドには Node.js 22以降と npm、C コンパイラ、`ar`、BPF backend を持つ clang、bpftool、pkg-config、libelf・zlib 開発ファイル、autoconf/automake・autopoint・flex・bison・gawk、実行カーネルの `/sys/kernel/btf/vmlinux` が必要です。
 
 `build.rs` は bpftool で BTF から `vmlinux.h` を生成し、`libbpf-cargo` で CPU/IPC とファイル I/O の BPF オブジェクトをビルドします。通常の `cargo build` でもこの処理を実行するため、BPF を画面で利用しない場合もビルド依存は必要です。
 
@@ -443,3 +443,31 @@ HTTP/TCP ヘッダーと chunk framing は含みません。イベント別 raw 
 同じホストで測定し、センサー状態、欠落、負荷変動と合わせて比較してください。ペイロード本体は保存しません。
 
 計測スクリプトのストリーム解析は `python3 -m unittest discover -s scripts -p test_measure_http_compression.py` で検証できます。
+
+## PID namespace と static 配布の検証
+
+`activity.rs` は `/proc/self/ns/pid` の inode を一度読み、`pidns.rs` を通じて
+各センサーの `pid_namespace` map を attach 前に設定します。`pidns.bpf.h` は
+任意の task の group leader の `thread_pid.numbers[]` を最大 33 要素だけ辿り、
+対象 namespace の TGID を返します。見えない task は 0 を返し、CPU 集計・IPC と
+file の ring buffer 出力から除外します。file の pending key は kernel PID/TID
+のままです。namespace 取得に失敗した場合は各センサーを unavailable にし、
+host PID へのフォールバックは行いません。
+
+```sh
+RUSTFLAGS='-C target-feature=+crt-static' \
+  cargo build --release --locked --target x86_64-unknown-linux-gnu
+python3 tests/container-integration.py
+```
+
+統合テストは独立した Docker PID namespace 内でアプリ fixture と static binary
+を起動し、procfs の PID/start time と CPU・pipe/socket IPC・file イベントを
+比較します。ホストだけに存在する fixture は discovery と file イベントに
+現れないことも確認します。Docker の通常の capability に SYS_PTRACE・BPF・
+PERFMON を追加し、privileged・host PID mode は使いません。必要な BTF は read-only
+mount で渡します。`readelf` で INTERP と NEEDED がないこと、container の passwd
+と localhost 逆引き・制御した DNS サーバーの PTR 応答も検査します。対応 BTF hook がないカーネルでは skip せず
+テストを失敗させるため、通常の CI は static build と linkage 検査だけを行います。
+
+`./scripts/dev_run.sh` は `PROCINSH_BINARY` で起動 binary を変更できます。
+root で実行する場合はその権限を使い、それ以外は sudo setcap を利用します。

@@ -14,6 +14,7 @@ fn main() {
     println!("cargo:rerun-if-changed=src/http_server/system_monitoring/sched.bpf.c");
     println!("cargo:rerun-if-changed=src/http_server/system_monitoring/ipc.bpf.c");
     println!("cargo:rerun-if-changed=src/http_server/system_monitoring/files.bpf.c");
+    println!("cargo:rerun-if-changed=src/http_server/system_monitoring/pidns.bpf.h");
     println!("cargo:rerun-if-env-changed=BPFTOOL");
     let out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     let bpftool = env::var_os("BPFTOOL").unwrap_or_else(|| "bpftool".into());

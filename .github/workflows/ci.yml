@@ -58,6 +58,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends \
             build-essential clang llvm pkg-config libelf-dev zlib1g-dev python3 \
+            autoconf automake autopoint flex bison gawk \
             linux-tools-common linux-tools-generic
       - name: Configure bpftool and check kernel BTF
         shell: bash
@@ -85,3 +86,17 @@ jobs:
         run: python3 tests/logging-checks.py
       - name: Check space model
         run: node tests/space-model.mjs
+      - name: Build static GNU release and check linkage
+        env:
+          RUSTFLAGS: '-C target-feature=+crt-static'
+        run: |
+          cargo build --release --locked --target x86_64-unknown-linux-gnu
+          binary=target/x86_64-unknown-linux-gnu/release/procinsh
+          if readelf -l "$binary" | grep -q INTERP; then
+            echo "::error::Static binary has a dynamic interpreter"
+            exit 1
+          fi
+          if readelf -d "$binary" | grep -q '(NEEDED)'; then
+            echo "::error::Static binary has shared-library dependencies"
+            exit 1
+          fi

@@ -31,6 +31,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends \
             build-essential clang llvm pkg-config libelf-dev zlib1g-dev python3 \
+            autoconf automake autopoint flex bison gawk \
             linux-tools-common linux-tools-generic graphviz
       - name: Configure bpftool and check kernel BTF
         shell: bash

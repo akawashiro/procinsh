@@ -52,18 +52,23 @@
 //! - [`activity::ActivityBatch`]: `files: Vec<FileActivity>, ipc: Vec<IpcActivity>, cpu: Vec<CpuActivity>`;
 //!   all fields are `pub(super)`.
 //! - [`sched::Scheduler`]: scheduling maps and previous CPU totals.
-//!   [`sched::Scheduler::new`]: `fn new() -> anyhow::Result<Self>`;
+//!   [`sched::Scheduler::new`]: `fn new(namespace: pidns::PidNamespace) -> anyhow::Result<Self>`;
 //!   [`sched::Scheduler::collect`]: `fn collect(&mut self, now: u64, snapshot: &SystemSnapshot) -> anyhow::Result<Vec<CpuActivity>>`.
 //! - [`ipc::Ipc`]: IPC ring buffer, pending activity and loss accounting.
-//!   [`ipc::Ipc::new`]: `fn new() -> anyhow::Result<Self>`;
+//!   [`ipc::Ipc::new`]: `fn new(namespace: pidns::PidNamespace) -> anyhow::Result<Self>`;
 //!   [`ipc::Ipc::poll`]: `fn poll(&mut self, snapshot: &SystemSnapshot) -> anyhow::Result<()>`;
 //!   [`ipc::Ipc::drain`]: `fn drain(&mut self) -> Vec<IpcActivity>`;
 //!   [`ipc::Ipc::lost`]: `fn lost(&self) -> u64`;
 //!   [`ipc::Ipc::unresolved`]: `fn unresolved(&self) -> u64`.
+//! - [`files::Files::new`]: `pub(super) fn new(namespace: pidns::PidNamespace) -> anyhow::Result<Self>`.
+//! - [`pidns::PidNamespace`]: `pub(super)` observer namespace identifier.
+//!   [`pidns::PidNamespace::current`]: `pub(super) fn current() -> anyhow::Result<Self>`;
+//!   [`pidns::PidNamespace::configure`]: `pub(super) fn configure(self, object: &libbpf_rs::Object) -> anyhow::Result<()>`.
 mod activity;
 mod files;
 mod ipc;
 mod model;
+mod pidns;
 mod resolver;
 mod sched;
 mod service;

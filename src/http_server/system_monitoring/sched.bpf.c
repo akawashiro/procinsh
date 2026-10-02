@@ -2,6 +2,7 @@
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_core_read.h>
 #include <bpf/bpf_tracing.h>
+#include "pidns.bpf.h"
 char LICENSE[] SEC("license") = "GPL";
 struct process_key {
     __u64 start;
@@ -35,7 +36,7 @@ static __always_inline struct process_key process_key(struct task_struct *task) 
     struct task_struct *leader = BPF_CORE_READ(task, group_leader);
     struct process_key key = {
         .start = BPF_CORE_READ(leader, start_boottime),
-        .pid = BPF_CORE_READ(leader, tgid),
+        .pid = visible_tgid(task),
     };
     return key;
 }

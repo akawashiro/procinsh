@@ -38,7 +38,7 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal
 async-stream = "0.3"
 humantime = "2"
 iced-x86 = { version = "1.21", default-features = false, features = ["std", "decoder", "intel"] }
-libbpf-rs = "0.26.2"
+libbpf-rs = { version = "0.26.2", features = ["vendored"] }
 tower-http = { version = "0.7", features = ["compression-gzip"] }
 
 [dev-dependencies]

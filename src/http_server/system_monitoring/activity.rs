@@ -27,9 +27,16 @@ impl ActivityCollector {
             files_coverage: Some(super::files::COVERAGE),
             ..SystemMonitorStatus::default()
         };
-        let ipc = initialize(Ipc::new(), &mut status.ipc);
-        let scheduler = initialize(Scheduler::new(), &mut status.cpu);
-        let files = initialize(Files::new(), &mut status.files);
+        let namespace = super::pidns::PidNamespace::current();
+        let sensor_namespace = || {
+            namespace
+                .as_ref()
+                .copied()
+                .map_err(|error| anyhow::anyhow!("{error:#}"))
+        };
+        let ipc = initialize(sensor_namespace().and_then(Ipc::new), &mut status.ipc);
+        let scheduler = initialize(sensor_namespace().and_then(Scheduler::new), &mut status.cpu);
+        let files = initialize(sensor_namespace().and_then(Files::new), &mut status.files);
         Self {
             ipc,
             scheduler,

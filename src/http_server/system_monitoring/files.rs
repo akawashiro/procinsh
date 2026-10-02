@@ -86,17 +86,24 @@ pub(super) struct Files {
     batch: Arc<Mutex<Batch>>,
 }
 impl Files {
-    pub(super) fn new() -> Result<Self> {
+    pub(super) fn new(namespace: super::pidns::PidNamespace) -> Result<Self> {
         let obj = ObjectBuilder::default()
             .open_memory(include_bytes!(concat!(env!("OUT_DIR"), "/files.bpf.o")))?
             .load()
             .context("File I/O requires CAP_BPF / CAP_PERFMON and compatible VFS BTF hooks")?;
+        namespace.configure(&obj)?;
         let mut links = Vec::new();
-        for prog in obj.progs_mut() {
-            links.push(
-                prog.attach()
-                    .with_context(|| format!("attach {:?}", prog.name()))?,
-            );
+        // Install completion hooks before recording pending I/O. Otherwise a
+        // syscall during attachment can leave a permanently nested pending entry.
+        for entries in [false, true] {
+            for prog in obj.progs_mut().filter(|prog| {
+                prog.section().to_string_lossy().starts_with("fentry/vfs_") == entries
+            }) {
+                links.push(
+                    prog.attach()
+                        .with_context(|| format!("attach {:?}", prog.name()))?,
+                );
+            }
         }
         let batch = Arc::new(Mutex::new(Batch::default()));
         let shared = batch.clone();

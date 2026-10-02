@@ -32,12 +32,13 @@ fn process_key(bytes: &[u8]) -> Option<ProcessKey> {
     })
 }
 impl Scheduler {
-    pub(super) fn new() -> Result<Self> {
+    pub(super) fn new(namespace: super::pidns::PidNamespace) -> Result<Self> {
         let open = ObjectBuilder::default()
             .open_memory(include_bytes!(concat!(env!("OUT_DIR"), "/sched.bpf.o")))?;
         let obj = open
             .load()
             .context("CAP_BPF / CAP_PERFMON and compatible BTF required")?;
+        namespace.configure(&obj)?;
         let mut links = Vec::new();
         for prog in obj.progs_mut() {
             links.push(
