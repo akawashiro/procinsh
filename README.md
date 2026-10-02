@@ -41,6 +41,15 @@ and environment variables without any authentication.
 sudo "$HOME/.cargo/bin/procinsh" --listen 127.0.0.1:9090
 ```
 
+If you don't want to use `sudo`, please use setcap instead of it.
+
+```
+sudo setcap \
+  cap_sys_ptrace,cap_bpf,cap_perfmon=ep \
+  "$HOME/.cargo/bin/procinsh"
+"$HOME/.cargo/bin/procinsh" --listen 127.0.0.1:9090
+```
+
 ### Self build
 
 Also requires Node.js 22 or newer with npm and Rust via rustup. The Rust version
