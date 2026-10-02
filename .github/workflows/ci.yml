@@ -79,6 +79,8 @@ jobs:
         run: cargo clippy --all-targets --locked -- -D warnings
       - name: Run Rust tests
         run: cargo test --locked
+      - name: Check traffic measurement clients
+        run: python3 -m unittest discover -s scripts -p 'test_measure*.py'
       - name: Check logging
         run: python3 tests/logging-checks.py
       - name: Check space model

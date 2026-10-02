@@ -39,9 +39,11 @@ async-stream = "0.3"
 humantime = "2"
 iced-x86 = { version = "1.21", default-features = false, features = ["std", "decoder", "intel"] }
 libbpf-rs = "0.26.2"
+tower-http = { version = "0.7", features = ["compression-gzip"] }
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
+flate2 = "1"
 
 [profile.release]
 lto = "thin"
