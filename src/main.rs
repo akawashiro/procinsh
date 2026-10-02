@@ -11,13 +11,11 @@ compile_error!("procinsh supports Linux x86-64 only");
 
 use anyhow::{Result, ensure};
 use clap::Parser;
-use std::{io::Write, net::SocketAddr, time::Duration};
+use std::{io::Write, net::SocketAddr};
 
 #[derive(Parser)]
 #[command(version, about = "Read-only Linux x86-64 process inspector")]
 struct Cli {
-    #[arg(long, default_value = "1s", value_parser = humantime::parse_duration)]
-    interval: Duration,
     /// Listen address; non-loopback addresses require --allow-non-loopback
     #[arg(long, default_value = "127.0.0.1:8080")]
     listen: SocketAddr,
@@ -58,9 +56,5 @@ async fn run() -> Result<()> {
         "refusing to listen on non-loopback address {}; use --allow-non-loopback to explicitly expose process memory and environment variables without authentication or TLS",
         cli.listen
     );
-    ensure!(
-        cli.interval >= Duration::from_millis(100) && cli.interval <= Duration::from_secs(60),
-        "--interval must be between 100ms and 60s"
-    );
-    http_server::run(cli.listen, cli.interval).await
+    http_server::run(cli.listen).await
 }
