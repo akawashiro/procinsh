@@ -363,7 +363,7 @@ CLANG_FORMAT="$PWD/.venv-format/bin/clang-format" python3 scripts/format_c.py --
 
 CI は Rust と C のフォーマット確認、TypeScript の型チェックとビルド、Rust の全ターゲットのビルド、Clippy、Rust テスト、ログ検証、SPACE モデル検証を実行します。ブラウザと実機センサーのテストは別途実行します。
 
-`cargo build --locked --all-targets` と `cargo test --locked` は Ubuntu 24.04・Ubuntu 26.04・Fedora 44 のコンテナで実行します。matrix は `fail-fast: false` とし、各ディストリビューションの結果を個別に表示します。Web アセットは既存の Ubuntu 24.04 job で生成して artifact として共有し、フォーマット、TypeScript、Clippy、listen policy、SPACE モデルと明示的な bpftool・カーネル BTF 検査は単一環境に残します。各コンテナは Ubuntu 24.04 runner のカーネルと BTF を使うため、この matrix はディストリビューションのユーザー空間の差を検証します。各ディストリビューション固有のカーネルでの BPF センサー動作は検証しません。
+`cargo build --locked --all-targets` と `cargo test --locked` は Ubuntu 24.04・Ubuntu 26.04・Fedora 44 のコンテナで実行します。matrix は `fail-fast: false` とし、各ディストリビューションの結果を個別に表示します。各コンテナで Node.js 22 と npm をインストールし、`npm ci`、`npm run build:web`（TypeScript 型チェックを含む）から実行します。フォーマット、Clippy、listen policy、SPACE モデルと明示的な bpftool・カーネル BTF 検査は単一環境に残します。各コンテナは Ubuntu 24.04 runner のカーネルと BTF を使うため、この matrix はディストリビューションのユーザー空間の差を検証します。各ディストリビューション固有のカーネルでの BPF センサー動作は検証しません。
 
 matrix の native dependency は Ubuntu では `build-essential clang llvm pkg-config libelf-dev zlib1g-dev python3` に加えて Ubuntu 24.04 は `linux-tools-generic`、Ubuntu 26.04 は `bpftool`、Fedora では `gcc gcc-c++ make clang llvm pkgconf-pkg-config elfutils-libelf-devel zlib-devel python3 bpftool` をインストールします。両方で Rust 導入・checkout に必要な `ca-certificates curl git tar gzip` もインストールします。Ubuntu 26.04 では独立した `bpftool` パッケージの実行ファイルを使います。Ubuntu 24.04 の bpftool は実行カーネルのバージョンに依存する wrapper を避け、`/usr/lib/linux-tools/*/bpftool` の実体を `BPFTOOL` に指定します。
 
