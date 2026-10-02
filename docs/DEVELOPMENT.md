@@ -30,8 +30,6 @@ HTML/CSS、生成した JavaScript、Three.js（revision 180）はバイナリ�
 | `--allow-non-loopback` | 非 loopback での待受を明示的に許可。認証・TLS なしでプロセスメモリや環境変数を公開するため注意 |
 | `--help` / `--version` | ヘルプ / バージョン表示 |
 
-詳細監視の更新間隔は1秒固定です。
-
 SIGINT（Ctrl+C）または SIGTERM で収集停止と HTTP サーバーの終了処理を行います。起動・サーバーの致命的な失敗は非ゼロ終了です。
 
 ### crates.io 公開前の検証
