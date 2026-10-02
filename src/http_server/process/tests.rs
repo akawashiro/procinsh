@@ -4,13 +4,12 @@ use std::time::Duration;
 #[test]
 fn memory_partial_reads_and_map_statistics() {
     let target = Target::new("mmap_test");
-    let data = memory::read(target.id, target.address, 25).unwrap();
-    assert!(data.bytes.starts_with(b"procinsh mmap fixture"));
+    let data = memory::read_raw(target.id.pid, target.address, 25).unwrap();
+    assert!(data.starts_with(b"procinsh mmap fixture"));
     let page = process::procfs::page_size();
-    let data = memory::read(target.id, target.address + page - 8, 16).unwrap();
-    assert!(data.partial);
-    assert_eq!(data.bytes.len(), 8);
-    assert!(memory::read(target.id, target.address + page, 16).is_err());
+    let data = memory::read_raw(target.id.pid, target.address + page - 8, 16).unwrap();
+    assert_eq!(data.len(), 8);
+    assert!(memory::read_raw(target.id.pid, target.address + page, 16).is_err());
     let maps = maps::read(target.id.pid, true).unwrap();
     assert!(
         maps.iter()

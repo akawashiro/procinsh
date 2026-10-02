@@ -14,7 +14,6 @@
 //! | [`Snapshotter`] | `pub(super)` | `struct `[`Snapshotter`] |
 //! | [`SubscribeError`] | `pub(super)` | `enum `[`SubscribeError`] |
 //! | [`SocketInfo`] | `pub(super)` | `struct `[`SocketInfo`] |
-//! | [`MAX_READ`] | `pub(super)` | `const MAX_READ: `[`usize`] |
 //!
 //! [`maps::MemoryKind`] is `pub(in crate::http_server) enum MemoryKind { Integer, Stack, Heap, SharedLibrary, Executable, File, Anonymous }`.
 //! [`maps::MemoryMap::kind`] is `pub(super) fn kind(&self) -> MemoryKind`.
@@ -50,7 +49,6 @@
 //! | [`auxv`] | `pub(super)` | `fn auxv(id: `[`ProcessId`]`) -> `[`Result`](anyhow::Result)`<impl `[`Serialize`](serde::Serialize)`>` |
 //! | [`fn@fds`] | `pub(super)` | `fn fds(id: `[`ProcessId`]`) -> `[`Result`](anyhow::Result)`<impl `[`Serialize`](serde::Serialize)`>` |
 //! | [`fn@signals`] | `pub(super)` | `fn signals(id: `[`ProcessId`]`) -> `[`Result`](anyhow::Result)`<impl `[`Serialize`](serde::Serialize)`>` |
-//! | [`fn@memory`] | `pub(super)` | `fn memory(id: `[`ProcessId`]`, address: `[`u64`]`, length: `[`usize`]`) -> `[`Result`](anyhow::Result)`<impl `[`Serialize`](serde::Serialize)`>` |
 //! | [`memory_maps`] | `pub(super)` | `fn memory_maps(pid: `[`i32`]`) -> `[`Result`](anyhow::Result)`<`[`Vec`]`<`[`MemoryMap`]`>>` |
 //! | [`ticks_per_second`] | `pub(super)` | `fn ticks_per_second() -> `[`f64`] |
 //! | [`fields`] | `pub(super)` | `fn fields(path: &`[`str`]`) -> `[`Result`](anyhow::Result)`<`[`HashMap`](std::collections::HashMap)`<`[`String`]`, `[`String`]`>>` |
@@ -82,9 +80,9 @@ pub(super) use maps::MemoryMap;
 pub(super) use monitoring::Monitoring;
 use resources::permission_help;
 pub(super) use resources::{
-    MAX_READ, Snapshotter, SubscribeError, auxv, environment, fds, fields, inet_sockets, maps,
-    memory, memory_maps, observation, signals, socket_text, threads, ticks_per_second,
-    timestamp_ms, unix_socket_peers, unix_sockets,
+    Snapshotter, SubscribeError, auxv, environment, fds, fields, inet_sockets, maps, memory_maps,
+    observation, signals, socket_text, threads, ticks_per_second, timestamp_ms, unix_socket_peers,
+    unix_sockets,
 };
 pub(super) use sockets::SocketInfo;
 #[cfg(test)]

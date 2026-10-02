@@ -11,7 +11,6 @@ use axum::{
         sse::{Event, KeepAlive},
     },
 };
-use serde::Deserialize;
 use serde_json::{Value, json};
 use std::{convert::Infallible, sync::Arc, time::Duration};
 pub(super) struct ApiError(StatusCode, String);
@@ -94,54 +93,6 @@ pub(super) async fn auxv(Query(id): Query<ProcessId>) -> ApiResult {
     blocking(move || {
         process::check_identity(id)?;
         Ok(Json(json!(process::auxv(id)?)))
-    })
-    .await
-}
-
-#[derive(Deserialize)]
-pub(super) struct MemoryQuery {
-    pid: i32,
-    start_time_ticks: u64,
-    address: String,
-    #[serde(default = "default_length")]
-    length: usize,
-}
-
-fn default_length() -> usize {
-    256
-}
-
-pub(super) async fn memory(Query(q): Query<MemoryQuery>) -> ApiResult {
-    let address = if let Some(hex) = q
-        .address
-        .strip_prefix("0x")
-        .or_else(|| q.address.strip_prefix("0X"))
-    {
-        u64::from_str_radix(hex, 16)
-    } else {
-        q.address.parse()
-    }
-    .map_err(|_| {
-        ApiError(
-            StatusCode::BAD_REQUEST,
-            "Invalid address; use 0x hexadecimal or decimal".into(),
-        )
-    })?;
-    if !(1..=process::MAX_READ).contains(&q.length)
-        || address.checked_add(q.length as u64).is_none()
-    {
-        return Err(ApiError(
-            StatusCode::BAD_REQUEST,
-            "Invalid memory range; length must be 1..=65536".into(),
-        ));
-    }
-    blocking(move || {
-        let id = ProcessId {
-            pid: q.pid,
-            start_time_ticks: q.start_time_ticks,
-        };
-        process::check_identity(id)?;
-        Ok(Json(json!(process::memory(id, address, q.length)?)))
     })
     .await
 }

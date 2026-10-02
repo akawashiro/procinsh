@@ -89,7 +89,6 @@ async fn explicit_identity_is_required_without_selection() {
         "observation",
         "threads",
         "maps",
-        "memory",
         "fds",
         "environment",
         "auxv",
@@ -113,7 +112,7 @@ async fn explicit_identity_is_required_without_selection() {
             start_time_ticks: id.start_time_ticks + 1,
             ..id
         };
-        let uri = format!("/api/processes/{path}?{}&address=0x0", query(stale));
+        let uri = format!("/api/processes/{path}?{}", query(stale));
         assert_eq!(
             app.clone().oneshot(request(&uri)).await.unwrap().status(),
             410,
@@ -247,7 +246,7 @@ async fn closing_a_session_stops_its_collector() {
 use super::process::TestTarget as Target;
 
 #[tokio::test]
-async fn api_explicit_identity_validation_and_memory_limits() {
+async fn api_explicit_identity_validation_and_concurrent_snapshots() {
     use axum::{body::Body, http::Request};
     use tower::ServiceExt;
     let target = Target::new("sleeping");
@@ -277,28 +276,21 @@ async fn api_explicit_identity_validation_and_memory_limits() {
             assert_eq!(response.headers()["cache-control"], "no-store");
         }
     }
-    for (start, length, expected) in [
-        (target.id.start_time_ticks, 8, 200),
-        (target.id.start_time_ticks + 1, 8, 410),
-        (target.id.start_time_ticks, 65537, 400),
-    ] {
-        let uri = format!(
-            "/api/processes/memory?pid={}&start_time_ticks={start}&address=0x{:x}&length={length}",
-            target.id.pid, target.address
-        );
-        let response = app
-            .clone()
-            .oneshot(
-                Request::builder()
-                    .uri(uri)
-                    .header("host", "127.0.0.1:8080")
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-        assert_eq!(response.status().as_u16(), expected);
-    }
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!(
+                    "/api/processes/memory?pid={}&start_time_ticks={}&address=0x{:x}&length=8",
+                    target.id.pid, target.id.start_time_ticks, target.address
+                ))
+                .header("host", "127.0.0.1:8080")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 404);
     // Two callers must not attach to the same tracee concurrently.
     let snapshot_request = || {
         Request::builder()

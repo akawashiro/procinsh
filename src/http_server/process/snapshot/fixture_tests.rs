@@ -164,5 +164,5 @@ fn guard_cleans_up_on_error_and_panic() {
         )
         .is_err()
     );
-    assert!(memory::read(id, target.address, 10).is_ok());
+    assert!(memory::read_raw(id.pid, target.address, 10).is_ok());
 }
