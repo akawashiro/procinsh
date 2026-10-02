@@ -9,8 +9,7 @@
 //! | [`SystemMonitorEvent`] | `pub(super)` | `enum `[`SystemMonitorEvent`] |
 //! | [`SystemSnapshot`] | `pub(super)` | `struct `[`SystemSnapshot`] |
 //!
-//! Event payloads: [`SystemMonitorEvent::Metrics`] carries [`model::SystemMetrics`]
-//! (`{ processes: Vec<ProcessMetrics> }`, serialized as an array), and
+//! Event payloads: [`SystemMonitorEvent::Snapshot`] carries `Arc<SystemSnapshot>`;
 //! [`SystemMonitorEvent::Activity`] carries `Arc<SystemActivity>` ([`model::SystemActivity`])
 //! (`{ captured_at: u64, window_ms: u64, files: Vec<FileActivity>,
 //! ipc: Vec<IpcActivity>, cpu: Vec<CpuActivity>, status: SystemMonitorStatus }`).
@@ -21,7 +20,6 @@
 //!
 //! | Definition | Fields / variants |
 //! | --- | --- |
-//! | [`model::ProcessMetrics`] | `identity: ProcessId, cpu_percent: Option<f64>, rss_bytes: u64` |
 //! | [`files::FileActivity`] | `process_id: ProcessId, file: FileIdentity, path: Option<String>, write: bool, bytes: u64, count: u64` (private fields) |
 //! | [`model::IpcActivity`] | `process_id: ProcessId, resource: IpcIdentity, write: bool, bytes: u64, count: u64` |
 //! | [`model::CpuActivity`] | `process_id: ProcessId, runtime_ns: u64, switches: u64, running_threads: usize, cpus: Vec<usize>` |
@@ -30,6 +28,12 @@
 //!
 //! [`service::Subscription::receiver`] is
 //! `pub(in crate::http_server) receiver: broadcast::Receiver<SystemMonitorEvent>`.
+//!
+//! [`system_snapshot::Process`] has `pub(super)` visibility and fields:
+//! `identity: ProcessId, parent_id: Option<ProcessId>, name: String, uid: Option<u32>,
+//! username: Option<String>, euid: Option<u32>, effective_username: Option<String>,
+//! maps: Vec<MemoryMap>, maps_epoch: u64, maps_error: Option<String>`.
+//! All fields are `pub(super)`; CPU/RSS remain in [`super::process::ProcessSummary`].
 //!
 //! File and IPC identities are defined in [`super::resource`].
 //! [`system_snapshot::FdEndpoint::resource`] is `pub(super) resource: IpcIdentity`.

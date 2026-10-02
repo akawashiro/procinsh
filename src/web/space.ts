@@ -26,7 +26,6 @@ import type {
   FdEndpoint,
   SocketEndpoint,
   SpaceActivity,
-  ProcessSummary,
 } from "./api-types.js";
 import type {
   Position,
@@ -996,8 +995,7 @@ function details() {
       label.textContent = `${role}: ${name ?? uid ?? "unknown"}${name ? ` (${uid})` : ""} `;
       $("pid").append(label);
     }
-    $("facts").textContent =
-      `CPU ${(n.cpu_percent ?? 0).toFixed(1)}% · ${cpuText(selected)} · RSS ${(n.rss_bytes / 1048576).toFixed(1)} MiB`;
+    $("facts").textContent = cpuText(selected);
     $("inspect").href = `/process/${n.identity.pid}`;
     return;
   }
@@ -1397,17 +1395,6 @@ function start() {
   });
   current.addEventListener("activity", (event) => {
     if (source === current) activity(JSON.parse(event.data));
-  });
-  current.addEventListener("metrics", (event) => {
-    if (source !== current) return;
-    for (const m of JSON.parse(event.data) as Pick<
-      ProcessSummary,
-      "identity" | "cpu_percent" | "rss_bytes"
-    >[]) {
-      const n = nodes.get(key(m.identity));
-      if (n) Object.assign(n, m);
-    }
-    if (selected) details();
   });
   current.addEventListener("gap", () => {
     if (source === current) particles = [];

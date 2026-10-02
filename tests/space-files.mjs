@@ -3,7 +3,7 @@ import {writeFile} from 'node:fs/promises';
 export async function checkFileSpace(evaluate,delay,cdp){
   await evaluate(`(async()=>{
     const m=await import('/space.js');
-    const node={identity:{pid:910001,start_time_ticks:1},name:'file-browser',uid:1000,euid:1000,rss_bytes:4096,maps:[]};
+    const node={identity:{pid:910001,start_time_ticks:1},name:'file-browser',uid:1000,euid:1000,maps:[]};
     window.fileFixture={processes:[node],fd_relations:[]};m.renderSystemSnapshot(window.fileFixture);
     const e={process_id:node.identity,file:{device:{major:8,minor:1},inode:'42',generation:0},path:'/tmp/example.txt',bytes:100,count:1};
     window.fileEvent=e;window.fileCamera=m.cameraView();window.fileProcess=m.processPosition('910001:1');
