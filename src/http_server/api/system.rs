@@ -20,7 +20,7 @@ pub(super) async fn events(State(s): State<Arc<AppState>>) -> Result<Response, S
     })?;
     let stream = async_stream::stream! {
         let initial=serde_json::to_string(&*subscription.initial).unwrap_or_default();
-        log::debug!("SSE /api/system/events event=snapshot");
+        log::debug!("SSE /api/system/events event=snapshot payload_bytes={}", initial.len());
         yield Ok::<_,Infallible>(Event::default().event("snapshot").data(initial));
         loop{if s.system_monitor.stopped(){break;}
             match tokio::time::timeout(Duration::from_secs(1),subscription.receiver.recv()).await {
@@ -29,14 +29,15 @@ pub(super) async fn events(State(s): State<Arc<AppState>>) -> Result<Response, S
                         SystemMonitorEvent::Snapshot(data) => ("snapshot", serde_json::to_string(&*data).unwrap()),
                         SystemMonitorEvent::Activity(data) => ("activity", serde_json::to_string(&*data).unwrap()),
                     };
-                    log::debug!("SSE /api/system/events event={event}");
+                    log::debug!("SSE /api/system/events event={event} payload_bytes={}", data.len());
                     yield Ok(Event::default().event(event).data(data));
                 },
                 Ok(Err(tokio::sync::broadcast::error::RecvError::Lagged(n))) => {
-                    log::debug!("SSE /api/system/events event=gap dropped_frames={n}");
-                    yield Ok(Event::default().event("gap").data(json!({"dropped_frames":n}).to_string()));
+                    let data = json!({"dropped_frames":n}).to_string();
+                    log::debug!("SSE /api/system/events event=gap payload_bytes={} dropped_frames={n}", data.len());
+                    yield Ok(Event::default().event("gap").data(data));
                     let snapshot = serde_json::to_string(&*s.system_monitor.snapshot()).unwrap_or_default();
-                    log::debug!("SSE /api/system/events event=snapshot");
+                    log::debug!("SSE /api/system/events event=snapshot payload_bytes={}", snapshot.len());
                     yield Ok(Event::default().event("snapshot").data(snapshot));
                 },
                 Ok(Err(_))=>break,Err(_)=>{}
