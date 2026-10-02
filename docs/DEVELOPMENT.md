@@ -398,6 +398,7 @@ tests/targets/bin/recursive --allow-inspector
 
 `--allow-inspector` は当該 fixture の ptrace 許可を設定するテスト専用オプションです。システム全体の Yama 設定は変更しません。
 
-## モジュール依存関係
+## 関連リンク
 
-[モジュール依存関係図](https://akawashiro.github.io/procinsh/architecture/)
+- [モジュール依存関係](https://akawashiro.github.io/procinsh/architecture/)
+- [Rust doc](https://akawashiro.github.io/procinsh/procinsh/index.html)
