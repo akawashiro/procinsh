@@ -417,3 +417,16 @@ tests/targets/bin/recursive --allow-inspector
 `process::discovery` と `state::history` は非公開にし、必要な型を親モジュールから公開します。`snapshot` の unwind・レジスタ変換・逆アセンブルの実装も非公開にし、応答に現れる型を親から公開します。`process` のリソース別 API（`maps`、`memory`、`threads` 等）と scoped guard を提供する `snapshot::ptrace` は意図的に公開を維持します。
 
 シンボル解決の単体テストは clang で一時 ELF を生成し、DWARF のインラインフレームと行番号のみの情報を検証します。既存の結合テストは PIE / 非 PIE / デバッグ情報なしの対象を実際にキャプチャします。
+
+### Space の通信量計測
+
+配信構造を変更せず、実際の SSE JSON のサイズをクライアント側で計測します（Python 標準ライブラリのみ）。BPF の観測権限があるサーバーを起動し、次を実行します。
+
+```sh
+python3 scripts/measure_system_traffic.py http://127.0.0.1:9090 --seconds 60 > traffic.json
+python3 -m unittest discover -s scripts -p test_measure_system_traffic.py
+```
+
+結果には計測日時・環境、観測中で最大の snapshot の内訳、gzip level 6 のサイズ・raw/gzip 比、activity の総量・bytes/s・最大値・nearest-rank p50/p95/p99、最大 activity の files/ipc/cpu 内訳を含みます。初回の空 snapshot を代表値にしないため最大の snapshot を選びます。JSON の元の UTF-8 とエスケープを保持して値部分のバイト数を数えます。maps は各 process の maps 配列の値（角括弧を含む）の合計です。process metadata/structure は processes のサイズから maps 値を引いたもので、キーや区切りも含みます。other は残りのキー・区切り・その他フィールドを含み、合計と一致します。
+
+SSE framing・keep-alive・HTTP/TCP ヘッダーは含みません。gzip は受信した snapshot JSON のオフライン圧縮で、HTTP compression の有効化や実転送量の測定ではありません。接続開始後の指定時間を分母にし、センサー起動待ちも含みます。`sensor_statuses` と `dropped_frames` を併せて確認してください。権限不足の状態や欠落がある測定から、通常稼働時の activity 通信量を推定しないでください。結果は workload・閲覧権限に依存するため、対象環境と負荷を明記して issue に記録します。ペイロード本体は保存しません。
