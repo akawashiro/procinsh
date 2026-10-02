@@ -340,6 +340,7 @@ node tests/space-model.mjs
 # フォーマット・静的解析
 cargo fmt --all --check
 cargo clippy --all-targets --locked -- -D warnings
+RUSTDOCFLAGS="-D rustdoc::broken_intra_doc_links" cargo doc --locked --workspace --no-deps --document-private-items
 ```
 
 C ソース・ヘッダー（BPF とテスト用プログラムを含む）は `.clang-format` に従って整形します。clang-format は `requirements-format.txt` の **21.1.8** に固定し、ローカルと CI で同じ `scripts/format_c.py` を使います。スクリプトは実行バイナリのバージョンも検査し、不一致なら失敗します。
@@ -353,7 +354,9 @@ CLANG_FORMAT="$PWD/.venv-format/bin/clang-format" python3 scripts/format_c.py --
 
 `--check` はファイルを書き換えず、整形差分があれば失敗します。Git 管理対象と未追跡の `.c` / `.h` を検査し、無視された生成物（`vmlinux.h` など）は対象にしません。C の変更時は整形してからコミットしてください。clang-format の更新は固定バージョンの変更と全 C ファイルの再整形を合わせて行います。
 
-CI は Rust と C のフォーマット確認、TypeScript の型チェックとビルド、Rust の全ターゲットのビルド、Clippy、Rust テスト、ログ検証、SPACE モデル検証を実行します。ブラウザと実機センサーのテストは別途実行します。
+CI は Rust と C のフォーマット確認、TypeScript の型チェックとビルド、Rust の全ターゲットのビルド、Clippy、rustdoc のリンク検証、Rust テスト、ログ検証、SPACE モデル検証を実行します。ブラウザと実機センサーのテストは別途実行します。
+
+`Publish rustdoc` workflow は `main` への push と手動実行時だけ動き、rustdoc とモジュール依存関係グラフを生成して GitHub Pages に公開します。PR では通常の `CI` workflow で rustdoc のリンクを検証し、`cargo-modules` のインストールやグラフ生成は行いません。
 
 `cargo build --locked --all-targets` と `cargo test --locked` は Ubuntu 24.04・Ubuntu 26.04・Fedora 44 のコンテナで実行します。matrix は `fail-fast: false` とし、各ディストリビューションの結果を個別に表示します。各コンテナで Node.js 22 と npm をインストールし、`npm ci`、`npm run build:web`（TypeScript 型チェックを含む）から実行します。フォーマット、Clippy、listen policy、SPACE モデルと明示的な bpftool・カーネル BTF 検査は単一環境に残します。各コンテナは Ubuntu 24.04 runner のカーネルと BTF を使うため、この matrix はディストリビューションのユーザー空間の差を検証します。各ディストリビューション固有のカーネルでの BPF センサー動作は検証しません。
 

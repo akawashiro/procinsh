@@ -75,6 +75,10 @@ jobs:
           "${bpftools[0]}" version
       - name: Build
         run: cargo build --locked --all-targets
+      - name: Check rustdoc
+        env:
+          RUSTDOCFLAGS: "-D rustdoc::broken_intra_doc_links"
+        run: cargo doc --locked --workspace --no-deps --document-private-items
       - name: Check Clippy
         run: cargo clippy --all-targets --locked -- -D warnings
       - name: Check listen policy
