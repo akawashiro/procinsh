@@ -49,10 +49,36 @@ def check_running(level):
             paths = [f'/api/processes/events?pid={identity["pid"]}&start_time_ticks={identity["start_time_ticks"]}']
             if level == "procinsh=debug":
                 paths.append("/api/system/events")
+            system_payloads = []
             for path in paths:
                 with urllib.request.urlopen(f"http://127.0.0.1:{port}{path}", timeout=5) as response:
-                    while response.readline().strip():
-                        pass
+                    if path == "/api/system/events":
+                        # Read the initial snapshot and a collected snapshot/activity pair.
+                        saw_activity = False
+                        snapshots = 0
+                        deadline = time.monotonic() + 15
+                        while not saw_activity or snapshots < 2:
+                            event = None
+                            data = None
+                            while True:
+                                assert time.monotonic() < deadline, "timed out waiting for system SSE events"
+                                line = response.readline()
+                                assert line, "system SSE ended before expected events"
+                                if not line.strip():
+                                    break
+                                if line.startswith(b"event:"):
+                                    event = line[len(b"event:"):].strip().decode()
+                                elif line.startswith(b"data:"):
+                                    data = line[len(b"data:"):].removeprefix(b" ").rstrip(b"\r\n")
+                            if event is not None:
+                                assert data is not None
+                                json.loads(data)
+                                system_payloads.append((event, len(data)))
+                                saw_activity |= event == "activity"
+                                snapshots += event == "snapshot"
+                    else:
+                        while response.readline().strip():
+                            pass
             process.terminate()
             assert process.wait(timeout=10) == 0
         finally:
@@ -74,7 +100,13 @@ def check_running(level):
             assert "SIGTERM" in output and "procinsh stopped" in output
             assert ('HTTP GET "/api/config" status=200' in output) == (level == "procinsh=debug")
             if level == "procinsh=debug":
-                assert "SSE /api/system/events event=snapshot" in output, output
+                logged_payloads = [
+                    (event, int(size)) for event, size in re.findall(
+                        r"SSE /api/system/events event=(\w+) payload_bytes=(\d+)", output
+                    )
+                ]
+                assert logged_payloads[:len(system_payloads)] == system_payloads, output
+                assert all(size > 0 for _, size in system_payloads)
                 assert re.search(r"\[.*DEBUG\s+src/http_server/middleware\.rs:[1-9][0-9]*\] HTTP GET", output), output
 
 
