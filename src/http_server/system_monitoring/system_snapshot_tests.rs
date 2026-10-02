@@ -50,6 +50,10 @@ fn snapshot_finds_pipe_and_unix_peers_and_bounds_work() {
     }));
     assert!(snapshot.inspected_fds <= 100_000);
     let json = serde_json::to_value(&snapshot).unwrap();
+    for process in json["processes"].as_array().unwrap() {
+        assert!(process.get("cpu_percent").is_none());
+        assert!(process.get("rss_bytes").is_none());
+    }
     let relations = json["fd_relations"].as_array().unwrap();
     assert!(!relations.is_empty());
     for relation in relations {

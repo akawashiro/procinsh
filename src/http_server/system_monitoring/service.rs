@@ -1,4 +1,4 @@
-use super::model::{ProcessMetrics, SystemActivity, SystemMetrics, SystemMonitorStatus};
+use super::model::{SystemActivity, SystemMonitorStatus};
 use super::{SystemSnapshot, activity, resolver, system_snapshot};
 #[derive(Debug, PartialEq, Eq)]
 pub(in crate::http_server) enum SubscribeError {
@@ -9,7 +9,6 @@ pub(in crate::http_server) enum SubscribeError {
 #[derive(Clone)]
 pub(in crate::http_server) enum SystemMonitorEvent {
     Snapshot(std::sync::Arc<SystemSnapshot>),
-    Metrics(SystemMetrics),
     Activity(std::sync::Arc<SystemActivity>),
 }
 use std::{
@@ -155,11 +154,9 @@ impl SystemMonitor {
         workers.push(spawn_worker("snapshot", move || {
             log::info!("System snapshot worker started");
             let mut previous_warnings = Vec::new();
-            let mut metrics_error = None;
             let resolver = resolver::Resolver::new();
             let mut discovery = crate::http_server::process::Discovery::default();
             let mut full = Instant::now() - Duration::from_secs(10);
-            let mut tick = Instant::now() - Duration::from_secs(2);
             while !monitor.stopped() {
                 if !monitor.active() {
                     full = Instant::now() - Duration::from_secs(10);
@@ -195,32 +192,6 @@ impl SystemMonitor {
                     monitor.send(SystemMonitorEvent::Snapshot(data.clone()));
                     *monitor.snapshot.write().unwrap() = data;
                     full = Instant::now();
-                    tick = Instant::now();
-                } else if tick.elapsed() >= Duration::from_secs(1) {
-                    match discovery.collect() {
-                        Ok(summaries) => {
-                            if metrics_error.take().is_some() {
-                                log::info!("System metrics recovered");
-                            }
-                            let processes = summaries
-                                .iter()
-                                .map(|s| ProcessMetrics {
-                                    identity: s.identity,
-                                    cpu_percent: s.cpu_percent,
-                                    rss_bytes: s.rss_bytes,
-                                })
-                                .collect();
-                            monitor.send(SystemMonitorEvent::Metrics(SystemMetrics { processes }));
-                        }
-                        Err(error) => {
-                            let error = format!("{error:#}");
-                            if metrics_error.as_ref() != Some(&error) {
-                                log::warn!("System metrics: {error}");
-                            }
-                            metrics_error = Some(error);
-                        }
-                    }
-                    tick = Instant::now();
                 }
                 std::thread::sleep(Duration::from_millis(100));
             }

@@ -239,8 +239,6 @@ export interface Process {
   username: string | null;
   euid: number | null;
   effective_username: string | null;
-  cpu_percent: number | null;
-  rss_bytes: number;
   maps: MemoryMap[];
   maps_epoch: number;
   maps_error: string | null;

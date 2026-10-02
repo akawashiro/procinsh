@@ -85,8 +85,7 @@ async fn sse_connections_own_viewer_lifetimes() {
     // Exercise the HTTP boundary as well as the payload serialization fixtures.
     tokio::time::timeout(Duration::from_secs(5), async {
         let mut saw_activity = false;
-        let mut saw_metrics = false;
-        while !saw_activity || !saw_metrics {
+        while !saw_activity {
             let frame = std::future::poll_fn(|cx| std::pin::Pin::new(&mut body).poll_frame(cx))
                 .await
                 .unwrap()
@@ -98,15 +97,8 @@ async fn sse_connections_own_viewer_lifetimes() {
                 continue;
             };
             let payload: serde_json::Value = serde_json::from_str(data).unwrap();
-            if text.contains("event: metrics\n") {
-                assert!(payload.is_array());
-                for process in payload.as_array().unwrap() {
-                    assert!(process["identity"].is_object());
-                    assert!(process.get("cpu_percent").is_some());
-                    assert!(process["rss_bytes"].is_u64());
-                }
-                saw_metrics = true;
-            } else if text.contains("event: activity\n") {
+            assert!(!text.contains("event: metrics\n"));
+            if text.contains("event: activity\n") {
                 assert!(payload["captured_at"].is_u64());
                 assert!(payload["window_ms"].is_u64());
                 for key in ["files", "ipc", "cpu"] {

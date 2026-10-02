@@ -4,18 +4,6 @@ use crate::http_server::process::ProcessId;
 use crate::http_server::resource::IpcIdentity;
 use serde::Serialize;
 
-/// Metrics are a JSON array on the wire, without an enclosing object.
-#[derive(Clone, Serialize)]
-#[serde(transparent)]
-pub(in crate::http_server) struct SystemMetrics {
-    pub(super) processes: Vec<ProcessMetrics>,
-}
-#[derive(Clone, Serialize)]
-pub(in crate::http_server) struct ProcessMetrics {
-    pub(super) identity: ProcessId,
-    pub(super) cpu_percent: Option<f64>,
-    pub(super) rss_bytes: u64,
-}
 #[derive(Clone, Serialize)]
 pub(in crate::http_server) struct SystemActivity {
     pub(super) captured_at: u64,
@@ -84,41 +72,6 @@ impl std::fmt::Display for SensorState {
 mod tests {
     use super::*;
     use serde_json::{json, to_value};
-
-    #[test]
-    fn metrics_preserve_array_nullable_cpu_and_identity() {
-        let metrics = SystemMetrics {
-            processes: vec![
-                ProcessMetrics {
-                    identity: ProcessId {
-                        pid: 42,
-                        start_time_ticks: 123,
-                    },
-                    cpu_percent: None,
-                    rss_bytes: 4096,
-                },
-                ProcessMetrics {
-                    identity: ProcessId {
-                        pid: 43,
-                        start_time_ticks: 124,
-                    },
-                    cpu_percent: Some(12.5),
-                    rss_bytes: 8192,
-                },
-            ],
-        };
-        assert_eq!(
-            to_value(metrics).unwrap(),
-            json!([
-                {"identity":{"pid":42,"start_time_ticks":123},"cpu_percent":null,"rss_bytes":4096},
-                {"identity":{"pid":43,"start_time_ticks":124},"cpu_percent":12.5,"rss_bytes":8192}
-            ])
-        );
-        assert_eq!(
-            to_value(SystemMetrics { processes: vec![] }).unwrap(),
-            json!([])
-        );
-    }
 
     #[test]
     fn activity_preserves_fields_counters_and_structured_sensor_states() {

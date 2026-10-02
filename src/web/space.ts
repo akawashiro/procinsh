@@ -26,7 +26,6 @@ import type {
   FdEndpoint,
   SocketEndpoint,
   SpaceActivity,
-  ProcessSummary,
 } from "./api-types.js";
 import type {
   Position,
@@ -908,14 +907,6 @@ function pruneFiles(now = performance.now()) {
   if (recentFiles.prune(now, new Set(nodes.keys()))) refreshFileScene();
 }
 
-function cpuText(id: string) {
-  const state = cpuGlows.get(id);
-  if (!state) return "Observed CPU —";
-  if (performance.now() - state.last >= 500) return "Observed CPU idle";
-  const cpus = state.cpus.length ? `CPU ${state.cpus.join(", ")}` : "Off CPU";
-  return `${cpus} · ${state.running_threads} threads · ${(state.runtime_ns / 1e6).toFixed(2)} ms / ${state.window_ms} ms`;
-}
-
 function endpoint(
   fdEndpoint: FdEndpoint | null,
   title: string,
@@ -996,8 +987,6 @@ function details() {
       label.textContent = `${role}: ${name ?? uid ?? "unknown"}${name ? ` (${uid})` : ""} `;
       $("pid").append(label);
     }
-    $("facts").textContent =
-      `CPU ${(n.cpu_percent ?? 0).toFixed(1)}% · ${cpuText(selected)} · RSS ${(n.rss_bytes / 1048576).toFixed(1)} MiB`;
     $("inspect").href = `/process/${n.identity.pid}`;
     return;
   }
@@ -1252,7 +1241,7 @@ canvas.addEventListener("pointermove", (e) => {
     const id = hullIds[h.instanceId!],
       n = nodes.get(id)!,
       r = n.regions.find((r) => h.point.z >= r.z && h.point.z <= r.z + r.h);
-    text = `${n.name} / ${n.identity.pid}\n${cpuText(id)}${r ? `\n${Display.permissions(r)} ${r.pathname || "anonymous"}\n${r.start} → ${r.end}` : ""}`;
+    text = `${n.name} / ${n.identity.pid}${r ? `\n${Display.permissions(r)} ${r.pathname || "anonymous"}\n${r.start} → ${r.end}` : ""}`;
   } else {
     const edge = edgeHit(e);
     if (edge && "fileId" in edge) {
@@ -1397,17 +1386,6 @@ function start() {
   });
   current.addEventListener("activity", (event) => {
     if (source === current) activity(JSON.parse(event.data));
-  });
-  current.addEventListener("metrics", (event) => {
-    if (source !== current) return;
-    for (const m of JSON.parse(event.data) as Pick<
-      ProcessSummary,
-      "identity" | "cpu_percent" | "rss_bytes"
-    >[]) {
-      const n = nodes.get(key(m.identity));
-      if (n) Object.assign(n, m);
-    }
-    if (selected) details();
   });
   current.addEventListener("gap", () => {
     if (source === current) particles = [];
