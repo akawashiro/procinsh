@@ -8,7 +8,7 @@ import tempfile
 import time
 import urllib.request
 
-BINARY = "target/debug/procinsh"
+BINARY = "target/x86_64-unknown-linux-gnu/debug/procinsh"
 
 
 def environment(level):

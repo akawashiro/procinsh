@@ -14,7 +14,7 @@ Rust edition は 2024 です。Rust は rustup 経由で利用し、`rust-toolch
 npm ci
 npm run build:web
 cargo build --locked
-sudo ./target/debug/procinsh --listen 127.0.0.1:9090
+sudo ./target/x86_64-unknown-linux-gnu/debug/procinsh --listen 127.0.0.1:9090
 
 # リリースビルド
 cargo build --release --locked
@@ -323,8 +323,8 @@ Three.js でプロセスの親子関係、仮想アドレス空間、接続先�
 - `debug`：HTTP のメソッド・パス・ステータス・応答生成時間、API エラー詳細、構造収集件数、SSE のイベント送出。SSE は接続ごとに API パスとイベント名を記録し、`/api/system/events` では `payload_bytes`（UTF-8 の JSON 本文のバイト数。SSE の行形式・HTTP ヘッダーは含まない）も記録します。プロセス観測では識別子、配信欠落では欠落件数も記録します。ペイロードと keep-alive は記録しません。送出ログはサーバーがストリームにイベントを渡したことを示し、クライアントの受信完了を保証しません。
 
 ```sh
-sudo env RUST_LOG=procinsh=debug ./target/debug/procinsh --listen 127.0.0.1:9090
-sudo env RUST_LOG=info,procinsh::http_server::system_monitoring=debug ./target/debug/procinsh --listen 127.0.0.1:9090
+sudo env RUST_LOG=procinsh=debug ./target/x86_64-unknown-linux-gnu/debug/procinsh --listen 127.0.0.1:9090
+sudo env RUST_LOG=info,procinsh::http_server::system_monitoring=debug ./target/x86_64-unknown-linux-gnu/debug/procinsh --listen 127.0.0.1:9090
 ```
 
 HTTP アクセスログだけを絞り込む例は `RUST_LOG=info,procinsh::http_server::middleware=debug` です。既存のサブシステム単位のフィルタは子モジュールにも適用されます。
@@ -446,6 +446,14 @@ HTTP/TCP ヘッダーと chunk framing は含みません。イベント別 raw 
 
 ## PID namespace と static 配布の検証
 
+`.cargo/config.toml` は build target を `x86_64-unknown-linux-gnu` に固定し、
+その target の rustflags に `-C target-feature=+crt-static` を指定します。
+通常の `cargo build` / `cargo build --release` はどちらも static executable を
+生成します。host 側の build script と proc-macro にはこのフラグを渡しません。
+出力先は `target/x86_64-unknown-linux-gnu/{debug,release,doc}` です。
+`RUSTFLAGS` を指定すると設定の rustflags を上書きするため、追加フラグを
+使う場合は static フラグも含めてください。
+
 `activity.rs` は `/proc/self/ns/pid` の inode を一度読み、`pidns.rs` を通じて
 各センサーの `pid_namespace` map を attach 前に設定します。`pidns.bpf.h` は
 任意の task の group leader の `thread_pid.numbers[]` を最大 33 要素だけ辿り、
@@ -455,8 +463,7 @@ file の ring buffer 出力から除外します。file の pending key は kern
 host PID へのフォールバックは行いません。
 
 ```sh
-RUSTFLAGS='-C target-feature=+crt-static' \
-  cargo build --release --locked --target x86_64-unknown-linux-gnu
+cargo build --release --locked
 python3 tests/container-integration.py
 ```
 

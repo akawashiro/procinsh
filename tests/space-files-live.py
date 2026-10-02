@@ -69,7 +69,7 @@ try:
     if len(sys.argv) > 1:
         base = sys.argv[1]
     else:
-        server = subprocess.Popen(['target/debug/procinsh', '--listen', '127.0.0.1:0'],
+        server = subprocess.Popen(['target/x86_64-unknown-linux-gnu/debug/procinsh', '--listen', '127.0.0.1:0'],
                                   stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
         lines = queue.Queue()
         def collect_logs():

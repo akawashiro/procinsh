@@ -87,10 +87,8 @@ jobs:
       - name: Check space model
         run: node tests/space-model.mjs
       - name: Build static GNU release and check linkage
-        env:
-          RUSTFLAGS: '-C target-feature=+crt-static'
         run: |
-          cargo build --release --locked --target x86_64-unknown-linux-gnu
+          cargo build --release --locked
           binary=target/x86_64-unknown-linux-gnu/release/procinsh
           if readelf -l "$binary" | grep -q INTERP; then
             echo "::error::Static binary has a dynamic interpreter"

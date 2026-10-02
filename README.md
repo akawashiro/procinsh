@@ -72,7 +72,7 @@ cargo build --release --locked
 Then run:
 
 ```sh
-sudo ./target/release/procinsh --listen 127.0.0.1:9090
+sudo ./target/x86_64-unknown-linux-gnu/release/procinsh --listen 127.0.0.1:9090
 ```
 
 ### Building on WSL2 (Ubuntu)
@@ -103,7 +103,7 @@ cargo build --release --locked
 Then run:
 
 ```sh
-sudo ./target/release/procinsh --listen 127.0.0.1:9090
+sudo ./target/x86_64-unknown-linux-gnu/release/procinsh --listen 127.0.0.1:9090
 ```
 
 ### Static binary and containers
@@ -113,14 +113,22 @@ inside a container it observes processes visible in that container, including
 nested PID namespaces. Use the container's normal `/proc` mount. Neither a
 sidecar nor `--pid=host` is needed.
 
-Build a GNU/glibc static executable after the web asset build above:
+Repository builds use GNU/glibc static linking by default, configured in
+`.cargo/config.toml`. This applies to debug and release builds. After building
+the web assets above:
 
 ```sh
-RUSTFLAGS='-C target-feature=+crt-static' \
-  cargo build --release --locked --target x86_64-unknown-linux-gnu
+cargo build --release --locked
 ldd target/x86_64-unknown-linux-gnu/release/procinsh
 # statically linked (or: not a dynamic executable)
 ```
+
+The default build target keeps static flags off host build scripts and proc-macros.
+`RUSTFLAGS` overrides Cargo config flags; preserve `-C target-feature=+crt-static`
+when adding custom flags. The repository config does not control builds made by
+`cargo install procinsh` from crates.io; use
+`RUSTFLAGS='-C target-feature=+crt-static' cargo install procinsh --locked --target x86_64-unknown-linux-gnu`
+for a static installation.
 
 libbpf, libelf and zlib are vendored and statically linked. The executable also
 embeds BPF objects and web assets. The application image only needs to copy the

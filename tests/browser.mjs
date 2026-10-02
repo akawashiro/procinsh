@@ -30,7 +30,7 @@ try {
   const ipc = launch('tests/targets/bin/ipc', ['--allow-inspector']);
   const peerPid = Number(await until(() => ipc.output.match(/^\d+ 0x0 (\d+)\n/)?.[1], 'IPC fixtures'));
   await until(() => recursive.output.includes('\n') && threads.output.includes('\n'), 'test fixtures');
-  const app = launch('target/debug/procinsh', ['--listen', '127.0.0.1:0', '--interval', '100ms']);
+  const app = launch('target/x86_64-unknown-linux-gnu/debug/procinsh', ['--listen', '127.0.0.1:0', '--interval', '100ms']);
   const url = await until(() => app.output.match(/http:\/\/127\.0\.0\.1:\d+/)?.[0], 'HTTP server');
   const chrome = launch(process.env.CHROME || '/opt/google/chrome/google-chrome', ['--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--no-first-run', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank']);
   const debugUrl = await until(() => chrome.output.match(/ws:\/\/127\.0\.0\.1:(\d+)\/devtools\/browser\/[\w-]+/)?.[0], 'Chrome DevTools');
@@ -167,7 +167,7 @@ try {
   await choose(recursive.pid);
   // An open SSE connection must not hang graceful shutdown.
   app.kill('SIGTERM'); await until(() => app.exitCode !== null, 'shutdown with active SSE', 5000);
-  const removed = launch('target/debug/procinsh', ['--pid', String(recursive.pid)]);
+  const removed = launch('target/x86_64-unknown-linux-gnu/debug/procinsh', ['--pid', String(recursive.pid)]);
   await until(()=>removed.exitCode!==null,'removed CLI option');
   assert.notEqual(removed.exitCode,0);
   // Connection failures caused by deliberately shutting down the first server are expected.

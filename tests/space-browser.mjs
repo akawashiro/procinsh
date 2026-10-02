@@ -26,7 +26,7 @@ async function until(fn, label, timeout = 15000) {
 const profile = await mkdtemp(join(tmpdir(), 'procinsh-browser-'));
 let socket;
 try {
-  const app = launch('target/debug/procinsh', ['--listen', '127.0.0.1:0', '--interval', '100ms']);
+  const app = launch('target/x86_64-unknown-linux-gnu/debug/procinsh', ['--listen', '127.0.0.1:0', '--interval', '100ms']);
   const url = await until(() => app.output.match(/http:\/\/127\.0\.0\.1:\d+/)?.[0], 'HTTP server');
   const chrome = launch(process.env.CHROME || '/opt/google/chrome/google-chrome', ['--headless=new', '--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-dev-shm-usage', '--no-first-run', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank']);
   const debugUrl = await until(() => chrome.output.match(/ws:\/\/127\.0\.0\.1:(\d+)\/devtools\/browser\/[\w-]+/)?.[0], 'Chrome DevTools');

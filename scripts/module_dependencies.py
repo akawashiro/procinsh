@@ -85,7 +85,7 @@ def render_dot(nodes, edges, *, nested=False):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('input', type=Path)
-    parser.add_argument('--output', type=Path, default=Path('target/doc/architecture'))
+    parser.add_argument('--output', type=Path, default=Path('target/x86_64-unknown-linux-gnu/doc/architecture'))
     args = parser.parse_args()
     nodes, edges = parse_modules(args.input.read_text())
     args.output.mkdir(parents=True, exist_ok=True)
