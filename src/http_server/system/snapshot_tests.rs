@@ -1,4 +1,4 @@
-use super as system_snapshot;
+use super as snapshot;
 use std::{
     io::{BufRead, BufReader},
     process::{Command, Stdio},
@@ -26,7 +26,7 @@ fn snapshot_finds_pipe_and_unix_peers_and_bounds_work() {
         .unwrap();
     let parent = child.0.id() as i32;
     let peer_pid: i32 = line.split_whitespace().nth(2).unwrap().parse().unwrap();
-    let snapshot = system_snapshot::collect(&mut Default::default());
+    let snapshot = snapshot::collect(&mut Default::default());
     assert!(snapshot.processes.iter().any(|n| n.identity.pid == parent));
     assert_eq!(
         snapshot
@@ -76,7 +76,7 @@ fn network_destination_survives_shared_socket_ownership() {
             .spawn()
             .unwrap(),
     );
-    let data = system_snapshot::collect(&mut Default::default());
+    let data = snapshot::collect(&mut Default::default());
     for pid in [std::process::id() as i32, child.0.id() as i32] {
         let relation = data
             .fd_relations

@@ -1,6 +1,6 @@
 use super::super::{
     AppState,
-    system_monitoring::{SubscribeError, SystemMonitorEvent},
+    system::{SubscribeError, SystemMonitorEvent},
 };
 use axum::{
     extract::State,

@@ -55,7 +55,7 @@ impl Scheduler {
     pub(super) fn collect(
         &mut self,
         now: u64,
-        snapshot: &super::system_snapshot::SystemSnapshot,
+        snapshot: &super::snapshot::SystemSnapshot,
     ) -> Result<Vec<CpuActivity>> {
         let current = self
             .obj

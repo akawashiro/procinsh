@@ -1,4 +1,4 @@
-use super::{process, system_monitoring};
+use super::{process, system};
 use anyhow::Result;
 use std::{
     sync::{Arc, Mutex},
@@ -6,7 +6,7 @@ use std::{
 };
 
 pub(super) struct AppState {
-    pub(super) system_monitor: Arc<system_monitoring::SystemMonitor>,
+    pub(super) system_monitor: Arc<system::SystemMonitor>,
     pub(super) discovery: Mutex<process::Discovery>,
     pub(super) monitoring: Arc<process::Monitoring>,
     pub(super) snapshotter: process::Snapshotter,
@@ -15,7 +15,7 @@ pub(super) struct AppState {
 impl AppState {
     pub(super) fn new(interval: Duration) -> Self {
         Self {
-            system_monitor: Arc::new(system_monitoring::SystemMonitor::default()),
+            system_monitor: Arc::new(system::SystemMonitor::default()),
             discovery: Mutex::new(process::Discovery::default()),
             monitoring: Arc::new(process::Monitoring::new(interval)),
             snapshotter: process::Snapshotter::default(),

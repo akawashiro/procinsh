@@ -76,7 +76,7 @@ pub(super) struct FdRelation {
 }
 /// A system-wide observation of processes and their file descriptor relations.
 #[derive(Clone, Default, Serialize)]
-// Re-exported by system_monitoring for subscription consumers.
+// Re-exported by system for subscription consumers.
 pub(in crate::http_server) struct SystemSnapshot {
     pub(super) captured_at: u64,
     pub(super) processes: Vec<Process>,
@@ -481,5 +481,5 @@ mod tests {
 }
 
 #[cfg(test)]
-#[path = "system_snapshot_tests.rs"]
+#[path = "snapshot_tests.rs"]
 mod fixture_tests;

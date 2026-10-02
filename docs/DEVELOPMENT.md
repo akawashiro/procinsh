@@ -57,7 +57,7 @@ cargo publish --dry-run
 | `src/http_server/process/snapshot/` | ptrace による停止・レジスタ取得、frame pointer unwind、逆アセンブル |
 | `src/http_server/process/snapshot/symbol/` | ELF 取得・キャッシュ、アドレス変換、ELF/DWARF によるシンボル・ソース位置の解決 |
 | `src/http_server/process/snapshot/stack.rs` | スナップショットとシンボル解決で共有するフレーム型 |
-| `src/http_server/system_monitoring/` | 全プロセスの構造、subscription、BPF 収集、名前解決 |
+| `src/http_server/system/` | 全プロセスの構造、subscription、BPF 収集、名前解決 |
 | `src/web/` | TypeScript の通常画面・SPACE 画面・描画モデル、HTML/CSS、同梱 Three.js |
 | `tests/` | Rust・ブラウザ・ログ・実機センサーのテストと C fixture |
 
@@ -65,9 +65,9 @@ cargo publish --dry-run
 
 階層モジュールは `foo.rs` + `foo/` で表し、`mod.rs` は使用しません。`foo.rs` は module documentation、子モジュール宣言、re-export のみを持ち、型・関数・定数の実装は責務を表す子ファイルに置きます。
 
-HTTP の起動と終了は `http_server/server.rs`、共有状態は `state.rs`、router の組み立ては `router.rs` と `api/router.rs`、HTTP guard とアクセスログは `middleware.rs` が担当します。process façade の実装は `process/identity.rs` と `process/resources.rs`、観測の lifecycle は `monitoring/service.rs`、snapshot の orchestration は `snapshot/capture.rs` に置きます。symbol は `symbol/cache.rs` と `symbol/resolve.rs`、system monitoring は `system_monitoring/service.rs` と状態ログの `status.rs` に分けています。 `activity.rs` は BPF センサーの所有・収集・状態と欠落数の管理を担当します。依存関係図はこれらの子モジュールも含めて生成され、概要図では従来どおり各サブシステムへ集約されます。
+HTTP の起動と終了は `http_server/server.rs`、共有状態は `state.rs`、router の組み立ては `router.rs` と `api/router.rs`、HTTP guard とアクセスログは `middleware.rs` が担当します。process façade の実装は `process/identity.rs` と `process/resources.rs`、観測の lifecycle は `monitoring/service.rs`、snapshot の orchestration は `snapshot/capture.rs` に置きます。symbol は `symbol/cache.rs` と `symbol/resolve.rs`、system monitoring は `system/service.rs` と状態ログの `status.rs` に分けています。 `activity.rs` は BPF センサーの所有・収集・状態と欠落数の管理を担当します。依存関係図はこれらの子モジュールも含めて生成され、概要図では従来どおり各サブシステムへ集約されます。
 
-HTTP handler と system monitoring は `process.rs` の façade だけを利用します。`process` 内部の `monitoring` は継続観測、`snapshot` は停止を伴う詳細取得を担当します。snapshot のロックと ELF キャッシュも snapshot が所有します。`process` / `system_monitoring` は Axum 型に依存しません。
+HTTP handler と system monitoring は `process.rs` の façade だけを利用します。`process` 内部の `monitoring` は継続観測、`snapshot` は停止を伴う詳細取得を担当します。snapshot のロックと ELF キャッシュも snapshot が所有します。`process` / `system` は Axum 型に依存しません。
 
 例外として、façade から再公開する domain 型と subscription の操作は `pub(in crate::http_server)` に限定しています。private な子モジュールから親で再公開するために必要な可視性であり、crate 外部への公開ではありません。内部テストは各モジュールに置き、`tests/http.rs` はバイナリを起動して HTTP と SSE、SIGTERM による終了を検証します。
 
@@ -138,7 +138,7 @@ SSE は `Content-Type: text/event-stream` で接続を維持し、`event:` に�
 | `activity` | 最大10Hzの活動集計。`captured_at`、`window_ms`、`cpu`、`ipc`、`files`、`status` |
 | `gap` | 購読遅延時の `{dropped_frames: 件数}`。続けて最新 `snapshot` を送り、失われた活動は再送しない |
 
-`system_monitoring/system_snapshot.rs` の `SystemSnapshot` を配信します。`Process` はプロセス、`FdEndpoint` はプロセスの FD 端点、`FdRelation` は socket・pipe・共有所有の関係を表します。
+`system/snapshot.rs` の `SystemSnapshot` を配信します。`Process` はプロセス、`FdEndpoint` はプロセスの FD 端点、`FdRelation` は socket・pipe・共有所有の関係を表します。
 
 `snapshot` のトップレベルは `captured_at`、`processes`、`fd_relations`、`warnings`、`inspected_processes`、`inspected_fds` です。初回収集前は空の構造の場合があります。
 
@@ -242,9 +242,9 @@ watch channelは接続ごとに独立し、遅い購読者へ古い状態を蓄�
 
 | センサー | バックエンドの観測内容と制約 | eBPF ソース |
 |---|---|---|
-| CPU | `sched_switch` で実行時間と実行中 CPU を集計 | [sched.bpf.c](../src/http_server/system_monitoring/sched.bpf.c) |
-| IPC | pipe read/write と socket の送受信結果を観測。ペイロードは読まず、MSG_PEEK は加算しない。splice/sendfile、一部 io_uring、帰属不明のワーカーは対象外 | [ipc.bpf.c](../src/http_server/system_monitoring/ipc.bpf.c) |
-| ファイル I/O | VFS の read/write、ベクトル I/O の成功バイト数と回数を観測。ページキャッシュ経由も含む。mmap、io_uring、splice/sendfile、物理ディスク転送量は対象外 | [files.bpf.c](../src/http_server/system_monitoring/files.bpf.c) |
+| CPU | `sched_switch` で実行時間と実行中 CPU を集計 | [sched.bpf.c](../src/http_server/system/sched.bpf.c) |
+| IPC | pipe read/write と socket の送受信結果を観測。ペイロードは読まず、MSG_PEEK は加算しない。splice/sendfile、一部 io_uring、帰属不明のワーカーは対象外 | [ipc.bpf.c](../src/http_server/system/ipc.bpf.c) |
+| ファイル I/O | VFS の read/write、ベクトル I/O の成功バイト数と回数を観測。ページキャッシュ経由も含む。mmap、io_uring、splice/sendfile、物理ディスク転送量は対象外 | [files.bpf.c](../src/http_server/system/files.bpf.c) |
 
 ファイルのパスは操作時に取得し、取得できない場合は device/inode 等の識別子を使います。BPF のフックが利用できない場合はセンサーごとの理由を状態 API とログに出し、利用可能な情報の収集を継続します。必要なカーネル機能・権限はセンサーごとに異なります。
 
@@ -307,7 +307,7 @@ Three.js でプロセスの親子関係、仮想アドレス空間、接続先�
 
 認証・TLS はありません。接続できる利用者はプロセスメモリや環境変数にアクセスできるため、非 loopback での待受はアクセス範囲を管理した信頼できるネットワーク内に限定してください。Host/Origin/Fetch Metadata の検証と API レスポンスの `Cache-Control: no-store` は維持しますが、これらは認証の代わりにはなりません。
 
-ログは `log` と `env_logger` を使い、標準エラーに時刻・レベル・出力元のファイルパスと行番号（例：`src/http_server/system_monitoring/service.rs:123`）を出します。既定は `info` です。`RUST_LOG` の絞り込みには引き続きモジュール名を使います。
+ログは `log` と `env_logger` を使い、標準エラーに時刻・レベル・出力元のファイルパスと行番号（例：`src/http_server/system/service.rs:123`）を出します。既定は `info` です。`RUST_LOG` の絞り込みには引き続きモジュール名を使います。
 
 - `info`：起動・終了、観測の開始・停止、対象の終了、収集状態と復旧。
 - `warn`：観測失敗、センサー利用不可。同じ状態・エラーの連続出力を抑制。
@@ -316,7 +316,7 @@ Three.js でプロセスの親子関係、仮想アドレス空間、接続先�
 
 ```sh
 sudo env RUST_LOG=procinsh=debug ./target/debug/procinsh --listen 127.0.0.1:9090
-sudo env RUST_LOG=info,procinsh::http_server::system_monitoring=debug ./target/debug/procinsh --listen 127.0.0.1:9090
+sudo env RUST_LOG=info,procinsh::http_server::system=debug ./target/debug/procinsh --listen 127.0.0.1:9090
 ```
 
 HTTP アクセスログだけを絞り込む例は `RUST_LOG=info,procinsh::http_server::middleware=debug` です。既存のサブシステム単位のフィルタは子モジュールにも適用されます。
