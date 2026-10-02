@@ -3,7 +3,6 @@ name: Publish rustdoc
 on:
   push:
     branches: [main]
-  pull_request:
   workflow_dispatch:
 
 jobs:
@@ -86,15 +85,12 @@ jobs:
           touch target/doc/.nojekyll
 
       - uses: actions/configure-pages@v5
-        if: github.event_name != 'pull_request'
 
       - uses: actions/upload-pages-artifact@v4
-        if: github.event_name != 'pull_request'
         with:
           path: target/doc
 
   deploy:
-    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-24.04
 
