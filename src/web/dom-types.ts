@@ -71,7 +71,6 @@ export interface SpaceElements {
   "process-details": HTMLElement;
   name: HTMLElement;
   pid: HTMLElement;
-  facts: HTMLElement;
   inspect: HTMLAnchorElement;
   "connection-details": HTMLElement;
   "connection-kind": HTMLElement;

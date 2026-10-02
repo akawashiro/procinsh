@@ -907,14 +907,6 @@ function pruneFiles(now = performance.now()) {
   if (recentFiles.prune(now, new Set(nodes.keys()))) refreshFileScene();
 }
 
-function cpuText(id: string) {
-  const state = cpuGlows.get(id);
-  if (!state) return "Observed CPU —";
-  if (performance.now() - state.last >= 500) return "Observed CPU idle";
-  const cpus = state.cpus.length ? `CPU ${state.cpus.join(", ")}` : "Off CPU";
-  return `${cpus} · ${state.running_threads} threads · ${(state.runtime_ns / 1e6).toFixed(2)} ms / ${state.window_ms} ms`;
-}
-
 function endpoint(
   fdEndpoint: FdEndpoint | null,
   title: string,
@@ -995,7 +987,6 @@ function details() {
       label.textContent = `${role}: ${name ?? uid ?? "unknown"}${name ? ` (${uid})` : ""} `;
       $("pid").append(label);
     }
-    $("facts").textContent = cpuText(selected);
     $("inspect").href = `/process/${n.identity.pid}`;
     return;
   }
@@ -1250,7 +1241,7 @@ canvas.addEventListener("pointermove", (e) => {
     const id = hullIds[h.instanceId!],
       n = nodes.get(id)!,
       r = n.regions.find((r) => h.point.z >= r.z && h.point.z <= r.z + r.h);
-    text = `${n.name} / ${n.identity.pid}\n${cpuText(id)}${r ? `\n${Display.permissions(r)} ${r.pathname || "anonymous"}\n${r.start} → ${r.end}` : ""}`;
+    text = `${n.name} / ${n.identity.pid}${r ? `\n${Display.permissions(r)} ${r.pathname || "anonymous"}\n${r.start} → ${r.end}` : ""}`;
   } else {
     const edge = edgeHit(e);
     if (edge && "fileId" in edge) {

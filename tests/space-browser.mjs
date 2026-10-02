@@ -128,6 +128,19 @@ try {
   assert.ok(await evaluate("import('/space.js').then(m=>m.parentLineVisual('424242:7','434343:8').g>0.9)"),'selected ancestry is highlighted');
   await evaluate("import('/space.js').then(m=>m.selectProcess('424242:7'))");
   assert.ok(await evaluate("import('/space.js').then(m=>m.parentLineVisual('424242:7','434343:8').g>0.9)"),'selected direct child is highlighted');
+  await evaluate("import('/space.js').then(m=>m.selectProcess('424242:7',true))");
+  await delay(100);
+  const hoverText=await evaluate(`(()=>{
+    const canvas=document.getElementById('world'),hover=document.getElementById('hover');
+    for(let y=80;y<innerHeight;y+=12) for(let x=0;x<innerWidth;x+=12){
+      canvas.dispatchEvent(new PointerEvent('pointermove',{clientX:x,clientY:y}));
+      if(!hover.hidden&&hover.textContent.includes('cpu-glow-test'))return hover.textContent;
+    }
+    return null;
+  })()`);
+  assert.ok(hoverText,'process hover retains name and PID');
+  assert.match(hoverText,/424242/);
+  assert.doesNotMatch(hoverText,/Observed CPU|Off CPU|CPU 3|threads|RSS|MiB|%/);
   await evaluate("import('/space.js').then(m=>m.selectConnection('unix-exact'))");
   assert.equal(await evaluate("document.getElementById('connection-label').textContent"),'UNIX STREAM');
   assert.match(await evaluate("document.getElementById('connection-facts').textContent"),/4096 bytes \/ 16 operations/);
@@ -144,8 +157,8 @@ try {
   await evaluate("import('/space.js').then(m=>m.renderActivity({window_ms:100,cpu:[{process_id:{pid:424242,start_time_ticks:7},runtime_ns:40000000,switches:2,running_threads:1,cpus:[3]}],ipc:[],status:{cpu:{state:'observing'}}}))");
   await until(()=>evaluate("import('/space.js').then(m=>m.cpuGlowVisual('424242:7').g)"),'CPU activity lights the base',400);
   await evaluate("import('/space.js').then(m=>m.selectProcess('424242:7'))");
-  assert.match(await evaluate("document.getElementById('facts').textContent"),/CPU 3/);
-  assert.doesNotMatch(await evaluate("document.getElementById('facts').textContent"),/RSS|MiB|%/);
+  assert.equal(await evaluate("document.getElementById('facts')"),null);
+  assert.doesNotMatch(await evaluate("document.getElementById('process-details').textContent"),/Observed CPU|Off CPU|CPU 3|threads|RSS|MiB|%/);
   await evaluate("import('/space.js').then(m=>m.renderActivity({window_ms:100,cpu:[{process_id:{pid:424242,start_time_ticks:999},runtime_ns:100000000,switches:1,running_threads:1,cpus:[2]}],ipc:[],status:{cpu:{state:'observing'}}}))");
   assert.equal(await evaluate("import('/space.js').then(m=>m.cpuGlowStates.has('424242:999'))"),false,'stale identity is ignored');
   await delay(550);

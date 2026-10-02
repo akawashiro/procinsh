@@ -246,7 +246,7 @@ watch channelは接続ごとに独立し、遅い購読者へ古い状態を蓄�
 
 購読側が遅延した場合は `gap` と最新の `snapshot` を送り、失われた活動を再生しません。keep-alive は10秒間隔です。活動は最大10Hzで集計・配信します。
 
-いずれのセンサーも CO-RE eBPF で実装しています。CPU scheduling・IPC・ファイル I/O は独立した eBPF プログラムで収集し、各センサーのロード・状態・解放も独立しています。Space では eBPF の `CpuActivity` を約100ms周期の scheduling activity・CPU glow・実行中CPU表示に使います。scheduler event はカーネルの map で集約し、userspace へ逐次転送しません。
+いずれのセンサーも CO-RE eBPF で実装しています。CPU scheduling・IPC・ファイル I/O は独立した eBPF プログラムで収集し、各センサーのロード・状態・解放も独立しています。Space では eBPF の `CpuActivity` を約100ms周期の scheduling activity・CPU glowに使います。scheduler event はカーネルの map で集約し、userspace へ逐次転送しません。
 
 | センサー | バックエンドの観測内容と制約 | eBPF ソース |
 |---|---|---|
