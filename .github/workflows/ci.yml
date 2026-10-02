@@ -106,9 +106,11 @@ jobs:
           - distro: Ubuntu 24.04
             image: ubuntu:24.04
             family: ubuntu
+            bpf_package: linux-tools-generic
           - distro: Ubuntu 26.04
             image: ubuntu:26.04
             family: ubuntu
+            bpf_package: bpftool
           - distro: Fedora 44
             image: fedora:44
             family: fedora
@@ -117,19 +119,25 @@ jobs:
         if: matrix.family == 'ubuntu'
         env:
           DEBIAN_FRONTEND: noninteractive
+          BPF_PACKAGE: ${{ matrix.bpf_package }}
         run: |
           apt-get update
           apt-get install --yes --no-install-recommends \
             ca-certificates curl git tar gzip build-essential clang llvm \
-            pkg-config libelf-dev zlib1g-dev python3 linux-tools-generic
-          # Bypass the kernel-version-dependent Ubuntu wrapper.
-          shopt -s nullglob
-          bpftools=(/usr/lib/linux-tools/*/bpftool)
-          if (( ${#bpftools[@]} == 0 )); then
-            echo "::error::No packaged bpftool binary found"
-            exit 1
+            pkg-config libelf-dev zlib1g-dev python3 "$BPF_PACKAGE"
+          if [[ "$BPF_PACKAGE" == linux-tools-generic ]]; then
+            # Bypass the kernel-version-dependent Ubuntu 24.04 wrapper.
+            shopt -s nullglob
+            bpftools=(/usr/lib/linux-tools/*/bpftool)
+            if (( ${#bpftools[@]} == 0 )); then
+              echo "::error::No packaged bpftool binary found"
+              exit 1
+            fi
+            echo "BPFTOOL=${bpftools[0]}" >> "$GITHUB_ENV"
+          else
+            # Ubuntu 26.04 ships a standalone bpftool package.
+            echo "BPFTOOL=$(command -v bpftool)" >> "$GITHUB_ENV"
           fi
-          echo "BPFTOOL=${bpftools[0]}" >> "$GITHUB_ENV"
       - name: Install Fedora native dependencies
         if: matrix.family == 'fedora'
         run: |
