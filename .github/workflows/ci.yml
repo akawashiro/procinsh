@@ -77,9 +77,86 @@ jobs:
         run: cargo build --locked --all-targets
       - name: Check Clippy
         run: cargo clippy --all-targets --locked -- -D warnings
-      - name: Run Rust tests
-        run: cargo test --locked
       - name: Check listen policy
         run: python3 tests/listen-policy.py
       - name: Check space model
         run: node tests/space-model.mjs
+
+  distro-build:
+    name: Build and test (${{ matrix.distro }})
+    # Containers vary userspace only. Keep runner/kernel checks in the build job.
+    runs-on: ubuntu-24.04
+    container:
+      image: ${{ matrix.image }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distro: Ubuntu 24.04
+            image: ubuntu:24.04
+            family: ubuntu
+            bpf_package: linux-tools-generic
+          - distro: Ubuntu 26.04
+            image: ubuntu:26.04
+            family: ubuntu
+            bpf_package: bpftool
+          - distro: Fedora 44
+            image: fedora:44
+            family: fedora
+    steps:
+      - name: Install Ubuntu native dependencies
+        if: matrix.family == 'ubuntu'
+        env:
+          DEBIAN_FRONTEND: noninteractive
+          BPF_PACKAGE: ${{ matrix.bpf_package }}
+        run: |
+          apt-get update
+          apt-get install --yes --no-install-recommends \
+            ca-certificates curl git tar gzip build-essential clang llvm \
+            pkg-config libelf-dev zlib1g-dev python3 "$BPF_PACKAGE"
+          if [[ "$BPF_PACKAGE" == linux-tools-generic ]]; then
+            # Bypass the kernel-version-dependent Ubuntu 24.04 wrapper.
+            shopt -s nullglob
+            bpftools=(/usr/lib/linux-tools/*/bpftool)
+            if (( ${#bpftools[@]} == 0 )); then
+              echo "::error::No packaged bpftool binary found"
+              exit 1
+            fi
+            echo "BPFTOOL=${bpftools[0]}" >> "$GITHUB_ENV"
+          else
+            # Ubuntu 26.04 ships a standalone bpftool package.
+            echo "BPFTOOL=$(command -v bpftool)" >> "$GITHUB_ENV"
+          fi
+      - name: Install Fedora native dependencies
+        if: matrix.family == 'fedora'
+        run: |
+          dnf install --assumeyes \
+            ca-certificates curl git tar gzip gcc gcc-c++ make clang llvm \
+            pkgconf-pkg-config elfutils-libelf-devel zlib-devel python3 bpftool
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Node.js and npm
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install web dependencies
+        run: npm ci
+      - name: Build web assets
+        run: npm run build:web
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 --fail --silent --show-error \
+            https://sh.rustup.rs -o "$RUNNER_TEMP/rustup-init.sh"
+          sh "$RUNNER_TEMP/rustup-init.sh" -y --profile minimal --default-toolchain none
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          "$HOME/.cargo/bin/rustup" show active-toolchain
+      - name: Build
+        run: cargo build --locked --all-targets
+      - name: Run Rust tests
+        run: cargo test --locked
