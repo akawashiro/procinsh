@@ -16,7 +16,7 @@
 //! [`status::StatusLog::observe`] is `pub(super) fn observe(&mut self, status: &SystemMonitorStatus)`.
 //!
 //! All payload types below have `pub(in crate::http_server)` visibility;
-//! their fields have `pub(super)` visibility within `system_monitoring`.
+//! their fields have `pub(super)` visibility within `system`.
 //!
 //! | Definition | Fields / variants |
 //! | --- | --- |
@@ -29,21 +29,21 @@
 //! [`service::Subscription::receiver`] is
 //! `pub(in crate::http_server) receiver: broadcast::Receiver<SystemMonitorEvent>`.
 //!
-//! [`system_snapshot::Process`] has `pub(super)` visibility and fields:
+//! [`snapshot::Process`] has `pub(super)` visibility and fields:
 //! `identity: ProcessId, parent_id: Option<ProcessId>, name: String, uid: Option<u32>,
 //! username: Option<String>, euid: Option<u32>, effective_username: Option<String>,
 //! maps: Vec<MemoryMap>, maps_epoch: u64, maps_error: Option<String>`.
 //! All fields are `pub(super)`; CPU/RSS remain in [`super::process::ProcessSummary`].
 //!
 //! File and IPC identities are defined in [`super::resource`].
-//! [`system_snapshot::FdEndpoint::resource`] is `pub(super) resource: IpcIdentity`.
+//! [`snapshot::FdEndpoint::resource`] is `pub(super) resource: IpcIdentity`.
 //!
-//! [`system_snapshot::FdEndpoint`] also has `pub(super) kind: FdKind, access: FdAccess`.
-//! [`system_snapshot::SocketEndpoint`] fields (all `pub(super)`):
+//! [`snapshot::FdEndpoint`] also has `pub(super) kind: FdKind, access: FdAccess`.
+//! [`snapshot::SocketEndpoint`] fields (all `pub(super)`):
 //! `protocol: SocketProtocol, state: SocketState, local: Option<InetAddress>, remote: Option<InetAddress>, path: Option<String>, network_peer: bool, remote_hostname: Option<String>`.
 //! Socket types are defined in [`super::socket_types`].
 //!
-//! Collector interfaces (all `pub(super)`, within `system_monitoring`):
+//! Collector interfaces (all `pub(super)`, within `system`):
 //! - [`activity::ActivityCollector`]: owns sensors and collection health; no service dependency.
 //!   [`activity::ActivityCollector::new`]: `fn new() -> Self`;
 //!   [`activity::ActivityCollector::poll`]: `fn poll(&mut self, snapshot: &SystemSnapshot)`;
@@ -67,9 +67,9 @@ mod model;
 mod resolver;
 mod sched;
 mod service;
+mod snapshot;
 mod status;
-mod system_snapshot;
 use service::monotonic_ns;
 pub(super) use service::{SubscribeError, SystemMonitor, SystemMonitorEvent};
+pub(super) use snapshot::SystemSnapshot;
 use status::StatusLog;
-pub(super) use system_snapshot::SystemSnapshot;

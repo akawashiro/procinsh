@@ -36,8 +36,8 @@
 //! - [`socket_types::InetAddress`]: `ip: std::net::IpAddr, port: u16`, with `From<std::net::SocketAddr>`.
 //!
 //! Shared state: [`state::AppState::system_monitor`] is
-//! `pub(super) system_monitor: Arc<system_monitoring::SystemMonitor>`
-//! ([`system_monitoring::SystemMonitor`]).
+//! `pub(super) system_monitor: Arc<system::SystemMonitor>`
+//! ([`system::SystemMonitor`]).
 //!
 mod api;
 mod middleware;
@@ -47,7 +47,7 @@ mod router;
 mod server;
 mod socket_types;
 mod state;
-mod system_monitoring;
+mod system;
 mod web;
 pub(super) use server::run;
 use state::AppState;

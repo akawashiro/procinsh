@@ -1,5 +1,5 @@
 use super::model::{SystemActivity, SystemMonitorStatus};
-use super::{SystemSnapshot, activity, resolver, system_snapshot};
+use super::{SystemSnapshot, activity, resolver, snapshot};
 #[derive(Debug, PartialEq, Eq)]
 pub(in crate::http_server) enum SubscribeError {
     Stopped,
@@ -33,7 +33,7 @@ impl Drop for Subscription {
 /// Manages subscribers, collection workers, snapshots, and event delivery.
 pub(in crate::http_server) struct SystemMonitor {
     viewers: Mutex<usize>,
-    snapshot: RwLock<Arc<system_snapshot::SystemSnapshot>>,
+    snapshot: RwLock<Arc<snapshot::SystemSnapshot>>,
     events: broadcast::Sender<SystemMonitorEvent>,
     stop: AtomicBool,
     started: AtomicBool,
@@ -44,7 +44,7 @@ impl Default for SystemMonitor {
         let (events, _) = broadcast::channel(16);
         Self {
             viewers: Mutex::new(0),
-            snapshot: RwLock::new(Arc::new(system_snapshot::SystemSnapshot::default())),
+            snapshot: RwLock::new(Arc::new(snapshot::SystemSnapshot::default())),
             events,
             stop: AtomicBool::new(false),
             started: AtomicBool::new(false),
@@ -164,7 +164,7 @@ impl SystemMonitor {
                     continue;
                 }
                 if full.elapsed() >= Duration::from_secs(1) {
-                    let mut data = system_snapshot::collect(&mut discovery);
+                    let mut data = snapshot::collect(&mut discovery);
                     if data.warnings != previous_warnings {
                         if data.warnings.is_empty() {
                             log::info!("System snapshot recovered");

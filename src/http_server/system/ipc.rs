@@ -102,7 +102,7 @@ impl Ipc {
             + self.drops.load(std::sync::atomic::Ordering::Relaxed)
     }
 
-    pub(super) fn poll(&mut self, snapshot: &super::system_snapshot::SystemSnapshot) -> Result<()> {
+    pub(super) fn poll(&mut self, snapshot: &super::snapshot::SystemSnapshot) -> Result<()> {
         let consumed = self.ring.consume_raw_n(8192);
         if consumed < 0 {
             return Err(std::io::Error::from_raw_os_error(-consumed).into());
