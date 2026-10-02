@@ -1,19 +1,7 @@
-use super::{ProcessId, check_identity, permission_help};
+use super::permission_help;
 use anyhow::{Result, bail, ensure};
-use serde::Serialize;
 
 pub(super) const MAX_READ: usize = 65536;
-
-#[derive(Serialize)]
-pub(super) struct MemoryRead {
-    pub(super) process_id: ProcessId,
-    #[serde(serialize_with = "super::maps::hex")]
-    pub(super) address: u64,
-    pub(super) requested_length: usize,
-    pub(super) bytes: Vec<u8>,
-    pub(super) partial: bool,
-    pub(super) captured_at: u64,
-}
 
 pub(super) fn read_raw(pid: i32, address: u64, length: usize) -> Result<Vec<u8>> {
     ensure!(
@@ -45,20 +33,6 @@ pub(super) fn read_raw(pid: i32, address: u64, length: usize) -> Result<Vec<u8>>
     Ok(bytes)
 }
 
-pub(super) fn read(id: ProcessId, address: u64, length: usize) -> Result<MemoryRead> {
-    check_identity(id)?;
-    let bytes = read_raw(id.pid, address, length)?;
-    check_identity(id)?;
-    Ok(MemoryRead {
-        process_id: id,
-        address,
-        requested_length: length,
-        partial: bytes.len() != length,
-        bytes,
-        captured_at: super::timestamp_ms(),
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -68,21 +42,10 @@ mod tests {
         let value = *b"procinsh";
         let id = super::super::identity(std::process::id() as i32).unwrap();
         assert_eq!(
-            read(id, value.as_ptr() as u64, value.len()).unwrap().bytes,
+            read_raw(id.pid, value.as_ptr() as u64, value.len()).unwrap(),
             value
         );
         assert!(read_raw(id.pid, 0, MAX_READ + 1).is_err());
         assert!(read_raw(id.pid, u64::MAX, 16).is_err());
-        assert!(
-            read(
-                ProcessId {
-                    start_time_ticks: id.start_time_ticks + 1,
-                    ..id
-                },
-                value.as_ptr() as u64,
-                1
-            )
-            .is_err()
-        );
     }
 }

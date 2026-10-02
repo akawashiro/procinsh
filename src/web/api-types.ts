@@ -151,14 +151,6 @@ export interface Capture {
   threads: ThreadSnapshot[];
   maps: MemoryMap[];
 }
-export interface MemoryRead {
-  process_id: ProcessId;
-  address: string;
-  requested_length: number;
-  bytes: number[];
-  partial: boolean;
-  captured_at: number;
-}
 interface ProcessDetail {
   process_id: ProcessId;
   captured_at: number;

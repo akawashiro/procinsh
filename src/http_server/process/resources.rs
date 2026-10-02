@@ -78,15 +78,6 @@ pub(in crate::http_server) fn fds(id: ProcessId) -> Result<impl Serialize> {
 pub(in crate::http_server) fn signals(id: ProcessId) -> Result<impl Serialize> {
     super::signals::read(id)
 }
-pub(in crate::http_server) const MAX_READ: usize = super::memory::MAX_READ;
-
-pub(in crate::http_server) fn memory(
-    id: ProcessId,
-    address: u64,
-    length: usize,
-) -> Result<impl Serialize> {
-    super::memory::read(id, address, length)
-}
 #[derive(Default)]
 pub(in crate::http_server) struct Snapshotter(snapshot::Snapshotter);
 impl Snapshotter {
