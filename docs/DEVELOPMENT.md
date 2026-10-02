@@ -342,7 +342,7 @@ npm run build:web
 cargo build --locked
 sh tests/targets/build.sh
 cargo test --locked
-python3 tests/logging-checks.py
+PROCINSH_BINARY=./scripts/dev_run.sh python3 tests/listen-policy.py
 node tests/space-model.mjs
 
 # フォーマット・静的解析
@@ -441,5 +441,3 @@ HTTP/TCP ヘッダーと chunk framing は含みません。イベント別 raw 
 区切り後の gzip flush bytes は次のイベントへ割り当てられるため、イベント別値の合計とストリーム全体の値は末尾の未完了データ分だけ異なる場合があります。
 受信遅延は JSON の `captured_at` とクライアントの受信時刻の差で、圧縮だけでなく収集・シリアライズの時間も含みます。
 同じホストで測定し、センサー状態、欠落、負荷変動と合わせて比較してください。ペイロード本体は保存しません。
-
-計測スクリプトのストリーム解析は `python3 -m unittest discover -s scripts -p test_measure_http_compression.py` で検証できます。
