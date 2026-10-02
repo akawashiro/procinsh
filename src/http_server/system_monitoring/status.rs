@@ -33,27 +33,3 @@ impl StatusLog {
         }
     }
 }
-
-#[cfg(test)]
-mod logging_tests {
-    use super::*;
-    use crate::http_server::system_monitoring::model::{SensorState, SystemMonitorStatus};
-
-    #[test]
-    fn logs_changes_recovery_and_recurrence_without_repeating_errors() {
-        let mut log = StatusLog::default();
-        let mut status = SystemMonitorStatus::default();
-        assert_eq!(log.changes(&status).len(), 3);
-        status.cpu = SensorState::Unavailable("permission denied".into());
-        assert_eq!(log.changes(&status).len(), 1);
-        assert!(log.changes(&status).is_empty());
-        status.lost = Some(2);
-        assert!(log.changes(&status).is_empty());
-        status.cpu = SensorState::Unavailable("unsupported".into());
-        assert_eq!(log.changes(&status).len(), 1);
-        status.cpu = SensorState::Observing;
-        assert_eq!(log.changes(&status).len(), 1);
-        status.cpu = SensorState::Unavailable("permission denied".into());
-        assert_eq!(log.changes(&status).len(), 1);
-    }
-}

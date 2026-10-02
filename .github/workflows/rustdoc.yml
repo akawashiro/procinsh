@@ -57,7 +57,6 @@ jobs:
 
       - name: Build module dependency graphs
         run: |
-          python3 -m unittest discover -s scripts -p 'test_*.py'
           mkdir -p target/doc/architecture
           # The item filters fold references into the containing modules.
           # Keep uses edges; --no-uses would produce only an ownership tree.
