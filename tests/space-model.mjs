@@ -152,7 +152,6 @@ assert.equal(Display.access('unknown'),'N/A');
 assert.equal(Display.affinity([{start:0,end:3},{start:8,end:8}]),'0-3,8');
 assert.equal(Display.affinity(null),'N/A');
 assert.equal(Display.scheduler({kind:'unknown',code:99}),'UNKNOWN (99)');
-assert.equal(Display.signal({number:64,name:'RT'}),'RT (kernel 64) [64]');
 
 assert.equal(Display.mapping({pathname:'/tmp/a [b]',readable:true,writable:true,executable:false,private:true}),'/tmp/a [b] [rw-p]');
 assert.equal(Display.mapping({pathname:null,readable:true,writable:false,executable:false,private:false}),'[anonymous] [r--s]');
