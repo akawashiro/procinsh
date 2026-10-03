@@ -402,13 +402,9 @@ function resetSamples() {
   $("call-stack").replaceChildren(
     node("p", "Waiting for sample", "muted"),
   );
-  $("sample-time").textContent =
-    "Waiting for sample";
   $("disassembly").replaceChildren();
   $("disasm-error").hidden = true;
   $("disasm-time").textContent = "Live best-effort · x86-64 / Intel";
-  $("disasm-location").textContent =
-    "Waiting for sample";
 }
 function acceptTarget(next: Target | null) {
   $("back").hidden = !next;
@@ -526,7 +522,7 @@ function renderTarget() {
       cell(row, t.state);
       const live = liveSamples.find(sample => sample.tid === t.tid);
       const age = sampleAge(live);
-      cell(row, live?.error || (age == null ? "Waiting for sample" : `${(age / 1000).toFixed(1)}s${age > 3000 ? " · Stale" : ""}`), "muted");
+      cell(row, live?.error || (age == null ? "Waiting for sample" : `${(age / 1000).toFixed(1)}s`), "muted");
       return row;
     }),
   );
@@ -640,30 +636,11 @@ function drawHistory() {
 function sampleAge(thread: ThreadSample | undefined): number | null {
   return thread?.sample_age_ms == null ? null : thread.sample_age_ms + Math.max(0, performance.now() - samplesReceivedAt);
 }
-function updateSampleAge() {
-  const thread = liveSamples.find(t => t.tid === selectedTid);
-  const age = sampleAge(thread);
-  const status = age == null
-    ? "Waiting for sample · A thread already sleeping needs to run again"
-    : `Latest observed sample · ${thread?.sampled_at == null ? "" : new Date(thread.sampled_at).toLocaleTimeString() + " · "}${(age / 1000).toFixed(1)}s ago${age > 3000 ? " · Stale" : ""} · lost ${thread?.lost_samples ?? 0} · Saved user state at capture time`;
-  const error = thread?.error || target?.sampling_error;
-  $("sample-time").textContent = status + (error ? ` · ${error}` : "");
-  $("disasm-time").textContent = `TID ${selectedTid} · Live best-effort · x86-64 / Intel`;
-}
 function renderDisassembly(thread: ThreadSample | undefined) {
   $("disassembly").replaceChildren();
   $("disasm-error").hidden = true;
   const code = thread?.disassembly;
-  if (!thread || !code) {
-    $("disasm-location").textContent =
-      thread?.error ||
-      "Waiting for sample";
-    return;
-  }
-  const rip = thread.registers.find((r) => r.name === "RIP");
-  const frame = thread.call_stack[0];
-  $("disasm-location").textContent =
-    `RIP ${code.address} · ${rip?.mapping ? Display.mapping(rip.mapping) : "mapping N/A"}${frame?.symbol ? ` · ${frame.symbol}${frame.symbol_offset ? ` +${frame.symbol_offset}` : ""}` : ""}${frame?.source_file ? ` · ${frame.source_file}:${frame.line ?? "?"}` : ""} · ${code.bytes.length} bytes captured`;
+  if (!thread || !code) return;
   if (code.error) {
     $("disasm-error").textContent = code.error;
     $("disasm-error").hidden = false;
@@ -690,7 +667,7 @@ function renderDisassembly(thread: ThreadSample | undefined) {
 }
 function renderLiveSample() {
   if (!target) return;
-  updateSampleAge();
+  $("disasm-time").textContent = `TID ${selectedTid} · Live best-effort · x86-64 / Intel`;
   const thread = liveSamples.find((t) => t.tid === selectedTid);
   renderDisassembly(thread);
   $("registers").replaceChildren();
@@ -776,7 +753,6 @@ async function start() {
       acceptTarget(null);
     }
     setInterval(refresh, Math.max(1000, config.interval_ms));
-    setInterval(updateSampleAge, 1000);
   } catch (e) {
     error(e);
   }
