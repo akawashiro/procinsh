@@ -12,8 +12,10 @@
 //! - [`Sampler::latest`]: `fn latest(&self) -> Vec<ThreadSample>`.
 //!
 //! [`ThreadSample`] fields (private, serialized): `tid: i32, sampled_at: Option<u64>,
-//! sample_source: Option<perf::SampleSource>, sample_age_ms: Option<u64>, cpu: Option<u32>, lost_samples: u64, registers: Vec<Register>,
+//! sample_age_ms: Option<u64>, cpu: Option<u32>, lost_samples: u64, registers: Vec<Register>,
 //! call_stack: Vec<StackFrame>, disassembly: Option<Disassembly>, unwind_stop: String, error: Option<String>`.
+//!
+//! [`ThreadSample`] also retains tests-only private, non-serialized `sample_source: Option<perf::SampleSource>` for internal diagnostics/tests.
 //!
 //! Internal perf interface (`pub(super)`):
 //! - [`perf::REGS_MASK`]: `const REGS_MASK: u64`, GPR/RIP/RSP/RBP/RFLAGS mask.

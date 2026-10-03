@@ -215,7 +215,7 @@ Axum がルートごとにクエリや JSON を取り出し、ハンドラへ渡
 
 レジスタ18個と frame-pointer stack は同じ perf sample に由来します。スタックは sampled RSP/RBP/RIP と採取済みバイトだけで最大256 frame を unwind し、範囲外で停止理由を返します。ELF/DWARF の symbol・source・inline-frame 解決を再利用します。frame pointer を省略したコードの完全な復元は保証しません。
 
-SSE の `live_samples` は TID、`sampled_at`（Unix ms）、`sample_age_ms`（monotonic clock）、`sample_source`（`"cpu_clock"` または `{"context_switch":{"preempted":bool}}`、未取得は null）、CPU、`lost_samples`、registers、call_stack、disassembly、unwind_stop、error を含みます。未採取は時刻 null と Waiting for sample、3秒以上古い値は Stale と表示します。sleeping/blocked thread は強制更新せず最後の値を保持します。保存された user-space の状態を表示し、眠っている thread の現在値ではありません。voluntary は待機の可能性を示し、待機理由自体は確定しません。観測開始前から眠っている thread は次の実行／switch-out まで採取できません。取得元、取得時刻、経過時間と制約を画面に表示します。全スレッドの同時点状態は保証しません。perf 権限不足は thread error、collector エラーは `sampling_error` で表示し、通常観測は継続します。
+SSE の `live_samples` は TID、`sampled_at`（Unix ms）、`sample_age_ms`（monotonic clock）、CPU、`lost_samples`、registers、call_stack、disassembly、unwind_stop、error を含みます。未採取は時刻 null と Waiting for sample、3秒以上古い値は Stale と表示します。sleeping/blocked thread は強制更新せず最後の値を保持します。保存された user-space の状態を表示し、眠っている thread の現在値ではありません。観測開始前から眠っている thread は次の実行／switch-out まで採取できません。取得時刻、経過時間と制約を画面に表示します。取得元や voluntary / preempted の区別は内部で保持し、GUI・HTTP API には公開しません。全スレッドの同時点状態は保証しません。perf 権限不足は thread error、collector エラーは `sampling_error` で表示し、通常観測は継続します。
 
 逆アセンブルは sampled RIP から `process_vm_readv` で後読みする best-effort 表示です。最大256バイト、最大32命令を iced-x86 で decode します。JIT/self-modifying code の命令バイトと sample 時点の RIP は整合しない場合があります。32-bit compatibility mode は対象外です。
 

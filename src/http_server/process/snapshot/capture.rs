@@ -1,6 +1,8 @@
+#[cfg(test)]
+use super::perf::SampleSource;
 use super::{
     disasm::Disassembly,
-    perf::{Event, SampleSource},
+    perf::Event,
     registers::{self, Register},
     stack::StackFrame,
     symbol::{ElfCache, SymbolInfo, elf_address, instruction_address, resolve_frame},
@@ -15,6 +17,8 @@ use std::collections::{BTreeMap, BTreeSet};
 pub(in crate::http_server::process) struct ThreadSample {
     tid: i32,
     sampled_at: Option<u64>,
+    #[cfg(test)]
+    #[serde(skip)]
     sample_source: Option<SampleSource>,
     sample_age_ms: Option<u64>,
     cpu: Option<u32>,
@@ -30,6 +34,7 @@ impl ThreadSample {
         Self {
             tid,
             sampled_at: None,
+            #[cfg(test)]
             sample_source: None,
             sample_age_ms: None,
             cpu: None,
@@ -171,6 +176,7 @@ impl Sampler {
                 thread.latest = ThreadSample {
                     tid,
                     sampled_at: Some(process::timestamp_ms().saturating_sub(age)),
+                    #[cfg(test)]
                     sample_source: Some(sample.source),
                     sample_age_ms: Some(age),
                     cpu: Some(sample.cpu),

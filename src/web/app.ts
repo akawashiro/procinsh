@@ -643,13 +643,9 @@ function sampleAge(thread: ThreadSample | undefined): number | null {
 function updateSampleAge() {
   const thread = liveSamples.find(t => t.tid === selectedTid);
   const age = sampleAge(thread);
-  const source = thread?.sample_source;
-  const label = source === "cpu_clock" ? "CPU sample" : source && typeof source === "object"
-    ? source.context_switch.preempted ? "Switch-out · Preempted" : "Switch-out · Voluntary (may be waiting)"
-    : "Latest observed sample";
   const status = age == null
-    ? "Waiting for sample · A thread already sleeping needs another execution or switch-out"
-    : `${label} · ${thread?.sampled_at == null ? "" : new Date(thread.sampled_at).toLocaleTimeString() + " · "}${(age / 1000).toFixed(1)}s ago${age > 3000 ? " · Stale" : ""} · lost ${thread?.lost_samples ?? 0} · Saved user state at capture time`;
+    ? "Waiting for sample · A thread already sleeping needs to run again"
+    : `Latest observed sample · ${thread?.sampled_at == null ? "" : new Date(thread.sampled_at).toLocaleTimeString() + " · "}${(age / 1000).toFixed(1)}s ago${age > 3000 ? " · Stale" : ""} · lost ${thread?.lost_samples ?? 0} · Saved user state at capture time`;
   const error = thread?.error || target?.sampling_error;
   $("sample-time").textContent = status + (error ? ` · ${error}` : "");
   $("disasm-time").textContent = `TID ${selectedTid} · Live best-effort · x86-64 / Intel`;
