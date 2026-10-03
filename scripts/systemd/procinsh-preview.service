@@ -1,0 +1,17 @@
+[Unit]
+Description=ProcInSh main preview
+ConditionPathExists=/home/akira/.local/share/procinsh-preview/procinsh
+StartLimitIntervalSec=0
+
+[Service]
+Type=exec
+User=akira
+ExecStart=/home/akira/.local/share/procinsh-preview/procinsh --listen 0.0.0.0:9090 --allow-non-loopback
+AmbientCapabilities=CAP_SYS_PTRACE CAP_BPF CAP_PERFMON
+CapabilityBoundingSet=CAP_SYS_PTRACE CAP_BPF CAP_PERFMON
+Restart=on-failure
+RestartSec=3s
+TimeoutStopSec=30s
+
+[Install]
+WantedBy=multi-user.target

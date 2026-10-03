@@ -22,6 +22,8 @@ cargo build --release --locked
 
 ブラウザで http://127.0.0.1:9090 を開きます。Web UI は `src/web/` の TypeScript で実装しています。`npm run build:web` は型チェックと `dist/web/` への JavaScript 生成を行います。生成物は Git に含めず、Cargo は npm を自動実行しません。生成物がない場合、Cargo のビルドは準備手順を表示して失敗します。
 
+開発用 checkout と独立した最新 main を LAN・VPN から常時見る場合は、[main の常設プレビュー](MAIN_PREVIEW.md)を参照してください。systemd サービスと約10秒間隔の自動更新を利用できます。
+
 HTML/CSS、生成した JavaScript、Three.js（revision 180）はバイナリに埋め込みます。TypeScript を変更したら `npm run build:web` の後に Rust バイナリを再ビルドしてください。Cargo は TypeScript と生成物の鮮度を検証しません。HTML/CSS の変更にも Rust の再ビルドが必要です。実行時の Node.js・npm、外部 CDN は不要です。SPACE の描画には WebGL2 が必要です。
 
 | CLI オプション | 動作 |
