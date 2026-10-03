@@ -8,7 +8,7 @@
 
 [開発環境](DEVELOPMENT.md)のビルド依存に加え、`gh`、`curl`、`flock` が必要です。利用するユーザーとして `gh auth login` を済ませてください。更新処理は HTTPS と `gh auth git-credential` を使います。Cargo は `~/.cargo/bin`、Node.js 22 以降と npm は `/usr/local/bin` または `/usr/bin` から利用できる必要があります。npm が PATH にない場合は `${NVM_DIR:-$HOME/.nvm}/nvm.sh` を読み込み、nvm の `default` alias を選択します。nvm を使う場合は `nvm alias default` が Node.js 22 以降を指すよう設定してください。それ以外の場所にある場合は更新 unit の `PATH` を調整してください。systemd は `.zshrc` などのシェル初期化ファイルを読み込みません。
 
-ビルド・配置・サービス管理はすべてログインユーザーで行います。ビルド後の候補バイナリに対して `sudo -n setcap cap_sys_ptrace,cap_bpf,cap_perfmon=ep` を実行し、観測用の権限を付与します。このコマンドを候補ファイル `~/procinsh-main-preview/candidate` に対してパスワード入力なしで実行できることが前提です。権限付与に失敗した場合は更新を中止し、稼働版を維持します。
+ビルド・配置・サービス管理はすべてログインユーザーで行います。ビルド後の候補バイナリに対して `sudo -n setcap cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search=ep` を実行し、観測用の権限を付与します。このコマンドを候補ファイル `~/procinsh-main-preview/candidate` に対してパスワード入力なしで実行できることが前提です。権限付与に失敗した場合は更新を中止し、稼働版を維持します。
 
 ## 登録
 
@@ -26,10 +26,10 @@ sudo visudo -f /etc/sudoers.d/procinsh-preview
 ユーザーが `akira`、`setcap` が `/usr/sbin/setcap` にある場合の設定例です。ユーザー名・ホーム・実行ファイルのパスは実際の環境に合わせ、絶対パスで記載してください。
 
 ```sudoers
-akira ALL=(root) NOPASSWD: /usr/sbin/setcap cap_sys_ptrace\,cap_bpf\,cap_perfmon=ep /home/akira/procinsh-main-preview/candidate
+akira ALL=(root) NOPASSWD: /usr/sbin/setcap cap_sys_ptrace\,cap_bpf\,cap_perfmon\,cap_dac_read_search\=ep /home/akira/procinsh-main-preview/candidate
 ```
 
-sudoers では capability の区切りのカンマを `\,` としてエスケープします。このルールはコマンド・引数・対象パスを指定して許可します。[sudoers の説明](https://www.sudo.ws/docs/man/1.9.14/sudoers.man.pdf)を参照してください。保存後に構文を確認します。
+sudoers では capability の区切りのカンマを `\,`、等号を `\=` としてエスケープします。このルールはコマンド・引数・対象パスを指定して許可します。[sudoers の説明](https://www.sudo.ws/docs/man/1.9.14/sudoers.man.pdf)を参照してください。保存後に構文を確認します。
 
 ```sh
 sudo visudo -c
@@ -57,6 +57,8 @@ systemctl --user start procinsh-preview-update.service
 ```
 
 初回ビルド成功後に常設サービスが起動します。以降はユーザーマネージャー起動時に自動起動します。ログアウト後も稼働させ、OS 起動時からログインせず利用するには、一度 `loginctl enable-linger "$USER"` を実行してください。これはユーザーの linger 設定を有効にします。[systemd の説明](https://www.freedesktop.org/software/systemd/man/252/loginctl.html)を参照してください。unit と更新スクリプト自身は自動更新の対象ではありません。これらを変更したときは timer を停止して更新処理の終了を待ち、再インストールと `daemon-reload` を行ってから timer を再開してください。
+
+capability 一覧を変更した場合は、sudoers の許可する引数も新しい一覧に合わせてください。配置済みの更新スクリプトを再インストールするだけでは、既存バイナリの権限は変わりません。同じ commit はビルドを省略するため、timer を停止して進行中の更新が終了した後、既存バイナリを `candidate` にコピーし、上記の `sudo -n setcap` をその候補に実行してから `procinsh` に置き換え、サービスを再起動してください。稼働 commit の記録は維持し、起動と権限を確認してから timer を再開します。置き換え前のバイナリは hard link で退避すると capability を保持したまま復元できます。未反映の候補が残っている場合は、候補と `candidate.commit` を先に退避してください。
 
 本体のログは `RUST_LOG=debug` で journal に出力します。`journalctl --user -u procinsh-preview.service -f` で確認できます。この drop-in 設定は unit の再インストール後も維持されます。既に本体が稼働している場合は、`daemon-reload` 後に `systemctl --user restart procinsh-preview.service` を実行してログレベルを反映してください。
 
