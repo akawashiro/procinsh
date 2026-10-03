@@ -17,7 +17,7 @@
       <div class="heading inspector-heading"><div class="target-heading"><p class="eyebrow" id="identity"></p><h1 id="target-name"></h1><p class="muted command" id="command"></p></div><div class="capture-heading"><span class="badge" id="target-status"></span></div></div>
       <p id="target-error" class="notice" hidden></p>
       <div id="metrics" class="metrics"></div>
-      <div class="panel history"><div class="panel-heading"><h2>CPU &amp; memory history</h2><span class="muted">Last 60 seconds · CPU per core</span></div><canvas id="history" height="160" role="img" aria-label="CPU and RSS history over the last 60 seconds"></canvas><div class="legend"><span>● CPU</span><span>● RSS</span><span id="history-scale"></span></div></div>
+      <div class="panel history"><div class="panel-heading"><h2>CPU &amp; memory history</h2><span class="muted">Last 60 seconds · CPU per core</span></div><canvas id="history" height="200" role="img" aria-label="CPU and RSS history over the last 60 seconds"></canvas><div class="legend"><span>● CPU</span><span>● RSS</span><span id="history-scale"></span></div></div>
       <div class="inspector-grid">
         <section class="panel"><div class="panel-heading"><h2>Threads</h2><span id="thread-count" class="muted"></span></div><div class="scroll thread-scroll"><table><thead><tr><th>TID / NAME</th><th>CPU %</th><th>CPU</th><th>STATE</th><th>SAMPLE AGE</th></tr></thead><tbody id="threads"></tbody></table></div><div id="thread-detail" class="detail muted"></div></section>
         <section class="panel"><div class="panel-heading"><h2>Registers</h2></div><p class="muted detail" id="sample-time">Waiting for sample</p><div class="scroll register-scroll"><table><tbody id="registers"></tbody></table></div></section>
