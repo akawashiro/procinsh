@@ -45,6 +45,11 @@ install -m 0755 scripts/main_preview.sh "$HOME/procinsh-main-preview/main_previe
 install -m 0644 scripts/systemd/procinsh-preview.service \
   scripts/systemd/procinsh-preview-update.service \
   scripts/systemd/procinsh-preview-update.timer "$HOME/.config/systemd/user/"
+mkdir -p "$HOME/.config/systemd/user/procinsh-preview.service.d"
+cat > "$HOME/.config/systemd/user/procinsh-preview.service.d/logging.conf" <<'EOF'
+[Service]
+Environment=RUST_LOG=debug
+EOF
 systemctl --user daemon-reload
 systemctl --user enable procinsh-preview.service
 systemctl --user enable --now procinsh-preview-update.timer
@@ -52,6 +57,8 @@ systemctl --user start procinsh-preview-update.service
 ```
 
 初回ビルド成功後に常設サービスが起動します。以降はユーザーマネージャー起動時に自動起動します。ログアウト後も稼働させ、OS 起動時からログインせず利用するには、一度 `loginctl enable-linger "$USER"` を実行してください。これはユーザーの linger 設定を有効にします。[systemd の説明](https://www.freedesktop.org/software/systemd/man/252/loginctl.html)を参照してください。unit と更新スクリプト自身は自動更新の対象ではありません。これらを変更したときは timer を停止して更新処理の終了を待ち、再インストールと `daemon-reload` を行ってから timer を再開してください。
+
+本体のログは `RUST_LOG=debug` で journal に出力します。`journalctl --user -u procinsh-preview.service -f` で確認できます。この drop-in 設定は unit の再インストール後も維持されます。既に本体が稼働している場合は、`daemon-reload` 後に `systemctl --user restart procinsh-preview.service` を実行してログレベルを反映してください。
 
 ## 更新と運用
 
