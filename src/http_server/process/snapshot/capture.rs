@@ -444,19 +444,34 @@ mod live_tests {
         let maps = process::maps::read(target.id.pid, false).unwrap();
         let mut sampler = Sampler::new(target.id);
         sampler.bootstrap(&maps).unwrap();
-        assert!(sampler.threads.len() >= 4);
+        // This fixture also churns short-lived threads; only its main and four
+        // permanent workers are guaranteed to survive the entire capture sweep.
+        let stable_tids: Vec<_> = sampler
+            .threads
+            .keys()
+            .copied()
+            .filter(|&tid| {
+                tid == target.id.pid
+                    || std::fs::read_to_string(format!("/proc/{}/task/{tid}/comm", target.id.pid))
+                        .is_ok_and(|name| {
+                            matches!(name.trim(), "procinsh-worker" | "procinsh-sleep")
+                        })
+            })
+            .collect();
+        assert_eq!(stable_tids.len(), 5);
         let old: BTreeMap<_, _> = sampler
             .threads
             .iter()
             .map(|(&tid, thread)| (tid, thread.sampled_ns))
             .collect();
         // Rediscovery follows the same path as a thread born after bootstrap.
-        let rediscovered = *sampler.threads.keys().next().unwrap();
+        let rediscovered = target.id.pid;
         sampler.threads.remove(&rediscovered);
         sampler.next_ptrace = Some(Instant::now());
         sampler.poll(&maps).unwrap();
         assert!(sampler.threads.contains_key(&rediscovered));
-        for (&tid, thread) in &sampler.threads {
+        for tid in stable_tids {
+            let thread = &sampler.threads[&tid];
             assert_eq!(thread.latest.sample_source, Some(SampleSource::Ptrace));
             assert!(thread.ptrace_error.is_none());
             assert_eq!(thread.latest.error, thread.setup_error);
