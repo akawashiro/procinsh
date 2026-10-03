@@ -1,6 +1,6 @@
 # ProcInSh 開発ドキュメント
 
-ProcInSh は Linux x86-64 のプロセスを観測する Web アプリケーションです。Rust の HTTP サーバーが `/proc`、perf、eBPF から情報を取得し、ブラウザに配信します。プロセスのメモリやレジスタを書き換える機能はありません。観測のために対象スレッドを停止しません。
+ProcInSh は Linux x86-64 のプロセスを観測する Web アプリケーションです。Rust の HTTP サーバーが `/proc`、perf、eBPF から情報を取得し、ブラウザに配信します。
 
 この文書は現在の実装構成、動作、API、開発・検証手順を説明します。以下のコマンドはリポジトリのルートで実行します。
 
@@ -217,7 +217,7 @@ SSE の `live_samples` は TID、`sampled_at`（Unix ms）、`sample_age_ms`（m
 
 逆アセンブルは sampled RIP から `process_vm_readv` で後読みする best-effort 表示です。最大256バイト、最大32命令を iced-x86 で decode します。JIT/self-modifying code の命令バイトと sample 時点の RIP は整合しない場合があります。32-bit compatibility mode は対象外です。
 
-PERF_RECORD_LOST と ring overrun/不正レコードを欠落として保持します。thread 終了、対象終了、SSE 切断、サーバー終了で RAII により fd/mmap を解放します。ptrace snapshot API と操作ボタンは廃止しました。CAP_SYS_PTRACE と process_vm_readv は auxv・live disassembly 用に維持しています。
+PERF_RECORD_LOST と ring overrun/不正レコードを欠落として保持します。thread 終了、対象終了、SSE 切断、サーバー終了で RAII により fd/mmap を解放します。CAP_SYS_PTRACE と process_vm_readv は auxv・live disassembly 用に維持しています。
 
 ### プロセス詳細監視の SSE 配信処理
 
