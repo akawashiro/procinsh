@@ -1,0 +1,11 @@
+[Unit]
+Description=Build and deploy latest ProcInSh main
+
+[Service]
+Type=oneshot
+Environment=PATH=%h/.cargo/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PROCINSH_PREVIEW_STATE=%h/procinsh-main-preview
+Environment=PROCINSH_PREVIEW_SOURCE=%h/ghq/github.com/akawashiro/procinsh
+ExecStart=/bin/bash %h/procinsh-main-preview/main_preview.sh build
+ExecStartPost=/bin/bash %h/procinsh-main-preview/main_preview.sh activate
+TimeoutStartSec=infinity

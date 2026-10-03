@@ -1,0 +1,11 @@
+[Unit]
+Description=Check ProcInSh main approximately every ten seconds
+
+[Timer]
+OnStartupSec=10s
+OnUnitInactiveSec=10s
+AccuracySec=1s
+Unit=procinsh-preview-update.service
+
+[Install]
+WantedBy=timers.target
