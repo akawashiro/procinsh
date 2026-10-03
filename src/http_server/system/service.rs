@@ -123,7 +123,7 @@ impl SystemMonitor {
             });
             let snapshot = self.snapshot();
             collector.poll(&snapshot);
-            if last.elapsed() >= Duration::from_millis(100) {
+            if last.elapsed() >= Duration::from_secs(1) {
                 let batch = collector.drain(monotonic_ns(), &snapshot);
                 let mut status = collector.status();
                 status.active = true;
