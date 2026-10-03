@@ -29,7 +29,14 @@ struct Attr {
     stack: u32,
     clock: i32,
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum SampleSource {
+    CpuClock,
+    ContextSwitch { preempted: bool },
+}
 pub(super) struct Sample {
+    pub(super) source: SampleSource,
     pub(super) tid: i32,
     pub(super) time_ns: u64,
     pub(super) cpu: u32,
@@ -44,6 +51,8 @@ pub(super) struct Event {
     capacity: usize,
     tail: u64,
     pub(super) lost: u64,
+    context_switch: bool,
+    pending: Option<Sample>,
 }
 impl Event {
     pub(super) fn open(tid: i32) -> Result<Self> {
@@ -61,6 +70,28 @@ impl Event {
             clock: libc::CLOCK_MONOTONIC,
             ..Attr::default()
         };
+        Self::open_attr(tid, attr, false)
+    }
+    pub(super) fn context_switch(tid: i32) -> Result<Self> {
+        Self::open_attr(
+            tid,
+            Attr {
+                kind: 1,
+                size: std::mem::size_of::<Attr>() as u32,
+                config: 3, // PERF_COUNT_SW_CONTEXT_SWITCHES, including kernel switch-out.
+                period: 1,
+                sample_type: SAMPLE_TYPE,
+                flags: (1 << 18) | (1 << 25) | (1 << 26),
+                wakeup: 1,
+                regs: REGS_MASK,
+                stack: 2048,
+                clock: libc::CLOCK_MONOTONIC,
+                ..Attr::default()
+            },
+            true,
+        )
+    }
+    fn open_attr(tid: i32, attr: Attr, context_switch: bool) -> Result<Self> {
         let fd = unsafe { libc::syscall(libc::SYS_perf_event_open, &attr, tid, -1, -1, 8) };
         if fd < 0 {
             return Err(std::io::Error::last_os_error())
@@ -103,6 +134,8 @@ impl Event {
             capacity,
             tail: 0,
             lost: 0,
+            context_switch,
+            pending: None,
         })
     }
     fn copy(&self, position: u64, length: usize) -> Vec<u8> {
@@ -135,13 +168,41 @@ impl Event {
                 );
                 let bytes = self.copy(self.tail.wrapping_add(8), size - 8);
                 self.tail = self.tail.wrapping_add(size as u64);
+                let misc = u16::from_ne_bytes(header[4..6].try_into()?);
                 match kind {
                     9 => {
-                        if let Some(sample) = parse(&bytes)? {
+                        let sample = parse(&bytes)?;
+                        if self.context_switch {
+                            self.pending = sample;
+                        } else if sample.is_some() {
+                            latest = sample;
+                        }
+                    }
+                    14 if self.context_switch => {
+                        // sample_id_all trailer: TID, TIME, CPU. A switch-in,
+                        // missing sample, or loss must never classify an old sample.
+                        let mut c = Cursor(&bytes);
+                        let tids = c.take(8)?;
+                        let tid = i32::from_ne_bytes(tids[4..].try_into()?);
+                        let time = c.u64()?;
+                        let cpu = c.u64()? as u32;
+                        if let Some(mut sample) = self.pending.take()
+                            && misc & (1 << 13) != 0
+                            && sample.tid == tid
+                            && sample.time_ns <= time
+                            && sample.cpu == cpu
+                        {
+                            sample.source = SampleSource::ContextSwitch {
+                                preempted: misc & (1 << 14) != 0,
+                            };
                             latest = Some(sample);
                         }
                     }
+                    5 | 6 if self.context_switch => {
+                        self.pending = None;
+                    }
                     2 => {
+                        self.pending = None;
                         let mut cursor = Cursor(&bytes);
                         cursor.u64()?;
                         self.lost = self.lost.saturating_add(cursor.u64()?);
@@ -154,6 +215,7 @@ impl Event {
         if result.is_err() {
             self.lost = self.lost.saturating_add(1);
             self.tail = head;
+            self.pending = None;
         }
         unsafe { &*self.mapping.add(1032).cast::<AtomicU64>() }.store(self.tail, Ordering::Release);
         result
@@ -204,6 +266,7 @@ fn parse(bytes: &[u8]) -> Result<Option<Sample>> {
     };
     ensure!(used <= length, "invalid perf dynamic stack size");
     Ok(Some(Sample {
+        source: SampleSource::CpuClock,
         tid,
         time_ns,
         cpu,
@@ -214,6 +277,115 @@ fn parse(bytes: &[u8]) -> Result<Option<Sample>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn fake_event() -> Event {
+        let length = 8192;
+        let mapping = unsafe {
+            libc::mmap(
+                std::ptr::null_mut(),
+                length,
+                libc::PROT_READ | libc::PROT_WRITE,
+                libc::MAP_PRIVATE | libc::MAP_ANONYMOUS,
+                -1,
+                0,
+            )
+        }
+        .cast::<u8>();
+        assert_ne!(mapping.cast(), libc::MAP_FAILED);
+        Event {
+            _fd: std::fs::File::open("/dev/null").unwrap().into(),
+            mapping,
+            length,
+            offset: 4096,
+            capacity: 4096,
+            tail: 0,
+            lost: 0,
+            context_switch: true,
+            pending: None,
+        }
+    }
+    fn push(event: &Event, kind: u32, misc: u16, payload: &[u8]) {
+        let head = unsafe { &*event.mapping.add(1024).cast::<AtomicU64>() };
+        let position = head.load(Ordering::Acquire);
+        let mut bytes = Vec::new();
+        bytes.extend(kind.to_ne_bytes());
+        bytes.extend(misc.to_ne_bytes());
+        bytes.extend(((payload.len() + 8) as u16).to_ne_bytes());
+        bytes.extend(payload);
+        for (i, byte) in bytes.iter().enumerate() {
+            unsafe {
+                *event
+                    .mapping
+                    .add(event.offset + (position as usize + i) % event.capacity) = *byte;
+            }
+        }
+        head.store(position + bytes.len() as u64, Ordering::Release);
+    }
+    fn sample_bytes(time: u64) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        for value in [(42u64 << 32) | 42, time, 7, 2] {
+            bytes.extend(value.to_ne_bytes());
+        }
+        for index in 0..24 {
+            if REGS_MASK & (1 << index) != 0 {
+                bytes.extend((index as u64 + 100).to_ne_bytes());
+            }
+        }
+        bytes.extend(0u64.to_ne_bytes());
+        bytes
+    }
+    fn switch_bytes(tid: u32, time: u64) -> Vec<u8> {
+        [(u64::from(tid) << 32) | 42, time, 7]
+            .into_iter()
+            .flat_map(u64::to_ne_bytes)
+            .collect()
+    }
+    #[test]
+    fn switch_classification_survives_split_drain_and_rejects_loss_and_mismatch() {
+        let mut event = fake_event();
+        for preempted in [false, true] {
+            push(&event, 9, 0, &sample_bytes(100));
+            assert!(event.drain().unwrap().is_none());
+            push(
+                &event,
+                14,
+                (1 << 13) | if preempted { 1 << 14 } else { 0 },
+                &switch_bytes(42, 101),
+            );
+            let sample = event.drain().unwrap().unwrap();
+            assert_eq!(sample.source, SampleSource::ContextSwitch { preempted });
+            assert_eq!(sample.registers.0[8], 108);
+        }
+        for (kind, misc, payload) in [
+            (14, 0, switch_bytes(42, 101)),       // switch-in
+            (14, 1 << 13, switch_bytes(43, 101)), // wrong TID
+            (14, 1 << 13, switch_bytes(42, 99)),  // earlier switch
+            (
+                2,
+                0,
+                [1u64, 2].into_iter().flat_map(u64::to_ne_bytes).collect(),
+            ),
+            (5, 0, Vec::new()), // throttle
+            (
+                14,
+                1 << 13,
+                [(42u64 << 32) | 42, 101, 8]
+                    .into_iter()
+                    .flat_map(u64::to_ne_bytes)
+                    .collect(),
+            ), // wrong CPU
+        ] {
+            push(&event, 9, 0, &sample_bytes(100));
+            push(&event, kind, misc, &payload);
+            push(&event, 14, 1 << 13, &switch_bytes(42, 102));
+            assert!(event.drain().unwrap().is_none());
+        }
+        push(&event, 9, 0, &sample_bytes(100));
+        push(&event, 14, 1 << 13, &[0; 8]);
+        assert!(event.drain().is_err());
+        push(&event, 14, 1 << 13, &switch_bytes(42, 101));
+        assert!(event.drain().unwrap().is_none());
+    }
+
     #[test]
     fn ring_wrap_lost_and_overrun_are_consumed() {
         let length = 8192;
@@ -238,6 +410,8 @@ mod tests {
             capacity: 4096,
             tail: 4090,
             lost: 0,
+            context_switch: false,
+            pending: None,
         };
         let mut bytes = Vec::new();
         bytes.extend(2u32.to_ne_bytes());

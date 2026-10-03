@@ -1,6 +1,6 @@
 use super::{
     disasm::Disassembly,
-    perf::Event,
+    perf::{Event, SampleSource},
     registers::{self, Register},
     stack::StackFrame,
     symbol::{ElfCache, SymbolInfo, elf_address, instruction_address, resolve_frame},
@@ -15,6 +15,7 @@ use std::collections::{BTreeMap, BTreeSet};
 pub(in crate::http_server::process) struct ThreadSample {
     tid: i32,
     sampled_at: Option<u64>,
+    sample_source: Option<SampleSource>,
     sample_age_ms: Option<u64>,
     cpu: Option<u32>,
     lost_samples: u64,
@@ -29,6 +30,7 @@ impl ThreadSample {
         Self {
             tid,
             sampled_at: None,
+            sample_source: None,
             sample_age_ms: None,
             cpu: None,
             lost_samples: 0,
@@ -43,6 +45,8 @@ impl ThreadSample {
 struct Thread {
     start_time: u64,
     event: Option<Event>,
+    switch_event: Option<Event>,
+    setup_error: Option<String>,
     latest: ThreadSample,
     sampled_ns: Option<u64>,
 }
@@ -92,65 +96,92 @@ impl Sampler {
                         None
                     }
                 };
+                let switch_event = match Event::context_switch(tid) {
+                    Ok(event) => Some(event),
+                    Err(e) => {
+                        let message = format!("context-switch perf: {e:#}");
+                        latest.error = Some(match latest.error.take() {
+                            Some(error) => format!("{error}; {message}"),
+                            None => message,
+                        });
+                        None
+                    }
+                };
                 Thread {
+                    switch_event,
+                    setup_error: latest.error.clone(),
                     start_time: stat.start_time,
                     event,
                     latest,
                     sampled_ns: None,
                 }
             });
-            let Some(event) = &mut thread.event else {
-                continue;
-            };
-            match event.drain() {
-                Ok(Some(sample)) if sample.tid == tid => {
-                    let r = &sample.registers;
-                    let (mut frames, reason) =
-                        unwind_fp::walk(r.0[8], r.0[7], r.0[6], maps, |bp| {
-                            let offset = usize::try_from(bp.checked_sub(r.0[7])?).ok()?;
-                            sample
-                                .stack
-                                .get(offset..offset.checked_add(16)?)?
-                                .try_into()
-                                .ok()
-                        });
-                    for (index, frame) in frames.iter_mut().enumerate() {
-                        let address = instruction_address(frame.address, index > 0);
-                        let info = maps
-                            .iter()
-                            .find(|m| m.contains(address) && m.inode != 0)
-                            .and_then(|map| {
-                                let elf = self.symbols.get(self.id.pid, map)?;
-                                resolve_frame(
-                                    elf_address(address, map, &elf, procfs::page_size())?,
-                                    &elf,
-                                )
-                            });
-                        apply_symbol_info(frame, info);
+            let mut newest = None;
+            let mut lost = 0u64;
+            thread.latest.error = thread.setup_error.clone();
+            for event in [&mut thread.event, &mut thread.switch_event]
+                .into_iter()
+                .flatten()
+            {
+                match event.drain() {
+                    Ok(Some(sample)) if sample.tid == tid => {
+                        if newest
+                            .as_ref()
+                            .is_none_or(|old: &super::perf::Sample| sample.time_ns > old.time_ns)
+                        {
+                            newest = Some(sample);
+                        }
                     }
-                    let mut code = Disassembly::capture(self.id.pid, r.0[8], maps);
-                    code.decode();
-                    let age = monotonic_ns().saturating_sub(sample.time_ns) / 1_000_000;
-                    thread.sampled_ns = Some(sample.time_ns);
-                    thread.latest = ThreadSample {
-                        tid,
-                        sampled_at: Some(process::timestamp_ms().saturating_sub(age)),
-                        sample_age_ms: Some(age),
-                        cpu: Some(sample.cpu),
-                        lost_samples: event.lost,
-                        registers: registers::from_sample(r, maps),
-                        call_stack: frames,
-                        disassembly: Some(code),
-                        unwind_stop: reason,
-                        error: None,
-                    };
+                    Ok(_) => {}
+                    Err(e) => thread.latest.error = Some(format!("{e:#}")),
                 }
-                Ok(_) => {}
-                Err(e) => {
-                    thread.latest.error = Some(format!("{e:#}"));
-                }
+                lost = lost.saturating_add(event.lost);
             }
-            thread.latest.lost_samples = event.lost;
+            thread.latest.lost_samples = lost;
+            if let Some(sample) = newest
+                && thread.sampled_ns.is_none_or(|time| sample.time_ns > time)
+            {
+                let r = &sample.registers;
+                let (mut frames, reason) = unwind_fp::walk(r.0[8], r.0[7], r.0[6], maps, |bp| {
+                    let offset = usize::try_from(bp.checked_sub(r.0[7])?).ok()?;
+                    sample
+                        .stack
+                        .get(offset..offset.checked_add(16)?)?
+                        .try_into()
+                        .ok()
+                });
+                for (index, frame) in frames.iter_mut().enumerate() {
+                    let address = instruction_address(frame.address, index > 0);
+                    let info = maps
+                        .iter()
+                        .find(|m| m.contains(address) && m.inode != 0)
+                        .and_then(|map| {
+                            let elf = self.symbols.get(self.id.pid, map)?;
+                            resolve_frame(
+                                elf_address(address, map, &elf, procfs::page_size())?,
+                                &elf,
+                            )
+                        });
+                    apply_symbol_info(frame, info);
+                }
+                let mut code = Disassembly::capture(self.id.pid, r.0[8], maps);
+                code.decode();
+                let age = monotonic_ns().saturating_sub(sample.time_ns) / 1_000_000;
+                thread.sampled_ns = Some(sample.time_ns);
+                thread.latest = ThreadSample {
+                    tid,
+                    sampled_at: Some(process::timestamp_ms().saturating_sub(age)),
+                    sample_source: Some(sample.source),
+                    sample_age_ms: Some(age),
+                    cpu: Some(sample.cpu),
+                    lost_samples: lost,
+                    registers: registers::from_sample(r, maps),
+                    call_stack: frames,
+                    disassembly: Some(code),
+                    unwind_stop: reason,
+                    error: thread.latest.error.clone(),
+                };
+            }
         }
         self.threads.retain(|tid, _| alive.contains(tid));
         process::check_identity(self.id)?;
@@ -265,6 +296,83 @@ mod live_tests {
     }
 
     #[test]
+    fn live_already_sleeping_waits_for_next_transition() {
+        let target = TestTarget::new("sleeping");
+        if !perf_available(target.id.pid) {
+            return;
+        }
+        let maps = process::maps::read(target.id.pid, false).unwrap();
+        let mut sampler = Sampler::new(target.id);
+        sampler.poll(&maps).unwrap();
+        std::thread::sleep(Duration::from_millis(100));
+        sampler.poll(&maps).unwrap();
+        assert!(sampler.latest()[0].sampled_at.is_none());
+        poll_until(&mut sampler, &maps, |s| s.latest()[0].sampled_at.is_some());
+        assert_eq!(
+            sampler.latest()[0].sample_source,
+            Some(SampleSource::ContextSwitch { preempted: false })
+        );
+        target.assert_detached();
+    }
+
+    #[test]
+    fn live_blocked_samples_refresh_known_registers_and_bound_deep_stacks() {
+        let target = TestTarget::new("blocked_stack");
+        if !perf_available(target.id.pid) {
+            return;
+        }
+        Event::context_switch(target.id.pid).unwrap();
+        let maps = process::maps::read(target.id.pid, false).unwrap();
+        let mut sampler = Sampler::new(target.id);
+        let mut complete = false;
+        let mut truncated = false;
+        let mut previous = None;
+        let mut updates = 0;
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while Instant::now() < deadline {
+            sampler.poll(&maps).unwrap();
+            let sample = &sampler.latest()[0];
+            if sample.sample_source == Some(SampleSource::ContextSwitch { preempted: false }) {
+                assert!(sample.error.is_none(), "{:?}", sample.error);
+                for (name, expected) in [
+                    ("R12", 0x12345678u64),
+                    ("R13", 0x23456789),
+                    ("R14", 0x3456789a),
+                    ("R15", 0x456789ab),
+                ] {
+                    let register = sample.registers.iter().find(|r| r.name == name).unwrap();
+                    assert_eq!(register.value, expected);
+                }
+                assert!(
+                    sample
+                        .call_stack
+                        .iter()
+                        .any(|f| f.symbol.as_deref() == Some("blocked_leaf"))
+                );
+                complete |= sample
+                    .call_stack
+                    .iter()
+                    .any(|f| f.symbol.as_deref() == Some("main"));
+                truncated |= sample.unwind_stop == "stack memory could not be read";
+                if sample.sampled_at != previous {
+                    updates += 1;
+                    previous = sample.sampled_at;
+                }
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert!(
+            complete && truncated && updates >= 5,
+            "complete={complete} truncated={truncated} updates={updates}: {:?}",
+            sampler.latest()
+        );
+        eprintln!(
+            "Blocked fixture: {updates} distinct updates in 3s; R12–R15 matched; complete and bounded deep stacks verified"
+        );
+        target.assert_detached();
+    }
+
+    #[test]
     fn live_busy_and_recursive_samples_advance_without_tracing() {
         for name in ["busy_loop", "recursive"] {
             let target = TestTarget::new(name);
@@ -313,7 +421,7 @@ mod live_tests {
             .into_iter()
             .find(|t| t.tid == target.id.pid)
             .unwrap();
-        // Sleeping main is allowed to have no sample; busy workers continue.
+        // A main already sleeping can initially have no sample; busy workers continue.
         let worker = sampler
             .latest()
             .into_iter()
@@ -329,7 +437,12 @@ mod live_tests {
             .into_iter()
             .find(|t| t.tid == main.tid)
             .unwrap();
-        assert_eq!(sleeping.sampled_at, main.sampled_at);
+        if sleeping.sampled_at != main.sampled_at {
+            assert!(matches!(
+                sleeping.sample_source,
+                Some(SampleSource::ContextSwitch { .. })
+            ));
+        }
         // Short-lived TIDs are removed, and newly created TIDs get their own event.
         poll_until(&mut sampler, &maps, |s| s.threads.len() == 7);
         let old_tids: BTreeSet<_> = sampler.threads.keys().copied().collect();

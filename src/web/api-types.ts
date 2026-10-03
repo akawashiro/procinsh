@@ -112,6 +112,7 @@ export interface Target {
   sampling_error: string | null;
 }
 export interface ThreadSample {
+  sample_source: "cpu_clock" | { context_switch: { preempted: boolean } } | null;
   sampled_at: number | null;
   sample_age_ms: number | null;
   cpu: number | null;
