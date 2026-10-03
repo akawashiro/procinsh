@@ -6,17 +6,17 @@
 
 同梱 unit はユーザー `akira`、開発用 checkout `/home/akira/ghq/github.com/akawashiro/procinsh`、専用領域 `/home/akira/.local/share/procinsh-preview` を使用します。専用領域内の worktree は更新処理が管理するため、手作業で編集しないでください。開発用 checkout のブランチとファイルは変更しませんが、専用 Git ref と worktree 登録を追加します。
 
-[開発環境](DEVELOPMENT.md)のビルド依存に加え、`gh`、`curl`、`flock` が必要です。`akira` として `gh auth login` を済ませてください。更新処理は HTTPS と `gh auth git-credential` を使い、SSH 鍵には依存しません。Cargo は `/home/akira/.cargo/bin`、Node.js 22 以降と npm は `/usr/local/bin` または `/usr/bin` から利用できる必要があります。別の場所にある場合は更新 unit の `PATH` を調整してください。
+[開発環境](DEVELOPMENT.md)のビルド依存に加え、`gh`、`curl`、`flock` が必要です。`akira` として `gh auth login` を済ませてください。更新処理は HTTPS と `gh auth git-credential` を使います。Cargo は `/home/akira/.cargo/bin`、Node.js 22 以降と npm は `/usr/local/bin` または `/usr/bin` から利用できる必要があります。別の場所にある場合は更新 unit の `PATH` を調整してください。
 
-サービスは `User=akira` として起動し、systemd が `CAP_SYS_PTRACE`、`CAP_BPF`、`CAP_PERFMON` を付与します。バイナリに `setcap` する必要はなく、`dev_run.sh` は使用しません。ビルドは `akira` で行い、配置とサービス再起動を行う `ExecStartPost=+` の段階だけ root で実行します。この構成は当該ユーザーのビルド成果物を信頼する開発マシン向けです。
+サービスは `User=akira` として起動し、systemd が `CAP_SYS_PTRACE`、`CAP_BPF`、`CAP_PERFMON` を付与します。ビルドは `akira` で行い、配置とサービス再起動を行う `ExecStartPost=+` の段階だけ root で実行します。この構成は当該ユーザーのビルド成果物を信頼する開発マシン向けです。
 
 ## 登録
 
 以下はユーザーが実行するホスト設定です。リポジトリのルートで実行します。
 
 ```sh
-install -d -m 0755 /home/akira/.local/share/procinsh-preview
-sudo install -d -m 0755 /usr/local/libexec
+mkdir -p /home/akira/.local/share/procinsh-preview
+sudo mkdir -p /usr/local/libexec
 sudo install -m 0755 scripts/main_preview.sh /usr/local/libexec/procinsh-main-preview
 sudo install -m 0644 scripts/systemd/procinsh-preview.service \
   scripts/systemd/procinsh-preview-update.service \
@@ -28,12 +28,6 @@ sudo systemctl start procinsh-preview-update.service
 ```
 
 初回ビルド成功後に常設サービスが起動します。以降は OS 再起動時にも起動します。unit と更新スクリプト自身は自動更新の対象ではありません。これらを変更したときは timer を停止して更新処理の終了を待ち、再インストールと `daemon-reload` を行ってから timer を再開してください。
-
-認証・TLS はありません。接続者はプロセスメモリや環境変数を閲覧できます。ファイアウォールでは、9090 番ポートへの接続を利用する LAN・VPN のサブネットだけに許可してください。たとえば UFW を既に使っている環境では、実際のサブネットに置き換えて次のルールを追加します。既存の広い許可ルールがないことも確認してください。
-
-```sh
-sudo ufw allow from 192.168.1.0/24 to any port 9090 proto tcp
-```
 
 外の端末から `http://開発マシンのLANまたはVPNアドレス:9090/` を開きます。
 
