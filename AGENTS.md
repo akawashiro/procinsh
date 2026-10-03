@@ -4,3 +4,4 @@
   - 理由: 固定ツールチェーン Rust 1.98.1 の rustdoc では、非公開の祖先モジュールを持つ `pub(super)` / `pub(in ...)` などの restricted re-export が、façade 側の I/F として表示されない。`--document-private-items` や `#[doc(inline)]` でもこの構成では期待する表示にならないため、module root のコメントに型・シグネチャと定義元への intra-doc link を記載して補う。コメント内のシグネチャは自動同期されず、リンク検査でも不一致を検出できないため、インターフェース変更時に手動で更新する必要がある。
 - C ソース・ヘッダー（BPF を含む）を変更したら `python3 scripts/format_c.py` で整形し、`python3 scripts/format_c.py --check` を実行すること。clang-format は `requirements-format.txt` の固定バージョンを使う。インストール手順は `docs/DEVELOPMENT.md` を参照。
 - procinsh を起動するときは強めの権限が必要になるので、./scripts/dev_run.sh を利用すること
+- ptrace・perf・BPF など権限が必要な Rust 単体テストは `./scripts/dev_test.sh` で実行すること（内部で既存の `./scripts/dev_run.sh` に権限設定・実行を委譲する）。perf の検証では `PROCINSH_REQUIRE_PERF=1 ./scripts/dev_test.sh` を使い、権限不足によるスキップを禁止すること。`dev_test.sh` の後ろにはテスト名フィルターや `--nocapture` などのテスト実行引数を渡せる。サーバーを起動する結合テストも dev_run 経由にすること（対応するテストでは `PROCINSH_BINARY=./scripts/dev_run.sh`）。

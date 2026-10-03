@@ -44,7 +44,10 @@ async fn next(body: &mut Body) -> serde_json::Value {
 async fn explicit_identity_is_required_without_selection() {
     let state = Arc::new(AppState::new(Duration::from_millis(100)));
     let app = super::router::router(state.clone(), "127.0.0.1:8080".parse().unwrap());
-    let id = super::process::identity(std::process::id() as i32).unwrap();
+    // A capability-bearing test executable can have root-owned /proc metadata.
+    // Observe an ordinary child, as the API does for user-selected processes.
+    let target = super::process::TestTarget::new("sleeping");
+    let id = target.id;
     for method in ["GET", "POST", "DELETE"] {
         let mut req = request("/api/target");
         *req.method_mut() = method.parse().unwrap();

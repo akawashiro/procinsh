@@ -1,5 +1,8 @@
 //! Linux x86-64 perf ABI. Events follow a TID across CPU migration.
-use super::registers::RegisterSet;
+use super::{
+    registers::RegisterSet,
+    sample::{RawSample as Sample, SampleSource},
+};
 use anyhow::{Context, Result, bail, ensure};
 use std::{
     os::fd::{AsRawFd, FromRawFd, OwnedFd},
@@ -29,19 +32,6 @@ struct Attr {
     stack: u32,
     clock: i32,
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum SampleSource {
-    CpuClock,
-    ContextSwitch { preempted: bool },
-}
-pub(super) struct Sample {
-    pub(super) source: SampleSource,
-    pub(super) tid: i32,
-    pub(super) time_ns: u64,
-    pub(super) cpu: u32,
-    pub(super) registers: RegisterSet,
-    pub(super) stack: Vec<u8>,
-}
 pub(super) struct Event {
     _fd: OwnedFd,
     mapping: *mut u8,
@@ -53,6 +43,10 @@ pub(super) struct Event {
     context_switch: bool,
     pending: Option<Sample>,
 }
+// SAFETY: Event exclusively owns its mmap and fd. Access requires &mut self;
+// moving ownership to the observation worker does not share the mapping.
+unsafe impl Send for Event {}
+
 impl Event {
     pub(super) fn open(tid: i32) -> Result<Self> {
         let attr = Attr {
@@ -189,7 +183,7 @@ impl Event {
                             && misc & (1 << 13) != 0
                             && sample.tid == tid
                             && sample.time_ns <= time
-                            && sample.cpu == cpu
+                            && sample.cpu == Some(cpu)
                         {
                             sample.source = SampleSource::ContextSwitch {
                                 preempted: misc & (1 << 14) != 0,
@@ -268,7 +262,7 @@ fn parse(bytes: &[u8]) -> Result<Option<Sample>> {
         source: SampleSource::CpuClock,
         tid,
         time_ns,
-        cpu,
+        cpu: Some(cpu),
         registers: RegisterSet(values),
         stack: stack[..used].to_vec(),
     }))
@@ -451,7 +445,7 @@ mod tests {
         b.extend([1; 16]);
         b.extend(8u64.to_ne_bytes());
         let s = parse(&b).unwrap().unwrap();
-        assert_eq!((s.tid, s.cpu, s.time_ns), (42, 7, 123));
+        assert_eq!((s.tid, s.cpu, s.time_ns), (42, Some(7), 123));
         assert_eq!(s.registers.0[8], 108);
         assert_eq!(s.stack.len(), 8);
         for n in 0..b.len() {

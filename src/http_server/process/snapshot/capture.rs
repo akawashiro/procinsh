@@ -1,5 +1,6 @@
 #[cfg(test)]
-use super::perf::SampleSource;
+use super::sample::SampleSource;
+use super::sample::monotonic_ns;
 use super::{
     disasm::Disassembly,
     perf::Event,
@@ -11,7 +12,12 @@ use super::{
 use crate::http_server::process::{self, ProcessId, maps::MemoryMap, procfs};
 use anyhow::Result;
 use serde::Serialize;
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    time::{Duration, Instant},
+};
+
+const PTRACE_INTERVAL: Duration = Duration::from_secs(10);
 
 #[derive(Clone, Debug, Serialize)]
 pub(in crate::http_server::process) struct ThreadSample {
@@ -52,6 +58,7 @@ struct Thread {
     event: Option<Event>,
     switch_event: Option<Event>,
     setup_error: Option<String>,
+    ptrace_error: Option<String>,
     latest: ThreadSample,
     sampled_ns: Option<u64>,
 }
@@ -60,6 +67,7 @@ pub(in crate::http_server::process) struct Sampler {
     threads: BTreeMap<i32, Thread>,
     symbols: ElfCache,
     unwind: UnwindState,
+    next_ptrace: Option<Instant>,
 }
 impl Sampler {
     pub(in crate::http_server::process) fn new(id: ProcessId) -> Self {
@@ -68,7 +76,41 @@ impl Sampler {
             threads: BTreeMap::new(),
             symbols: ElfCache::default(),
             unwind: UnwindState::default(),
+            next_ptrace: None,
         }
+    }
+    pub(in crate::http_server::process) fn bootstrap(&mut self, maps: &[MemoryMap]) -> Result<()> {
+        // Discover all threads and open perf events before interrupting any thread.
+        self.next_ptrace = None;
+        self.poll(maps)?;
+        self.capture_ptrace(maps)
+    }
+    fn capture_ptrace(&mut self, maps: &[MemoryMap]) -> Result<()> {
+        for (&tid, thread) in &mut self.threads {
+            thread.ptrace_error = None;
+            thread.latest.error = thread.setup_error.clone();
+            match super::ptrace::capture(tid, maps) {
+                Ok(sample) => process_sample(
+                    self.id.pid,
+                    &mut self.unwind,
+                    &mut self.symbols,
+                    thread,
+                    sample,
+                    maps,
+                ),
+                Err(error) => {
+                    let message = format!("ptrace sampling: {error:#}");
+                    thread.ptrace_error = Some(message.clone());
+                    thread.latest.error = Some(match thread.latest.error.take() {
+                        Some(error) => format!("{error}; {message}"),
+                        None => message,
+                    });
+                }
+            }
+        }
+        // Schedule from completion, including failed attempts; never catch up in a burst.
+        self.next_ptrace = Some(Instant::now() + PTRACE_INTERVAL);
+        process::check_identity(self.id)
     }
     pub(in crate::http_server::process) fn poll(&mut self, maps: &[MemoryMap]) -> Result<()> {
         process::check_identity(self.id)?;
@@ -118,6 +160,7 @@ impl Sampler {
                 Thread {
                     switch_event,
                     setup_error: latest.error.clone(),
+                    ptrace_error: None,
                     start_time: stat.start_time,
                     event,
                     latest,
@@ -126,7 +169,10 @@ impl Sampler {
             });
             let mut newest = None;
             let mut lost = 0u64;
-            thread.latest.error = thread.setup_error.clone();
+            thread.latest.error = match (&thread.setup_error, &thread.ptrace_error) {
+                (Some(perf), Some(ptrace)) => Some(format!("{perf}; {ptrace}")),
+                (perf, ptrace) => perf.clone().or_else(|| ptrace.clone()),
+            };
             for event in [&mut thread.event, &mut thread.switch_event]
                 .into_iter()
                 .flatten()
@@ -135,7 +181,9 @@ impl Sampler {
                     Ok(Some(sample)) if sample.tid == tid => {
                         if newest
                             .as_ref()
-                            .is_none_or(|old: &super::perf::Sample| sample.time_ns > old.time_ns)
+                            .is_none_or(|old: &super::sample::RawSample| {
+                                sample.time_ns > old.time_ns
+                            })
                         {
                             newest = Some(sample);
                         }
@@ -149,45 +197,23 @@ impl Sampler {
             if let Some(sample) = newest
                 && thread.sampled_ns.is_none_or(|time| sample.time_ns > time)
             {
-                let r = &sample.registers;
-                let (mut frames, reason) =
-                    self.unwind
-                        .walk(r.0[8], r.0[7], r.0[6], maps, &sample.stack);
-                for (index, frame) in frames.iter_mut().enumerate() {
-                    let address = instruction_address(frame.address, index > 0);
-                    let info = maps
-                        .iter()
-                        .find(|m| m.contains(address) && m.inode != 0)
-                        .and_then(|map| {
-                            let elf = self.symbols.get(self.id.pid, map)?;
-                            resolve_frame(
-                                elf_address(address, map, &elf, procfs::page_size())?,
-                                &elf,
-                            )
-                        });
-                    apply_symbol_info(frame, info);
-                }
-                let mut code = Disassembly::capture(self.id.pid, r.0[8], maps);
-                code.decode();
-                let age = monotonic_ns().saturating_sub(sample.time_ns) / 1_000_000;
-                thread.sampled_ns = Some(sample.time_ns);
-                thread.latest = ThreadSample {
-                    tid,
-                    sampled_at: Some(process::timestamp_ms().saturating_sub(age)),
-                    #[cfg(test)]
-                    sample_source: Some(sample.source),
-                    sample_age_ms: Some(age),
-                    cpu: Some(sample.cpu),
-                    lost_samples: lost,
-                    registers: registers::from_sample(r, maps),
-                    call_stack: frames,
-                    disassembly: Some(code),
-                    unwind_stop: reason,
-                    error: thread.latest.error.clone(),
-                };
+                process_sample(
+                    self.id.pid,
+                    &mut self.unwind,
+                    &mut self.symbols,
+                    thread,
+                    sample,
+                    maps,
+                );
             }
         }
         self.threads.retain(|tid, _| alive.contains(tid));
+        if self
+            .next_ptrace
+            .is_some_and(|deadline| Instant::now() >= deadline)
+        {
+            self.capture_ptrace(maps)?;
+        }
         process::check_identity(self.id)?;
         Ok(())
     }
@@ -205,12 +231,50 @@ impl Sampler {
             .collect()
     }
 }
-fn monotonic_ns() -> u64 {
-    let mut time: libc::timespec = unsafe { std::mem::zeroed() };
-    unsafe {
-        libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut time);
+fn process_sample(
+    pid: i32,
+    unwind: &mut UnwindState,
+    symbols: &mut ElfCache,
+    thread: &mut Thread,
+    sample: super::sample::RawSample,
+    maps: &[MemoryMap],
+) {
+    if thread.sampled_ns.is_some_and(|time| sample.time_ns <= time) {
+        return;
     }
-    time.tv_sec as u64 * 1_000_000_000 + time.tv_nsec as u64
+    let tid = sample.tid;
+    let lost = thread.latest.lost_samples;
+    let r = &sample.registers;
+    let (mut frames, reason) = unwind.walk(r.0[8], r.0[7], r.0[6], maps, &sample.stack);
+    for (index, frame) in frames.iter_mut().enumerate() {
+        let address = instruction_address(frame.address, index > 0);
+        let info = maps
+            .iter()
+            .find(|m| m.contains(address) && m.inode != 0)
+            .and_then(|map| {
+                let elf = symbols.get(pid, map)?;
+                resolve_frame(elf_address(address, map, &elf, procfs::page_size())?, &elf)
+            });
+        apply_symbol_info(frame, info);
+    }
+    let mut code = Disassembly::capture(pid, r.0[8], maps);
+    code.decode();
+    let age = monotonic_ns().saturating_sub(sample.time_ns) / 1_000_000;
+    thread.sampled_ns = Some(sample.time_ns);
+    thread.latest = ThreadSample {
+        tid,
+        sampled_at: Some(process::timestamp_ms().saturating_sub(age)),
+        #[cfg(test)]
+        sample_source: Some(sample.source),
+        sample_age_ms: Some(age),
+        cpu: sample.cpu,
+        lost_samples: lost,
+        registers: registers::from_sample(r, maps),
+        call_stack: frames,
+        disassembly: Some(code),
+        unwind_stop: reason,
+        error: thread.latest.error.clone(),
+    };
 }
 
 // Replace all resolved fields so repeated application cannot append inline frames
@@ -300,22 +364,227 @@ mod live_tests {
     }
 
     #[test]
-    fn live_already_sleeping_waits_for_next_transition() {
+    fn live_sleeping_bootstrap_and_perf_handoff() {
         let target = TestTarget::new("sleeping");
-        if !perf_available(target.id.pid) {
-            return;
-        }
         let maps = process::maps::read(target.id.pid, false).unwrap();
         let mut sampler = Sampler::new(target.id);
-        sampler.poll(&maps).unwrap();
-        std::thread::sleep(Duration::from_millis(100));
-        sampler.poll(&maps).unwrap();
-        assert!(sampler.latest()[0].sampled_at.is_none());
-        poll_until(&mut sampler, &maps, |s| s.latest()[0].sampled_at.is_some());
-        assert_eq!(
-            sampler.latest()[0].sample_source,
-            Some(SampleSource::ContextSwitch { preempted: false })
+        sampler.bootstrap(&maps).unwrap();
+        let first = sampler.latest()[0].clone();
+        assert_eq!(first.sample_source, Some(SampleSource::Ptrace), "{first:?}");
+        assert_eq!(first.registers.len(), 18);
+        assert!(first.cpu.is_none());
+        assert!(
+            first
+                .call_stack
+                .iter()
+                .any(|frame| frame.symbol.as_deref() == Some("main")),
+            "{:?}",
+            first.call_stack
         );
+        target.assert_detached();
+        if perf_available(target.id.pid) {
+            poll_until(&mut sampler, &maps, |s| {
+                s.latest()[0].sampled_at > first.sampled_at
+                    && s.latest()[0].sample_source != Some(SampleSource::Ptrace)
+            });
+            target.assert_detached();
+            // The periodic capture also hands control back to real perf updates.
+            sampler.next_ptrace = Some(Instant::now());
+            sampler.poll(&maps).unwrap();
+            assert_eq!(
+                sampler.latest()[0].sample_source,
+                Some(SampleSource::Ptrace)
+            );
+            let periodic_ns = sampler.threads[&target.id.pid].sampled_ns;
+            poll_until(&mut sampler, &maps, |s| {
+                s.threads[&target.id.pid].sampled_ns > periodic_ns
+                    && s.latest()[0].sample_source != Some(SampleSource::Ptrace)
+            });
+            target.assert_detached();
+        }
+        drop(sampler);
+        target.assert_detached();
+    }
+
+    #[test]
+    fn periodic_ptrace_waits_for_deadline_and_refreshes_sleeping_thread() {
+        let target = TestTarget::new("sleeping");
+        let maps = process::maps::read(target.id.pid, false).unwrap();
+        let mut sampler = Sampler::new(target.id);
+        sampler.bootstrap(&maps).unwrap();
+        let deadline = sampler.next_ptrace.unwrap();
+        assert!(deadline.duration_since(Instant::now()) > Duration::from_secs(9));
+        // Isolate the periodic source from interrupt-induced context-switch samples.
+        let thread = sampler.threads.get_mut(&target.id.pid).unwrap();
+        thread.event = None;
+        thread.switch_event = None;
+        let first = thread.sampled_ns;
+        sampler.poll(&maps).unwrap();
+        assert_eq!(sampler.threads[&target.id.pid].sampled_ns, first);
+        assert_eq!(sampler.next_ptrace, Some(deadline));
+        sampler.next_ptrace = Some(Instant::now() - Duration::from_secs(30));
+        sampler.poll(&maps).unwrap();
+        let thread = &sampler.threads[&target.id.pid];
+        assert!(thread.sampled_ns > first);
+        assert_eq!(thread.latest.sample_source, Some(SampleSource::Ptrace));
+        assert!(thread.ptrace_error.is_none());
+        assert_eq!(thread.latest.error, thread.setup_error);
+        assert!(
+            sampler.next_ptrace.unwrap().duration_since(Instant::now()) > Duration::from_secs(9)
+        );
+        let second = thread.sampled_ns;
+        sampler.poll(&maps).unwrap();
+        assert_eq!(sampler.threads[&target.id.pid].sampled_ns, second);
+        target.assert_detached();
+    }
+
+    #[test]
+    fn periodic_ptrace_captures_all_threads_including_newly_discovered_threads() {
+        let target = TestTarget::new("threads");
+        let maps = process::maps::read(target.id.pid, false).unwrap();
+        let mut sampler = Sampler::new(target.id);
+        sampler.bootstrap(&maps).unwrap();
+        // This fixture also churns short-lived threads; only its main and four
+        // permanent workers are guaranteed to survive the entire capture sweep.
+        let stable_tids: Vec<_> = sampler
+            .threads
+            .keys()
+            .copied()
+            .filter(|&tid| {
+                tid == target.id.pid
+                    || std::fs::read_to_string(format!("/proc/{}/task/{tid}/comm", target.id.pid))
+                        .is_ok_and(|name| {
+                            matches!(name.trim(), "procinsh-worker" | "procinsh-sleep")
+                        })
+            })
+            .collect();
+        assert_eq!(stable_tids.len(), 5);
+        let old: BTreeMap<_, _> = sampler
+            .threads
+            .iter()
+            .map(|(&tid, thread)| (tid, thread.sampled_ns))
+            .collect();
+        // Rediscovery follows the same path as a thread born after bootstrap.
+        let rediscovered = target.id.pid;
+        sampler.threads.remove(&rediscovered);
+        sampler.next_ptrace = Some(Instant::now());
+        sampler.poll(&maps).unwrap();
+        assert!(sampler.threads.contains_key(&rediscovered));
+        for tid in stable_tids {
+            let thread = &sampler.threads[&tid];
+            assert_eq!(thread.latest.sample_source, Some(SampleSource::Ptrace));
+            assert!(thread.ptrace_error.is_none());
+            assert_eq!(thread.latest.error, thread.setup_error);
+            if let Some(previous) = old.get(&tid) {
+                assert!(thread.sampled_ns > *previous);
+            }
+        }
+        target.assert_detached();
+    }
+
+    #[test]
+    fn periodic_ptrace_failure_preserves_sample_and_retries_only_when_due() {
+        let target = TestTarget::new("sleeping");
+        let maps = process::maps::read(target.id.pid, false).unwrap();
+        let mut sampler = Sampler::new(target.id);
+        sampler.bootstrap(&maps).unwrap();
+        let thread = sampler.threads.get_mut(&target.id.pid).unwrap();
+        thread.event = None;
+        thread.switch_event = None;
+        let first = thread.sampled_ns;
+        // An existing tracer forces SEIZE to fail without changing the last sample.
+        assert_eq!(
+            unsafe { libc::ptrace(libc::PTRACE_SEIZE, target.id.pid, 0, 0) },
+            0
+        );
+        assert_eq!(
+            unsafe { libc::ptrace(libc::PTRACE_INTERRUPT, target.id.pid, 0, 0) },
+            0
+        );
+        let mut status = 0;
+        assert_eq!(
+            unsafe { libc::waitpid(target.id.pid, &mut status, libc::__WALL) },
+            target.id.pid
+        );
+        assert!(libc::WIFSTOPPED(status));
+        sampler.next_ptrace = Some(Instant::now());
+        sampler.poll(&maps).unwrap();
+        let failed_deadline = sampler.next_ptrace.unwrap();
+        let thread = &sampler.threads[&target.id.pid];
+        assert_eq!(thread.sampled_ns, first);
+        assert!(
+            thread
+                .latest
+                .error
+                .as_deref()
+                .unwrap()
+                .contains("ptrace sampling")
+        );
+        assert!(failed_deadline.duration_since(Instant::now()) > Duration::from_secs(9));
+        assert_eq!(
+            unsafe { libc::ptrace(libc::PTRACE_DETACH, target.id.pid, 0, 0) },
+            0
+        );
+        target.assert_detached();
+        sampler.poll(&maps).unwrap();
+        assert_eq!(sampler.next_ptrace, Some(failed_deadline));
+        assert_eq!(sampler.threads[&target.id.pid].sampled_ns, first);
+        assert!(sampler.threads[&target.id.pid].latest.error.is_some());
+        sampler.next_ptrace = Some(Instant::now());
+        sampler.poll(&maps).unwrap();
+        let thread = &sampler.threads[&target.id.pid];
+        assert!(thread.sampled_ns > first);
+        assert!(thread.ptrace_error.is_none());
+        assert_eq!(thread.latest.error, thread.setup_error);
+        assert_eq!(thread.latest.sample_source, Some(SampleSource::Ptrace));
+        target.assert_detached();
+    }
+
+    #[test]
+    fn sample_ordering_preserves_bootstrap_then_accepts_newer_perf() {
+        let target = TestTarget::new("sleeping");
+        let maps = process::maps::read(target.id.pid, false).unwrap();
+        let mut sampler = Sampler::new(target.id);
+        sampler.bootstrap(&maps).unwrap();
+        let thread = sampler.threads.get_mut(&target.id.pid).unwrap();
+        let time = thread.sampled_ns.unwrap();
+        let sample = super::super::sample::RawSample {
+            tid: target.id.pid,
+            time_ns: time.saturating_sub(1),
+            cpu: Some(0),
+            registers: registers::RegisterSet([0; 24]),
+            stack: Vec::new(),
+            source: SampleSource::CpuClock,
+        };
+        process_sample(
+            target.id.pid,
+            &mut sampler.unwind,
+            &mut sampler.symbols,
+            thread,
+            sample,
+            &maps,
+        );
+        assert_eq!(thread.sampled_ns, Some(time));
+        assert_eq!(thread.latest.sample_source, Some(SampleSource::Ptrace));
+        let sample = super::super::sample::RawSample {
+            tid: target.id.pid,
+            time_ns: time + 1,
+            cpu: Some(7),
+            registers: registers::RegisterSet([0; 24]),
+            stack: Vec::new(),
+            source: SampleSource::CpuClock,
+        };
+        process_sample(
+            target.id.pid,
+            &mut sampler.unwind,
+            &mut sampler.symbols,
+            thread,
+            sample,
+            &maps,
+        );
+        assert_eq!(thread.sampled_ns, Some(time + 1));
+        assert_eq!(thread.latest.sample_source, Some(SampleSource::CpuClock));
+        assert_eq!(thread.latest.cpu, Some(7));
         target.assert_detached();
     }
 
