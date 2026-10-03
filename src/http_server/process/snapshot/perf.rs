@@ -61,6 +61,28 @@ impl Event {
             clock: libc::CLOCK_MONOTONIC,
             ..Attr::default()
         };
+        Self::open_attr(tid, attr)
+    }
+    #[cfg(test)]
+    pub(super) fn context_switch(tid: i32, stack: u32, records: bool) -> Result<Self> {
+        Self::open_attr(
+            tid,
+            Attr {
+                kind: 1,
+                size: std::mem::size_of::<Attr>() as u32,
+                config: 3,
+                period: 1,
+                sample_type: SAMPLE_TYPE,
+                flags: (1 << 25) | ((records as u64) << 26) | (1 << 18),
+                wakeup: 1,
+                regs: REGS_MASK,
+                stack,
+                clock: libc::CLOCK_MONOTONIC,
+                ..Attr::default()
+            },
+        )
+    }
+    fn open_attr(tid: i32, attr: Attr) -> Result<Self> {
         let fd = unsafe { libc::syscall(libc::SYS_perf_event_open, &attr, tid, -1, -1, 8) };
         if fd < 0 {
             return Err(std::io::Error::last_os_error())
@@ -115,6 +137,12 @@ impl Event {
             .collect()
     }
     pub(super) fn drain(&mut self) -> Result<Option<Sample>> {
+        self.drain_records(|_, _, _| {})
+    }
+    pub(super) fn drain_records(
+        &mut self,
+        mut record: impl FnMut(u32, u16, &[u8]),
+    ) -> Result<Option<Sample>> {
         let head = unsafe { &*self.mapping.add(1024).cast::<AtomicU64>() }.load(Ordering::Acquire);
         let mut latest = None;
         let result = (|| {
@@ -135,6 +163,7 @@ impl Event {
                 );
                 let bytes = self.copy(self.tail.wrapping_add(8), size - 8);
                 self.tail = self.tail.wrapping_add(size as u64);
+                record(kind, u16::from_ne_bytes(header[4..6].try_into()?), &bytes);
                 match kind {
                     9 => {
                         if let Some(sample) = parse(&bytes)? {
@@ -251,7 +280,14 @@ mod tests {
             }
         }
         unsafe { &*mapping.add(1024).cast::<AtomicU64>() }.store(4114, Ordering::Release);
-        assert!(event.drain().unwrap().is_none());
+        let mut observed = Vec::new();
+        assert!(
+            event
+                .drain_records(|kind, misc, payload| observed.push((kind, misc, payload.to_vec())))
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(observed, vec![(2, 0, bytes[8..].to_vec())]);
         assert_eq!(event.lost, 17);
         assert_eq!(
             unsafe { &*mapping.add(1032).cast::<AtomicU64>() }.load(Ordering::Acquire),
@@ -262,6 +298,13 @@ mod tests {
         assert_eq!(event.lost, 18);
         assert_eq!(event.tail, 10000);
         assert!(event.drain().unwrap().is_none());
+    }
+    #[test]
+    fn abi_none_is_not_a_usable_user_sample() {
+        let mut bytes = vec![0; 32];
+        assert!(parse(&bytes).unwrap().is_none());
+        bytes[24] = 1;
+        assert!(parse(&bytes).is_err());
     }
     #[test]
     fn parses_register_order_and_dynamic_stack_and_rejects_truncation() {

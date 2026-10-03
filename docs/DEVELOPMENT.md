@@ -367,6 +367,8 @@ Rust テストは明示的な識別子の必須性、SSEの独立した履歴・
 
 perf の実機 fixture は権限が利用できない環境では明示メッセージとともにスキップします。`PROCINSH_REQUIRE_PERF=1` を設定するとスキップを禁止して権限不足も失敗にします。CAP_PERFMON を持つテストプロセスで busy-loop の更新、再帰 frame、複数 TID、churn の追加・削除、sleep 後の age、対象終了を確認してください。
 
+context-switch perf の opt-in PoC・測定 matrix は [CONTEXT_SWITCH_POC.md](CONTEXT_SWITCH_POC.md) を参照してください。
+
 ### ブラウザテスト
 
 上記の Web・Rust ビルドと fixture の準備に加え、Google Chrome または Chromium が必要です。テスト自体は Node.js 標準機能と DevTools Protocol を使い、追加の npm テストライブラリは不要です。

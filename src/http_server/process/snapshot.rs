@@ -22,6 +22,9 @@
 //! - [`perf::Event::open`]: `fn open(tid: i32) -> anyhow::Result<Self>`.
 //! - [`perf::Event::drain`]: `fn drain(&mut self) -> anyhow::Result<Option<Sample>>`.
 //!
+//! - [`perf::Event::drain_records`]: `fn drain_records(&mut self, record: impl FnMut(u32, u16, &[u8])) -> anyhow::Result<Option<Sample>>`, raw record observer.
+//! - `Event::context_switch` (tests only): `fn context_switch(tid: i32, stack: u32, records: bool) -> anyhow::Result<Self>`.
+//!
 //! Register payload fields (`pub(super)` in [`registers`]):
 //! - [`registers::Register`]: `kind: MemoryKind`, `mapping: Option<RegisterMapping>`, `offset: Option<u64>` (hex string or null in JSON).
 //! - [`registers::RegisterMapping`]: `pathname: Option<String>, readable: bool, writable: bool, executable: bool, private: bool`.
@@ -34,6 +37,8 @@
 //!
 //! Memory kinds are defined in [`super::maps::MemoryKind`].
 mod capture;
+#[cfg(test)]
+mod context_switch_poc;
 mod disasm;
 mod perf;
 mod registers;
