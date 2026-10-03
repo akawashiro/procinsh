@@ -26,6 +26,14 @@ case "${1:-}" in
       git -C "$state/worktree" checkout --detach "$commit"
     fi
     cd "$state/worktree"
+    # systemd does not load shell startup files that normally initialize nvm.
+    if ! command -v npm >/dev/null 2>&1; then
+      export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+      if [[ -s "$NVM_DIR/nvm.sh" ]]; then
+        source "$NVM_DIR/nvm.sh" --no-use
+        nvm use default
+      fi
+    fi
     npm ci
     npm run build:web
     cargo build --locked

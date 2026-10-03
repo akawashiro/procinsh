@@ -6,7 +6,7 @@
 
 同梱 unit はログインユーザーのホームを基準に、開発用 checkout `~/ghq/github.com/akawashiro/procinsh`、専用領域 `~/procinsh-main-preview` を使用します。専用領域内の worktree は更新処理が管理するため、手作業で編集しないでください。開発用 checkout のブランチとファイルは変更しませんが、専用 Git ref と worktree 登録を追加します。
 
-[開発環境](DEVELOPMENT.md)のビルド依存に加え、`gh`、`curl`、`flock` が必要です。利用するユーザーとして `gh auth login` を済ませてください。更新処理は HTTPS と `gh auth git-credential` を使います。Cargo は `~/.cargo/bin`、Node.js 22 以降と npm は `/usr/local/bin` または `/usr/bin` から利用できる必要があります。別の場所にある場合は更新 unit の `PATH` を調整してください。
+[開発環境](DEVELOPMENT.md)のビルド依存に加え、`gh`、`curl`、`flock` が必要です。利用するユーザーとして `gh auth login` を済ませてください。更新処理は HTTPS と `gh auth git-credential` を使います。Cargo は `~/.cargo/bin`、Node.js 22 以降と npm は `/usr/local/bin` または `/usr/bin` から利用できる必要があります。npm が PATH にない場合は `${NVM_DIR:-$HOME/.nvm}/nvm.sh` を読み込み、nvm の `default` alias を選択します。nvm を使う場合は `nvm alias default` が Node.js 22 以降を指すよう設定してください。それ以外の場所にある場合は更新 unit の `PATH` を調整してください。systemd は `.zshrc` などのシェル初期化ファイルを読み込みません。
 
 ビルド・配置・サービス管理はすべてログインユーザーで行います。ビルド後の候補バイナリに対して `sudo -n setcap cap_sys_ptrace,cap_bpf,cap_perfmon=ep` を実行し、観測用の権限を付与します。このコマンドを候補ファイル `~/procinsh-main-preview/candidate` に対してパスワード入力なしで実行できることが前提です。権限付与に失敗した場合は更新を中止し、稼働版を維持します。
 
