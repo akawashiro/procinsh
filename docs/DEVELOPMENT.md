@@ -1,6 +1,6 @@
 # ProcInSh 開発ドキュメント
 
-ProcInSh は Linux x86-64 のプロセスを観測する Web アプリケーションです。Rust の HTTP サーバーが `/proc`、ptrace、eBPF から情報を取得し、ブラウザに配信します。プロセスのメモリやレジスタを書き換える機能はありません。ただし、ptrace スナップショットの取得中は対象の全スレッドを一時停止します。
+ProcInSh は Linux x86-64 のプロセスを観測する Web アプリケーションです。Rust の HTTP サーバーが `/proc`、perf、eBPF から情報を取得し、ブラウザに配信します。
 
 この文書は現在の実装構成、動作、API、開発・検証手順を説明します。以下のコマンドはリポジトリのルートで実行します。
 
@@ -54,9 +54,9 @@ cargo publish --dry-run
 | `src/http_server/web.rs` | 静的 Web UI 配信 |
 | `src/http_server/process/monitoring/` | 接続ごとの独立した観測、60秒の履歴、最新状態の配信 |
 | `src/http_server/process/` | `/proc` の解析、PID 識別、プロセス・スレッド・メモリ・FD・ソケット・シグナル情報 |
-| `src/http_server/process/snapshot/` | ptrace による停止・レジスタ取得、frame pointer unwind、逆アセンブル |
+| `src/http_server/process/snapshot/` | perf による非停止レジスタ・スタック取得、frame pointer unwind、逆アセンブル |
 | `src/http_server/process/snapshot/symbol/` | ELF 取得・キャッシュ、アドレス変換、ELF/DWARF によるシンボル・ソース位置の解決 |
-| `src/http_server/process/snapshot/stack.rs` | スナップショットとシンボル解決で共有するフレーム型 |
+| `src/http_server/process/snapshot/stack.rs` | サンプルとシンボル解決で共有するフレーム型 |
 | `src/http_server/system/` | 全プロセスの構造、subscription、BPF 収集、名前解決 |
 | `src/web/` | TypeScript の通常画面・SPACE 画面・描画モデル、HTML/CSS、同梱 Three.js |
 | `tests/` | Rust・ブラウザ・ログ・実機センサーのテストと C fixture |
@@ -67,11 +67,11 @@ cargo publish --dry-run
 
 HTTP の起動と終了は `http_server/server.rs`、共有状態は `state.rs`、router の組み立ては `router.rs` と `api/router.rs`、HTTP guard とアクセスログは `middleware.rs` が担当します。process façade の実装は `process/identity.rs` と `process/resources.rs`、観測の lifecycle は `monitoring/service.rs`、snapshot の orchestration は `snapshot/capture.rs` に置きます。symbol は `symbol/cache.rs` と `symbol/resolve.rs`、system monitoring は `system/service.rs` と状態ログの `status.rs` に分けています。 `activity.rs` は BPF センサーの所有・収集・状態と欠落数の管理を担当します。依存関係図はこれらの子モジュールも含めて生成され、概要図では従来どおり各サブシステムへ集約されます。
 
-HTTP handler と system monitoring は `process.rs` の façade だけを利用します。`process` 内部の `monitoring` は継続観測、`snapshot` は停止を伴う詳細取得を担当します。snapshot のロックと ELF キャッシュも snapshot が所有します。`process` / `system` は Axum 型に依存しません。
+HTTP handler と system monitoring は `process.rs` の façade だけを利用します。`process` 内部の `monitoring` は継続観測、`snapshot` は非停止の詳細取得を担当します。各 collector の sampler が perf fd・mmap と ELF キャッシュを所有します。`process` / `system` は Axum 型に依存しません。
 
 例外として、façade から再公開する domain 型と subscription の操作は `pub(in crate::http_server)` に限定しています。private な子モジュールから親で再公開するために必要な可視性であり、crate 外部への公開ではありません。内部テストは各モジュールに置き、`tests/http.rs` はバイナリを起動して HTTP と SSE、SIGTERM による終了を検証します。
 
-Tokio/Axum が HTTP と SSE を処理し、ブロッキングする詳細 API は `spawn_blocking` に渡します。プロセスの定期観測とシステム全体の構造・活動収集は OS スレッドで動きます。プロセス詳細監視は接続ごとに独立した状態を持ち、`AppState` は一覧探索と各サブシステムを保持します。接続数・collector は process monitoring、snapshot の直列化とシンボルキャッシュは snapshot が管理します。
+Tokio/Axum が HTTP と SSE を処理し、ブロッキングする詳細 API は `spawn_blocking` に渡します。プロセスの定期観測とシステム全体の構造・活動収集は OS スレッドで動きます。プロセス詳細監視は接続ごとに独立した状態を持ち、`AppState` は一覧探索と各サブシステムを保持します。接続数・collector は process monitoring、perf のライフサイクルとシンボルキャッシュは各 collector が管理します。
 
 Web UI の API 型は `src/web/api-types.ts` に定義し、Rust の JSON 応答と合わせて管理します。null の扱いや16進文字列のアドレスも契約に含まれます。これらはコンパイル時の型で、実行時の入力検証ではありません。TypeScript と Three.js の型定義はビルド専用の npm 依存です。
 
@@ -97,7 +97,6 @@ JSON のプロセス識別子は `{ "pid": 123, "start_time_ticks": 456 }` で�
 | `GET /api/processes/environment` | 識別子クエリ | 環境変数の名前・値の一覧と取得情報 |
 | `GET /api/processes/auxv` | 識別子クエリ | 補助ベクトルのタグ・値・参照先の解決結果 |
 | `GET /api/processes/signals` | 識別子クエリ | プロセス・スレッドのシグナル状態と警告 |
-| `POST /api/processes/snapshot` | JSON本文の必須 `{pid, start_time_ticks}` | レジスタ・スタック・逆アセンブルなどのスナップショット |
 | `GET /api/processes/events` | 識別子クエリ | SSE `observation`：指定プロセスの概要・最新観測・スレッド・履歴・マップ・終了状態 |
 | `GET /api/system/events` | なし | SSE `snapshot`・`activity`・`gap`：構造、CPU・IPC・ファイルI/O活動、配信欠落 |
 
@@ -116,6 +115,7 @@ SSE は `Content-Type: text/event-stream` で接続を維持し、`event:` に�
 | `summary` | `identity`（PID・開始時刻）、名前、実行ファイル、コマンドライン、実・実効ユーザー、状態、CPU使用率、RSS、スレッド数の概要 |
 | `observation` | 最新の `timestamp`、`process_id`、`cpu_percent`、`rss_bytes`、`vms_bytes`、minor/major fault、context switch累計、`io` のread/writeバイト累計、`rates` の毎秒増分、`threads`、CPU番号・nice・priority。未取得なら null |
 | `observation.threads` | TID、名前、状態、CPU番号・使用率、priority・nice、scheduler、affinity、context switch累計 |
+| `live_samples`、`sampling_error` | TID ごとの最新レジスタ・スタック・命令・sample age・欠落数とサンプラーのエラー |
 | `history` | 直近60秒の `timestamp`・`cpu_percent`・`rss_bytes`・`vms_bytes` の配列 |
 | `maps` | 仮想メモリ領域の開始・終了、権限、ファイルオフセット、device/inode、パス、RSS/PSS |
 | `maps_captured_at`、`maps_error` | マップの取得時刻と取得エラー。未取得時の時刻、エラーなしの場合のエラー値は null |
@@ -124,7 +124,7 @@ SSE は `Content-Type: text/event-stream` で接続を維持し、`event:` に�
 
 時刻はUnix epochからのミリ秒、メモリ量はバイト、CPU使用率は1コアを100%とします。`rates` はfault・context switchが回/秒、read/writeがバイト/秒です。差分がない初回のCPU使用率や算出不能なrate、取得不能な任意項目は null になり、ゼロとは区別します。`summary` は接続開始時の概要で、継続的に更新される値は `observation` を参照します。
 
-マップは約5秒間隔で取得するため、イベントの最新観測時刻とマップの取得時刻は一致しません。終了を検出したら `exited: true` を含む最終状態を配信し、ストリームを終了します。レジスタ・コールスタック・逆アセンブル・FD詳細・環境変数・auxv・シグナル詳細は含まず、対応する個別APIで取得します。
+マップは約5秒間隔で取得するため、イベントの最新観測時刻とマップの取得時刻は一致しません。終了を検出したら `exited: true` を含む最終状態を配信し、ストリームを終了します。レジスタ・コールスタック・逆アセンブルは live_samples で配信します。FD詳細・環境変数・auxv・シグナル詳細は個別APIで取得します。
 
 ### `GET /api/system/events`
 
@@ -207,15 +207,17 @@ Axum がルートごとにクエリや JSON を取り出し、ハンドラへ渡
 - `GET /api/processes/auxv`：`/proc/<pid>/exe` の ELF ヘッダから32/64 bitを判別し、procfs の [`/proc/<pid>/auxv`](https://man7.org/linux/man-pages/man5/proc_pid_auxv.5.html) を最大64 KiB読み取ります。タグと値の組として解析し、既知・未知のタグを扱います。`AT_EXECFN`・`AT_PLATFORM`・`AT_BASE_PLATFORM` の文字列参照は、`process_vm_readv` で最大4096バイトまで解決します。参照先が読めなくても数値は保持します。big-endian ELF は対象外です。実装は [ELF ヘッダと auxv の読み取り](../src/http_server/process/details.rs)、[文字列参照の解決](../src/http_server/process/details.rs)、[メモリの読み取り](../src/http_server/process/memory.rs) を参照してください。
 - `GET /api/processes/signals`：procfs の [`/proc/<pid>/status`](https://man7.org/linux/man-pages/man5/proc_pid_status.5.html) と、各スレッドの [`/proc/<pid>/task/<tid>/status`](https://man7.org/linux/man-pages/man5/proc_pid_task.5.html) を読み取ります。`SigPnd`（スレッドの保留）・`ShdPnd`（プロセス全体の保留）・`SigBlk`（ブロック）・`SigIgn`（無視）・`SigCgt`（ハンドラ登録）の16進マスクを解析します。最大4096スレッド・2秒で打ち切ります。受信履歴や送信元の追跡、シグナル送信は行いません。実装は [status の読み取りとスレッドの列挙](../src/http_server/process/signals.rs) と [シグナル状態の解析](../src/http_server/process/signals.rs) を参照してください。
 
-### スナップショット
+### 非停止ライブサンプリング
 
-`POST /api/processes/snapshot` は識別子・生存を確認して専用ロックで取得を直列化してスナップショット処理を呼び出します。同時に要求されてもptrace操作は重複せず、このロックは通常観測や単発読み取りの状態とは分離しています。`PTRACE_SEIZE` と `PTRACE_INTERRUPT` で全スレッドの停止を確認し、レジスタ・マップ・スタック・命令バイトを取得します。追加スレッドを再列挙し、4096スレッド・16回の安定化試行・停止待ち2秒を上限とします。取得にも2秒の処理予算がありますが、カーネル内でブロックする syscall の実時間を保証するものではありません。実装は [スナップショットの取得処理](../src/http_server/process/snapshot/capture.rs) を参照してください。
+各 SSE collector は TID ごとに `perf_event_open(pid=tid, cpu=-1)` で software CPU-clock event を開き、CPU migration に追従します。初期周期は実行中の user CPU 時間100ms（約10Hz）、user stack dump は8192バイトです。TID/TIME/CPU/REGS_USER/STACK_USER を ring buffer から読み、最新値だけを保持します。約50msごとに drain と thread 追加・終了確認を行います。TID と開始時刻を確認して再利用を検出し、プロセス識別子も採取前後に検証します。
 
-RAII と専用 OS スレッドの終了で detach を扱い、既存の job-control stop と signal delivery を維持します。自分自身のスナップショットは拒否します。対象の再開後にシンボル解決と命令デコードを行い、スレッドごとの結果を返します。実装は [SnapshotGuard の detach 処理](../src/http_server/process/snapshot/ptrace.rs) を参照してください。
+レジスタ18個と frame-pointer stack は同じ perf sample に由来します。スタックは sampled RSP/RBP/RIP と採取済みバイトだけで最大256 frame を unwind し、範囲外で停止理由を返します。ELF/DWARF の symbol・source・inline-frame 解決を再利用します。frame pointer を省略したコードの完全な復元は保証しません。
 
-スタックは RBP をたどる最大256フレームの unwind です。ELF/DWARF から PIE/ASLR を考慮して関数・行・inline frame を解決し、ファイルの device/inode/size/mtime でキャッシュします。解決できない場合は生アドレスを保持します。frame pointer のないコードや signal trampoline を含む任意のスタックを完全には復元できません。実装は [RBP によるスタックの unwind](../src/http_server/process/snapshot/unwind_fp.rs) を参照してください。
+SSE の `live_samples` は TID、`sampled_at`（Unix ms）、`sample_age_ms`（monotonic clock）、CPU、`lost_samples`、registers、call_stack、disassembly、unwind_stop、error を含みます。未採取は時刻 null と Waiting for sample、3秒以上古い値は Stale と表示します。sleeping/blocked thread は強制更新せず最後の値を保持します。全スレッドの同時点状態は保証しません。perf 権限不足は thread error、collector エラーは `sampling_error` で表示し、通常観測は継続します。
 
-逆アセンブルは停止中の RIP から最大256バイトを取得し、`iced-x86` で最大32命令を Intel 構文にデコードします。実メモリを使うため JIT のコードも対象ですが、32-bit compatibility mode は対象外です。実装は [命令のデコード処理](../src/http_server/process/snapshot/disasm.rs) を参照してください。
+逆アセンブルは sampled RIP から `process_vm_readv` で後読みする best-effort 表示です。最大256バイト、最大32命令を iced-x86 で decode します。JIT/self-modifying code の命令バイトと sample 時点の RIP は整合しない場合があります。32-bit compatibility mode は対象外です。
+
+PERF_RECORD_LOST と ring overrun/不正レコードを欠落として保持します。thread 終了、対象終了、SSE 切断、サーバー終了で RAII により fd/mmap を解放します。CAP_SYS_PTRACE と process_vm_readv は auxv・live disassembly 用に維持しています。
 
 ### プロセス詳細監視の SSE 配信処理
 
@@ -269,19 +271,16 @@ watch channelは接続ごとに独立し、遅い購読者へ古い状態を蓄�
 | `GET /api/processes` | 直接URLアクセス時に一覧からPIDの開始時刻を解決 |
 | `GET /api/processes/events` | 識別子クエリを付けて接続し、概要・観測・履歴・スレッド・マップ・終了状態を更新 |
 | `GET /api/processes/environment`、`GET /api/processes/auxv`、`GET /api/processes/fds`、`GET /api/processes/signals` | 各パネルを初めて開くときと再取得操作時 |
-| `POST /api/processes/snapshot` | 手動取得と自動取得時 |
 
-プロセス詳細のキャプチャ操作はプロセス名の右側（狭い画面では下）に配置します。`Capture snapshot continuously` はキーボード操作可能なトグルスイッチで1秒ごとに取得し、`Capture snapshot once` は単発取得します。状態と一時停止の説明も同じ場所に表示します。Call Stack は詳細グリッドの全列にまたがって表示します。
+プロセス詳細を開くとライブサンプルを表示します。スレッドを選択すると最新のレジスタ・スタック・命令を表示し、sample age と欠落数を示します。Call Stack は詳細グリッドの全列にまたがって表示します。
 
-直接アクセス時は一覧からPIDの開始時刻を解決し、その識別子でSSEを接続します。PIDが一覧にない場合は一覧と終了エラーを表示します。全ての追加GETにも識別子クエリを付け、snapshotにはJSON本文で識別子を送ります。通常の更新には `observation` を使い、observation・threads・mapsの単発GETは直接呼びません。
+直接アクセス時は一覧からPIDの開始時刻を解決し、その識別子でSSEを接続します。PIDが一覧にない場合は一覧と終了エラーを表示します。全ての追加GETにも識別子クエリを付けます。通常の更新には `observation` を使い、observation・threads・mapsの単発GETは直接呼びません。
 
 対象切替やGo to list viewでは現在のSSEを閉じ、保持した詳細情報をリセットします。他タブには影響しません。接続世代と識別子を照合して古い通知を無視します。通信切断ではEventSourceが同じ識別子で再接続し、履歴は再開始します。同じPIDの別プロセスへは自動で乗り換えません。`exited: true` を受信したら接続を閉じ、最終状態と終了表示を残します。ページ離脱時は閉じ、ブラウザのページキャッシュから復帰した場合は同じ識別子で接続し直します。タイトルは `procinsh / <process name>` です。
 
-受信した履歴から CPU/RSS のグラフを描画し、スレッドやマップを表示します。スナップショットの応答は通常観測とは別に保持し、選択したスレッドのレジスタ・スタック・逆アセンブルを表示します。マップ・レジスタ・スタック・逆アセンブル・auxvのアドレスはテキストとして表示します。環境変数などの文字列は HTML として解釈せず表示し、検索は取得済みデータを使います。
+受信した履歴から CPU/RSS のグラフを描画し、スレッドやマップを表示します。各スレッドの最新サンプルを保持し、選択したスレッドのレジスタ・スタック・逆アセンブルを表示します。マップ・レジスタ・スタック・逆アセンブル・auxvのアドレスはテキストとして表示します。環境変数などの文字列は HTML として解釈せず表示し、検索は取得済みデータを使います。
 
-自動スナップショットは既定 OFF で、ON にすると1秒間隔で要求します。取得の重複を避け、自動取得中は手動ボタンを無効化します。対象変更・タブ非表示・ページ離脱・対象終了・取得失敗・SSE切断で停止します。毎回対象を一時停止するAPIである点は手動取得と同じです。
-
-対象変更時には保持した詳細情報をクリアします。追加パネルとスナップショットでは、識別子と要求世代を確認して古い応答を破棄します。追加パネルの再取得が失敗した場合は、以前の結果があれば残したうえでエラーを表示します。
+対象変更時には保持した詳細情報をクリアします。追加パネルでは、識別子と要求世代を確認して古い応答を破棄します。追加パネルの再取得が失敗した場合は、以前の結果があれば残したうえでエラーを表示します。
 
 ### グラフ `/space`
 
@@ -301,7 +300,7 @@ Three.js でプロセスの親子関係、仮想アドレス空間、接続先�
 
 ## 権限とログ
 
-`ptrace` と `process_vm_readv` は所有者、dumpable 属性、Yama、`CAP_SYS_PTRACE`、seccomp などの制約を受けます。BPF はカーネル側の対応と観測権限も必要です。権限やカーネル設定の自動変更、sudo の自動実行はしません。
+`process_vm_readv` は所有者、dumpable 属性、Yama、`CAP_SYS_PTRACE`、seccomp などの制約を受けます。BPF はカーネル側の対応と観測権限も必要です。権限やカーネル設定の自動変更、sudo の自動実行はしません。
 
 待受の既定値は `127.0.0.1:8080` です。IPv4/IPv6 の loopback（`127.0.0.1`、`::1` など）は追加フラグなしで利用できます。LAN アドレスや wildcard（`0.0.0.0`、`::`）など非 loopback の指定は、`--allow-non-loopback` がなければ bind 前に非ゼロ終了します。明示的に許可する例は `procinsh --listen 0.0.0.0:9090 --allow-non-loopback` です。許可した場合も警告を出します。
 
@@ -362,7 +361,9 @@ CI は Rust と C のフォーマット確認、TypeScript の型チェックと
 
 matrix の native dependency は Ubuntu では `build-essential clang llvm pkg-config libelf-dev zlib1g-dev python3` に加えて Ubuntu 24.04 は `linux-tools-generic`、Ubuntu 26.04 は `bpftool`、Fedora では `gcc gcc-c++ make clang llvm pkgconf-pkg-config elfutils-libelf-devel zlib-devel python3 bpftool` をインストールします。両方で Rust 導入・checkout に必要な `ca-certificates curl git tar gzip` もインストールします。Ubuntu 26.04 では独立した `bpftool` パッケージの実行ファイルを使います。Ubuntu 24.04 の bpftool は実行カーネルのバージョンに依存する wrapper を避け、`/usr/lib/linux-tools/*/bpftool` の実体を `BPFTOOL` に指定します。
 
-Rust テストは明示的な識別子の必須性、SSEの独立した履歴・切断・接続上限、`/proc` の解析、PID 再利用、メモリ読み取り、ptrace の解除、シンボル、HTTP、システム全体の構造・SSE接続管理・集計を検証します。ログテストは既定レベル、debug、off、標準エラー、SIGTERM、ポート競合、クエリ非出力、IPv4/IPv6 の loopback 起動、非 loopback の bind 前拒否と明示的許可・警告、CLI ヘルプを検証します。プロセス観測を拒否するサンドボックスでは一部テストが失敗するため、テスト対象への ptrace/process_vm_readv とローカル通信が許可された環境が必要です。
+Rust テストは明示的な識別子の必須性、SSEの独立した履歴・切断・接続上限、`/proc` の解析、PID 再利用、メモリ読み取り、perf sample と欠落処理、シンボル、HTTP、システム全体の構造・SSE接続管理・集計を検証します。ログテストは既定レベル、debug、off、標準エラー、SIGTERM、ポート競合、クエリ非出力、IPv4/IPv6 の loopback 起動、非 loopback の bind 前拒否と明示的許可・警告、CLI ヘルプを検証します。プロセス観測を拒否するサンドボックスでは一部テストが失敗するため、テスト対象への perf_event_open/process_vm_readv とローカル通信が許可された環境が必要です。
+
+perf の実機 fixture は権限が利用できない環境では明示メッセージとともにスキップします。`PROCINSH_REQUIRE_PERF=1` を設定するとスキップを禁止して権限不足も失敗にします。CAP_PERFMON を持つテストプロセスで busy-loop の更新、再帰 frame、複数 TID、churn の追加・削除、sleep 後の age、対象終了を確認してください。
 
 ### ブラウザテスト
 
@@ -377,7 +378,7 @@ CHROME=/usr/bin/chromium node tests/browser.mjs
 CHROME=/usr/bin/chromium node tests/space-browser.mjs
 ```
 
-通常画面は検索・選択・SSE・スナップショット・詳細パネル・終了処理を、SPACE は WebGL、配置、選択、ネットワークとファイルの描画を検証します。ブラウザテストは一時サーバーとブラウザプロファイルを作り、終了時に片付けます。画面・モデルの検証と実機センサーの検証は別です。
+通常画面は検索・選択・SSE・ライブサンプル・詳細パネル・終了処理を、SPACE は WebGL、配置、選択、ネットワークとファイルの描画を検証します。ブラウザテストは一時サーバーとブラウザプロファイルを作り、終了時に片付けます。画面・モデルの検証と実機センサーの検証は別です。
 
 ### 実機センサーテスト
 

@@ -97,13 +97,6 @@ pub(super) async fn auxv(Query(id): Query<ProcessId>) -> ApiResult {
     .await
 }
 
-pub(super) async fn snapshot(
-    State(s): State<Arc<AppState>>,
-    Json(id): Json<ProcessId>,
-) -> ApiResult {
-    blocking(move || Ok(Json(json!(s.snapshotter.capture(id)?)))).await
-}
-
 pub(super) async fn events(
     State(s): State<Arc<AppState>>,
     Query(id): Query<ProcessId>,

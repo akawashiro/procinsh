@@ -1,121 +1,181 @@
 use super::{
-    disasm::{self, Disassembly},
-    ptrace,
+    disasm::Disassembly,
+    perf::Event,
     registers::{self, Register},
+    stack::StackFrame,
+    symbol::{ElfCache, SymbolInfo, elf_address, instruction_address, resolve_frame},
     unwind_fp,
 };
-use crate::http_server::{
-    process::snapshot::stack::StackFrame,
-    process::snapshot::symbol::{
-        ElfCache, SymbolInfo, elf_address, instruction_address, resolve_frame,
-    },
-    process::{
-        self, ProcessId,
-        maps::{self, MemoryMap},
-    },
-};
-use anyhow::{Result, anyhow, ensure};
+use crate::http_server::process::{self, ProcessId, maps::MemoryMap, procfs};
+use anyhow::Result;
 use serde::Serialize;
-use std::{
-    sync::{Arc, Mutex},
-    time::{Duration, Instant},
-};
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Clone, Debug, Serialize)]
-struct ThreadSnapshot {
+pub(in crate::http_server::process) struct ThreadSample {
     tid: i32,
+    sampled_at: Option<u64>,
+    sample_age_ms: Option<u64>,
+    cpu: Option<u32>,
+    lost_samples: u64,
     registers: Vec<Register>,
     call_stack: Vec<StackFrame>,
     disassembly: Option<Disassembly>,
     unwind_stop: String,
     error: Option<String>,
 }
-#[derive(Clone, Debug, Serialize)]
-pub(in crate::http_server::process) struct ProcessSnapshot {
-    captured_at: u64,
-    process_id: ProcessId,
-    paused_ms: f64,
-    threads: Vec<ThreadSnapshot>,
-    maps: Vec<MemoryMap>,
-}
-
-fn capture(id: ProcessId, symbols: Arc<Mutex<ElfCache>>) -> Result<ProcessSnapshot> {
-    let mut snapshot = std::thread::Builder::new()
-        .name("snapshot-tracer".into())
-        .spawn(move || -> Result<ProcessSnapshot> {
-            let start = Instant::now();
-            let guard = ptrace::SnapshotGuard::capture(id)?;
-            let deadline = Instant::now() + Duration::from_secs(2);
-            let captured_at = process::timestamp_ms();
-            // Avoid smaps/DWARF parsing while the target is stopped.
-            let maps = maps::read(id.pid, false)?;
-            let mut threads = Vec::new();
-            for tid in guard.tids() {
-                ensure!(
-                    Instant::now() < deadline,
-                    "snapshot capture exceeded the 2-second stop budget"
-                );
-                match guard.registers(tid) {
-                    Ok(raw) => {
-                        let (call_stack, unwind_stop) =
-                            unwind_fp::capture(id.pid, &raw, &maps, deadline);
-                        threads.push(ThreadSnapshot {
-                            tid,
-                            registers: registers::from_raw(&raw, &maps),
-                            call_stack,
-                            disassembly: Some(disasm::Disassembly::capture(
-                                id.pid, &raw, &maps, deadline,
-                            )),
-                            unwind_stop,
-                            error: None,
-                        });
-                    }
-                    Err(e) => threads.push(ThreadSnapshot {
-                        tid,
-                        registers: Vec::new(),
-                        call_stack: Vec::new(),
-                        disassembly: None,
-                        unwind_stop: "register read failed".into(),
-                        error: Some(e.to_string()),
-                    }),
-                }
-            }
-            process::check_identity(id)?;
-            drop(guard);
-            Ok(ProcessSnapshot {
-                captured_at,
-                process_id: id,
-                paused_ms: start.elapsed().as_secs_f64() * 1000.0,
-                threads,
-                maps,
-            })
-        })?
-        .join()
-        .map_err(|_| anyhow!("snapshot worker panicked; tracer thread exited"))??;
-    // Tracer has exited before symbolization: even cleanup failures cannot keep
-    // tracees attached while ELF/debug files are being parsed.
-    for thread in &mut snapshot.threads {
-        if let Some(disassembly) = &mut thread.disassembly {
-            disassembly.decode();
-        }
-        for (index, frame) in thread.call_stack.iter_mut().enumerate() {
-            let address = instruction_address(frame.address, index > 0);
-            let info = snapshot
-                .maps
-                .iter()
-                .find(|m| m.contains(address) && m.inode != 0)
-                .and_then(|map| {
-                    let elf = symbols
-                        .lock()
-                        .unwrap_or_else(|e| e.into_inner())
-                        .get(id.pid, map)?;
-                    let address = elf_address(address, map, &elf, process::procfs::page_size())?;
-                    resolve_frame(address, &elf)
-                });
-            apply_symbol_info(frame, info);
+impl ThreadSample {
+    fn waiting(tid: i32) -> Self {
+        Self {
+            tid,
+            sampled_at: None,
+            sample_age_ms: None,
+            cpu: None,
+            lost_samples: 0,
+            registers: Vec::new(),
+            call_stack: Vec::new(),
+            disassembly: None,
+            unwind_stop: "Waiting for sample".into(),
+            error: None,
         }
     }
-    Ok(snapshot)
+}
+struct Thread {
+    start_time: u64,
+    event: Option<Event>,
+    latest: ThreadSample,
+    sampled_ns: Option<u64>,
+}
+pub(in crate::http_server::process) struct Sampler {
+    id: ProcessId,
+    threads: BTreeMap<i32, Thread>,
+    symbols: ElfCache,
+}
+impl Sampler {
+    pub(in crate::http_server::process) fn new(id: ProcessId) -> Self {
+        Self {
+            id,
+            threads: BTreeMap::new(),
+            symbols: ElfCache::default(),
+        }
+    }
+    pub(in crate::http_server::process) fn poll(&mut self, maps: &[MemoryMap]) -> Result<()> {
+        process::check_identity(self.id)?;
+        let mut alive = BTreeSet::new();
+        for entry in std::fs::read_dir(format!("/proc/{}/task", self.id.pid))? {
+            let entry = entry?;
+            let Some(tid) = entry
+                .file_name()
+                .to_str()
+                .and_then(|s| s.parse::<i32>().ok())
+            else {
+                continue;
+            };
+            let Ok(stat) = procfs::read_stat(&format!("/proc/{}/task/{tid}/stat", self.id.pid))
+            else {
+                continue;
+            };
+            alive.insert(tid);
+            if self
+                .threads
+                .get(&tid)
+                .is_some_and(|thread| thread.start_time != stat.start_time)
+            {
+                self.threads.remove(&tid);
+            }
+            let thread = self.threads.entry(tid).or_insert_with(|| {
+                let mut latest = ThreadSample::waiting(tid);
+                let event = match Event::open(tid) {
+                    Ok(event) => Some(event),
+                    Err(e) => {
+                        latest.error = Some(format!("{e:#}"));
+                        None
+                    }
+                };
+                Thread {
+                    start_time: stat.start_time,
+                    event,
+                    latest,
+                    sampled_ns: None,
+                }
+            });
+            let Some(event) = &mut thread.event else {
+                continue;
+            };
+            match event.drain() {
+                Ok(Some(sample)) if sample.tid == tid => {
+                    let r = &sample.registers;
+                    let (mut frames, reason) =
+                        unwind_fp::walk(r.0[8], r.0[7], r.0[6], maps, |bp| {
+                            let offset = usize::try_from(bp.checked_sub(r.0[7])?).ok()?;
+                            sample
+                                .stack
+                                .get(offset..offset.checked_add(16)?)?
+                                .try_into()
+                                .ok()
+                        });
+                    for (index, frame) in frames.iter_mut().enumerate() {
+                        let address = instruction_address(frame.address, index > 0);
+                        let info = maps
+                            .iter()
+                            .find(|m| m.contains(address) && m.inode != 0)
+                            .and_then(|map| {
+                                let elf = self.symbols.get(self.id.pid, map)?;
+                                resolve_frame(
+                                    elf_address(address, map, &elf, procfs::page_size())?,
+                                    &elf,
+                                )
+                            });
+                        apply_symbol_info(frame, info);
+                    }
+                    let mut code = Disassembly::capture(self.id.pid, r.0[8], maps);
+                    code.decode();
+                    let age = monotonic_ns().saturating_sub(sample.time_ns) / 1_000_000;
+                    thread.sampled_ns = Some(sample.time_ns);
+                    thread.latest = ThreadSample {
+                        tid,
+                        sampled_at: Some(process::timestamp_ms().saturating_sub(age)),
+                        sample_age_ms: Some(age),
+                        cpu: Some(sample.cpu),
+                        lost_samples: event.lost,
+                        registers: registers::from_sample(r, maps),
+                        call_stack: frames,
+                        disassembly: Some(code),
+                        unwind_stop: reason,
+                        error: None,
+                    };
+                }
+                Ok(_) => {}
+                Err(e) => {
+                    thread.latest.error = Some(format!("{e:#}"));
+                }
+            }
+            thread.latest.lost_samples = event.lost;
+        }
+        self.threads.retain(|tid, _| alive.contains(tid));
+        process::check_identity(self.id)?;
+        Ok(())
+    }
+    pub(in crate::http_server::process) fn latest(&self) -> Vec<ThreadSample> {
+        let now = monotonic_ns();
+        self.threads
+            .values()
+            .map(|thread| {
+                let mut latest = thread.latest.clone();
+                latest.sample_age_ms = thread
+                    .sampled_ns
+                    .map(|time| now.saturating_sub(time) / 1_000_000);
+                latest
+            })
+            .collect()
+    }
+}
+fn monotonic_ns() -> u64 {
+    let mut time: libc::timespec = unsafe { std::mem::zeroed() };
+    unsafe {
+        libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut time);
+    }
+    time.tv_sec as u64 * 1_000_000_000 + time.tv_nsec as u64
 }
 
 // Replace all resolved fields so repeated application cannot append inline frames
@@ -164,22 +224,158 @@ mod tests {
     }
 }
 
-#[derive(Default)]
-pub(in crate::http_server::process) struct Snapshotter {
-    lock: Mutex<()>,
-    symbols: Arc<Mutex<ElfCache>>,
-}
-impl Snapshotter {
-    pub(in crate::http_server::process) fn capture(
-        &self,
-        id: ProcessId,
-    ) -> Result<ProcessSnapshot> {
-        let _snapshot = self.lock.lock().unwrap();
-        process::check_identity(id)?;
-        capture(id, self.symbols.clone())
+#[cfg(test)]
+mod live_tests {
+    use super::*;
+    use crate::http_server::process::TestTarget;
+    use std::time::{Duration, Instant};
+
+    fn perf_available(tid: i32) -> bool {
+        match Event::open(tid) {
+            Ok(_) => true,
+            Err(e) => {
+                let denied = e.downcast_ref::<std::io::Error>().is_some_and(|error| {
+                    matches!(
+                        error.raw_os_error(),
+                        Some(libc::EPERM | libc::EACCES | libc::ENOSYS)
+                    )
+                });
+                assert!(
+                    denied && std::env::var_os("PROCINSH_REQUIRE_PERF").is_none(),
+                    "{e:#}"
+                );
+                eprintln!(
+                    "Skipping live perf fixture: {e}; set PROCINSH_REQUIRE_PERF=1 to require it"
+                );
+                false
+            }
+        }
+    }
+
+    fn poll_until(sampler: &mut Sampler, maps: &[MemoryMap], condition: impl Fn(&Sampler) -> bool) {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while Instant::now() < deadline {
+            sampler.poll(maps).unwrap();
+            if condition(sampler) {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        panic!("no expected live sample: {:?}", sampler.latest());
+    }
+
+    #[test]
+    fn live_busy_and_recursive_samples_advance_without_tracing() {
+        for name in ["busy_loop", "recursive"] {
+            let target = TestTarget::new(name);
+            if !perf_available(target.id.pid) {
+                return;
+            }
+            let maps = process::maps::read(target.id.pid, false).unwrap();
+            let mut sampler = Sampler::new(target.id);
+            poll_until(&mut sampler, &maps, |s| {
+                s.latest().iter().any(|t| t.sampled_at.is_some())
+            });
+            let first = sampler.latest()[0].clone();
+            assert_eq!(first.registers.len(), 18);
+            assert!(!first.disassembly.as_ref().unwrap().instructions.is_empty());
+            if name == "recursive" {
+                assert!(first.call_stack.len() >= 4, "{:?}", first.call_stack);
+                assert!(
+                    first
+                        .call_stack
+                        .iter()
+                        .any(|f| f.symbol.as_deref() == Some("foo"))
+                );
+            }
+            poll_until(&mut sampler, &maps, |s| {
+                s.latest()[0].sampled_at > first.sampled_at
+            });
+            target.assert_detached();
+            drop(sampler);
+            target.assert_detached();
+        }
+    }
+
+    #[test]
+    fn live_threads_churn_sleep_and_exit() {
+        let mut target = TestTarget::new("threads");
+        if !perf_available(target.id.pid) {
+            return;
+        }
+        let maps = process::maps::read(target.id.pid, false).unwrap();
+        let mut sampler = Sampler::new(target.id);
+        poll_until(&mut sampler, &maps, |s| {
+            s.latest().iter().filter(|t| t.sampled_at.is_some()).count() >= 4
+        });
+        let main = sampler
+            .latest()
+            .into_iter()
+            .find(|t| t.tid == target.id.pid)
+            .unwrap();
+        // Sleeping main is allowed to have no sample; busy workers continue.
+        let worker = sampler
+            .latest()
+            .into_iter()
+            .find(|t| t.sampled_at.is_some())
+            .unwrap();
+        poll_until(&mut sampler, &maps, |s| {
+            s.latest()
+                .iter()
+                .any(|t| t.tid == worker.tid && t.sampled_at > worker.sampled_at)
+        });
+        let sleeping = sampler
+            .latest()
+            .into_iter()
+            .find(|t| t.tid == main.tid)
+            .unwrap();
+        assert_eq!(sleeping.sampled_at, main.sampled_at);
+        // Short-lived TIDs are removed, and newly created TIDs get their own event.
+        poll_until(&mut sampler, &maps, |s| s.threads.len() == 7);
+        let old_tids: BTreeSet<_> = sampler.threads.keys().copied().collect();
+        poll_until(&mut sampler, &maps, |s| {
+            old_tids.iter().any(|tid| !s.threads.contains_key(tid))
+                && s.threads.keys().any(|tid| !old_tids.contains(tid))
+        });
+        assert!(sampler.threads.len() <= 7);
+        let sleeper_tid = *sampler
+            .threads
+            .keys()
+            .find(|tid| {
+                std::fs::read_to_string(format!("/proc/{}/task/{tid}/comm", target.id.pid))
+                    .is_ok_and(|name| name.trim() == "procinsh-sleep")
+            })
+            .unwrap();
+        assert_eq!(unsafe { libc::kill(target.id.pid, libc::SIGUSR1) }, 0);
+        std::thread::sleep(Duration::from_millis(300));
+        sampler.poll(&maps).unwrap();
+        let sleeping_at = sampler.threads[&sleeper_tid].latest.sampled_at;
+        assert!(sleeping_at.is_some());
+        let busy_at = sampler.threads[&worker.tid].latest.sampled_at;
+        std::thread::sleep(Duration::from_millis(400));
+        sampler.poll(&maps).unwrap();
+        let sleeper = sampler
+            .latest()
+            .into_iter()
+            .find(|t| t.tid == sleeper_tid)
+            .unwrap();
+        assert_eq!(sleeper.sampled_at, sleeping_at);
+        assert!(sleeper.sample_age_ms.unwrap() >= 400);
+        assert!(
+            sampler
+                .latest()
+                .iter()
+                .any(|t| t.tid != sleeper_tid && t.sampled_at > busy_at)
+        );
+        target.assert_detached();
+        let stale = ProcessId {
+            start_time_ticks: target.id.start_time_ticks + 1,
+            ..target.id
+        };
+        assert!(Sampler::new(stale).poll(&maps).is_err());
+        target.child.kill().unwrap();
+        target.child.wait().unwrap();
+        assert!(sampler.poll(&maps).is_err());
+        drop(sampler);
     }
 }
-
-#[cfg(test)]
-#[path = "fixture_tests.rs"]
-mod fixture_tests;

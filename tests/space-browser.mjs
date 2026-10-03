@@ -4,7 +4,6 @@ import {mkdtemp, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import assert from 'node:assert/strict';
-import {checkAutoSnapshot} from './auto-snapshot.mjs';
 import {checkProcessDetails} from './process-details.mjs';
 import {checkDescriptors} from './fds.mjs';
 import {checkFileSpace} from './space-files.mjs';
@@ -26,7 +25,7 @@ async function until(fn, label, timeout = 15000) {
 const profile = await mkdtemp(join(tmpdir(), 'procinsh-browser-'));
 let socket;
 try {
-  const app = launch('target/debug/procinsh', ['--listen', '127.0.0.1:0']);
+  const app = launch('./scripts/dev_run.sh', ['--listen', '127.0.0.1:0']);
   const url = await until(() => app.output.match(/http:\/\/127\.0\.0\.1:\d+/)?.[0], 'HTTP server');
   const chrome = launch(process.env.CHROME || '/opt/google/chrome/google-chrome', ['--headless=new', '--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-dev-shm-usage', '--no-first-run', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank']);
   const debugUrl = await until(() => chrome.output.match(/ws:\/\/127\.0\.0\.1:(\d+)\/devtools\/browser\/[\w-]+/)?.[0], 'Chrome DevTools');
@@ -40,9 +39,7 @@ try {
     if (data.id) { const task = pending.get(data.id); if (task) { pending.delete(data.id); data.error ? task.reject(data.error) : task.resolve(data.result); } }
     if (data.method === 'Runtime.exceptionThrown') errors.push(data.params.exceptionDetails.text + ' ' + (data.params.exceptionDetails.exception?.description || ''));
     if (data.method === 'Log.entryAdded' && data.params.entry.level === 'error' && !data.params.entry.url?.endsWith('/favicon.ico')) {
-      // The final navigation inspects the server itself, which cannot be paused.
-      const expectedCaptureFailure = data.params.entry.url?.endsWith('/api/processes/snapshot') && /status of 422/.test(data.params.entry.text);
-      if (!expectedCaptureFailure) errors.push(data.params.entry.text);
+      errors.push(data.params.entry.text);
     }
   };
   const cdp = (method, params = {}) => new Promise((resolve, reject) => { const id = ++sequence; pending.set(id, {resolve,reject}); socket.send(JSON.stringify({id,method,params})); });
@@ -256,7 +253,6 @@ try {
   assert.ok(await evaluate("window.detailLink.isConnected && document.activeElement===window.detailLink"),'live activity and snapshots preserve the focused link');
   await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',...linkPoint,button:'left',buttons:0,clickCount:1});
   await waitFor(`location.pathname==='/process/${app.pid}' && document.getElementById('inspector')?.hidden===false`, 'connection link opens process inspector');
-  await waitFor("!document.getElementById('auto-snapshot').checked && document.getElementById('error').textContent.includes('cannot snapshot the inspector itself')", 'self-inspection disables unavailable continuous capture');
   await cdp('Page.navigate',{url});
   assert.deepEqual(errors.filter(e=>!/favicon.ico/.test(e)),[]);
   console.log('Space browser checks passed: WebGL, snapshot, minimal tools, connection details/states/links, CPU base glow/fade, stale identity, process selection, independent graph selection, mobile, SSE connection lifecycle.');

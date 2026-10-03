@@ -1,7 +1,7 @@
 use super::{
     ProcessId, check_identity, details,
     maps::{self, MemoryMap},
-    monitoring, procfs, snapshot,
+    monitoring, procfs,
     sockets::{self, SocketInfo},
 };
 use anyhow::Result;
@@ -78,14 +78,6 @@ pub(in crate::http_server) fn fds(id: ProcessId) -> Result<impl Serialize> {
 pub(in crate::http_server) fn signals(id: ProcessId) -> Result<impl Serialize> {
     super::signals::read(id)
 }
-#[derive(Default)]
-pub(in crate::http_server) struct Snapshotter(snapshot::Snapshotter);
-impl Snapshotter {
-    pub(in crate::http_server) fn capture(&self, id: ProcessId) -> Result<impl Serialize> {
-        self.0.capture(id)
-    }
-}
-
 // Minimal primitives also used by system-wide monitoring.
 pub(in crate::http_server) fn memory_maps(pid: i32) -> Result<Vec<MemoryMap>> {
     maps::read(pid, false)

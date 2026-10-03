@@ -20,10 +20,7 @@ export interface AppElements {
   "thread-count": HTMLElement;
   threads: HTMLElement;
   "thread-detail": HTMLElement;
-  snapshot: HTMLButtonElement;
-  "auto-snapshot": HTMLInputElement;
-  "auto-snapshot-status": HTMLElement;
-  "snapshot-time": HTMLElement;
+  "sample-time": HTMLElement;
   registers: HTMLElement;
   "stack-tid": HTMLElement;
   "call-stack": HTMLElement;

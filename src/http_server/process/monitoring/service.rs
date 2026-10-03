@@ -33,6 +33,8 @@ pub(in crate::http_server) struct Target {
     maps_error: Option<String>,
     maps_captured_at: Option<u64>,
     rollup: Option<MemoryRollup>,
+    live_samples: Vec<process::snapshot::ThreadSample>,
+    sampling_error: Option<String>,
 }
 pub(in crate::http_server) struct Monitoring {
     interval: Duration,
@@ -118,12 +120,17 @@ impl Monitoring {
                     id.start_time_ticks
                 );
                 let mut maps_at = Instant::now();
+                let mut sampler = process::snapshot::Sampler::new(id);
                 loop {
                     let start = Instant::now();
                     while start.elapsed() < state.interval
                         && !state.is_stopped()
                         && !cancelled.load(Ordering::Relaxed)
                     {
+                        match sampler.poll(&target.maps) {
+                            Ok(()) => target.sampling_error = None,
+                            Err(e) => target.sampling_error = Some(e.to_string()),
+                        }
                         std::thread::sleep(
                             Duration::from_millis(50)
                                 .min(state.interval.saturating_sub(start.elapsed())),
@@ -157,6 +164,7 @@ impl Monitoring {
                                 .is_some_and(|e| e.to_string().starts_with("Process exited"));
                         }
                     }
+                    target.live_samples = sampler.latest();
                     tx.send_replace(target.clone());
                     if target.exited {
                         log::info!("process exited pid={}", id.pid);
@@ -213,6 +221,8 @@ pub(in crate::http_server::process) fn capture_target(
         maps_error: None,
         maps_captured_at: None,
         rollup: None,
+        live_samples: Vec::new(),
+        sampling_error: None,
     };
     refresh_maps(&mut target);
     process::check_identity(id)?;

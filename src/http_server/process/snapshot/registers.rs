@@ -49,29 +49,32 @@ pub(super) fn classify(name: &str, value: u64, maps: &[MemoryMap]) -> Register {
     }
 }
 
-pub(super) fn from_raw(r: &libc::user_regs_struct, maps: &[MemoryMap]) -> Vec<Register> {
+/// Values indexed by Linux PERF_REG_X86_* (unused segment registers are zero).
+#[derive(Clone, Debug)]
+pub(super) struct RegisterSet(pub(super) [u64; 24]);
+pub(super) fn from_sample(r: &RegisterSet, maps: &[MemoryMap]) -> Vec<Register> {
     [
-        ("RIP", r.rip),
-        ("RSP", r.rsp),
-        ("RBP", r.rbp),
-        ("RAX", r.rax),
-        ("RBX", r.rbx),
-        ("RCX", r.rcx),
-        ("RDX", r.rdx),
-        ("RSI", r.rsi),
-        ("RDI", r.rdi),
-        ("R8", r.r8),
-        ("R9", r.r9),
-        ("R10", r.r10),
-        ("R11", r.r11),
-        ("R12", r.r12),
-        ("R13", r.r13),
-        ("R14", r.r14),
-        ("R15", r.r15),
-        ("RFLAGS", r.eflags),
+        ("RIP", 8),
+        ("RSP", 7),
+        ("RBP", 6),
+        ("RAX", 0),
+        ("RBX", 1),
+        ("RCX", 2),
+        ("RDX", 3),
+        ("RSI", 4),
+        ("RDI", 5),
+        ("R8", 16),
+        ("R9", 17),
+        ("R10", 18),
+        ("R11", 19),
+        ("R12", 20),
+        ("R13", 21),
+        ("R14", 22),
+        ("R15", 23),
+        ("RFLAGS", 9),
     ]
     .into_iter()
-    .map(|(name, value)| classify(name, value, maps))
+    .map(|(name, index)| classify(name, r.0[index], maps))
     .collect()
 }
 
