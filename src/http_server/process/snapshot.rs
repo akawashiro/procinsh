@@ -15,9 +15,13 @@
 //! sample_age_ms: Option<u64>, cpu: Option<u32>, lost_samples: u64, registers: Vec<Register>,
 //! call_stack: Vec<StackFrame>, disassembly: Option<Disassembly>, unwind_stop: String, error: Option<String>`.
 //!
+//! [`ThreadSample`] also retains tests-only private, non-serialized `sample_source: Option<perf::SampleSource>` for internal diagnostics/tests.
+//!
 //! Internal perf interface (`pub(super)`):
 //! - [`perf::REGS_MASK`]: `const REGS_MASK: u64`, GPR/RIP/RSP/RBP/RFLAGS mask.
-//! - [`perf::Sample`]: `struct Sample { tid: i32, time_ns: u64, cpu: u32, registers: RegisterSet, stack: Vec<u8> }`.
+//! - [`perf::SampleSource`]: `enum SampleSource { CpuClock, ContextSwitch { preempted: bool } }`.
+//! - [`perf::Event::context_switch`]: `fn context_switch(tid: i32) -> anyhow::Result<Self>`.
+//! - [`perf::Sample`]: `struct Sample { source: SampleSource, tid: i32, time_ns: u64, cpu: u32, registers: RegisterSet, stack: Vec<u8> }`.
 //! - [`perf::Event`]: `struct Event`, fd/mmap owner, with `lost: u64`.
 //! - [`perf::Event::open`]: `fn open(tid: i32) -> anyhow::Result<Self>`.
 //! - [`perf::Event::drain`]: `fn drain(&mut self) -> anyhow::Result<Option<Sample>>`.

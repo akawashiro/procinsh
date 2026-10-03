@@ -643,8 +643,11 @@ function sampleAge(thread: ThreadSample | undefined): number | null {
 function updateSampleAge() {
   const thread = liveSamples.find(t => t.tid === selectedTid);
   const age = sampleAge(thread);
-  $("sample-time").textContent = thread?.error || target?.sampling_error || (age == null
-    ? "Waiting for sample" : `Latest observed sample · ${(age / 1000).toFixed(1)}s ago${age > 3000 ? " · Stale" : ""} · lost ${thread?.lost_samples ?? 0}`);
+  const status = age == null
+    ? "Waiting for sample · A thread already sleeping needs to run again"
+    : `Latest observed sample · ${thread?.sampled_at == null ? "" : new Date(thread.sampled_at).toLocaleTimeString() + " · "}${(age / 1000).toFixed(1)}s ago${age > 3000 ? " · Stale" : ""} · lost ${thread?.lost_samples ?? 0} · Saved user state at capture time`;
+  const error = thread?.error || target?.sampling_error;
+  $("sample-time").textContent = status + (error ? ` · ${error}` : "");
   $("disasm-time").textContent = `TID ${selectedTid} · Live best-effort · x86-64 / Intel`;
 }
 function renderDisassembly(thread: ThreadSample | undefined) {

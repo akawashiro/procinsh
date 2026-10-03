@@ -211,11 +211,11 @@ Axum がルートごとにクエリや JSON を取り出し、ハンドラへ渡
 
 ### 非停止ライブサンプリング
 
-各 SSE collector は TID ごとに `perf_event_open(pid=tid, cpu=-1)` で software CPU-clock event を開き、CPU migration に追従します。初期周期は実行中の user CPU 時間10ms（約100Hz）、user stack dump は8192バイトです。TID/TIME/CPU/REGS_USER/STACK_USER を ring buffer から読み、最新値だけを保持します。約50msごとに drain と thread 追加・終了確認を行います。TID と開始時刻を確認して再利用を検出し、プロセス識別子も採取前後に検証します。
+各 SSE collector は TID ごとに `perf_event_open(pid=tid, cpu=-1)` で software CPU-clock event を開き、CPU migration に追従します。初期周期は実行中の user CPU 時間10ms（約100Hz）、user stack dump は8192バイトです。待機遷移には追加の `PERF_COUNT_SW_CONTEXT_SWITCHES` event（周期1、stack dump 2048バイト）を使います。`context_switch` と `sample_id_all` を有効にし、同じ ring の次の SWITCH_OUT record の TID・CPU・時刻・PREEMPT flag を確認して voluntary / preempted を区別します。対応する sample がない場合や loss / throttle / switch-in の際は対応付けを破棄します。両 event の最新サンプルを monotonic 時刻で比較し、新しいものだけを採用します。TID/TIME/CPU/REGS_USER/STACK_USER を ring buffer から読み、最新値だけを保持します。約50msごとに drain と thread 追加・終了確認を行います。TID と開始時刻を確認して再利用を検出し、プロセス識別子も採取前後に検証します。
 
 レジスタ18個と frame-pointer stack は同じ perf sample に由来します。スタックは sampled RSP/RBP/RIP と採取済みバイトだけで最大256 frame を unwind し、範囲外で停止理由を返します。ELF/DWARF の symbol・source・inline-frame 解決を再利用します。frame pointer を省略したコードの完全な復元は保証しません。
 
-SSE の `live_samples` は TID、`sampled_at`（Unix ms）、`sample_age_ms`（monotonic clock）、CPU、`lost_samples`、registers、call_stack、disassembly、unwind_stop、error を含みます。未採取は時刻 null と Waiting for sample、3秒以上古い値は Stale と表示します。sleeping/blocked thread は強制更新せず最後の値を保持します。全スレッドの同時点状態は保証しません。perf 権限不足は thread error、collector エラーは `sampling_error` で表示し、通常観測は継続します。
+SSE の `live_samples` は TID、`sampled_at`（Unix ms）、`sample_age_ms`（monotonic clock）、CPU、`lost_samples`、registers、call_stack、disassembly、unwind_stop、error を含みます。未採取は時刻 null と Waiting for sample、3秒以上古い値は Stale と表示します。sleeping/blocked thread は強制更新せず最後の値を保持します。保存された user-space の状態を表示し、眠っている thread の現在値ではありません。観測開始前から眠っている thread は次の実行／switch-out まで採取できません。取得時刻、経過時間と制約を画面に表示します。取得元や voluntary / preempted の区別は内部で保持し、GUI・HTTP API には公開しません。全スレッドの同時点状態は保証しません。perf 権限不足は thread error、collector エラーは `sampling_error` で表示し、通常観測は継続します。
 
 逆アセンブルは sampled RIP から `process_vm_readv` で後読みする best-effort 表示です。最大256バイト、最大32命令を iced-x86 で decode します。JIT/self-modifying code の命令バイトと sample 時点の RIP は整合しない場合があります。32-bit compatibility mode は対象外です。
 
@@ -365,7 +365,7 @@ matrix の native dependency は Ubuntu では `build-essential clang llvm pkg-c
 
 Rust テストは明示的な識別子の必須性、SSEの独立した履歴・切断・接続上限、`/proc` の解析、PID 再利用、メモリ読み取り、perf sample と欠落処理、シンボル、HTTP、システム全体の構造・SSE接続管理・集計を検証します。ログテストは既定レベル、debug、off、標準エラー、SIGTERM、ポート競合、クエリ非出力、IPv4/IPv6 の loopback 起動、非 loopback の bind 前拒否と明示的許可・警告、CLI ヘルプを検証します。プロセス観測を拒否するサンドボックスでは一部テストが失敗するため、テスト対象への perf_event_open/process_vm_readv とローカル通信が許可された環境が必要です。
 
-perf の実機 fixture は権限が利用できない環境では明示メッセージとともにスキップします。`PROCINSH_REQUIRE_PERF=1` を設定するとスキップを禁止して権限不足も失敗にします。CAP_PERFMON を持つテストプロセスで busy-loop の更新、再帰 frame、複数 TID、churn の追加・削除、sleep 後の age、対象終了を確認してください。
+perf の実機 fixture は権限が利用できない環境では明示メッセージとともにスキップします。`PROCINSH_REQUIRE_PERF=1` を設定するとスキップを禁止して権限不足も失敗にします。実機テストは `blocked_stack` fixture の100ms nanosleepで3秒間に30回の更新を確認しました（Linux 7.0.0-15-generic）。R12〜R15をasmで既知値にして照合し、12段再帰はmainまで復元、96段再帰は2 KiB dumpの範囲で停止することを検証します。全18レジスタの独立照合や全kernelでの精度・性能を保証する検証ではありません。開始前からsleep中のfixtureは初回未取得、次の遷移で取得します。CAP_PERFMON を持つテストプロセスで busy-loop の更新、再帰 frame、複数 TID、churn の追加・削除、sleep 後の age、対象終了を確認してください。
 
 ### ブラウザテスト
 
