@@ -142,8 +142,11 @@ try {
   await waitFor("document.querySelectorAll('#registers tr').length === 18", 'worker live sample');
   assert.equal(await evaluate("document.querySelector('#disassembly .current-instruction').cells[1].textContent"), await ripText());
   assert.equal(await evaluate("document.getElementById('error').hidden"), true);
+  await evaluate("document.querySelector('#environment-panel summary').click()");
+  await waitFor("document.getElementById('environment-info').textContent.includes('auto 5s')", 'environment before exit');
   threads.kill('SIGTERM');
   await waitFor("document.getElementById('target-status').textContent.includes('Process exited')", 'process exit');
+  assert.equal(await evaluate('detailTimer'), null, 'process exit stops detail timer');
   assert.equal(await evaluate("document.getElementById('target-status').hidden"), false);
   assert.ok(await evaluate("window.targetSources.at(-1).readyState===EventSource.CLOSED"),'process exit closes the stream');
   await evaluate("document.getElementById('back').click()");

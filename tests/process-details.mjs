@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 
 export async function checkProcessDetails({evaluate, waitFor, delay, choose, originalPid, otherPid}) {
   assert.equal(await evaluate("document.getElementById('signals-panel')"), null);
+  for (const kind of ['environment', 'auxv', 'fds'])
+    assert.equal(await evaluate(`document.getElementById('${kind}-refresh')`), null);
   assert.equal(await evaluate("document.getElementById('environment-panel').open"), false);
   assert.equal(await evaluate("performance.getEntriesByType('resource').filter(e => /\\/api\\/processes\\/(environment|auxv)\\?/.test(e.name)).length"), 0, 'details must not load until opened');
   await evaluate(`
@@ -34,17 +36,36 @@ export async function checkProcessDetails({evaluate, waitFor, delay, choose, ori
   assert.equal(await evaluate(`${entryRow}.querySelector('button')`), null, 'auxv addresses are text');
   assert.match(await evaluate("Array.from(document.querySelectorAll('#auxv-entries tr')).find(r => r.cells[0].textContent.startsWith('AT_EXECFN ')).cells[3].textContent"), /recursive/);
 
-  await evaluate("window.detailTest.mode = 'denied'; document.getElementById('environment-refresh').click()");
+  await waitFor('window.detailTest.calls.environment >= 2 && window.detailTest.calls.auxv >= 2', 'open panels automatically refresh');
+  assert.match(await evaluate("document.getElementById('environment-info').textContent"), /auto 5s/);
+  await evaluate("document.querySelector('#auxv-panel summary').click()");
+  await delay(200);
+  const closedAuxvCalls = await evaluate('window.detailTest.calls.auxv');
+  await evaluate("window.detailTest.mode = 'denied'");
   await waitFor("!document.getElementById('environment-error').hidden", 'environment permission error');
   assert.equal(await evaluate("document.getElementById('auxv-error').hidden"), true);
   assert.equal(await evaluate("document.getElementById('error').hidden"), true, 'details failure does not break inspector');
   assert.match(await evaluate("document.getElementById('environment-entries').textContent"), /PROCINSH_TEST_ENV/);
-  await evaluate("window.detailTest.mode = 'empty'; document.getElementById('environment-refresh').click()");
+  assert.equal(await evaluate('window.detailTest.calls.auxv'), closedAuxvCalls, 'closed panels stop refreshing');
+  await evaluate("window.detailTest.mode = 'empty'");
   await waitFor("document.getElementById('environment-entries').textContent.includes('The environment is empty')", 'empty environment');
-  await evaluate("window.detailTest.mode = 'hold'; document.getElementById('environment-refresh').click()");
+  await evaluate("window.detailTest.mode = 'hold'; window.detailTest.callsBeforeHold = window.detailTest.calls.environment");
   await waitFor('window.detailTest.release !== null', 'delayed environment response');
-  await evaluate("document.getElementById('back').click()");
+  await delay(5500);
+  assert.equal(await evaluate('window.detailTest.calls.environment'), await evaluate('window.detailTest.callsBeforeHold + 1'), 'busy reads skip automatic updates');
+  await evaluate("window.dispatchEvent(new Event('pagehide'))");
+  const hiddenCalls = await evaluate('window.detailTest.calls.environment');
+  await evaluate('window.detailTest.release(); window.detailTest.release = null');
+  await delay(5500);
+  assert.equal(await evaluate('window.detailTest.calls.environment'), hiddenCalls, 'pagehide stops updates');
+  assert.match(await evaluate("document.getElementById('environment-entries').textContent"), /The environment is empty/, 'pagehide invalidates pending response');
+  await evaluate("window.detailTest.mode = 'hold'; document.getElementById('back').click()");
   await waitFor("document.getElementById('inspector').hidden", 'return during details read');
+  await choose(originalPid);
+  await load('environment');
+  await waitFor('window.detailTest.release !== null', 'delayed response before target switch');
+  await evaluate("document.getElementById('back').click()");
+  await waitFor("document.getElementById('inspector').hidden", 'return before target switch');
   await choose(otherPid);
   await evaluate('window.detailTest.release(); window.detailTest.release = null');
   await delay(200);
@@ -54,5 +75,5 @@ export async function checkProcessDetails({evaluate, waitFor, delay, choose, ori
   await evaluate("window.fetch = window.detailFetch; document.getElementById('back').click()");
   await waitFor("document.getElementById('inspector').hidden", 'return after details tests');
   await choose(originalPid);
-  console.log('Process details checks passed: on-demand environment/auxv, search, literal values, address display, errors, empty environment, stale response.');
+  console.log('Process details checks passed: automatic environment/auxv, search, literal values, address display, errors, empty environment, stale response.');
 }

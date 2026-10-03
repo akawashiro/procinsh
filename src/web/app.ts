@@ -65,6 +65,8 @@ let samplesReceivedAt = performance.now();
 let listBusy = false,
   mapsTimestamp: number | null = null;
 let detailEpoch = 0;
+const detailRefreshMs = 5000;
+let detailTimer: ReturnType<typeof setInterval> | null = null;
 const detailKinds = ["environment", "auxv", "fds"] as const;
 const processDetails: {
   [K in DetailKind]: { data: DetailData[K] | null; busy: boolean };
@@ -73,15 +75,31 @@ const processDetails: {
   auxv: { data: null, busy: false },
   fds: { data: null, busy: false },
 };
-function resetProcessDetails() {
+function stopDetailRefresh() {
+  if (detailTimer !== null) clearInterval(detailTimer);
+  detailTimer = null;
   detailEpoch++;
+}
+function updateDetailRefresh() {
+  const open = detailKinds.some((kind) => $(`${kind}-panel`).open);
+  if (!target || target.exited || !targetSource || !open) {
+    if (detailTimer !== null) stopDetailRefresh();
+    return;
+  }
+  if (detailTimer === null)
+    detailTimer = setInterval(() => {
+      for (const kind of detailKinds)
+        if ($(`${kind}-panel`).open) loadProcessDetails(kind);
+    }, detailRefreshMs);
+}
+function resetProcessDetails() {
+  stopDetailRefresh();
   for (const kind of detailKinds) {
     processDetails[kind] = { data: null, busy: false };
     $(`${kind}-panel`).open = false;
     $(`${kind}-entries`).replaceChildren();
     $(`${kind}-error`).hidden = true;
     $(`${kind}-info`).textContent = "Not captured";
-    $(`${kind}-refresh`).disabled = false;
   }
   $("environment-search").value = "";
   $("fds-search").value = "";
@@ -91,9 +109,8 @@ async function loadProcessDetails<K extends DetailKind>(kind: K) {
   const id = identity(),
     epoch = detailEpoch,
     view = processDetails[kind];
-  if (!id || !target || target.exited || view.busy) return;
+  if (!id || !target || target.exited || !targetSource || view.busy) return;
   view.busy = true;
-  $(`${kind}-refresh`).disabled = true;
   $(`${kind}-error`).hidden = true;
   $(`${kind}-info`).textContent = "Reading…";
   try {
@@ -115,8 +132,6 @@ async function loadProcessDetails<K extends DetailKind>(kind: K) {
     }
   } finally {
     view.busy = false;
-    if (epoch === detailEpoch)
-      $(`${kind}-refresh`).disabled = !target || target.exited;
   }
 }
 function renderProcessDetails(kind: DetailKind) {
@@ -136,7 +151,7 @@ function renderProcessDetails(kind: DetailKind) {
       `${e.name}=${e.value ?? ""}`.toLowerCase().includes(search),
     );
     $("environment-info").textContent =
-      `${entries.length} / ${data.entries.length} entries · ${time}${data.lossy_utf8 ? " · Invalid UTF-8 is shown as �" : ""}`;
+      `${entries.length} / ${data.entries.length} entries · ${time} · auto 5s${data.lossy_utf8 ? " · Invalid UTF-8 is shown as �" : ""}`;
     $("environment-entries").replaceChildren(
       ...entries.map((e) => {
         const row = node("tr");
@@ -158,7 +173,7 @@ function renderProcessDetails(kind: DetailKind) {
     }
   } else {
     $("auxv-info").textContent =
-      `${data.entries.length} entries · ELF${data.word_bits} · ${time}`;
+      `${data.entries.length} entries · ELF${data.word_bits} · ${time} · auto 5s`;
     $("auxv-entries").replaceChildren(
       ...data.entries.map((e) => {
         const row = node("tr");
@@ -185,7 +200,7 @@ function renderDescriptors(data: FileDescriptors, time: string) {
       .includes(search),
   );
   $("fds-info").textContent =
-    `${entries.length} / ${data.entries.length} FDs · ${time}`;
+    `${entries.length} / ${data.entries.length} FDs · ${time} · auto 5s`;
   $("fds-warnings").textContent = data.warnings.join(" ");
   $("fds-warnings").hidden = !data.warnings.length;
   $("fds-entries").replaceChildren(
@@ -349,6 +364,7 @@ function renderProcesses() {
 let targetSource: EventSource | null = null;
 let targetGeneration = 0;
 function closeTarget() {
+  stopDetailRefresh();
   targetGeneration++;
   targetSource?.close();
   targetSource = null;
@@ -373,6 +389,7 @@ async function select(id: ProcessId) {
       }
       acceptTarget(next);
       if (next.exited) {
+        stopDetailRefresh();
         events.close();
         targetSource = null;
       }
@@ -448,8 +465,6 @@ function renderTarget() {
   $("target-status").classList.toggle("exited", target.exited);
   $("target-error").hidden = !target.error;
   $("target-error").textContent = target.error || "";
-  for (const kind of detailKinds)
-    $(`${kind}-refresh`).disabled = target.exited || processDetails[kind].busy;
   if (!o) return;
   const r = o.rates;
   const metrics = [
@@ -712,12 +727,9 @@ $("search").addEventListener("input", renderProcesses);
 $("sort").addEventListener("change", renderProcesses);
 for (const kind of detailKinds) {
   $(`${kind}-panel`).addEventListener("toggle", () => {
-    if ($(`${kind}-panel`).open && !processDetails[kind].data)
-      loadProcessDetails(kind);
+    if ($(`${kind}-panel`).open) loadProcessDetails(kind);
+    updateDetailRefresh();
   });
-  $(`${kind}-refresh`).addEventListener("click", () =>
-    loadProcessDetails(kind),
-  );
 }
 $("environment-search").addEventListener("input", () =>
   renderProcessDetails("environment"),
