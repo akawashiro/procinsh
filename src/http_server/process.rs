@@ -19,6 +19,9 @@
 //! [`MemoryMap`] exposes the existing `readable`, `writable`, `executable`, `private` booleans; the redundant `permissions` string is removed.
 //! [`MemoryMap`] uses `device: DeviceId` ([`super::resource::DeviceId`]) and `inode: u64` serialized as a decimal string.
 //!
+//! [`ProcessSummary`] includes `started_at: Option<u64>` (Unix milliseconds), derived from
+//! procfs boot time and `identity.start_time_ticks`; unavailable boot time yields `None`.
+//!
 //! [`SocketInfo`] fields use [`super::socket_types::SocketProtocol`] and [`super::socket_types::SocketState`];
 //! `local` and `remote` remain `Option<std::net::SocketAddr>` internally.
 //! [`fds::Descriptor`] uses `kind: FdKind, access: FdAccess, protocol: Option<SocketProtocol>, state: Option<SocketState>, local: Option<InetAddress>, remote: Option<InetAddress>, path: Option<String>`;

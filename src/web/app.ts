@@ -440,13 +440,19 @@ async function back(event?: Event) {
   clearError();
   acceptTarget(null);
 }
+function formatStartTime(timestamp: number | null): string {
+  if (timestamp === null) return "N/A";
+  const date = new Date(timestamp);
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
 function renderTarget() {
   if (!target) return;
   const p = target.summary,
     o = target.observation;
   $("target-name").textContent = p.name;
   $("identity").textContent =
-    `PID ${p.identity.pid} / START ${p.identity.start_time_ticks} / ${p.username ?? p.uid ?? "N/A"}`;
+    `PID ${p.identity.pid} / START ${formatStartTime(p.started_at)} / ${p.username ?? p.uid ?? "N/A"}`;
   $("command").textContent = p.command_line?.join(" ") || p.executable || "N/A";
   $("target-status").hidden = !target.exited;
   $("target-status").textContent = target.exited ? "● Process exited" : "";

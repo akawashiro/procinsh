@@ -38,6 +38,7 @@ export interface ProcessSummary {
   cpu_percent: number | null;
   rss_bytes: number;
   thread_count: number;
+  started_at: number | null;
 }
 export interface MemoryMap {
   start: string;
