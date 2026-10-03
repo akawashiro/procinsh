@@ -473,7 +473,7 @@ function renderTarget() {
     [
       "THREADS",
       num(o.threads.length, 0),
-      `Last observation ${new Date(o.timestamp).toLocaleTimeString("en-US")}`,
+      `Last observation ${new Date(o.timestamp).toLocaleTimeString("en-GB", { hour12: false })}`,
     ],
     [
       "PAGE FAULTS",
