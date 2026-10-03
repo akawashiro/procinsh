@@ -51,9 +51,9 @@ impl Event {
             kind: 1,
             size: std::mem::size_of::<Attr>() as u32,
             config: 0,
-            period: 100_000_000,
+            period: 10_000_000,
             sample_type: SAMPLE_TYPE,
-            // CPU clock, 10 Hz of scheduled user CPU time, CLOCK_MONOTONIC.
+            // CPU clock, 100 Hz of scheduled user CPU time, CLOCK_MONOTONIC.
             flags: (1 << 5) | (1 << 6) | (1 << 25),
             wakeup: 1,
             regs: REGS_MASK,

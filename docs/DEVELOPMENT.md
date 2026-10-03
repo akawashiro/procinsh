@@ -209,7 +209,7 @@ Axum がルートごとにクエリや JSON を取り出し、ハンドラへ渡
 
 ### 非停止ライブサンプリング
 
-各 SSE collector は TID ごとに `perf_event_open(pid=tid, cpu=-1)` で software CPU-clock event を開き、CPU migration に追従します。初期周期は実行中の user CPU 時間100ms（約10Hz）、user stack dump は8192バイトです。TID/TIME/CPU/REGS_USER/STACK_USER を ring buffer から読み、最新値だけを保持します。約50msごとに drain と thread 追加・終了確認を行います。TID と開始時刻を確認して再利用を検出し、プロセス識別子も採取前後に検証します。
+各 SSE collector は TID ごとに `perf_event_open(pid=tid, cpu=-1)` で software CPU-clock event を開き、CPU migration に追従します。初期周期は実行中の user CPU 時間10ms（約100Hz）、user stack dump は8192バイトです。TID/TIME/CPU/REGS_USER/STACK_USER を ring buffer から読み、最新値だけを保持します。約50msごとに drain と thread 追加・終了確認を行います。TID と開始時刻を確認して再利用を検出し、プロセス識別子も採取前後に検証します。
 
 レジスタ18個と frame-pointer stack は同じ perf sample に由来します。スタックは sampled RSP/RBP/RIP と採取済みバイトだけで最大256 frame を unwind し、範囲外で停止理由を返します。ELF/DWARF の symbol・source・inline-frame 解決を再利用します。frame pointer を省略したコードの完全な復元は保証しません。
 
