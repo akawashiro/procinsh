@@ -94,6 +94,11 @@ impl Monitoring {
         permit: ObservationPermit,
     ) -> Result<ObservationSession> {
         let (mut target, mut previous_sample) = capture_target(id)?;
+        let mut sampler = process::snapshot::Sampler::new(id);
+        if let Err(error) = sampler.bootstrap(&target.maps) {
+            target.sampling_error = Some(format!("{error:#}"));
+        }
+        target.live_samples = sampler.latest();
         let (tx, receiver) = watch::channel(target.clone());
         let state = self.clone();
         let cancelled = permit.cancelled.clone();
@@ -120,7 +125,6 @@ impl Monitoring {
                     id.start_time_ticks
                 );
                 let mut maps_at = Instant::now();
-                let mut sampler = process::snapshot::Sampler::new(id);
                 loop {
                     let start = Instant::now();
                     while start.elapsed() < state.interval

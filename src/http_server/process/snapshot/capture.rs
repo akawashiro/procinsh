@@ -1,5 +1,6 @@
 #[cfg(test)]
-use super::perf::SampleSource;
+use super::sample::SampleSource;
+use super::sample::monotonic_ns;
 use super::{
     disasm::Disassembly,
     perf::Event,
@@ -70,6 +71,30 @@ impl Sampler {
             unwind: UnwindState::default(),
         }
     }
+    pub(in crate::http_server::process) fn bootstrap(&mut self, maps: &[MemoryMap]) -> Result<()> {
+        // Discover all threads and open perf events before interrupting any thread.
+        self.poll(maps)?;
+        for (&tid, thread) in &mut self.threads {
+            match super::ptrace::capture(tid, maps) {
+                Ok(sample) => process_sample(
+                    self.id.pid,
+                    &mut self.unwind,
+                    &mut self.symbols,
+                    thread,
+                    sample,
+                    maps,
+                ),
+                Err(error) => {
+                    let message = format!("ptrace bootstrap: {error:#}");
+                    thread.latest.error = Some(match thread.latest.error.take() {
+                        Some(error) => format!("{error}; {message}"),
+                        None => message,
+                    });
+                }
+            }
+        }
+        process::check_identity(self.id)
+    }
     pub(in crate::http_server::process) fn poll(&mut self, maps: &[MemoryMap]) -> Result<()> {
         process::check_identity(self.id)?;
         self.unwind.refresh(self.id.pid, maps, &mut self.symbols);
@@ -135,7 +160,9 @@ impl Sampler {
                     Ok(Some(sample)) if sample.tid == tid => {
                         if newest
                             .as_ref()
-                            .is_none_or(|old: &super::perf::Sample| sample.time_ns > old.time_ns)
+                            .is_none_or(|old: &super::sample::RawSample| {
+                                sample.time_ns > old.time_ns
+                            })
                         {
                             newest = Some(sample);
                         }
@@ -149,42 +176,14 @@ impl Sampler {
             if let Some(sample) = newest
                 && thread.sampled_ns.is_none_or(|time| sample.time_ns > time)
             {
-                let r = &sample.registers;
-                let (mut frames, reason) =
-                    self.unwind
-                        .walk(r.0[8], r.0[7], r.0[6], maps, &sample.stack);
-                for (index, frame) in frames.iter_mut().enumerate() {
-                    let address = instruction_address(frame.address, index > 0);
-                    let info = maps
-                        .iter()
-                        .find(|m| m.contains(address) && m.inode != 0)
-                        .and_then(|map| {
-                            let elf = self.symbols.get(self.id.pid, map)?;
-                            resolve_frame(
-                                elf_address(address, map, &elf, procfs::page_size())?,
-                                &elf,
-                            )
-                        });
-                    apply_symbol_info(frame, info);
-                }
-                let mut code = Disassembly::capture(self.id.pid, r.0[8], maps);
-                code.decode();
-                let age = monotonic_ns().saturating_sub(sample.time_ns) / 1_000_000;
-                thread.sampled_ns = Some(sample.time_ns);
-                thread.latest = ThreadSample {
-                    tid,
-                    sampled_at: Some(process::timestamp_ms().saturating_sub(age)),
-                    #[cfg(test)]
-                    sample_source: Some(sample.source),
-                    sample_age_ms: Some(age),
-                    cpu: Some(sample.cpu),
-                    lost_samples: lost,
-                    registers: registers::from_sample(r, maps),
-                    call_stack: frames,
-                    disassembly: Some(code),
-                    unwind_stop: reason,
-                    error: thread.latest.error.clone(),
-                };
+                process_sample(
+                    self.id.pid,
+                    &mut self.unwind,
+                    &mut self.symbols,
+                    thread,
+                    sample,
+                    maps,
+                );
             }
         }
         self.threads.retain(|tid, _| alive.contains(tid));
@@ -205,12 +204,50 @@ impl Sampler {
             .collect()
     }
 }
-fn monotonic_ns() -> u64 {
-    let mut time: libc::timespec = unsafe { std::mem::zeroed() };
-    unsafe {
-        libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut time);
+fn process_sample(
+    pid: i32,
+    unwind: &mut UnwindState,
+    symbols: &mut ElfCache,
+    thread: &mut Thread,
+    sample: super::sample::RawSample,
+    maps: &[MemoryMap],
+) {
+    if thread.sampled_ns.is_some_and(|time| sample.time_ns <= time) {
+        return;
     }
-    time.tv_sec as u64 * 1_000_000_000 + time.tv_nsec as u64
+    let tid = sample.tid;
+    let lost = thread.latest.lost_samples;
+    let r = &sample.registers;
+    let (mut frames, reason) = unwind.walk(r.0[8], r.0[7], r.0[6], maps, &sample.stack);
+    for (index, frame) in frames.iter_mut().enumerate() {
+        let address = instruction_address(frame.address, index > 0);
+        let info = maps
+            .iter()
+            .find(|m| m.contains(address) && m.inode != 0)
+            .and_then(|map| {
+                let elf = symbols.get(pid, map)?;
+                resolve_frame(elf_address(address, map, &elf, procfs::page_size())?, &elf)
+            });
+        apply_symbol_info(frame, info);
+    }
+    let mut code = Disassembly::capture(pid, r.0[8], maps);
+    code.decode();
+    let age = monotonic_ns().saturating_sub(sample.time_ns) / 1_000_000;
+    thread.sampled_ns = Some(sample.time_ns);
+    thread.latest = ThreadSample {
+        tid,
+        sampled_at: Some(process::timestamp_ms().saturating_sub(age)),
+        #[cfg(test)]
+        sample_source: Some(sample.source),
+        sample_age_ms: Some(age),
+        cpu: sample.cpu,
+        lost_samples: lost,
+        registers: registers::from_sample(r, maps),
+        call_stack: frames,
+        disassembly: Some(code),
+        unwind_stop: reason,
+        error: thread.latest.error.clone(),
+    };
 }
 
 // Replace all resolved fields so repeated application cannot append inline frames
@@ -300,22 +337,87 @@ mod live_tests {
     }
 
     #[test]
-    fn live_already_sleeping_waits_for_next_transition() {
+    fn live_sleeping_bootstrap_and_perf_handoff() {
         let target = TestTarget::new("sleeping");
-        if !perf_available(target.id.pid) {
-            return;
-        }
         let maps = process::maps::read(target.id.pid, false).unwrap();
         let mut sampler = Sampler::new(target.id);
-        sampler.poll(&maps).unwrap();
-        std::thread::sleep(Duration::from_millis(100));
-        sampler.poll(&maps).unwrap();
-        assert!(sampler.latest()[0].sampled_at.is_none());
-        poll_until(&mut sampler, &maps, |s| s.latest()[0].sampled_at.is_some());
+        sampler.bootstrap(&maps).unwrap();
+        let first = sampler.latest()[0].clone();
         assert_eq!(
-            sampler.latest()[0].sample_source,
-            Some(SampleSource::ContextSwitch { preempted: false })
+            first.sample_source,
+            Some(SampleSource::PtraceBootstrap),
+            "{first:?}"
         );
+        assert_eq!(first.registers.len(), 18);
+        assert!(first.cpu.is_none());
+        assert!(
+            first
+                .call_stack
+                .iter()
+                .any(|frame| frame.symbol.as_deref() == Some("main")),
+            "{:?}",
+            first.call_stack
+        );
+        target.assert_detached();
+        if perf_available(target.id.pid) {
+            poll_until(&mut sampler, &maps, |s| {
+                s.latest()[0].sampled_at > first.sampled_at
+                    && s.latest()[0].sample_source != Some(SampleSource::PtraceBootstrap)
+            });
+            target.assert_detached();
+        }
+        drop(sampler);
+        target.assert_detached();
+    }
+
+    #[test]
+    fn sample_ordering_preserves_bootstrap_then_accepts_newer_perf() {
+        let target = TestTarget::new("sleeping");
+        let maps = process::maps::read(target.id.pid, false).unwrap();
+        let mut sampler = Sampler::new(target.id);
+        sampler.bootstrap(&maps).unwrap();
+        let thread = sampler.threads.get_mut(&target.id.pid).unwrap();
+        let time = thread.sampled_ns.unwrap();
+        let sample = super::super::sample::RawSample {
+            tid: target.id.pid,
+            time_ns: time.saturating_sub(1),
+            cpu: Some(0),
+            registers: registers::RegisterSet([0; 24]),
+            stack: Vec::new(),
+            source: SampleSource::CpuClock,
+        };
+        process_sample(
+            target.id.pid,
+            &mut sampler.unwind,
+            &mut sampler.symbols,
+            thread,
+            sample,
+            &maps,
+        );
+        assert_eq!(thread.sampled_ns, Some(time));
+        assert_eq!(
+            thread.latest.sample_source,
+            Some(SampleSource::PtraceBootstrap)
+        );
+        let sample = super::super::sample::RawSample {
+            tid: target.id.pid,
+            time_ns: time + 1,
+            cpu: Some(7),
+            registers: registers::RegisterSet([0; 24]),
+            stack: Vec::new(),
+            source: SampleSource::CpuClock,
+        };
+        process_sample(
+            target.id.pid,
+            &mut sampler.unwind,
+            &mut sampler.symbols,
+            thread,
+            sample,
+            &maps,
+        );
+        assert_eq!(thread.sampled_ns, Some(time + 1));
+        assert_eq!(thread.latest.sample_source, Some(SampleSource::CpuClock));
+        assert_eq!(thread.latest.cpu, Some(7));
         target.assert_detached();
     }
 

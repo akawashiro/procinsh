@@ -1,4 +1,4 @@
-//! Non-stopping perf samples, sampled-stack unwind and best-effort live disassembly.
+//! Initial ptrace bootstrap, non-stopping perf samples, sampled-stack unwind and best-effort live disassembly.
 //!
 //! # Interface
 //!
@@ -8,6 +8,7 @@
 //! | [`ThreadSample`] | `pub(super)` | Serializable latest sample, age, CPU, loss and errors |
 //!
 //! - [`Sampler::new`]: `fn new(id: ProcessId) -> Self`.
+//! - [`Sampler::bootstrap`]: `fn bootstrap(&mut self, maps: &[MemoryMap]) -> anyhow::Result<()>`.
 //! - [`Sampler::poll`]: `fn poll(&mut self, maps: &[MemoryMap]) -> anyhow::Result<()>`.
 //! - [`Sampler::latest`]: `fn latest(&self) -> Vec<ThreadSample>`.
 //!
@@ -15,16 +16,19 @@
 //! sample_age_ms: Option<u64>, cpu: Option<u32>, lost_samples: u64, registers: Vec<Register>,
 //! call_stack: Vec<StackFrame>, disassembly: Option<Disassembly>, unwind_stop: String, error: Option<String>`.
 //!
-//! [`ThreadSample`] also retains tests-only private, non-serialized `sample_source: Option<perf::SampleSource>` for internal diagnostics/tests.
+//! [`ThreadSample`] also retains tests-only private, non-serialized `sample_source: Option<sample::SampleSource>` for internal diagnostics/tests.
 //!
-//! Internal perf interface (`pub(super)`):
+//! - [`ptrace::capture`]: `fn capture(tid: i32, maps: &[MemoryMap]) -> anyhow::Result<RawSample>`.
+//! - [`sample::monotonic_ns`]: `fn monotonic_ns() -> u64`.
+//!
+//! Internal sampling interface (`pub(super)`):
 //! - [`perf::REGS_MASK`]: `const REGS_MASK: u64`, GPR/RIP/RSP/RBP/RFLAGS mask.
-//! - [`perf::SampleSource`]: `enum SampleSource { CpuClock, ContextSwitch { preempted: bool } }`.
+//! - [`sample::SampleSource`]: `enum SampleSource { CpuClock, ContextSwitch { preempted: bool }, PtraceBootstrap }`.
 //! - [`perf::Event::context_switch`]: `fn context_switch(tid: i32) -> anyhow::Result<Self>`.
-//! - [`perf::Sample`]: `struct Sample { source: SampleSource, tid: i32, time_ns: u64, cpu: u32, registers: RegisterSet, stack: Vec<u8> }`.
+//! - [`sample::RawSample`]: `struct RawSample { source: SampleSource, tid: i32, time_ns: u64, cpu: Option<u32>, registers: RegisterSet, stack: Vec<u8> }`.
 //! - [`perf::Event`]: `struct Event`, fd/mmap owner, with `lost: u64`.
 //! - [`perf::Event::open`]: `fn open(tid: i32) -> anyhow::Result<Self>`.
-//! - [`perf::Event::drain`]: `fn drain(&mut self) -> anyhow::Result<Option<Sample>>`.
+//! - [`perf::Event::drain`]: `fn drain(&mut self) -> anyhow::Result<Option<RawSample>>`.
 //!
 //! Register payload fields (`pub(super)` in [`registers`]):
 //! - [`registers::Register`]: `kind: MemoryKind`, `mapping: Option<RegisterMapping>`, `offset: Option<u64>` (hex string or null in JSON).
@@ -43,7 +47,9 @@
 mod capture;
 mod disasm;
 mod perf;
+mod ptrace;
 mod registers;
+mod sample;
 mod stack;
 mod symbol;
 mod unwind;
