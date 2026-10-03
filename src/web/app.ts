@@ -7,8 +7,6 @@ type ThreadSample = import("./api-types.js").ThreadSample;
 type DetailData = import("./api-types.js").DetailData;
 type FileDescriptors = import("./api-types.js").FileDescriptors;
 type DescriptorEndpoint = import("./api-types.js").DescriptorEndpoint;
-type Signals = import("./api-types.js").Signals;
-type SignalMask = import("./api-types.js").SignalMask;
 type DetailKind = keyof DetailData;
 type DisplayText = string | number | null | undefined;
 
@@ -67,14 +65,13 @@ let samplesReceivedAt = performance.now();
 let listBusy = false,
   mapsTimestamp: number | null = null;
 let detailEpoch = 0;
-const detailKinds = ["environment", "auxv", "fds", "signals"] as const;
+const detailKinds = ["environment", "auxv", "fds"] as const;
 const processDetails: {
   [K in DetailKind]: { data: DetailData[K] | null; busy: boolean };
 } = {
   environment: { data: null, busy: false },
   auxv: { data: null, busy: false },
   fds: { data: null, busy: false },
-  signals: { data: null, busy: false },
 };
 function resetProcessDetails() {
   detailEpoch++;
@@ -129,10 +126,6 @@ function renderProcessDetails(kind: DetailKind) {
     return;
   }
   const time = new Date(data.captured_at).toLocaleTimeString("en-US");
-  if ("leader" in data) {
-    renderSignals(data, time);
-    return;
-  }
   if ("warnings" in data) {
     renderDescriptors(data, time);
     return;
@@ -758,29 +751,3 @@ async function start() {
   }
 }
 start();
-
-function renderSignals(data: Signals, time: string) {
-  $("signals-info").textContent =
-    `${data.threads.length} threads · ${time} · SigQ ${data.leader.queued.count}/${data.leader.queued.limit} (queued for real UID / target limit)`;
-  const rows: HTMLTableRowElement[] = [];
-  const add = (label: string, mask: SignalMask) => {
-    const row = node("tr");
-    cell(row, label);
-    cell(row, mask.hex, "mono");
-    cell(row, mask.signals.map(Display.signal).join(", ") || "None", "mono");
-    rows.push(row);
-  };
-  add("Process-shared pending · ShdPnd", data.leader.shared_pending);
-  add("Ignored · SigIgn", data.leader.ignored);
-  add("Handler registered · SigCgt", data.leader.caught);
-  for (const thread of data.threads) {
-    add(`TID ${thread.tid} ${thread.name} · Pending SigPnd`, thread.pending);
-    add(`TID ${thread.tid} ${thread.name} · Blocked SigBlk`, thread.blocked);
-  }
-  for (const warning of data.warnings) {
-    const row = node("tr");
-    cell(row, warning, "notice").colSpan = 3;
-    rows.push(row);
-  }
-  $("signals-entries").replaceChildren(...rows);
-}

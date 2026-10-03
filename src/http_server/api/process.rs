@@ -81,14 +81,6 @@ pub(super) async fn fds(Query(id): Query<ProcessId>) -> ApiResult {
     .await
 }
 
-pub(super) async fn signals(Query(id): Query<ProcessId>) -> ApiResult {
-    blocking(move || {
-        process::check_identity(id)?;
-        Ok(Json(json!(process::signals(id)?)))
-    })
-    .await
-}
-
 pub(super) async fn auxv(Query(id): Query<ProcessId>) -> ApiResult {
     blocking(move || {
         process::check_identity(id)?;

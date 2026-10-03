@@ -27,17 +27,13 @@
 //! [`fds::Descriptor`] uses `kind: FdKind, access: FdAccess, protocol: Option<SocketProtocol>, state: Option<SocketState>, local: Option<InetAddress>, remote: Option<InetAddress>, path: Option<String>`;
 //! [`fds::Endpoint::access`] is `pub(super) access: FdAccess`.
 //!
-//! Structured thread/signal payloads (types and fields `pub(super)`):
+//! Structured thread payloads (types and fields `pub(super)`):
 //! - [`threads::SchedulerPolicy`]: `Other, Fifo, Rr, Batch, Idle, Deadline, Ext, Unknown(u32)`.
 //! - [`threads::CpuRange`]: `start: u32, end: u32` (inclusive).
 //! - [`threads::ThreadSample`]: raw thread metadata and counters, including `ticks: u64, start_time: u64`; no CPU rate.
 //! - [`threads::read`]: `pub(super) fn read(pid: i32, tid: i32) -> anyhow::Result<ThreadSample>`.
 //! - [`threads::ThreadSample::observation`]: `pub(super) fn observation(&self) -> ThreadObservation`.
 //! - [`threads::ThreadObservation`]: `scheduler: SchedulerPolicy, affinity: Option<Vec<CpuRange>>`.
-//! - [`signals::Signal`]: `number: u32, name: String`.
-//! - [`signals::SignalQueue`]: `count: u64, limit: u64` (decimal strings in JSON).
-//! - [`signals::Mask`]: `bits: u64` (serialized as `hex`), `signals: Vec<Signal>`.
-//! - [`signals::SignalStatus::queued`]: `pub(super) queued: SignalQueue`.
 //!
 //! ## Functions
 //!
@@ -50,7 +46,6 @@
 //! | [`environment`] | `pub(super)` | `fn environment(id: `[`ProcessId`]`) -> `[`Result`](anyhow::Result)`<impl `[`Serialize`](serde::Serialize)`>` |
 //! | [`auxv`] | `pub(super)` | `fn auxv(id: `[`ProcessId`]`) -> `[`Result`](anyhow::Result)`<impl `[`Serialize`](serde::Serialize)`>` |
 //! | [`fn@fds`] | `pub(super)` | `fn fds(id: `[`ProcessId`]`) -> `[`Result`](anyhow::Result)`<impl `[`Serialize`](serde::Serialize)`>` |
-//! | [`fn@signals`] | `pub(super)` | `fn signals(id: `[`ProcessId`]`) -> `[`Result`](anyhow::Result)`<impl `[`Serialize`](serde::Serialize)`>` |
 //! | [`memory_maps`] | `pub(super)` | `fn memory_maps(pid: `[`i32`]`) -> `[`Result`](anyhow::Result)`<`[`Vec`]`<`[`MemoryMap`]`>>` |
 //! | [`ticks_per_second`] | `pub(super)` | `fn ticks_per_second() -> `[`f64`] |
 //! | [`fields`] | `pub(super)` | `fn fields(path: &`[`str`]`) -> `[`Result`](anyhow::Result)`<`[`HashMap`](std::collections::HashMap)`<`[`String`]`, `[`String`]`>>` |
@@ -69,7 +64,6 @@ mod memory;
 mod monitoring;
 mod procfs;
 mod resources;
-mod signals;
 mod snapshot;
 mod sockets;
 mod threads;
@@ -83,7 +77,7 @@ pub(super) use monitoring::Monitoring;
 use resources::permission_help;
 pub(super) use resources::{
     SubscribeError, auxv, environment, fds, fields, inet_sockets, maps, memory_maps, observation,
-    signals, socket_text, threads, ticks_per_second, timestamp_ms, unix_socket_peers, unix_sockets,
+    socket_text, threads, ticks_per_second, timestamp_ms, unix_socket_peers, unix_sockets,
 };
 pub(super) use sockets::SocketInfo;
 #[cfg(test)]

@@ -62,6 +62,8 @@ async fn explicit_identity_is_required_without_selection() {
         "/api/target/environment",
         "/api/target/auxv",
         "/api/target/signals",
+        "/api/processes/signals",
+        "/api/processes/signals?pid=1&start_time_ticks=1",
         "/api/target/snapshot",
         "/api/target/events",
         "/api/space/status",
@@ -95,7 +97,6 @@ async fn explicit_identity_is_required_without_selection() {
         "fds",
         "environment",
         "auxv",
-        "signals",
         "events",
     ] {
         for args in [
@@ -137,7 +138,6 @@ async fn explicit_identity_is_required_without_selection() {
         "fds",
         "environment",
         "auxv",
-        "signals",
     ] {
         let response = app
             .clone()
@@ -255,7 +255,7 @@ async fn api_explicit_identity_validation_and_removed_snapshot() {
     let target = Target::new("sleeping");
     let state = Arc::new(AppState::new(Duration::from_secs(1)));
     let app = super::router::router(state, "127.0.0.1:8080".parse().unwrap());
-    for path in ["environment", "auxv", "fds", "signals"] {
+    for path in ["environment", "auxv", "fds"] {
         for (start, expected) in [
             (target.id.start_time_ticks, 200),
             (target.id.start_time_ticks + 1, 410),

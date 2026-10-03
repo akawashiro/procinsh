@@ -1,14 +1,7 @@
 import assert from 'node:assert/strict';
 
 export async function checkProcessDetails({evaluate, waitFor, delay, choose, originalPid, otherPid}) {
-  assert.equal(await evaluate("document.getElementById('signals-panel').open"), false);
-  await evaluate("document.querySelector('#signals-panel summary').click()");
-  await waitFor("document.getElementById('signals-entries').textContent.includes('SigBlk')", 'signal status load');
-  assert.match(await evaluate("document.getElementById('signals-info').textContent"), /SigQ/);
-  assert.match(await evaluate("document.getElementById('signals-entries').textContent"), /ShdPnd/);
-  await evaluate("document.getElementById('signals-refresh').click()");
-  await waitFor("!document.getElementById('signals-refresh').disabled", 'signal refresh');
-  assert.equal(await evaluate("document.getElementById('signals-error').hidden"), true);
+  assert.equal(await evaluate("document.getElementById('signals-panel')"), null);
   assert.equal(await evaluate("document.getElementById('environment-panel').open"), false);
   assert.equal(await evaluate("performance.getEntriesByType('resource').filter(e => /\\/api\\/processes\\/(environment|auxv)\\?/.test(e.name)).length"), 0, 'details must not load until opened');
   await evaluate(`

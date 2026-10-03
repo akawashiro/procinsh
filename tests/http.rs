@@ -7,18 +7,30 @@ use std::{
     time::{Duration, Instant},
 };
 
+// Keep the observed process ordinary even when the server has file capabilities.
+struct Target(Child);
+impl Drop for Target {
+    fn drop(&mut self) {
+        let _ = self.0.kill();
+        let _ = self.0.wait();
+    }
+}
+
 struct Server {
     child: Child,
     address: SocketAddr,
 }
 impl Server {
     fn start() -> Self {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_procinsh"))
-            .args(["--listen", "127.0.0.1:0"])
-            .env("RUST_LOG", "info")
-            .stderr(Stdio::piped())
-            .spawn()
-            .unwrap();
+        let mut child = Command::new(
+            std::env::var_os("PROCINSH_BINARY")
+                .unwrap_or_else(|| env!("CARGO_BIN_EXE_procinsh").into()),
+        )
+        .args(["--listen", "127.0.0.1:0"])
+        .env("RUST_LOG", "info")
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
         let stderr = child.stderr.take().unwrap();
         let (tx, rx) = mpsc::channel();
         std::thread::spawn(move || {
@@ -129,6 +141,25 @@ fn binary_serves_assets_process_api_and_sse_and_shuts_down() {
         .read_to_string(&mut denied)
         .unwrap();
     assert!(denied.starts_with("HTTP/1.0 403"));
+    assert!(
+        Command::new("sh")
+            .arg("tests/targets/build.sh")
+            .status()
+            .unwrap()
+            .success()
+    );
+    let mut target = Target(
+        Command::new("tests/targets/bin/sleeping")
+            .arg("--allow-inspector")
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap(),
+    );
+    let mut ready = String::new();
+    BufReader::new(target.0.stdout.take().unwrap())
+        .read_line(&mut ready)
+        .unwrap();
+    assert!(!ready.is_empty());
     let (status, _, body) = server.get("/api/processes");
     assert_eq!(status, 200);
     let processes: serde_json::Value = serde_json::from_str(&body).unwrap();
@@ -136,11 +167,16 @@ fn binary_serves_assets_process_api_and_sse_and_shuts_down() {
         .as_array()
         .unwrap()
         .iter()
-        .find(|p| p["identity"]["pid"] == server.child.id())
+        .find(|p| p["identity"]["pid"] == target.0.id())
         .unwrap()["identity"];
     let pid = identity["pid"].as_u64().unwrap();
     let start = identity["start_time_ticks"].as_u64().unwrap();
     let query = format!("pid={pid}&start_time_ticks={start}");
+    assert_eq!(server.get("/api/processes/signals").0, 404);
+    assert_eq!(
+        server.get(&format!("/api/processes/signals?{query}")).0,
+        404
+    );
     for endpoint in [
         "observation",
         "threads",
@@ -148,7 +184,6 @@ fn binary_serves_assets_process_api_and_sse_and_shuts_down() {
         "environment",
         "auxv",
         "fds",
-        "signals",
     ] {
         let (status, _, body) = server.get(&format!("/api/processes/{endpoint}?{query}"));
         assert_eq!(status, 200, "{endpoint}: {body}");
