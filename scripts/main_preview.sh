@@ -39,7 +39,7 @@ case "${1:-}" in
     cargo build --locked
     install -m 0755 target/debug/procinsh "$state/candidate"
     # Apply privileges before touching the running version; no password prompt.
-    sudo -n setcap cap_sys_ptrace,cap_bpf,cap_perfmon=ep "$state/candidate"
+    sudo -n setcap cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search=ep "$state/candidate"
     printf '%s\n' "$commit" > "$state/candidate.commit"
     echo "Built main $commit"
     ;;

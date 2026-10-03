@@ -45,7 +45,7 @@ If you don't want to use `sudo`, please use setcap instead of it.
 
 ```
 sudo setcap \
-  cap_sys_ptrace,cap_bpf,cap_perfmon=ep \
+  cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search=ep \
   "$HOME/.cargo/bin/procinsh"
 "$HOME/.cargo/bin/procinsh" --listen 127.0.0.1:9090
 ```
