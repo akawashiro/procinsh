@@ -155,3 +155,16 @@ assert.equal(Display.scheduler({kind:'unknown',code:99}),'UNKNOWN (99)');
 
 assert.equal(Display.mapping({pathname:'/tmp/a [b]',readable:true,writable:true,executable:false,private:true}),'/tmp/a [b] [rw-p]');
 assert.equal(Display.mapping({pathname:null,readable:true,writable:false,executable:false,private:false}),'[anonymous] [r--s]');
+
+const {mergeSnapshot}=await import('../dist/web/space-model.js');
+const original={identity:{pid:1,start_time_ticks:10},maps:[{start:'0x1000',end:'0x2000'}],maps_epoch:10,maps_error:null};
+const base={processes:[original],fd_relations:[]};
+const omitted={identity:original.identity,maps_epoch:20,maps_error:'read failed'};
+const retained=mergeSnapshot(base,{processes:[omitted],fd_relations:[]});
+assert.deepEqual(retained.processes[0].maps,original.maps);
+assert.equal(retained.processes[0].maps_epoch,10);
+assert.equal(retained.processes[0].maps_error,'read failed');
+assert.deepEqual(mergeSnapshot(base,{processes:[{...omitted,maps:[]}],fd_relations:[]}).processes[0].maps,[]);
+assert.deepEqual(mergeSnapshot(base,{processes:[],fd_relations:[]}).processes,[]);
+assert.deepEqual(mergeSnapshot(base,{processes:[{...omitted,identity:{pid:1,start_time_ticks:11}}],fd_relations:[]}).processes[0].maps,[]);
+assert.equal(mergeSnapshot(retained,base).processes[0].maps_epoch,10);

@@ -18,21 +18,21 @@ pub(in crate::http_server) enum MemoryKind {
 #[derive(Clone, Debug, Serialize)]
 pub(in crate::http_server) struct MemoryMap {
     #[serde(serialize_with = "hex")]
-    pub(super) start: u64,
+    pub(in crate::http_server) start: u64,
     #[serde(serialize_with = "hex")]
-    pub(super) end: u64,
-    pub(super) readable: bool,
-    pub(super) writable: bool,
-    pub(super) executable: bool,
-    pub(super) private: bool,
+    pub(in crate::http_server) end: u64,
+    pub(in crate::http_server) readable: bool,
+    pub(in crate::http_server) writable: bool,
+    pub(in crate::http_server) executable: bool,
+    pub(in crate::http_server) private: bool,
     #[serde(serialize_with = "hex")]
-    pub(super) file_offset: u64,
-    pub(super) device: DeviceId,
+    pub(in crate::http_server) file_offset: u64,
+    pub(in crate::http_server) device: DeviceId,
     #[serde(serialize_with = "decimal")]
-    pub(super) inode: u64,
-    pub(super) pathname: Option<String>,
-    pub(super) rss_bytes: Option<u64>,
-    pub(super) pss_bytes: Option<u64>,
+    pub(in crate::http_server) inode: u64,
+    pub(in crate::http_server) pathname: Option<String>,
+    pub(in crate::http_server) rss_bytes: Option<u64>,
+    pub(in crate::http_server) pss_bytes: Option<u64>,
 }
 
 pub(super) fn hex<S: serde::Serializer>(value: &u64, serializer: S) -> Result<S::Ok, S::Error> {
@@ -158,6 +158,9 @@ mod tests {
         let maps = parse_smaps("1000-2000 r-xp 00001000 08:01 10 /tmp/a b (deleted)\nRss: 4 kB\nPss: 2 kB\n2000-3000 rw-p 0 00:00 0\n").unwrap();
         assert_eq!(maps[0].pathname.as_deref(), Some("/tmp/a b (deleted)"));
         assert_eq!(maps[0].rss_bytes, Some(4096));
+        let detailed = serde_json::to_value(&maps[0]).unwrap();
+        assert_eq!(detailed["rss_bytes"], 4096);
+        assert_eq!(detailed["pss_bytes"], 2048);
         assert!(maps[0].contains(0x1000));
         assert!(!maps[0].contains(0x2000));
         assert!(maps[1].pathname.is_none());

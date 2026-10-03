@@ -16,6 +16,9 @@
 //!
 //! [`maps::MemoryKind`] is `pub(in crate::http_server) enum MemoryKind { Integer, Stack, Heap, SharedLibrary, Executable, File, Anonymous }`.
 //! [`maps::MemoryMap::kind`] is `pub(super) fn kind(&self) -> MemoryKind`.
+//! [`MemoryMap`] fields have `pub(in crate::http_server)` visibility: `start: u64, end: u64,
+//! readable: bool, writable: bool, executable: bool, private: bool, file_offset: u64,
+//! device: DeviceId, inode: u64, pathname: Option<String>, rss_bytes: Option<u64>, pss_bytes: Option<u64>`.
 //! [`MemoryMap`] exposes the existing `readable`, `writable`, `executable`, `private` booleans; the redundant `permissions` string is removed.
 //! [`MemoryMap`] uses `device: DeviceId` ([`super::resource::DeviceId`]) and `inode: u64` serialized as a decimal string.
 //!

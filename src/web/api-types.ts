@@ -201,6 +201,7 @@ export interface DetailData {
   auxv: AuxVector;
   fds: FileDescriptors;
 }
+export type SpaceMemoryMap = Omit<MemoryMap, "rss_bytes" | "pss_bytes">;
 export interface Process {
   identity: ProcessId;
   parent_id: ProcessId | null;
@@ -209,7 +210,7 @@ export interface Process {
   username: string | null;
   euid: number | null;
   effective_username: string | null;
-  maps: MemoryMap[];
+  maps: SpaceMemoryMap[];
   maps_epoch: number;
   maps_error: string | null;
 }
@@ -242,6 +243,9 @@ export interface FdRelation {
 export interface SystemSnapshot {
   processes: Process[];
   fd_relations: FdRelation[];
+}
+export interface SystemSnapshotUpdate extends Omit<SystemSnapshot, "processes"> {
+  processes: (Omit<Process, "maps"> & { maps?: SpaceMemoryMap[] })[];
 }
 export interface IoActivity {
   process_id: ProcessId;

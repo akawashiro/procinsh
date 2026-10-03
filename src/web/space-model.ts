@@ -8,7 +8,9 @@ import type {
   FileActivity,
   FileIdentity,
   IpcIdentity,
-  MemoryMap,
+  SpaceMemoryMap,
+  SystemSnapshot,
+  SystemSnapshotUpdate,
   CpuActivity,
 } from "./api-types.js";
 export interface Position {
@@ -51,7 +53,7 @@ export interface RecentFile {
   last: number;
 }
 export type CpuGlow = CpuActivity & { last: number; window_ms: number };
-export type Region = MemoryMap & { z: number; h: number };
+export type Region = SpaceMemoryMap & { z: number; h: number };
 export const remoteLabel = (socket: SocketEndpoint | null | undefined) =>
   socket?.remote_hostname && socket.remote ? `${socket.remote_hostname}:${socket.remote.port}` : Display.address(socket?.remote);
 export const key = (id: ProcessId) => `${id.pid}:${id.start_time_ticks}`;
@@ -125,7 +127,7 @@ export function connectionState(
   if (e.socket?.protocol.kind === "udp") return "No destination set";
   return "Unknown destination";
 }
-export function layoutMaps<M extends Pick<MemoryMap, "start" | "end">>(
+export function layoutMaps<M extends Pick<SpaceMemoryMap, "start" | "end">>(
   maps: M[],
 ) {
   const sorted = [...maps].sort((a, b) =>
@@ -490,4 +492,23 @@ export function fileLayout(
       { ...p, z: 9 - p.z },
     ]),
   );
+}
+
+/** Omitted maps retain the previous mapping for this exact process identity. */
+export function mergeSnapshot(
+  previous: SystemSnapshot,
+  update: SystemSnapshotUpdate,
+): SystemSnapshot {
+  const known = new Map(previous.processes.map((p) => [key(p.identity), p]));
+  return {
+    ...update,
+    processes: update.processes.map((p) => {
+      const old = known.get(key(p.identity));
+      return {
+        ...p,
+        maps: p.maps ?? old?.maps ?? [],
+        maps_epoch: p.maps === undefined ? old?.maps_epoch ?? 0 : p.maps_epoch,
+      };
+    }),
+  };
 }
