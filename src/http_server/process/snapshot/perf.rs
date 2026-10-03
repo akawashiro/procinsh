@@ -61,6 +61,72 @@ impl Event {
             clock: libc::CLOCK_MONOTONIC,
             ..Attr::default()
         };
+        Self::open_attr(tid, attr)
+    }
+    #[cfg(any(test, doc))]
+    pub(super) fn tracepoint(
+        tid: i32,
+        id: u64,
+        stack: Option<u32>,
+        filter: Option<&str>,
+    ) -> Result<Self> {
+        let attr = Attr {
+            kind: 2,
+            size: std::mem::size_of::<Attr>() as u32,
+            config: id,
+            period: 1,
+            sample_type: (1 << 1)
+                | (1 << 2)
+                | (1 << 7)
+                | (1 << 10)
+                | if stack.is_some() {
+                    (1 << 12) | (1 << 13)
+                } else {
+                    0
+                },
+            flags: 1 | (1 << 25),
+            wakeup: 1,
+            regs: if stack.is_some() { REGS_MASK } else { 0 },
+            stack: stack.unwrap_or(0),
+            clock: libc::CLOCK_MONOTONIC,
+            ..Attr::default()
+        };
+        let event = Self::open_attr(tid, attr)?;
+        if let Some(filter) = filter {
+            let filter = std::ffi::CString::new(filter)?;
+            ensure!(
+                unsafe { libc::ioctl(event._fd.as_raw_fd(), 0x40082406u64, filter.as_ptr()) } == 0,
+                "perf SET_FILTER: {}",
+                std::io::Error::last_os_error()
+            );
+        }
+        ensure!(
+            unsafe { libc::ioctl(event._fd.as_raw_fd(), 0x2400u64, 0) } == 0,
+            "perf ENABLE: {}",
+            std::io::Error::last_os_error()
+        );
+        Ok(event)
+    }
+    #[cfg(any(test, doc))]
+    pub(super) fn context_switch(tid: i32, stack: u32) -> Result<Self> {
+        Self::open_attr(
+            tid,
+            Attr {
+                kind: 1,
+                size: std::mem::size_of::<Attr>() as u32,
+                config: 3,
+                period: 1,
+                sample_type: SAMPLE_TYPE,
+                flags: (1 << 25) | (1 << 26) | (1 << 18),
+                wakeup: 1,
+                regs: REGS_MASK,
+                stack,
+                clock: libc::CLOCK_MONOTONIC,
+                ..Attr::default()
+            },
+        )
+    }
+    fn open_attr(tid: i32, attr: Attr) -> Result<Self> {
         let fd = unsafe { libc::syscall(libc::SYS_perf_event_open, &attr, tid, -1, -1, 8) };
         if fd < 0 {
             return Err(std::io::Error::last_os_error())
@@ -115,8 +181,22 @@ impl Event {
             .collect()
     }
     pub(super) fn drain(&mut self) -> Result<Option<Sample>> {
-        let head = unsafe { &*self.mapping.add(1024).cast::<AtomicU64>() }.load(Ordering::Acquire);
         let mut latest = None;
+        self.records(|kind, _, bytes| {
+            if kind == 9
+                && let Some(sample) = parse(bytes)?
+            {
+                latest = Some(sample);
+            }
+            Ok(())
+        })?;
+        Ok(latest)
+    }
+    pub(super) fn records(
+        &mut self,
+        mut record: impl FnMut(u32, u16, &[u8]) -> Result<()>,
+    ) -> Result<()> {
+        let head = unsafe { &*self.mapping.add(1024).cast::<AtomicU64>() }.load(Ordering::Acquire);
         let result = (|| {
             ensure!(
                 head.wrapping_sub(self.tail) <= self.capacity as u64,
@@ -135,21 +215,14 @@ impl Event {
                 );
                 let bytes = self.copy(self.tail.wrapping_add(8), size - 8);
                 self.tail = self.tail.wrapping_add(size as u64);
-                match kind {
-                    9 => {
-                        if let Some(sample) = parse(&bytes)? {
-                            latest = Some(sample);
-                        }
-                    }
-                    2 => {
-                        let mut cursor = Cursor(&bytes);
-                        cursor.u64()?;
-                        self.lost = self.lost.saturating_add(cursor.u64()?);
-                    }
-                    _ => {}
+                record(kind, u16::from_ne_bytes(header[4..6].try_into()?), &bytes)?;
+                if kind == 2 {
+                    let mut cursor = Cursor(&bytes);
+                    cursor.u64()?;
+                    self.lost = self.lost.saturating_add(cursor.u64()?);
                 }
             }
-            Ok(latest)
+            Ok(())
         })();
         if result.is_err() {
             self.lost = self.lost.saturating_add(1);

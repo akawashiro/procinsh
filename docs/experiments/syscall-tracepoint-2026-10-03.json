@@ -1,0 +1,5258 @@
+{
+  "date": "2026-10-03",
+  "kernel": "Linux 7.0.0-15-generic x86_64 PREEMPT_DYNAMIC",
+  "cpu": "AMD Ryzen 9 5950X, 32 logical CPUs",
+  "perf_event_paranoid": 4,
+  "tracepoint_ids": {
+    "sys_enter": 384,
+    "sys_exit": 383
+  },
+  "tracepoint_id_discovery": "self-TID getpid probe with id==39 filter; no tracefs writes",
+  "base_main": "08c6dcd6c0259afd8ed1774ea6d25691cb963cb3",
+  "measurement_binary_sha256": "bc34a46e17f8c96b3e146875058da1986d72c5d54df2d35f6303647781cadba6",
+  "source_diagnostic_binary_sha256": "908e3471e33de22ffaacf7bd100f8ed7702f3db36101da955d22df3beeef9f12",
+  "launcher": "./scripts/dev_run.sh with test harness installed at target/debug/procinsh",
+  "poll_ms": 1,
+  "ring_bytes_per_event": 65536,
+  "target_seconds": 8,
+  "observer_seconds": 5,
+  "notes": [
+    "Sleep-fast and busy matrices have three repeats in fixed order, without CPU pinning; target starts with a 300ms sleep.",
+    "Observation starts about 100ms after target launch and covers 5s of its approximately 8s runtime.",
+    "sleep/futex/epoll long variants wait 6s and can finish later than 8s; initial sleeps 10.3s.",
+    "Observer CPU includes ring copy, decode, matching, and pending text diagnostics; excludes open/maps and final symbol resolution.",
+    "Exit events carry RAW metadata only by default; exit-stack-8192 samples registers/stack at exit too.",
+    "Light events still carry the tracepoint fixed RAW payload including args/return value; this is not a projected ID/time-only payload.",
+    "Functional runs add sample_source/time/age diagnostics; matrix binaries have identical sampling and matching logic.",
+    "Dumped stack memory is not retained; frames retain only addresses and resolved symbol names."
+  ],
+  "runs": [
+    {
+      "repeat": 0,
+      "mode": "sleep",
+      "config": "baseline",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1,
+      "target": {
+        "iterations": 7291,
+        "wall_s": 8.000173,
+        "cpu_s": 0.033885
+      },
+      "experiment": "sleep-fast"
+    },
+    {
+      "repeat": 0,
+      "mode": "sleep",
+      "config": "light",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 4553,
+            "id": 230,
+            "last_ret": 0,
+            "max_ns": 1075732,
+            "mean_ns": 1057532,
+            "min_ns": 1008856,
+            "syscall": "clock_nanosleep"
+          }
+        ],
+        "elapsed_s": 5.000479229,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 4554,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 4554,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 0,
+        "observer_cpu_ns": 53976980,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [
+          {
+            "age_ms": 1,
+            "args": [
+              0,
+              0,
+              140734365524592,
+              0,
+              0,
+              0
+            ],
+            "id": 230,
+            "syscall": "clock_nanosleep",
+            "tid": 3225071
+          }
+        ],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 765072,
+        "stack_size": 0,
+        "target_status": [
+          "State:\tS (sleeping)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3225071,
+        "unmatched_exit": 1,
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 7277,
+        "wall_s": 8.000429,
+        "cpu_s": 0.050527
+      },
+      "experiment": "sleep-fast"
+    },
+    {
+      "repeat": 0,
+      "mode": "sleep",
+      "config": "all-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 4549,
+            "id": 230,
+            "last_ret": 0,
+            "max_ns": 1088746,
+            "mean_ns": 1058416,
+            "min_ns": 1009657,
+            "syscall": "clock_nanosleep"
+          }
+        ],
+        "elapsed_s": 5.000043475,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 4550,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 4550,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 0,
+        "observer_cpu_ns": 243826756,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [
+          {
+            "age_ms": 1,
+            "args": [
+              0,
+              0,
+              140728943882352,
+              0,
+              0,
+              0
+            ],
+            "id": 230,
+            "syscall": "clock_nanosleep",
+            "tid": 3225111
+          }
+        ],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 10847200,
+        "stack_size": 2048,
+        "target_status": [
+          "State:\tS (sleeping)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3225111,
+        "unmatched_exit": 1,
+        "user_sample": {
+          "frames": [
+            {
+              "address": "0x00007668b46a060e",
+              "symbol": null
+            },
+            {
+              "address": "0x00007668b46f5df2",
+              "symbol": "clock_nanosleep"
+            },
+            {
+              "address": "0x00007668b4703a07",
+              "symbol": "__nanosleep"
+            },
+            {
+              "address": "0x00005a1c6d7175f9",
+              "symbol": "wait_sleep"
+            },
+            {
+              "address": "0x00005a1c6d71783d",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005a1c6d717830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005a1c6d717830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005a1c6d717830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005a1c6d717830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005a1c6d717830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005a1c6d717830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005a1c6d717384",
+              "symbol": "main"
+            },
+            {
+              "address": "0x00007668b462a601",
+              "symbol": null
+            },
+            {
+              "address": "0x00007668b462a718",
+              "symbol": "__libc_start_main"
+            },
+            {
+              "address": "0x00005a1c6d7174d5",
+              "symbol": "_start"
+            }
+          ],
+          "id": 230,
+          "rbp": "0x7ffe02b5b030",
+          "rip": "0x7668b46a060e",
+          "rsp": "0x7ffe02b5b020",
+          "stack_bytes": 2048,
+          "syscall": "clock_nanosleep",
+          "unwind_stop": "end of chain / non-increasing RBP"
+        },
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 7272,
+        "wall_s": 8.000444,
+        "cpu_s": 0.055116
+      },
+      "experiment": "sleep-fast"
+    },
+    {
+      "repeat": 0,
+      "mode": "sleep",
+      "config": "all-4096",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 4538,
+            "id": 230,
+            "last_ret": 0,
+            "max_ns": 1084137,
+            "mean_ns": 1059447,
+            "min_ns": 1011481,
+            "syscall": "clock_nanosleep"
+          }
+        ],
+        "elapsed_s": 5.000373849,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 4539,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 4539,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 0,
+        "observer_cpu_ns": 410742151,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [
+          {
+            "age_ms": 1,
+            "args": [
+              0,
+              0,
+              140736764407840,
+              0,
+              0,
+              0
+            ],
+            "id": 230,
+            "syscall": "clock_nanosleep",
+            "tid": 3225149
+          }
+        ],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 20116848,
+        "stack_size": 4096,
+        "target_status": [
+          "State:\tS (sleeping)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3225149,
+        "unmatched_exit": 1,
+        "user_sample": {
+          "frames": [
+            {
+              "address": "0x00007443484a060e",
+              "symbol": null
+            },
+            {
+              "address": "0x00007443484f5df2",
+              "symbol": "clock_nanosleep"
+            },
+            {
+              "address": "0x0000744348503a07",
+              "symbol": "__nanosleep"
+            },
+            {
+              "address": "0x0000557febfca5f9",
+              "symbol": "wait_sleep"
+            },
+            {
+              "address": "0x0000557febfca83d",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000557febfca830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000557febfca830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000557febfca830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000557febfca830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000557febfca830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000557febfca830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000557febfca384",
+              "symbol": "main"
+            },
+            {
+              "address": "0x000074434842a601",
+              "symbol": null
+            },
+            {
+              "address": "0x000074434842a718",
+              "symbol": "__libc_start_main"
+            },
+            {
+              "address": "0x0000557febfca4d5",
+              "symbol": "_start"
+            }
+          ],
+          "id": 230,
+          "rbp": "0x7fffd4d96fe0",
+          "rip": "0x7443484a060e",
+          "rsp": "0x7fffd4d96fd0",
+          "stack_bytes": 4096,
+          "syscall": "clock_nanosleep",
+          "unwind_stop": "end of chain / non-increasing RBP"
+        },
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 7268,
+        "wall_s": 8.00054,
+        "cpu_s": 0.058369
+      },
+      "experiment": "sleep-fast"
+    },
+    {
+      "repeat": 0,
+      "mode": "sleep",
+      "config": "all-8192",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 4545,
+            "id": 230,
+            "last_ret": 0,
+            "max_ns": 1284494,
+            "mean_ns": 1059828,
+            "min_ns": 1011461,
+            "syscall": "clock_nanosleep"
+          }
+        ],
+        "elapsed_s": 5.00130336,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 4546,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 4546,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 0,
+        "observer_cpu_ns": 685994226,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [
+          {
+            "age_ms": 1,
+            "args": [
+              0,
+              0,
+              140722097019376,
+              0,
+              0,
+              0
+            ],
+            "id": 230,
+            "syscall": "clock_nanosleep",
+            "tid": 3225173
+          }
+        ],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 38768288,
+        "stack_size": 8192,
+        "target_status": [
+          "State:\tS (sleeping)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3225173,
+        "unmatched_exit": 1,
+        "user_sample": {
+          "frames": [
+            {
+              "address": "0x00007d79f08a060e",
+              "symbol": null
+            },
+            {
+              "address": "0x00007d79f08f5df2",
+              "symbol": "clock_nanosleep"
+            },
+            {
+              "address": "0x00007d79f0903a07",
+              "symbol": "__nanosleep"
+            },
+            {
+              "address": "0x0000607e70d535f9",
+              "symbol": "wait_sleep"
+            },
+            {
+              "address": "0x0000607e70d5383d",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000607e70d53830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000607e70d53830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000607e70d53830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000607e70d53830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000607e70d53830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000607e70d53830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000607e70d53384",
+              "symbol": "main"
+            },
+            {
+              "address": "0x00007d79f082a601",
+              "symbol": null
+            },
+            {
+              "address": "0x00007d79f082a718",
+              "symbol": "__libc_start_main"
+            },
+            {
+              "address": "0x0000607e70d534d5",
+              "symbol": "_start"
+            }
+          ],
+          "id": 230,
+          "rbp": "0x7ffc6a9ad9b0",
+          "rip": "0x7d79f08a060e",
+          "rsp": "0x7ffc6a9ad9a0",
+          "stack_bytes": 5728,
+          "syscall": "clock_nanosleep",
+          "unwind_stop": "end of chain / non-increasing RBP"
+        },
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 7265,
+        "wall_s": 8.000526,
+        "cpu_s": 0.061427
+      },
+      "experiment": "sleep-fast"
+    },
+    {
+      "repeat": 0,
+      "mode": "sleep",
+      "config": "context-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1,
+      "observation": {
+        "context_lost": 0,
+        "context_samples": 4567,
+        "elapsed_s": 5.000313594,
+        "has_user_sample": true,
+        "observer_cpu_ns": 227408061,
+        "preempt_out": 0,
+        "ring_bytes": 10558904,
+        "stack_bytes": 2048,
+        "voluntary_out": 4567
+      },
+      "target": {
+        "iterations": 7285,
+        "wall_s": 8.000211,
+        "cpu_s": 0.040505
+      },
+      "experiment": "sleep-fast"
+    },
+    {
+      "repeat": 0,
+      "mode": "sleep",
+      "config": "with-context-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 4538,
+        "durations": [
+          {
+            "count": 4537,
+            "id": 230,
+            "last_ret": 0,
+            "max_ns": 1077965,
+            "mean_ns": 1060173,
+            "min_ns": 1011090,
+            "syscall": "clock_nanosleep"
+          }
+        ],
+        "elapsed_s": 5.000698311,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 4538,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 4538,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 0,
+        "observer_cpu_ns": 436368914,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [
+          {
+            "age_ms": 1,
+            "args": [
+              0,
+              0,
+              140724768979056,
+              0,
+              0,
+              0
+            ],
+            "id": 230,
+            "syscall": "clock_nanosleep",
+            "tid": 3225279
+          }
+        ],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 10818592,
+        "stack_size": 2048,
+        "target_status": [
+          "State:\tS (sleeping)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3225279,
+        "unmatched_exit": 1,
+        "user_sample": {
+          "frames": [
+            {
+              "address": "0x00007145918a060e",
+              "symbol": null
+            },
+            {
+              "address": "0x00007145918f5df2",
+              "symbol": "clock_nanosleep"
+            },
+            {
+              "address": "0x0000714591903a07",
+              "symbol": "__nanosleep"
+            },
+            {
+              "address": "0x000057ac3e4325f9",
+              "symbol": "wait_sleep"
+            },
+            {
+              "address": "0x000057ac3e43283d",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000057ac3e432830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000057ac3e432830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000057ac3e432830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000057ac3e432830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000057ac3e432830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000057ac3e432830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000057ac3e432384",
+              "symbol": "main"
+            },
+            {
+              "address": "0x000071459182a601",
+              "symbol": null
+            },
+            {
+              "address": "0x000071459182a718",
+              "symbol": "__libc_start_main"
+            },
+            {
+              "address": "0x000057ac3e4324d5",
+              "symbol": "_start"
+            }
+          ],
+          "id": 230,
+          "rbp": "0x7ffd09ddb830",
+          "rip": "0x7145918a060e",
+          "rsp": "0x7ffd09ddb820",
+          "stack_bytes": 2048,
+          "syscall": "clock_nanosleep",
+          "unwind_stop": "end of chain / non-increasing RBP"
+        },
+        "voluntary_out": 4538
+      },
+      "target": {
+        "iterations": 7265,
+        "wall_s": 8.000459,
+        "cpu_s": 0.061655
+      },
+      "experiment": "sleep-fast"
+    },
+    {
+      "repeat": 1,
+      "mode": "sleep",
+      "config": "baseline",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1,
+      "target": {
+        "iterations": 7293,
+        "wall_s": 8.000988,
+        "cpu_s": 0.033531
+      },
+      "experiment": "sleep-fast"
+    },
+    {
+      "repeat": 1,
+      "mode": "sleep",
+      "config": "light",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 4547,
+            "id": 230,
+            "last_ret": 0,
+            "max_ns": 1076372,
+            "mean_ns": 1057497,
+            "min_ns": 1008735,
+            "syscall": "clock_nanosleep"
+          }
+        ],
+        "elapsed_s": 5.000301384,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 4548,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 4548,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 0,
+        "observer_cpu_ns": 52913762,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [
+          {
+            "age_ms": 1,
+            "args": [
+              0,
+              0,
+              140733877756640,
+              0,
+              0,
+              0
+            ],
+            "id": 230,
+            "syscall": "clock_nanosleep",
+            "tid": 3225334
+          }
+        ],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 764064,
+        "stack_size": 0,
+        "target_status": [
+          "State:\tS (sleeping)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3225334,
+        "unmatched_exit": 1,
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 7191,
+        "wall_s": 8.000566,
+        "cpu_s": 0.050291
+      },
+      "experiment": "sleep-fast"
+    },
+    {
+      "repeat": 1,
+      "mode": "sleep",
+      "config": "all-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 4551,
+            "id": 230,
+            "last_ret": 0,
+            "max_ns": 1116718,
+            "mean_ns": 1058384,
+            "min_ns": 1009297,
+            "syscall": "clock_nanosleep"
+          }
+        ],
+        "elapsed_s": 5.001076403,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 4552,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 4552,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 0,
+        "observer_cpu_ns": 242965192,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [
+          {
+            "age_ms": 1,
+            "args": [
+              0,
+              0,
+              140727995108544,
+              0,
+              0,
+              0
+            ],
+            "id": 230,
+            "syscall": "clock_nanosleep",
+            "tid": 3225375
+          }
+        ],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 10851968,
+        "stack_size": 2048,
+        "target_status": [
+          "State:\tS (sleeping)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3225375,
+        "unmatched_exit": 1,
+        "user_sample": {
+          "frames": [
+            {
+              "address": "0x00007841898a060e",
+              "symbol": null
+            },
+            {
+              "address": "0x00007841898f5df2",
+              "symbol": "clock_nanosleep"
+            },
+            {
+              "address": "0x0000784189903a07",
+              "symbol": "__nanosleep"
+            },
+            {
+              "address": "0x00005691210365f9",
+              "symbol": "wait_sleep"
+            },
+            {
+              "address": "0x000056912103683d",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000569121036830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000569121036830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000569121036830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000569121036830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000569121036830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000569121036830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000569121036384",
+              "symbol": "main"
+            },
+            {
+              "address": "0x000078418982a601",
+              "symbol": null
+            },
+            {
+              "address": "0x000078418982a718",
+              "symbol": "__libc_start_main"
+            },
+            {
+              "address": "0x00005691210364d5",
+              "symbol": "_start"
+            }
+          ],
+          "id": 230,
+          "rbp": "0x7ffdca288c80",
+          "rip": "0x7841898a060e",
+          "rsp": "0x7ffdca288c70",
+          "stack_bytes": 2048,
+          "syscall": "clock_nanosleep",
+          "unwind_stop": "end of chain / non-increasing RBP"
+        },
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 7273,
+        "wall_s": 8.000441,
+        "cpu_s": 0.054695
+      },
+      "experiment": "sleep-fast"
+    },
+    {
+      "repeat": 1,
+      "mode": "sleep",
+      "config": "all-4096",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 4535,
+            "id": 230,
+            "last_ret": 0,
+            "max_ns": 1126757,
+            "mean_ns": 1060472,
+            "min_ns": 1030065,
+            "syscall": "clock_nanosleep"
+          }
+        ],
+        "elapsed_s": 5.000493681,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 4536,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 4536,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 0,
+        "observer_cpu_ns": 408902334,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [
+          {
+            "age_ms": 2,
+            "args": [
+              0,
+              0,
+              140721078150192,
+              0,
+              0,
+              0
+            ],
+            "id": 230,
+            "syscall": "clock_nanosleep",
+            "tid": 3225415
+          }
+        ],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 20103552,
+        "stack_size": 4096,
+        "target_status": [
+          "State:\tS (sleeping)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3225415,
+        "unmatched_exit": 1,
+        "user_sample": {
+          "frames": [
+            {
+              "address": "0x00007effbb2a060e",
+              "symbol": null
+            },
+            {
+              "address": "0x00007effbb2f5df2",
+              "symbol": "clock_nanosleep"
+            },
+            {
+              "address": "0x00007effbb303a07",
+              "symbol": "__nanosleep"
+            },
+            {
+              "address": "0x00006343e76695f9",
+              "symbol": "wait_sleep"
+            },
+            {
+              "address": "0x00006343e766983d",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00006343e7669830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00006343e7669830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00006343e7669830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00006343e7669830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00006343e7669830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00006343e7669830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00006343e7669384",
+              "symbol": "main"
+            },
+            {
+              "address": "0x00007effbb22a601",
+              "symbol": null
+            },
+            {
+              "address": "0x00007effbb22a718",
+              "symbol": "__libc_start_main"
+            },
+            {
+              "address": "0x00006343e76694d5",
+              "symbol": "_start"
+            }
+          ],
+          "id": 230,
+          "rbp": "0x7ffc2de023f0",
+          "rip": "0x7effbb2a060e",
+          "rsp": "0x7ffc2de023e0",
+          "stack_bytes": 3104,
+          "syscall": "clock_nanosleep",
+          "unwind_stop": "end of chain / non-increasing RBP"
+        },
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 7264,
+        "wall_s": 8.000449,
+        "cpu_s": 0.062479
+      },
+      "experiment": "sleep-fast"
+    },
+    {
+      "repeat": 1,
+      "mode": "sleep",
+      "config": "all-8192",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 4483,
+            "id": 230,
+            "last_ret": 0,
+            "max_ns": 1078086,
+            "mean_ns": 1059674,
+            "min_ns": 1009356,
+            "syscall": "clock_nanosleep"
+          }
+        ],
+        "elapsed_s": 5.000150154,
+        "enter_id": 384,
+        "enter_lost": 58,
+        "enter_samples": 4485,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 4543,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 1,
+        "observer_cpu_ns": 678757909,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [
+          {
+            "age_ms": 1,
+            "args": [
+              0,
+              0,
+              140732441203136,
+              0,
+              0,
+              0
+            ],
+            "id": 230,
+            "syscall": "clock_nanosleep",
+            "tid": 3225490
+          }
+        ],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 38251816,
+        "stack_size": 8192,
+        "target_status": [
+          "State:\tS (sleeping)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3225490,
+        "unmatched_exit": 58,
+        "user_sample": {
+          "frames": [
+            {
+              "address": "0x00007f5806aa060e",
+              "symbol": null
+            },
+            {
+              "address": "0x00007f5806af5df2",
+              "symbol": "clock_nanosleep"
+            },
+            {
+              "address": "0x00007f5806b03a07",
+              "symbol": "__nanosleep"
+            },
+            {
+              "address": "0x0000582dc98945f9",
+              "symbol": "wait_sleep"
+            },
+            {
+              "address": "0x0000582dc989483d",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000582dc9894830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000582dc9894830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000582dc9894830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000582dc9894830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000582dc9894830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000582dc9894830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000582dc9894384",
+              "symbol": "main"
+            },
+            {
+              "address": "0x00007f5806a2a601",
+              "symbol": null
+            },
+            {
+              "address": "0x00007f5806a2a718",
+              "symbol": "__libc_start_main"
+            },
+            {
+              "address": "0x0000582dc98944d5",
+              "symbol": "_start"
+            }
+          ],
+          "id": 230,
+          "rbp": "0x7ffed32a9180",
+          "rip": "0x7f5806aa060e",
+          "rsp": "0x7ffed32a9170",
+          "stack_bytes": 3728,
+          "syscall": "clock_nanosleep",
+          "unwind_stop": "end of chain / non-increasing RBP"
+        },
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 7267,
+        "wall_s": 8.000416,
+        "cpu_s": 0.060434
+      },
+      "experiment": "sleep-fast"
+    },
+    {
+      "repeat": 1,
+      "mode": "sleep",
+      "config": "context-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1,
+      "observation": {
+        "context_lost": 0,
+        "context_samples": 4560,
+        "elapsed_s": 5.001043968,
+        "has_user_sample": true,
+        "observer_cpu_ns": 228067681,
+        "preempt_out": 0,
+        "ring_bytes": 10542720,
+        "stack_bytes": 2048,
+        "voluntary_out": 4560
+      },
+      "target": {
+        "iterations": 7285,
+        "wall_s": 8.000964,
+        "cpu_s": 0.04121
+      },
+      "experiment": "sleep-fast"
+    },
+    {
+      "repeat": 1,
+      "mode": "sleep",
+      "config": "with-context-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 4545,
+        "durations": [
+          {
+            "count": 4542,
+            "id": 230,
+            "last_ret": 0,
+            "max_ns": 1079378,
+            "mean_ns": 1059289,
+            "min_ns": 1012052,
+            "syscall": "clock_nanosleep"
+          }
+        ],
+        "elapsed_s": 5.000700853,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 4543,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 4543,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 0,
+        "observer_cpu_ns": 436908046,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [
+          {
+            "age_ms": 1,
+            "args": [
+              0,
+              0,
+              140720803429568,
+              0,
+              0,
+              0
+            ],
+            "id": 230,
+            "syscall": "clock_nanosleep",
+            "tid": 3225567
+          }
+        ],
+        "preempt_out": 2,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 10830512,
+        "stack_size": 2048,
+        "target_status": [
+          "State:\tS (sleeping)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3225567,
+        "unmatched_exit": 1,
+        "user_sample": {
+          "frames": [
+            {
+              "address": "0x0000759fddca060e",
+              "symbol": null
+            },
+            {
+              "address": "0x0000759fddcf5df2",
+              "symbol": "clock_nanosleep"
+            },
+            {
+              "address": "0x0000759fddd03a07",
+              "symbol": "__nanosleep"
+            },
+            {
+              "address": "0x00005825ad4565f9",
+              "symbol": "wait_sleep"
+            },
+            {
+              "address": "0x00005825ad45683d",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005825ad456830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005825ad456830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005825ad456830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005825ad456830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005825ad456830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005825ad456830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005825ad456384",
+              "symbol": "main"
+            },
+            {
+              "address": "0x0000759fddc2a601",
+              "symbol": null
+            },
+            {
+              "address": "0x0000759fddc2a718",
+              "symbol": "__libc_start_main"
+            },
+            {
+              "address": "0x00005825ad4564d5",
+              "symbol": "_start"
+            }
+          ],
+          "id": 230,
+          "rbp": "0x7ffc1d803c80",
+          "rip": "0x759fddca060e",
+          "rsp": "0x7ffc1d803c70",
+          "stack_bytes": 2048,
+          "syscall": "clock_nanosleep",
+          "unwind_stop": "end of chain / non-increasing RBP"
+        },
+        "voluntary_out": 4543
+      },
+      "target": {
+        "iterations": 7269,
+        "wall_s": 8.000644,
+        "cpu_s": 0.058989
+      },
+      "experiment": "sleep-fast"
+    },
+    {
+      "repeat": 2,
+      "mode": "sleep",
+      "config": "baseline",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1,
+      "target": {
+        "iterations": 7292,
+        "wall_s": 8.00086,
+        "cpu_s": 0.034388
+      },
+      "experiment": "sleep-fast"
+    },
+    {
+      "repeat": 2,
+      "mode": "sleep",
+      "config": "light",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 4550,
+            "id": 230,
+            "last_ret": 0,
+            "max_ns": 1106529,
+            "mean_ns": 1057791,
+            "min_ns": 1009447,
+            "syscall": "clock_nanosleep"
+          }
+        ],
+        "elapsed_s": 5.00097237,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 4551,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 4551,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 0,
+        "observer_cpu_ns": 54825045,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [
+          {
+            "age_ms": 1,
+            "args": [
+              0,
+              0,
+              140723369281712,
+              0,
+              0,
+              0
+            ],
+            "id": 230,
+            "syscall": "clock_nanosleep",
+            "tid": 3225668
+          }
+        ],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 764568,
+        "stack_size": 0,
+        "target_status": [
+          "State:\tS (sleeping)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3225668,
+        "unmatched_exit": 1,
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 7276,
+        "wall_s": 8.000734,
+        "cpu_s": 0.051274
+      },
+      "experiment": "sleep-fast"
+    },
+    {
+      "repeat": 2,
+      "mode": "sleep",
+      "config": "all-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 4545,
+            "id": 230,
+            "last_ret": 0,
+            "max_ns": 1076783,
+            "mean_ns": 1058905,
+            "min_ns": 1011090,
+            "syscall": "clock_nanosleep"
+          }
+        ],
+        "elapsed_s": 5.000883841,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 4546,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 4547,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 0,
+        "observer_cpu_ns": 248349900,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [
+          {
+            "age_ms": 2,
+            "args": [
+              0,
+              0,
+              140735407113232,
+              0,
+              0,
+              0
+            ],
+            "id": 230,
+            "syscall": "clock_nanosleep",
+            "tid": 3225712
+          }
+        ],
+        "preempt_out": 0,
+        "queued_after_cutoff": 1,
+        "ring_bytes": 10837728,
+        "stack_size": 2048,
+        "target_status": [
+          "State:\tS (sleeping)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3225712,
+        "unmatched_exit": 1,
+        "user_sample": {
+          "frames": [
+            {
+              "address": "0x000076e10f8a060e",
+              "symbol": null
+            },
+            {
+              "address": "0x000076e10f8f5df2",
+              "symbol": "clock_nanosleep"
+            },
+            {
+              "address": "0x000076e10f903a07",
+              "symbol": "__nanosleep"
+            },
+            {
+              "address": "0x0000605702b635f9",
+              "symbol": "wait_sleep"
+            },
+            {
+              "address": "0x0000605702b6383d",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000605702b63830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000605702b63830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000605702b63830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000605702b63830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000605702b63830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000605702b63830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000605702b63384",
+              "symbol": "main"
+            },
+            {
+              "address": "0x000076e10f82a601",
+              "symbol": null
+            },
+            {
+              "address": "0x000076e10f82a718",
+              "symbol": "__libc_start_main"
+            },
+            {
+              "address": "0x0000605702b634d5",
+              "symbol": "_start"
+            }
+          ],
+          "id": 230,
+          "rbp": "0x7fff83f2c3d0",
+          "rip": "0x76e10f8a060e",
+          "rsp": "0x7fff83f2c3c0",
+          "stack_bytes": 2048,
+          "syscall": "clock_nanosleep",
+          "unwind_stop": "end of chain / non-increasing RBP"
+        },
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 7271,
+        "wall_s": 8.000851,
+        "cpu_s": 0.056092
+      },
+      "experiment": "sleep-fast"
+    },
+    {
+      "repeat": 2,
+      "mode": "sleep",
+      "config": "all-4096",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 4548,
+            "id": 230,
+            "last_ret": 0,
+            "max_ns": 1064861,
+            "mean_ns": 1059456,
+            "min_ns": 1010759,
+            "syscall": "clock_nanosleep"
+          }
+        ],
+        "elapsed_s": 5.000944896,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 4549,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 4549,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 0,
+        "observer_cpu_ns": 408019885,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [
+          {
+            "age_ms": 1,
+            "args": [
+              0,
+              0,
+              140736112682208,
+              0,
+              0,
+              0
+            ],
+            "id": 230,
+            "syscall": "clock_nanosleep",
+            "tid": 3225753
+          }
+        ],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 20161168,
+        "stack_size": 4096,
+        "target_status": [
+          "State:\tS (sleeping)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3225753,
+        "unmatched_exit": 1,
+        "user_sample": {
+          "frames": [
+            {
+              "address": "0x00007d2a30ea060e",
+              "symbol": null
+            },
+            {
+              "address": "0x00007d2a30ef5df2",
+              "symbol": "clock_nanosleep"
+            },
+            {
+              "address": "0x00007d2a30f03a07",
+              "symbol": "__nanosleep"
+            },
+            {
+              "address": "0x00005d1890ba45f9",
+              "symbol": "wait_sleep"
+            },
+            {
+              "address": "0x00005d1890ba483d",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005d1890ba4830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005d1890ba4830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005d1890ba4830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005d1890ba4830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005d1890ba4830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005d1890ba4830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005d1890ba4384",
+              "symbol": "main"
+            },
+            {
+              "address": "0x00007d2a30e2a601",
+              "symbol": null
+            },
+            {
+              "address": "0x00007d2a30e2a718",
+              "symbol": "__libc_start_main"
+            },
+            {
+              "address": "0x00005d1890ba44d5",
+              "symbol": "_start"
+            }
+          ],
+          "id": 230,
+          "rbp": "0x7fffae00e4a0",
+          "rip": "0x7d2a30ea060e",
+          "rsp": "0x7fffae00e490",
+          "stack_bytes": 2928,
+          "syscall": "clock_nanosleep",
+          "unwind_stop": "end of chain / non-increasing RBP"
+        },
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 6734,
+        "wall_s": 8.001026,
+        "cpu_s": 0.057173
+      },
+      "experiment": "sleep-fast"
+    },
+    {
+      "repeat": 2,
+      "mode": "sleep",
+      "config": "all-8192",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 4529,
+            "id": 230,
+            "last_ret": 0,
+            "max_ns": 1151635,
+            "mean_ns": 1060739,
+            "min_ns": 1013896,
+            "syscall": "clock_nanosleep"
+          }
+        ],
+        "elapsed_s": 5.000460119,
+        "enter_id": 384,
+        "enter_lost": 15,
+        "enter_samples": 4531,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 4547,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 1,
+        "observer_cpu_ns": 683647622,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [
+          {
+            "age_ms": 2,
+            "args": [
+              0,
+              0,
+              140736379600112,
+              0,
+              0,
+              0
+            ],
+            "id": 230,
+            "syscall": "clock_nanosleep",
+            "tid": 3225791
+          }
+        ],
+        "preempt_out": 0,
+        "queued_after_cutoff": 1,
+        "ring_bytes": 38641416,
+        "stack_size": 8192,
+        "target_status": [
+          "State:\tS (sleeping)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3225791,
+        "unmatched_exit": 15,
+        "user_sample": {
+          "frames": [
+            {
+              "address": "0x00007367ebaa060e",
+              "symbol": null
+            },
+            {
+              "address": "0x00007367ebaf5df2",
+              "symbol": "clock_nanosleep"
+            },
+            {
+              "address": "0x00007367ebb03a07",
+              "symbol": "__nanosleep"
+            },
+            {
+              "address": "0x0000571b0a0de5f9",
+              "symbol": "wait_sleep"
+            },
+            {
+              "address": "0x0000571b0a0de83d",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000571b0a0de830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000571b0a0de830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000571b0a0de830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000571b0a0de830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000571b0a0de830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000571b0a0de830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000571b0a0de384",
+              "symbol": "main"
+            },
+            {
+              "address": "0x00007367eba2a601",
+              "symbol": null
+            },
+            {
+              "address": "0x00007367eba2a718",
+              "symbol": "__libc_start_main"
+            },
+            {
+              "address": "0x0000571b0a0de4d5",
+              "symbol": "_start"
+            }
+          ],
+          "id": 230,
+          "rbp": "0x7fffbde9bcb0",
+          "rip": "0x7367ebaa060e",
+          "rsp": "0x7fffbde9bca0",
+          "stack_bytes": 4960,
+          "syscall": "clock_nanosleep",
+          "unwind_stop": "end of chain / non-increasing RBP"
+        },
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 7263,
+        "wall_s": 8.000786,
+        "cpu_s": 0.063941
+      },
+      "experiment": "sleep-fast"
+    },
+    {
+      "repeat": 2,
+      "mode": "sleep",
+      "config": "context-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1,
+      "observation": {
+        "context_lost": 0,
+        "context_samples": 4560,
+        "elapsed_s": 5.000420352,
+        "has_user_sample": true,
+        "observer_cpu_ns": 226462834,
+        "preempt_out": 0,
+        "ring_bytes": 10542720,
+        "stack_bytes": 2048,
+        "voluntary_out": 4560
+      },
+      "target": {
+        "iterations": 7286,
+        "wall_s": 8.000538,
+        "cpu_s": 0.04036
+      },
+      "experiment": "sleep-fast"
+    },
+    {
+      "repeat": 2,
+      "mode": "sleep",
+      "config": "with-context-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 4287,
+        "durations": [
+          {
+            "count": 4286,
+            "id": 230,
+            "last_ret": 0,
+            "max_ns": 1076733,
+            "mean_ns": 1060289,
+            "min_ns": 1011851,
+            "syscall": "clock_nanosleep"
+          }
+        ],
+        "elapsed_s": 5.000802993,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 4287,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 4287,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 0,
+        "observer_cpu_ns": 413509931,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [
+          {
+            "age_ms": 271,
+            "args": [
+              0,
+              0,
+              140727417494032,
+              0,
+              0,
+              0
+            ],
+            "id": 230,
+            "syscall": "clock_nanosleep",
+            "tid": 3225854
+          }
+        ],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 10220208,
+        "stack_size": 2048,
+        "target_status": [
+          "State:\tS (sleeping)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3225854,
+        "unmatched_exit": 1,
+        "user_sample": {
+          "frames": [
+            {
+              "address": "0x00007701b5ea060e",
+              "symbol": null
+            },
+            {
+              "address": "0x00007701b5ef5df2",
+              "symbol": "clock_nanosleep"
+            },
+            {
+              "address": "0x00007701b5f03a07",
+              "symbol": "__nanosleep"
+            },
+            {
+              "address": "0x00005e7fcb8345f9",
+              "symbol": "wait_sleep"
+            },
+            {
+              "address": "0x00005e7fcb83483d",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005e7fcb834830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005e7fcb834830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005e7fcb834830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005e7fcb834830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005e7fcb834830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005e7fcb834830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005e7fcb834384",
+              "symbol": "main"
+            },
+            {
+              "address": "0x00007701b5e2a601",
+              "symbol": null
+            },
+            {
+              "address": "0x00007701b5e2a718",
+              "symbol": "__libc_start_main"
+            },
+            {
+              "address": "0x00005e7fcb8344d5",
+              "symbol": "_start"
+            }
+          ],
+          "id": 230,
+          "rbp": "0x7ffda7bad9d0",
+          "rip": "0x7701b5ea060e",
+          "rsp": "0x7ffda7bad9c0",
+          "stack_bytes": 2048,
+          "syscall": "clock_nanosleep",
+          "unwind_stop": "end of chain / non-increasing RBP"
+        },
+        "voluntary_out": 4287
+      },
+      "target": {
+        "iterations": 6647,
+        "wall_s": 8.000892,
+        "cpu_s": 0.057514
+      },
+      "experiment": "sleep-fast"
+    },
+    {
+      "repeat": 0,
+      "mode": "busy",
+      "config": "baseline",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "target": {
+        "iterations": 23708742,
+        "wall_s": 8.000002,
+        "cpu_s": 7.699118
+      },
+      "experiment": "busy"
+    },
+    {
+      "repeat": 0,
+      "mode": "busy",
+      "config": "light",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 809,
+            "id": 39,
+            "last_ret": 3225958,
+            "max_ns": 10520,
+            "mean_ns": 1255,
+            "min_ns": 1072,
+            "syscall": "getpid"
+          }
+        ],
+        "elapsed_s": 5.002166974,
+        "enter_id": 384,
+        "enter_lost": 3211839,
+        "enter_samples": 754980,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 2740479,
+        "exit_samples": 1227978,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 1199,
+        "observer_cpu_ns": 3561364115,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 157166064,
+        "stack_size": 0,
+        "target_status": [
+          "State:\tR (running)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3225958,
+        "unmatched_exit": 433,
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 12806873,
+        "wall_s": 8.000001,
+        "cpu_s": 7.699193
+      },
+      "experiment": "busy"
+    },
+    {
+      "repeat": 0,
+      "mode": "busy",
+      "config": "all-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 28,
+            "id": 39,
+            "last_ret": 3225989,
+            "max_ns": 2926,
+            "mean_ns": 2051,
+            "min_ns": 1953,
+            "syscall": "getpid"
+          }
+        ],
+        "elapsed_s": 5.001900435,
+        "enter_id": 384,
+        "enter_lost": 4228712,
+        "enter_samples": 37856,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 2886455,
+        "exit_samples": 1382791,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 1351,
+        "observer_cpu_ns": 3404158907,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 176389392,
+        "stack_size": 2048,
+        "target_status": [
+          "State:\tR (running)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3225989,
+        "unmatched_exit": 66,
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 13087735,
+        "wall_s": 8.000001,
+        "cpu_s": 7.699074
+      },
+      "experiment": "busy"
+    },
+    {
+      "repeat": 0,
+      "mode": "busy",
+      "config": "all-4096",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 15,
+            "id": 39,
+            "last_ret": 3226031,
+            "max_ns": 4809,
+            "mean_ns": 3295,
+            "min_ns": 3126,
+            "syscall": "getpid"
+          }
+        ],
+        "elapsed_s": 5.001883934,
+        "enter_id": 384,
+        "enter_lost": 4241611,
+        "enter_samples": 19111,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 2867167,
+        "exit_samples": 1396226,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 1364,
+        "observer_cpu_ns": 3386238187,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 172900784,
+        "stack_size": 4096,
+        "target_status": [
+          "State:\tR (running)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3226031,
+        "unmatched_exit": 261,
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 13145442,
+        "wall_s": 8.000001,
+        "cpu_s": 7.699029
+      },
+      "experiment": "busy"
+    },
+    {
+      "repeat": 0,
+      "mode": "busy",
+      "config": "all-8192",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 7,
+            "id": 39,
+            "last_ret": 3226069,
+            "max_ns": 4629,
+            "mean_ns": 3436,
+            "min_ns": 3146,
+            "syscall": "getpid"
+          }
+        ],
+        "elapsed_s": 5.002256163,
+        "enter_id": 384,
+        "enter_lost": 4282393,
+        "enter_samples": 9667,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 2882547,
+        "exit_samples": 1412315,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 1380,
+        "observer_cpu_ns": 3370983977,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 172275888,
+        "stack_size": 8192,
+        "target_status": [
+          "State:\tR (running)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3226069,
+        "unmatched_exit": 121,
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 13119031,
+        "wall_s": 8.000001,
+        "cpu_s": 7.699158
+      },
+      "experiment": "busy"
+    },
+    {
+      "repeat": 0,
+      "mode": "busy",
+      "config": "blocking-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [],
+        "elapsed_s": 5.000644755,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 0,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 1,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": true,
+        "invalidations": 0,
+        "observer_cpu_ns": 22730690,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 64,
+        "stack_size": 2048,
+        "target_status": [
+          "State:\tR (running)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3226092,
+        "unmatched_exit": 1,
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 15338906,
+        "wall_s": 8.000001,
+        "cpu_s": 7.698946
+      },
+      "experiment": "busy"
+    },
+    {
+      "repeat": 0,
+      "mode": "busy",
+      "config": "exit-stack-8192",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 6,
+            "id": 39,
+            "last_ret": 3226133,
+            "max_ns": 3697,
+            "mean_ns": 2912,
+            "min_ns": 2655,
+            "syscall": "getpid"
+          }
+        ],
+        "elapsed_s": 5.000857144,
+        "enter_id": 384,
+        "enter_lost": 5339017,
+        "enter_samples": 12075,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 5340130,
+        "exit_samples": 12075,
+        "exit_stack": true,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 1724,
+        "observer_cpu_ns": 3016389095,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 204005352,
+        "stack_size": 8192,
+        "target_status": [
+          "State:\tR (running)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3226133,
+        "unmatched_exit": 1,
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 14150641,
+        "wall_s": 8.000001,
+        "cpu_s": 7.698866
+      },
+      "experiment": "busy"
+    },
+    {
+      "repeat": 0,
+      "mode": "busy",
+      "config": "context-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "context_lost": 0,
+        "context_samples": 68,
+        "elapsed_s": 5.000415464,
+        "has_user_sample": true,
+        "observer_cpu_ns": 26589243,
+        "preempt_out": 68,
+        "ring_bytes": 157248,
+        "stack_bytes": 2048,
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 23944169,
+        "wall_s": 8.000001,
+        "cpu_s": 7.698899
+      },
+      "experiment": "busy"
+    },
+    {
+      "repeat": 0,
+      "mode": "busy",
+      "config": "with-context-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 59,
+        "durations": [
+          {
+            "count": 28,
+            "id": 39,
+            "last_ret": 3226213,
+            "max_ns": 4989,
+            "mean_ns": 3155,
+            "min_ns": 2965,
+            "syscall": "getpid"
+          }
+        ],
+        "elapsed_s": 5.000023127,
+        "enter_id": 384,
+        "enter_lost": 4202823,
+        "enter_samples": 38024,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 2854303,
+        "exit_samples": 1389189,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 1357,
+        "observer_cpu_ns": 3397089143,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [],
+        "preempt_out": 59,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 177188912,
+        "stack_size": 2048,
+        "target_status": [
+          "State:\tR (running)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3226213,
+        "unmatched_exit": 335,
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 13062713,
+        "wall_s": 8.000001,
+        "cpu_s": 7.698803
+      },
+      "experiment": "busy"
+    },
+    {
+      "repeat": 1,
+      "mode": "busy",
+      "config": "baseline",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "target": {
+        "iterations": 23810622,
+        "wall_s": 8.000002,
+        "cpu_s": 7.699376
+      },
+      "experiment": "busy"
+    },
+    {
+      "repeat": 1,
+      "mode": "busy",
+      "config": "light",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 815,
+            "id": 39,
+            "last_ret": 3226271,
+            "max_ns": 253717,
+            "mean_ns": 1605,
+            "min_ns": 1212,
+            "syscall": "getpid"
+          }
+        ],
+        "elapsed_s": 5.000236406,
+        "enter_id": 384,
+        "enter_lost": 3167565,
+        "enter_samples": 754986,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 2696203,
+        "exit_samples": 1227978,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 1199,
+        "observer_cpu_ns": 3559163358,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 157166688,
+        "stack_size": 0,
+        "target_status": [
+          "State:\tR (running)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3226271,
+        "unmatched_exit": 458,
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 12716167,
+        "wall_s": 8.000001,
+        "cpu_s": 7.699121
+      },
+      "experiment": "busy"
+    },
+    {
+      "repeat": 1,
+      "mode": "busy",
+      "config": "all-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 28,
+            "id": 39,
+            "last_ret": 3226333,
+            "max_ns": 2896,
+            "mean_ns": 2057,
+            "min_ns": 1953,
+            "syscall": "getpid"
+          }
+        ],
+        "elapsed_s": 5.003422561,
+        "enter_id": 384,
+        "enter_lost": 4219715,
+        "enter_samples": 38136,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 2867562,
+        "exit_samples": 1392952,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 1361,
+        "observer_cpu_ns": 3398480686,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 177689776,
+        "stack_size": 2048,
+        "target_status": [
+          "State:\tR (running)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3226333,
+        "unmatched_exit": 26,
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 13069165,
+        "wall_s": 8.000001,
+        "cpu_s": 7.699161
+      },
+      "experiment": "busy"
+    },
+    {
+      "repeat": 1,
+      "mode": "busy",
+      "config": "all-4096",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 15,
+            "id": 39,
+            "last_ret": 3226363,
+            "max_ns": 3837,
+            "mean_ns": 2480,
+            "min_ns": 2255,
+            "syscall": "getpid"
+          }
+        ],
+        "elapsed_s": 5.001896183,
+        "enter_id": 384,
+        "enter_lost": 4278594,
+        "enter_samples": 19167,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 2900299,
+        "exit_samples": 1400164,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 1368,
+        "observer_cpu_ns": 3390771357,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 173397616,
+        "stack_size": 4096,
+        "target_status": [
+          "State:\tR (running)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3226363,
+        "unmatched_exit": 71,
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 13159212,
+        "wall_s": 8.000001,
+        "cpu_s": 7.69906
+      },
+      "experiment": "busy"
+    },
+    {
+      "repeat": 1,
+      "mode": "busy",
+      "config": "all-8192",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 7,
+            "id": 39,
+            "last_ret": 3226500,
+            "max_ns": 4979,
+            "mean_ns": 3599,
+            "min_ns": 3297,
+            "syscall": "getpid"
+          }
+        ],
+        "elapsed_s": 5.001936988,
+        "enter_id": 384,
+        "enter_lost": 4268075,
+        "enter_samples": 9611,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 2875888,
+        "exit_samples": 1404508,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 1372,
+        "observer_cpu_ns": 3378180220,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 171301872,
+        "stack_size": 8192,
+        "target_status": [
+          "State:\tR (running)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3226500,
+        "unmatched_exit": 270,
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 13069042,
+        "wall_s": 8.000001,
+        "cpu_s": 7.698883
+      },
+      "experiment": "busy"
+    },
+    {
+      "repeat": 1,
+      "mode": "busy",
+      "config": "blocking-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [],
+        "elapsed_s": 5.00012353,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 0,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 1,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": true,
+        "invalidations": 0,
+        "observer_cpu_ns": 25136180,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 64,
+        "stack_size": 2048,
+        "target_status": [
+          "State:\tR (running)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3226628,
+        "unmatched_exit": 1,
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 15302974,
+        "wall_s": 8.000002,
+        "cpu_s": 7.699004
+      },
+      "experiment": "busy"
+    },
+    {
+      "repeat": 1,
+      "mode": "busy",
+      "config": "exit-stack-8192",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 6,
+            "id": 39,
+            "last_ret": 3226669,
+            "max_ns": 3817,
+            "mean_ns": 3301,
+            "min_ns": 3136,
+            "syscall": "getpid"
+          }
+        ],
+        "elapsed_s": 5.000510094,
+        "enter_id": 384,
+        "enter_lost": 5330372,
+        "enter_samples": 11781,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 5331295,
+        "exit_samples": 11781,
+        "exit_stack": true,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 1682,
+        "observer_cpu_ns": 3050668148,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 199038264,
+        "stack_size": 8192,
+        "target_status": [
+          "State:\tR (running)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3226669,
+        "unmatched_exit": 1,
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 14153950,
+        "wall_s": 8.000001,
+        "cpu_s": 7.699097
+      },
+      "experiment": "busy"
+    },
+    {
+      "repeat": 1,
+      "mode": "busy",
+      "config": "context-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "context_lost": 0,
+        "context_samples": 63,
+        "elapsed_s": 5.000900728,
+        "has_user_sample": true,
+        "observer_cpu_ns": 26311875,
+        "preempt_out": 63,
+        "ring_bytes": 145688,
+        "stack_bytes": 2048,
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 23705410,
+        "wall_s": 8.000002,
+        "cpu_s": 7.698893
+      },
+      "experiment": "busy"
+    },
+    {
+      "repeat": 1,
+      "mode": "busy",
+      "config": "with-context-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 42,
+        "durations": [
+          {
+            "count": 28,
+            "id": 39,
+            "last_ret": 3226731,
+            "max_ns": 3356,
+            "mean_ns": 2194,
+            "min_ns": 2024,
+            "syscall": "getpid"
+          }
+        ],
+        "elapsed_s": 5.003733709,
+        "enter_id": 384,
+        "enter_lost": 4191646,
+        "enter_samples": 37912,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 2847716,
+        "exit_samples": 1384938,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 1353,
+        "observer_cpu_ns": 3398657028,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [],
+        "preempt_out": 42,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 176656816,
+        "stack_size": 2048,
+        "target_status": [
+          "State:\tR (running)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3226731,
+        "unmatched_exit": 179,
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 13057551,
+        "wall_s": 8.000001,
+        "cpu_s": 7.698968
+      },
+      "experiment": "busy"
+    },
+    {
+      "repeat": 2,
+      "mode": "busy",
+      "config": "baseline",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "target": {
+        "iterations": 23917931,
+        "wall_s": 8.000002,
+        "cpu_s": 7.699146
+      },
+      "experiment": "busy"
+    },
+    {
+      "repeat": 2,
+      "mode": "busy",
+      "config": "light",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 809,
+            "id": 39,
+            "last_ret": 3226806,
+            "max_ns": 93736,
+            "mean_ns": 1253,
+            "min_ns": 1052,
+            "syscall": "getpid"
+          }
+        ],
+        "elapsed_s": 5.003182551,
+        "enter_id": 384,
+        "enter_lost": 3202058,
+        "enter_samples": 755609,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 2730315,
+        "exit_samples": 1228993,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 1200,
+        "observer_cpu_ns": 3559529953,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 157296488,
+        "stack_size": 0,
+        "target_status": [
+          "State:\tR (running)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3226806,
+        "unmatched_exit": 506,
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 12745376,
+        "wall_s": 8.000001,
+        "cpu_s": 7.699344
+      },
+      "experiment": "busy"
+    },
+    {
+      "repeat": 2,
+      "mode": "busy",
+      "config": "all-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 28,
+            "id": 39,
+            "last_ret": 3226831,
+            "max_ns": 2916,
+            "mean_ns": 2047,
+            "min_ns": 1953,
+            "syscall": "getpid"
+          }
+        ],
+        "elapsed_s": 5.002914715,
+        "enter_id": 384,
+        "enter_lost": 4236073,
+        "enter_samples": 37912,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 2891665,
+        "exit_samples": 1384990,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 1353,
+        "observer_cpu_ns": 3399953253,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 176660144,
+        "stack_size": 2048,
+        "target_status": [
+          "State:\tR (running)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3226831,
+        "unmatched_exit": 257,
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 13097821,
+        "wall_s": 8.000001,
+        "cpu_s": 7.699129
+      },
+      "experiment": "busy"
+    },
+    {
+      "repeat": 2,
+      "mode": "busy",
+      "config": "all-4096",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 15,
+            "id": 39,
+            "last_ret": 3226868,
+            "max_ns": 3036,
+            "mean_ns": 2230,
+            "min_ns": 2114,
+            "syscall": "getpid"
+          }
+        ],
+        "elapsed_s": 5.000522116,
+        "enter_id": 384,
+        "enter_lost": 4256144,
+        "enter_samples": 19139,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 2879670,
+        "exit_samples": 1398359,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 1366,
+        "observer_cpu_ns": 3382833547,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 173159696,
+        "stack_size": 4096,
+        "target_status": [
+          "State:\tR (running)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3226868,
+        "unmatched_exit": 316,
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 13066867,
+        "wall_s": 8.000001,
+        "cpu_s": 7.699014
+      },
+      "experiment": "busy"
+    },
+    {
+      "repeat": 2,
+      "mode": "busy",
+      "config": "all-8192",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 7,
+            "id": 39,
+            "last_ret": 3226909,
+            "max_ns": 7794,
+            "mean_ns": 4318,
+            "min_ns": 3366,
+            "syscall": "getpid"
+          }
+        ],
+        "elapsed_s": 5.001476417,
+        "enter_id": 384,
+        "enter_lost": 4249766,
+        "enter_samples": 9674,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 2848926,
+        "exit_samples": 1413283,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 1381,
+        "observer_cpu_ns": 3373930785,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 172397136,
+        "stack_size": 8192,
+        "target_status": [
+          "State:\tR (running)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3226909,
+        "unmatched_exit": 262,
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 13045768,
+        "wall_s": 8.000001,
+        "cpu_s": 7.698981
+      },
+      "experiment": "busy"
+    },
+    {
+      "repeat": 2,
+      "mode": "busy",
+      "config": "blocking-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [],
+        "elapsed_s": 5.000365187,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 0,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 1,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": true,
+        "invalidations": 0,
+        "observer_cpu_ns": 22482065,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 64,
+        "stack_size": 2048,
+        "target_status": [
+          "State:\tR (running)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3226989,
+        "unmatched_exit": 1,
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 15295870,
+        "wall_s": 8.000001,
+        "cpu_s": 7.69902
+      },
+      "experiment": "busy"
+    },
+    {
+      "repeat": 2,
+      "mode": "busy",
+      "config": "exit-stack-8192",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 6,
+            "id": 39,
+            "last_ret": 3227020,
+            "max_ns": 3436,
+            "mean_ns": 2942,
+            "min_ns": 2796,
+            "syscall": "getpid"
+          }
+        ],
+        "elapsed_s": 5.000077914,
+        "enter_id": 384,
+        "enter_lost": 5346212,
+        "enter_samples": 12103,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 5347332,
+        "exit_samples": 12103,
+        "exit_stack": true,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 1728,
+        "observer_cpu_ns": 3014715632,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 204478408,
+        "stack_size": 8192,
+        "target_status": [
+          "State:\tR (running)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3227020,
+        "unmatched_exit": 1,
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 14134988,
+        "wall_s": 8.000001,
+        "cpu_s": 7.699156
+      },
+      "experiment": "busy"
+    },
+    {
+      "repeat": 2,
+      "mode": "busy",
+      "config": "context-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "context_lost": 0,
+        "context_samples": 60,
+        "elapsed_s": 5.000972422,
+        "has_user_sample": true,
+        "observer_cpu_ns": 26141740,
+        "preempt_out": 60,
+        "ring_bytes": 138752,
+        "stack_bytes": 2048,
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 23780587,
+        "wall_s": 8.000002,
+        "cpu_s": 7.698893
+      },
+      "experiment": "busy"
+    },
+    {
+      "repeat": 2,
+      "mode": "busy",
+      "config": "with-context-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 36,
+        "durations": [
+          {
+            "count": 28,
+            "id": 39,
+            "last_ret": 3227097,
+            "max_ns": 3727,
+            "mean_ns": 2183,
+            "min_ns": 2003,
+            "syscall": "getpid"
+          }
+        ],
+        "elapsed_s": 5.000368134,
+        "enter_id": 384,
+        "enter_lost": 4190907,
+        "enter_samples": 37968,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 2844709,
+        "exit_samples": 1386831,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 1355,
+        "observer_cpu_ns": 3393185539,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [],
+        "preempt_out": 36,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 176907984,
+        "stack_size": 2048,
+        "target_status": [
+          "State:\tR (running)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3227097,
+        "unmatched_exit": 20,
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 13044746,
+        "wall_s": 8.000001,
+        "cpu_s": 7.699039
+      },
+      "experiment": "busy"
+    },
+    {
+      "repeat": 0,
+      "mode": "sleep",
+      "config": "all-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 4,
+            "id": 230,
+            "last_ret": 0,
+            "max_ns": 1000073185,
+            "mean_ns": 1000071411,
+            "min_ns": 1000069768,
+            "syscall": "clock_nanosleep"
+          }
+        ],
+        "elapsed_s": 5.000840656,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 5,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 5,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 0,
+        "observer_cpu_ns": 24909141,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [
+          {
+            "age_ms": 823,
+            "args": [
+              0,
+              0,
+              140727480491536,
+              0,
+              0,
+              0
+            ],
+            "id": 230,
+            "syscall": "clock_nanosleep",
+            "tid": 3228061
+          }
+        ],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 11920,
+        "stack_size": 2048,
+        "target_status": [
+          "State:\tS (sleeping)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3228061,
+        "unmatched_exit": 1,
+        "user_sample": {
+          "frames": [
+            {
+              "address": "0x00007e26e4aa060e",
+              "symbol": null
+            },
+            {
+              "address": "0x00007e26e4af5df2",
+              "symbol": "clock_nanosleep"
+            },
+            {
+              "address": "0x00007e26e4b03a07",
+              "symbol": "__nanosleep"
+            },
+            {
+              "address": "0x00005d88360295f9",
+              "symbol": "wait_sleep"
+            },
+            {
+              "address": "0x00005d883602983d",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005d8836029830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005d8836029830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005d8836029830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005d8836029830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005d8836029830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005d8836029830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005d8836029384",
+              "symbol": "main"
+            },
+            {
+              "address": "0x00007e26e4a2a601",
+              "symbol": null
+            },
+            {
+              "address": "0x00007e26e4a2a718",
+              "symbol": "__libc_start_main"
+            },
+            {
+              "address": "0x00005d88360294d5",
+              "symbol": "_start"
+            }
+          ],
+          "id": 230,
+          "rbp": "0x7ffdab7c1dd0",
+          "rip": "0x7e26e4aa060e",
+          "rsp": "0x7ffdab7c1dc0",
+          "sample_age_ms": 830,
+          "sample_source": "pending_enter",
+          "sample_time_ns": 347403945989976,
+          "stack_bytes": 2048,
+          "syscall": "clock_nanosleep",
+          "unwind_stop": "end of chain / non-increasing RBP"
+        },
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 8,
+        "wall_s": 8.301563,
+        "cpu_s": 0.000211
+      },
+      "experiment": "sleep-wait"
+    },
+    {
+      "repeat": 0,
+      "mode": "sleep",
+      "config": "blocking-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 4,
+            "id": 230,
+            "last_ret": 0,
+            "max_ns": 1000076322,
+            "mean_ns": 1000071905,
+            "min_ns": 1000060824,
+            "syscall": "clock_nanosleep"
+          }
+        ],
+        "elapsed_s": 5.000431333,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 5,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 5,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": true,
+        "invalidations": 0,
+        "observer_cpu_ns": 25096180,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [
+          {
+            "age_ms": 827,
+            "args": [
+              0,
+              0,
+              140734673203360,
+              0,
+              0,
+              0
+            ],
+            "id": 230,
+            "syscall": "clock_nanosleep",
+            "tid": 3228104
+          }
+        ],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 11920,
+        "stack_size": 2048,
+        "target_status": [
+          "State:\tS (sleeping)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3228104,
+        "unmatched_exit": 1,
+        "user_sample": {
+          "frames": [
+            {
+              "address": "0x00007d26bfca060e",
+              "symbol": null
+            },
+            {
+              "address": "0x00007d26bfcf5df2",
+              "symbol": "clock_nanosleep"
+            },
+            {
+              "address": "0x00007d26bfd03a07",
+              "symbol": "__nanosleep"
+            },
+            {
+              "address": "0x000062782a3c05f9",
+              "symbol": "wait_sleep"
+            },
+            {
+              "address": "0x000062782a3c083d",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000062782a3c0830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000062782a3c0830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000062782a3c0830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000062782a3c0830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000062782a3c0830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000062782a3c0830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000062782a3c0384",
+              "symbol": "main"
+            },
+            {
+              "address": "0x00007d26bfc2a601",
+              "symbol": null
+            },
+            {
+              "address": "0x00007d26bfc2a718",
+              "symbol": "__libc_start_main"
+            },
+            {
+              "address": "0x000062782a3c04d5",
+              "symbol": "_start"
+            }
+          ],
+          "id": 230,
+          "rbp": "0x7fff58343060",
+          "rip": "0x7d26bfca060e",
+          "rsp": "0x7fff58343050",
+          "sample_age_ms": 835,
+          "sample_source": "pending_enter",
+          "sample_time_ns": 347412248680848,
+          "stack_bytes": 2048,
+          "syscall": "clock_nanosleep",
+          "unwind_stop": "end of chain / non-increasing RBP"
+        },
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 8,
+        "wall_s": 8.301874,
+        "cpu_s": 0.00022
+      },
+      "experiment": "sleep-wait"
+    },
+    {
+      "repeat": 0,
+      "mode": "sleep",
+      "config": "with-context-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 5,
+        "durations": [
+          {
+            "count": 4,
+            "id": 230,
+            "last_ret": 0,
+            "max_ns": 1000075961,
+            "mean_ns": 1000068332,
+            "min_ns": 1000051676,
+            "syscall": "clock_nanosleep"
+          }
+        ],
+        "elapsed_s": 5.00057601,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 5,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 5,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 0,
+        "observer_cpu_ns": 25908251,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [
+          {
+            "age_ms": 820,
+            "args": [
+              0,
+              0,
+              140728021485152,
+              0,
+              0,
+              0
+            ],
+            "id": 230,
+            "syscall": "clock_nanosleep",
+            "tid": 3228136
+          }
+        ],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 11920,
+        "stack_size": 2048,
+        "target_status": [
+          "State:\tS (sleeping)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3228136,
+        "unmatched_exit": 1,
+        "user_sample": {
+          "frames": [
+            {
+              "address": "0x00007c3610ca060e",
+              "symbol": null
+            },
+            {
+              "address": "0x00007c3610cf5df2",
+              "symbol": "clock_nanosleep"
+            },
+            {
+              "address": "0x00007c3610d03a07",
+              "symbol": "__nanosleep"
+            },
+            {
+              "address": "0x00005edaa9ab85f9",
+              "symbol": "wait_sleep"
+            },
+            {
+              "address": "0x00005edaa9ab883d",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005edaa9ab8830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005edaa9ab8830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005edaa9ab8830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005edaa9ab8830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005edaa9ab8830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005edaa9ab8830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005edaa9ab8384",
+              "symbol": "main"
+            },
+            {
+              "address": "0x00007c3610c2a601",
+              "symbol": null
+            },
+            {
+              "address": "0x00007c3610c2a718",
+              "symbol": "__libc_start_main"
+            },
+            {
+              "address": "0x00005edaa9ab84d5",
+              "symbol": "_start"
+            }
+          ],
+          "id": 230,
+          "rbp": "0x7ffdcbbb0620",
+          "rip": "0x7c3610ca060e",
+          "rsp": "0x7ffdcbbb0610",
+          "sample_age_ms": 827,
+          "sample_source": "pending_enter",
+          "sample_time_ns": 347420551880298,
+          "stack_bytes": 2048,
+          "syscall": "clock_nanosleep",
+          "unwind_stop": "end of chain / non-increasing RBP"
+        },
+        "voluntary_out": 5
+      },
+      "target": {
+        "iterations": 8,
+        "wall_s": 8.301531,
+        "cpu_s": 0.000231
+      },
+      "experiment": "sleep-wait"
+    },
+    {
+      "repeat": 0,
+      "mode": "futex",
+      "config": "all-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 4,
+            "id": 202,
+            "last_ret": -110,
+            "max_ns": 1000070283,
+            "mean_ns": 1000062806,
+            "min_ns": 1000046598,
+            "syscall": "futex"
+          }
+        ],
+        "elapsed_s": 5.000871952,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 5,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 5,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 0,
+        "observer_cpu_ns": 24713910,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [
+          {
+            "age_ms": 817,
+            "args": [
+              98551290576992,
+              393,
+              0,
+              140728421123936,
+              0,
+              4294967295
+            ],
+            "id": 202,
+            "syscall": "futex",
+            "tid": 3228217
+          }
+        ],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 11920,
+        "stack_size": 2048,
+        "target_status": [
+          "State:\tS (sleeping)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3228217,
+        "unmatched_exit": 1,
+        "user_sample": {
+          "frames": [
+            {
+              "address": "0x00007d667faa060e",
+              "symbol": null
+            },
+            {
+              "address": "0x00007d667faa09c7",
+              "symbol": null
+            },
+            {
+              "address": "0x00007d667faa3662",
+              "symbol": "pthread_cond_timedwait"
+            },
+            {
+              "address": "0x000059a1c2aa9714",
+              "symbol": "wait_futex"
+            },
+            {
+              "address": "0x000059a1c2aa981d",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000059a1c2aa9830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000059a1c2aa9830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000059a1c2aa9830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000059a1c2aa9830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000059a1c2aa9830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000059a1c2aa9830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000059a1c2aa9384",
+              "symbol": "main"
+            },
+            {
+              "address": "0x00007d667fa2a601",
+              "symbol": null
+            },
+            {
+              "address": "0x00007d667fa2a718",
+              "symbol": "__libc_start_main"
+            },
+            {
+              "address": "0x000059a1c2aa94d5",
+              "symbol": "_start"
+            }
+          ],
+          "id": 202,
+          "rbp": "0x7ffde38d0660",
+          "rip": "0x7d667faa060e",
+          "rsp": "0x7ffde38d0650",
+          "sample_age_ms": 824,
+          "sample_source": "pending_enter",
+          "sample_time_ns": 347429008084886,
+          "stack_bytes": 2048,
+          "syscall": "futex",
+          "unwind_stop": "end of chain / non-increasing RBP"
+        },
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 8,
+        "wall_s": 8.300617,
+        "cpu_s": 0.000184
+      },
+      "experiment": "futex-wait"
+    },
+    {
+      "repeat": 0,
+      "mode": "futex",
+      "config": "blocking-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 4,
+            "id": 202,
+            "last_ret": -110,
+            "max_ns": 1000073089,
+            "mean_ns": 1000068133,
+            "min_ns": 1000060443,
+            "syscall": "futex"
+          }
+        ],
+        "elapsed_s": 5.000419817,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 5,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 5,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": true,
+        "invalidations": 0,
+        "observer_cpu_ns": 24694681,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [
+          {
+            "age_ms": 820,
+            "args": [
+              103736882364512,
+              393,
+              0,
+              140728431280768,
+              0,
+              4294967295
+            ],
+            "id": 202,
+            "syscall": "futex",
+            "tid": 3228258
+          }
+        ],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 11920,
+        "stack_size": 2048,
+        "target_status": [
+          "State:\tS (sleeping)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3228258,
+        "unmatched_exit": 1,
+        "user_sample": {
+          "frames": [
+            {
+              "address": "0x00007b200bea060e",
+              "symbol": null
+            },
+            {
+              "address": "0x00007b200bea09c7",
+              "symbol": null
+            },
+            {
+              "address": "0x00007b200bea3662",
+              "symbol": "pthread_cond_timedwait"
+            },
+            {
+              "address": "0x00005e592005d714",
+              "symbol": "wait_futex"
+            },
+            {
+              "address": "0x00005e592005d81d",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005e592005d830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005e592005d830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005e592005d830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005e592005d830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005e592005d830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005e592005d830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00005e592005d384",
+              "symbol": "main"
+            },
+            {
+              "address": "0x00007b200be2a601",
+              "symbol": null
+            },
+            {
+              "address": "0x00007b200be2a718",
+              "symbol": "__libc_start_main"
+            },
+            {
+              "address": "0x00005e592005d4d5",
+              "symbol": "_start"
+            }
+          ],
+          "id": 202,
+          "rbp": "0x7ffde4280180",
+          "rip": "0x7b200bea060e",
+          "rsp": "0x7ffde4280170",
+          "sample_age_ms": 828,
+          "sample_source": "pending_enter",
+          "sample_time_ns": 347437310153906,
+          "stack_bytes": 2048,
+          "syscall": "futex",
+          "unwind_stop": "end of chain / non-increasing RBP"
+        },
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 8,
+        "wall_s": 8.30111,
+        "cpu_s": 0.000236
+      },
+      "experiment": "futex-wait"
+    },
+    {
+      "repeat": 0,
+      "mode": "futex",
+      "config": "with-context-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 5,
+        "durations": [
+          {
+            "count": 4,
+            "id": 202,
+            "last_ret": -110,
+            "max_ns": 1000079483,
+            "mean_ns": 1000075158,
+            "min_ns": 1000073561,
+            "syscall": "futex"
+          }
+        ],
+        "elapsed_s": 5.000871541,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 5,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 5,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 0,
+        "observer_cpu_ns": 26427867,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [
+          {
+            "age_ms": 821,
+            "args": [
+              109233459236960,
+              393,
+              0,
+              140730862379760,
+              0,
+              4294967295
+            ],
+            "id": 202,
+            "syscall": "futex",
+            "tid": 3228300
+          }
+        ],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 11920,
+        "stack_size": 2048,
+        "target_status": [
+          "State:\tS (sleeping)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3228300,
+        "unmatched_exit": 1,
+        "user_sample": {
+          "frames": [
+            {
+              "address": "0x00007a4b4daa060e",
+              "symbol": null
+            },
+            {
+              "address": "0x00007a4b4daa09c7",
+              "symbol": null
+            },
+            {
+              "address": "0x00007a4b4daa3662",
+              "symbol": "pthread_cond_timedwait"
+            },
+            {
+              "address": "0x00006358e588e714",
+              "symbol": "wait_futex"
+            },
+            {
+              "address": "0x00006358e588e81d",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00006358e588e830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00006358e588e830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00006358e588e830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00006358e588e830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00006358e588e830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00006358e588e830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00006358e588e384",
+              "symbol": "main"
+            },
+            {
+              "address": "0x00007a4b4da2a601",
+              "symbol": null
+            },
+            {
+              "address": "0x00007a4b4da2a718",
+              "symbol": "__libc_start_main"
+            },
+            {
+              "address": "0x00006358e588e4d5",
+              "symbol": "_start"
+            }
+          ],
+          "id": 202,
+          "rbp": "0x7ffe750fa1f0",
+          "rip": "0x7a4b4daa060e",
+          "rsp": "0x7ffe750fa1e0",
+          "sample_age_ms": 828,
+          "sample_source": "pending_enter",
+          "sample_time_ns": 347445612208721,
+          "stack_bytes": 2048,
+          "syscall": "futex",
+          "unwind_stop": "end of chain / non-increasing RBP"
+        },
+        "voluntary_out": 5
+      },
+      "target": {
+        "iterations": 8,
+        "wall_s": 8.301797,
+        "cpu_s": 0.000253
+      },
+      "experiment": "futex-wait"
+    },
+    {
+      "repeat": 0,
+      "mode": "epoll",
+      "config": "all-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 4,
+            "id": 232,
+            "last_ret": 0,
+            "max_ns": 1001019711,
+            "mean_ns": 1000745903,
+            "min_ns": 1000343369,
+            "syscall": "epoll_wait"
+          }
+        ],
+        "elapsed_s": 5.000633271,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 5,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 5,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 0,
+        "observer_cpu_ns": 25204096,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [
+          {
+            "age_ms": 823,
+            "args": [
+              3,
+              140724945916924,
+              1,
+              1000,
+              0,
+              0
+            ],
+            "id": 232,
+            "syscall": "epoll_wait",
+            "tid": 3228360
+          }
+        ],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 11920,
+        "stack_size": 2048,
+        "target_status": [
+          "State:\tS (sleeping)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3228360,
+        "unmatched_exit": 1,
+        "user_sample": {
+          "frames": [
+            {
+              "address": "0x00007c30bd4a06c6",
+              "symbol": null
+            },
+            {
+              "address": "0x00007c30bd537a95",
+              "symbol": "epoll_wait"
+            },
+            {
+              "address": "0x000060dcee93c779",
+              "symbol": "wait_epoll"
+            },
+            {
+              "address": "0x000060dcee93c850",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000060dcee93c830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000060dcee93c830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000060dcee93c830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000060dcee93c830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000060dcee93c830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000060dcee93c830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000060dcee93c384",
+              "symbol": "main"
+            },
+            {
+              "address": "0x00007c30bd42a601",
+              "symbol": null
+            },
+            {
+              "address": "0x00007c30bd42a718",
+              "symbol": "__libc_start_main"
+            },
+            {
+              "address": "0x000060dcee93c4d5",
+              "symbol": "_start"
+            }
+          ],
+          "id": 232,
+          "rbp": "0x7ffd146993c0",
+          "rip": "0x7c30bd4a06c6",
+          "rsp": "0x7ffd146993b0",
+          "sample_age_ms": 830,
+          "sample_source": "pending_enter",
+          "sample_time_ns": 347454070979379,
+          "stack_bytes": 2048,
+          "syscall": "epoll_wait",
+          "unwind_stop": "end of chain / non-increasing RBP"
+        },
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 8,
+        "wall_s": 8.308438,
+        "cpu_s": 0.000246
+      },
+      "experiment": "epoll-wait"
+    },
+    {
+      "repeat": 0,
+      "mode": "epoll",
+      "config": "blocking-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 4,
+            "id": 232,
+            "last_ret": 0,
+            "max_ns": 1001024811,
+            "mean_ns": 1001020627,
+            "min_ns": 1001018879,
+            "syscall": "epoll_wait"
+          }
+        ],
+        "elapsed_s": 5.000289397,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 5,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 5,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": true,
+        "invalidations": 0,
+        "observer_cpu_ns": 24946749,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [
+          {
+            "age_ms": 817,
+            "args": [
+              3,
+              140721491269404,
+              1,
+              1000,
+              0,
+              0
+            ],
+            "id": 232,
+            "syscall": "epoll_wait",
+            "tid": 3228401
+          }
+        ],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 11920,
+        "stack_size": 2048,
+        "target_status": [
+          "State:\tS (sleeping)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3228401,
+        "unmatched_exit": 1,
+        "user_sample": {
+          "frames": [
+            {
+              "address": "0x00007b29cc6a06c6",
+              "symbol": null
+            },
+            {
+              "address": "0x00007b29cc737a95",
+              "symbol": "epoll_wait"
+            },
+            {
+              "address": "0x000057cddace0779",
+              "symbol": "wait_epoll"
+            },
+            {
+              "address": "0x000057cddace0850",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000057cddace0830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000057cddace0830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000057cddace0830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000057cddace0830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000057cddace0830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000057cddace0830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000057cddace0384",
+              "symbol": "main"
+            },
+            {
+              "address": "0x00007b29cc62a601",
+              "symbol": null
+            },
+            {
+              "address": "0x00007b29cc62a718",
+              "symbol": "__libc_start_main"
+            },
+            {
+              "address": "0x000057cddace04d5",
+              "symbol": "_start"
+            }
+          ],
+          "id": 232,
+          "rbp": "0x7ffc467fd6e0",
+          "rip": "0x7b29cc6a06c6",
+          "rsp": "0x7ffc467fd6d0",
+          "sample_age_ms": 825,
+          "sample_source": "pending_enter",
+          "sample_time_ns": 347462381966746,
+          "stack_bytes": 2048,
+          "syscall": "epoll_wait",
+          "unwind_stop": "end of chain / non-increasing RBP"
+        },
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 8,
+        "wall_s": 8.309099,
+        "cpu_s": 0.000206
+      },
+      "experiment": "epoll-wait"
+    },
+    {
+      "repeat": 0,
+      "mode": "epoll",
+      "config": "with-context-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 5,
+        "durations": [
+          {
+            "count": 4,
+            "id": 232,
+            "last_ret": 0,
+            "max_ns": 1001026826,
+            "mean_ns": 1001014618,
+            "min_ns": 1000990559,
+            "syscall": "epoll_wait"
+          }
+        ],
+        "elapsed_s": 5.000551328,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 5,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 5,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 0,
+        "observer_cpu_ns": 24977461,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [
+          {
+            "age_ms": 819,
+            "args": [
+              3,
+              140724853689196,
+              1,
+              1000,
+              0,
+              0
+            ],
+            "id": 232,
+            "syscall": "epoll_wait",
+            "tid": 3228444
+          }
+        ],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 11920,
+        "stack_size": 2048,
+        "target_status": [
+          "State:\tS (sleeping)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3228444,
+        "unmatched_exit": 1,
+        "user_sample": {
+          "frames": [
+            {
+              "address": "0x000077ce67ca06c6",
+              "symbol": null
+            },
+            {
+              "address": "0x000077ce67d37a95",
+              "symbol": "epoll_wait"
+            },
+            {
+              "address": "0x0000628747be8779",
+              "symbol": "wait_epoll"
+            },
+            {
+              "address": "0x0000628747be8850",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000628747be8830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000628747be8830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000628747be8830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000628747be8830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000628747be8830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000628747be8830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x0000628747be8384",
+              "symbol": "main"
+            },
+            {
+              "address": "0x000077ce67c2a601",
+              "symbol": null
+            },
+            {
+              "address": "0x000077ce67c2a718",
+              "symbol": "__libc_start_main"
+            },
+            {
+              "address": "0x0000628747be84d5",
+              "symbol": "_start"
+            }
+          ],
+          "id": 232,
+          "rbp": "0x7ffd0eea4b30",
+          "rip": "0x77ce67ca06c6",
+          "rsp": "0x7ffd0eea4b20",
+          "sample_age_ms": 827,
+          "sample_source": "pending_enter",
+          "sample_time_ns": 347470692358809,
+          "stack_bytes": 2048,
+          "syscall": "epoll_wait",
+          "unwind_stop": "end of chain / non-increasing RBP"
+        },
+        "voluntary_out": 5
+      },
+      "target": {
+        "iterations": 8,
+        "wall_s": 8.309198,
+        "cpu_s": 0.000249
+      },
+      "experiment": "epoll-wait"
+    },
+    {
+      "repeat": 0,
+      "mode": "sleep",
+      "config": "all-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 6000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [],
+        "elapsed_s": 5.000662961,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 1,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 1,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 0,
+        "observer_cpu_ns": 24546891,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [
+          {
+            "age_ms": 4828,
+            "args": [
+              0,
+              0,
+              140725529086096,
+              0,
+              0,
+              0
+            ],
+            "id": 230,
+            "syscall": "clock_nanosleep",
+            "tid": 3228522
+          }
+        ],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 2384,
+        "stack_size": 2048,
+        "target_status": [
+          "State:\tS (sleeping)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3228522,
+        "unmatched_exit": 1,
+        "user_sample": {
+          "frames": [
+            {
+              "address": "0x00007f5217ea060e",
+              "symbol": null
+            },
+            {
+              "address": "0x00007f5217ef5df2",
+              "symbol": "clock_nanosleep"
+            },
+            {
+              "address": "0x00007f5217f03a07",
+              "symbol": "__nanosleep"
+            },
+            {
+              "address": "0x000058b8e36005f9",
+              "symbol": "wait_sleep"
+            },
+            {
+              "address": "0x000058b8e360083d",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000058b8e3600830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000058b8e3600830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000058b8e3600830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000058b8e3600830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000058b8e3600830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000058b8e3600830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000058b8e3600384",
+              "symbol": "main"
+            },
+            {
+              "address": "0x00007f5217e2a601",
+              "symbol": null
+            },
+            {
+              "address": "0x00007f5217e2a718",
+              "symbol": "__libc_start_main"
+            },
+            {
+              "address": "0x000058b8e36004d5",
+              "symbol": "_start"
+            }
+          ],
+          "id": 230,
+          "rbp": "0x7ffd372c0850",
+          "rip": "0x7f5217ea060e",
+          "rsp": "0x7ffd372c0840",
+          "sample_age_ms": 4835,
+          "sample_source": "pending_enter",
+          "sample_time_ns": 347475154798547,
+          "stack_bytes": 1984,
+          "syscall": "clock_nanosleep",
+          "unwind_stop": "end of chain / non-increasing RBP"
+        },
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 2,
+        "wall_s": 12.300776,
+        "cpu_s": 0.000115
+      },
+      "experiment": "sleep-long"
+    },
+    {
+      "repeat": 0,
+      "mode": "futex",
+      "config": "all-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 6000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [],
+        "elapsed_s": 5.000867864,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 1,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 1,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 0,
+        "observer_cpu_ns": 24592048,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [
+          {
+            "age_ms": 4822,
+            "args": [
+              109013883318368,
+              393,
+              0,
+              140722924822736,
+              0,
+              4294967295
+            ],
+            "id": 202,
+            "syscall": "futex",
+            "tid": 3228609
+          }
+        ],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 2384,
+        "stack_size": 2048,
+        "target_status": [
+          "State:\tS (sleeping)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3228609,
+        "unmatched_exit": 1,
+        "user_sample": {
+          "frames": [
+            {
+              "address": "0x000070386bca060e",
+              "symbol": null
+            },
+            {
+              "address": "0x000070386bca09c7",
+              "symbol": null
+            },
+            {
+              "address": "0x000070386bca3662",
+              "symbol": "pthread_cond_timedwait"
+            },
+            {
+              "address": "0x00006325c5ca4714",
+              "symbol": "wait_futex"
+            },
+            {
+              "address": "0x00006325c5ca481d",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00006325c5ca4830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00006325c5ca4830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00006325c5ca4830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00006325c5ca4830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00006325c5ca4830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00006325c5ca4830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x00006325c5ca4384",
+              "symbol": "main"
+            },
+            {
+              "address": "0x000070386bc2a601",
+              "symbol": null
+            },
+            {
+              "address": "0x000070386bc2a718",
+              "symbol": "__libc_start_main"
+            },
+            {
+              "address": "0x00006325c5ca44d5",
+              "symbol": "_start"
+            }
+          ],
+          "id": 202,
+          "rbp": "0x7ffc9bf21fd0",
+          "rip": "0x70386bca060e",
+          "rsp": "0x7ffc9bf21fc0",
+          "sample_age_ms": 4830,
+          "sample_source": "pending_enter",
+          "sample_time_ns": 347487610724110,
+          "stack_bytes": 2048,
+          "syscall": "futex",
+          "unwind_stop": "end of chain / non-increasing RBP"
+        },
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 2,
+        "wall_s": 12.30062,
+        "cpu_s": 8.8e-05
+      },
+      "experiment": "futex-long"
+    },
+    {
+      "repeat": 0,
+      "mode": "epoll",
+      "config": "all-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 6000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [],
+        "elapsed_s": 5.000652413,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 1,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 1,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 0,
+        "observer_cpu_ns": 24448248,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [
+          {
+            "age_ms": 4824,
+            "args": [
+              3,
+              140722819643004,
+              1,
+              6000,
+              0,
+              0
+            ],
+            "id": 232,
+            "syscall": "epoll_wait",
+            "tid": 3228695
+          }
+        ],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 2384,
+        "stack_size": 2048,
+        "target_status": [
+          "State:\tS (sleeping)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3228695,
+        "unmatched_exit": 1,
+        "user_sample": {
+          "frames": [
+            {
+              "address": "0x0000779fef4a06c6",
+              "symbol": null
+            },
+            {
+              "address": "0x0000779fef537a95",
+              "symbol": "epoll_wait"
+            },
+            {
+              "address": "0x000058736f5c2779",
+              "symbol": "wait_epoll"
+            },
+            {
+              "address": "0x000058736f5c2850",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000058736f5c2830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000058736f5c2830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000058736f5c2830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000058736f5c2830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000058736f5c2830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000058736f5c2830",
+              "symbol": "nested"
+            },
+            {
+              "address": "0x000058736f5c2384",
+              "symbol": "main"
+            },
+            {
+              "address": "0x0000779fef42a601",
+              "symbol": null
+            },
+            {
+              "address": "0x0000779fef42a718",
+              "symbol": "__libc_start_main"
+            },
+            {
+              "address": "0x000058736f5c24d5",
+              "symbol": "_start"
+            }
+          ],
+          "id": 232,
+          "rbp": "0x7ffc95ad3640",
+          "rip": "0x779fef4a06c6",
+          "rsp": "0x7ffc95ad3630",
+          "sample_age_ms": 4832,
+          "sample_source": "pending_enter",
+          "sample_time_ns": 347500067440950,
+          "stack_bytes": 2048,
+          "syscall": "epoll_wait",
+          "unwind_stop": "end of chain / non-increasing RBP"
+        },
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 2,
+        "wall_s": 12.312653,
+        "cpu_s": 8.5e-05
+      },
+      "experiment": "epoll-long"
+    },
+    {
+      "repeat": 0,
+      "mode": "initial",
+      "config": "all-2048",
+      "frame_pointer_omitted": false,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [],
+        "elapsed_s": 5.000323367,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 0,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 0,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 0,
+        "observer_cpu_ns": 24157103,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 0,
+        "stack_size": 2048,
+        "target_status": [
+          "State:\tS (sleeping)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3228781,
+        "unmatched_exit": 0,
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 0,
+        "wall_s": 10.300425,
+        "cpu_s": 3.3e-05
+      },
+      "experiment": "initial"
+    },
+    {
+      "repeat": 0,
+      "mode": "sleep",
+      "config": "all-2048",
+      "frame_pointer_omitted": true,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 4,
+            "id": 230,
+            "last_ret": 0,
+            "max_ns": 1000084642,
+            "mean_ns": 1000068442,
+            "min_ns": 1000061439,
+            "syscall": "clock_nanosleep"
+          }
+        ],
+        "elapsed_s": 5.000407801,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 5,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 5,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 0,
+        "observer_cpu_ns": 25732837,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [
+          {
+            "age_ms": 820,
+            "args": [
+              0,
+              0,
+              140722988837328,
+              0,
+              0,
+              0
+            ],
+            "id": 230,
+            "syscall": "clock_nanosleep",
+            "tid": 3228865
+          }
+        ],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 11920,
+        "stack_size": 2048,
+        "target_status": [
+          "State:\tS (sleeping)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3228865,
+        "unmatched_exit": 1,
+        "user_sample": {
+          "frames": [
+            {
+              "address": "0x00007e6e3caa060e",
+              "symbol": null
+            },
+            {
+              "address": "0x00007e6e3caf5df2",
+              "symbol": "clock_nanosleep"
+            },
+            {
+              "address": "0x00007e6e3cb03a07",
+              "symbol": "__nanosleep"
+            },
+            {
+              "address": "0x00005fb2d5e725f6",
+              "symbol": "wait_sleep"
+            }
+          ],
+          "id": 230,
+          "rbp": "0x7ffc9fc2e990",
+          "rip": "0x7e6e3caa060e",
+          "rsp": "0x7ffc9fc2e980",
+          "sample_age_ms": 827,
+          "sample_source": "pending_enter",
+          "sample_time_ns": 347526994525952,
+          "stack_bytes": 1664,
+          "syscall": "clock_nanosleep",
+          "unwind_stop": "end of chain / non-increasing RBP"
+        },
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 8,
+        "wall_s": 8.301113,
+        "cpu_s": 0.000207
+      },
+      "experiment": "fpo"
+    },
+    {
+      "repeat": 0,
+      "mode": "sleep",
+      "config": "all-8192",
+      "frame_pointer_omitted": true,
+      "wait_ms": 1000,
+      "observation": {
+        "abi_none": 0,
+        "context_lost": 0,
+        "context_samples": 0,
+        "durations": [
+          {
+            "count": 4,
+            "id": 230,
+            "last_ret": 0,
+            "max_ns": 1000069764,
+            "mean_ns": 1000063700,
+            "min_ns": 1000057772,
+            "syscall": "clock_nanosleep"
+          }
+        ],
+        "elapsed_s": 5.000698691,
+        "enter_id": 384,
+        "enter_lost": 0,
+        "enter_samples": 5,
+        "enter_throttle_records": 0,
+        "exit_id": 383,
+        "exit_lost": 0,
+        "exit_samples": 5,
+        "exit_stack": false,
+        "exit_throttle_records": 0,
+        "filtered": false,
+        "invalidations": 0,
+        "observer_cpu_ns": 25956438,
+        "order_errors": 0,
+        "overwritten_enter": 0,
+        "pending": [
+          {
+            "age_ms": 820,
+            "args": [
+              0,
+              0,
+              140728490616304,
+              0,
+              0,
+              0
+            ],
+            "id": 230,
+            "syscall": "clock_nanosleep",
+            "tid": 3228905
+          }
+        ],
+        "preempt_out": 0,
+        "queued_after_cutoff": 0,
+        "ring_bytes": 42640,
+        "stack_size": 8192,
+        "target_status": [
+          "State:\tS (sleeping)",
+          "TracerPid:\t0"
+        ],
+        "tid": 3228905,
+        "unmatched_exit": 1,
+        "user_sample": {
+          "frames": [
+            {
+              "address": "0x00007e68f26a060e",
+              "symbol": null
+            },
+            {
+              "address": "0x00007e68f26f5df2",
+              "symbol": "clock_nanosleep"
+            },
+            {
+              "address": "0x00007e68f2703a07",
+              "symbol": "__nanosleep"
+            },
+            {
+              "address": "0x00005aaef04de5f6",
+              "symbol": "wait_sleep"
+            }
+          ],
+          "id": 230,
+          "rbp": "0x7ffde7b165b0",
+          "rip": "0x7e68f26a060e",
+          "rsp": "0x7ffde7b165a0",
+          "sample_age_ms": 827,
+          "sample_source": "pending_enter",
+          "sample_time_ns": 347535297047034,
+          "stack_bytes": 6752,
+          "syscall": "clock_nanosleep",
+          "unwind_stop": "end of chain / non-increasing RBP"
+        },
+        "voluntary_out": 0
+      },
+      "target": {
+        "iterations": 8,
+        "wall_s": 8.301822,
+        "cpu_s": 0.000243
+      },
+      "experiment": "fpo"
+    }
+  ]
+}

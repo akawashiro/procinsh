@@ -22,6 +22,10 @@
 //! - [`perf::Event::open`]: `fn open(tid: i32) -> anyhow::Result<Self>`.
 //! - [`perf::Event::drain`]: `fn drain(&mut self) -> anyhow::Result<Option<Sample>>`.
 //!
+//! - [`perf::Event::records`]: `fn records(&mut self, record: impl FnMut(u32, u16, &[u8]) -> anyhow::Result<()>) -> anyhow::Result<()>`.
+//! - [`perf::Event::tracepoint`] (tests/rustdoc only): `fn tracepoint(tid: i32, id: u64, stack: Option<u32>, filter: Option<&str>) -> anyhow::Result<Self>`.
+//! - [`perf::Event::context_switch`] (tests/rustdoc only): `fn context_switch(tid: i32, stack: u32) -> anyhow::Result<Self>`.
+//!
 //! Register payload fields (`pub(super)` in [`registers`]):
 //! - [`registers::Register`]: `kind: MemoryKind`, `mapping: Option<RegisterMapping>`, `offset: Option<u64>` (hex string or null in JSON).
 //! - [`registers::RegisterMapping`]: `pathname: Option<String>, readable: bool, writable: bool, executable: bool, private: bool`.
@@ -39,5 +43,7 @@ mod perf;
 mod registers;
 mod stack;
 mod symbol;
+#[cfg(test)]
+mod syscall_poc;
 mod unwind_fp;
 pub(super) use capture::{Sampler, ThreadSample};
