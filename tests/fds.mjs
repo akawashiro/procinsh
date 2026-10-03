@@ -32,7 +32,13 @@ export async function checkDescriptors({evaluate, waitFor, delay, choose, origin
     document.querySelector('#fds-panel summary').click();
   `);
   await waitFor("!document.getElementById('fds-error').hidden", 'FD permission error');
-  await delay(1100); assert.equal(await evaluate('window.fdCalls'), 1, 'no automatic global FD scans');
+  await delay(1100); assert.equal(await evaluate('window.fdCalls'), 1, 'FD scans wait for the five-second interval');
+  await waitFor('window.fdCalls >= 2', 'open FD panel automatically retries');
+  await evaluate("document.querySelector('#fds-panel summary').click()");
+  await delay(200);
+  const closedCalls = await evaluate('window.fdCalls');
+  await delay(5500);
+  assert.equal(await evaluate('window.fdCalls'), closedCalls, 'closed FD panel stops scans');
   assert.equal(await evaluate("document.getElementById('error').hidden"), true);
   await evaluate('window.fetch = window.fdFetch');
   await back(); await choose(originalPid);
