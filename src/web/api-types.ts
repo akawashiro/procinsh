@@ -107,8 +107,14 @@ export interface Target {
     private_bytes: number | null;
   } | null;
   history: HistoryPoint[];
+  live_samples: ThreadSample[];
+  sampling_error: string | null;
 }
-export interface ThreadSnapshot {
+export interface ThreadSample {
+  sampled_at: number | null;
+  sample_age_ms: number | null;
+  cpu: number | null;
+  lost_samples: number;
   tid: number;
   error: string | null;
   unwind_stop: string;
@@ -143,13 +149,6 @@ export interface ThreadSnapshot {
       current: boolean;
     }[];
   } | null;
-}
-export interface Capture {
-  process_id: ProcessId;
-  captured_at: number;
-  paused_ms: number;
-  threads: ThreadSnapshot[];
-  maps: MemoryMap[];
 }
 interface ProcessDetail {
   process_id: ProcessId;

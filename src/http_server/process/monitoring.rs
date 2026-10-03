@@ -19,6 +19,8 @@
 //! [`ProcessObservation`] keeps the public counters and metadata, with `cpu_percent: Option<f64>,
 //! rates: Rates, threads: Vec<ThreadObservation>`; it has no `ticks` or `measured_at`.
 //!
+//! [`service::Target`] adds `live_samples: Vec<super::snapshot::ThreadSample>, sampling_error: Option<String>`
+//! to each SSE state; samples retain their own monotonic age and Unix `sampled_at`.
 mod history;
 mod sampling;
 mod service;

@@ -11,7 +11,6 @@
 //! | [`ProcessId`] | `pub(super)` | `struct `[`ProcessId`] |
 //! | [`MemoryMap`] | `pub(super)` | `struct `[`MemoryMap`] |
 //! | [`Monitoring`] | `pub(super)` | `struct `[`Monitoring`] |
-//! | [`Snapshotter`] | `pub(super)` | `struct `[`Snapshotter`] |
 //! | [`SubscribeError`] | `pub(super)` | `enum `[`SubscribeError`] |
 //! | [`SocketInfo`] | `pub(super)` | `struct `[`SocketInfo`] |
 //!
@@ -80,9 +79,8 @@ pub(super) use maps::MemoryMap;
 pub(super) use monitoring::Monitoring;
 use resources::permission_help;
 pub(super) use resources::{
-    Snapshotter, SubscribeError, auxv, environment, fds, fields, inet_sockets, maps, memory_maps,
-    observation, signals, socket_text, threads, ticks_per_second, timestamp_ms, unix_socket_peers,
-    unix_sockets,
+    SubscribeError, auxv, environment, fds, fields, inet_sockets, maps, memory_maps, observation,
+    signals, socket_text, threads, ticks_per_second, timestamp_ms, unix_socket_peers, unix_sockets,
 };
 pub(super) use sockets::SocketInfo;
 #[cfg(test)]

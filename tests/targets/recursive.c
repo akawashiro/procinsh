@@ -1,7 +1,7 @@
 #include "support.h"
 __attribute__((noinline)) void baz(void) {
     for (;;)
-        usleep(10000);
+        asm volatile("" ::: "memory");
 }
 __attribute__((noinline)) void bar(void) {
     baz();

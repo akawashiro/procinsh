@@ -125,7 +125,7 @@ async fn explicit_identity_is_required_without_selection() {
         req.headers_mut()
             .insert("content-type", "application/json".parse().unwrap());
         *req.body_mut() = Body::from(body);
-        assert_eq!(app.clone().oneshot(req).await.unwrap().status(), 422);
+        assert_eq!(app.clone().oneshot(req).await.unwrap().status(), 404);
     }
     for path in [
         "observation",
@@ -246,7 +246,7 @@ async fn closing_a_session_stops_its_collector() {
 use super::process::TestTarget as Target;
 
 #[tokio::test]
-async fn api_explicit_identity_validation_and_concurrent_snapshots() {
+async fn api_explicit_identity_validation_and_removed_snapshot() {
     use axum::{body::Body, http::Request};
     use tower::ServiceExt;
     let target = Target::new("sleeping");
@@ -291,21 +291,16 @@ async fn api_explicit_identity_validation_and_concurrent_snapshots() {
         .await
         .unwrap();
     assert_eq!(response.status(), 404);
-    // Two callers must not attach to the same tracee concurrently.
-    let snapshot_request = || {
-        Request::builder()
-            .method("POST")
-            .uri("/api/processes/snapshot")
-            .header("host", "127.0.0.1:8080")
-            .header("content-type", "application/json")
-            .body(Body::from(serde_json::to_vec(&target.id).unwrap()))
-            .unwrap()
-    };
-    let (a, b) = tokio::join!(
-        app.clone().oneshot(snapshot_request()),
-        app.clone().oneshot(snapshot_request()),
-    );
-    assert_eq!(a.unwrap().status(), 200);
-    assert_eq!(b.unwrap().status(), 200);
-    target.assert_detached();
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/processes/snapshot")
+                .header("host", "127.0.0.1:8080")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 404);
 }

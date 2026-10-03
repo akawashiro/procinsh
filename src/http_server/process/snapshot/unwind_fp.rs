@@ -1,5 +1,5 @@
+use crate::http_server::process::maps::MemoryMap;
 use crate::http_server::process::snapshot::stack::StackFrame;
-use crate::http_server::process::{maps::MemoryMap, memory};
 
 pub(super) fn walk(
     rip: u64,
@@ -50,20 +50,6 @@ pub(super) fn walk(
         }
         bp = previous;
     }
-}
-
-pub(super) fn capture(
-    pid: i32,
-    r: &libc::user_regs_struct,
-    maps: &[MemoryMap],
-    deadline: std::time::Instant,
-) -> (Vec<StackFrame>, String) {
-    walk(r.rip, r.rsp, r.rbp, maps, |bp| {
-        if std::time::Instant::now() >= deadline {
-            return None;
-        }
-        memory::read_raw(pid, bp, 16).ok()?.try_into().ok()
-    })
 }
 
 #[cfg(test)]

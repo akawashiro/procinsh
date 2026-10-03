@@ -1,7 +1,6 @@
 use crate::http_server::process::{maps::MemoryMap, memory};
 use iced_x86::{Decoder, DecoderError, DecoderOptions, Formatter, IntelFormatter};
 use serde::Serialize;
-use std::time::Instant;
 
 const MAX_BYTES: usize = 256;
 const MAX_INSTRUCTIONS: usize = 32;
@@ -34,31 +33,15 @@ impl Disassembly {
         }
     }
 
-    /// Only read bytes while the tracee is stopped. Decode after tracer exit.
-    pub(super) fn capture(
-        pid: i32,
-        registers: &libc::user_regs_struct,
-        maps: &[MemoryMap],
-        deadline: Instant,
-    ) -> Self {
-        let mut result = Self::empty(registers.rip);
-        if registers.cs != 0x33 {
-            result.error = Some("Disassembly supports 64-bit user mode only.".into());
-            return result;
-        }
-        if Instant::now() >= deadline {
-            result.error = Some(
-                "The snapshot time limit was reached before instruction bytes could be read."
-                    .into(),
-            );
-            return result;
-        }
-        let Some(map) = maps.iter().find(|m| m.contains(registers.rip)) else {
+    /// Best-effort read after sampling; mutable code may have changed.
+    pub(super) fn capture(pid: i32, rip: u64, maps: &[MemoryMap]) -> Self {
+        let mut result = Self::empty(rip);
+        let Some(map) = maps.iter().find(|m| m.contains(rip)) else {
             result.error = Some("RIP is outside the memory mappings.".into());
             return result;
         };
-        let length = (map.end - registers.rip).min(MAX_BYTES as u64) as usize;
-        match memory::read_raw(pid, registers.rip, length) {
+        let length = (map.end - rip).min(MAX_BYTES as u64) as usize;
+        match memory::read_raw(pid, rip, length) {
             Ok(bytes) => {
                 if bytes.len() < length {
                     result.error = Some(format!(
@@ -76,7 +59,7 @@ impl Disassembly {
     }
 
     /// RIP is a known instruction boundary. Never guess boundaries by decoding
-    /// backwards, or re-read live memory after the snapshot has resumed.
+    /// backwards.
     pub(super) fn decode(&mut self) {
         self.instructions.clear();
         let bytes = &self.bytes[..self.bytes.len().min(MAX_BYTES)];
@@ -165,36 +148,16 @@ mod tests {
             address + 2
         ))
         .unwrap();
-        let mut registers: libc::user_regs_struct = unsafe { std::mem::zeroed() };
-        registers.rip = address;
-        registers.cs = 0x33;
-        let mut code = Disassembly::capture(
-            std::process::id() as i32,
-            &registers,
-            &[map],
-            Instant::now() + std::time::Duration::from_secs(1),
-        );
+        let mut code = Disassembly::capture(std::process::id() as i32, address, &[map]);
         assert_eq!(code.bytes.len(), 2);
         bytes.fill(0x90);
         code.decode();
         assert_eq!(code.instructions[0].text, "push rbp");
         assert_eq!(code.instructions[1].text, "ret");
         assert!(
-            Disassembly::capture(
-                std::process::id() as i32,
-                &registers,
-                &[],
-                Instant::now() + std::time::Duration::from_secs(1)
-            )
-            .error
-            .is_some()
-        );
-        registers.cs = 0x23;
-        assert!(
-            Disassembly::capture(std::process::id() as i32, &registers, &[], Instant::now())
+            Disassembly::capture(std::process::id() as i32, address, &[])
                 .error
-                .unwrap()
-                .contains("64-bit")
+                .is_some()
         );
     }
 }

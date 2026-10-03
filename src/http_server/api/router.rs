@@ -1,9 +1,6 @@
 use super::{process, system};
 use crate::http_server::AppState;
-use axum::{
-    Router,
-    routing::{get, post},
-};
+use axum::{Router, routing::get};
 use std::sync::Arc;
 
 pub(in crate::http_server) fn router() -> Router<Arc<AppState>> {
@@ -18,6 +15,5 @@ pub(in crate::http_server) fn router() -> Router<Arc<AppState>> {
         .route("/api/processes/auxv", get(process::auxv))
         .route("/api/processes/fds", get(process::fds))
         .route("/api/processes/signals", get(process::signals))
-        .route("/api/processes/snapshot", post(process::snapshot))
         .route("/api/processes/events", get(process::events))
 }

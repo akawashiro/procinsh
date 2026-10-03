@@ -9,7 +9,6 @@ pub(super) struct AppState {
     pub(super) system_monitor: Arc<system::SystemMonitor>,
     pub(super) discovery: Mutex<process::Discovery>,
     pub(super) monitoring: Arc<process::Monitoring>,
-    pub(super) snapshotter: process::Snapshotter,
     pub(super) interval: Duration,
 }
 impl AppState {
@@ -18,7 +17,6 @@ impl AppState {
             system_monitor: Arc::new(system::SystemMonitor::default()),
             discovery: Mutex::new(process::Discovery::default()),
             monitoring: Arc::new(process::Monitoring::new(interval)),
-            snapshotter: process::Snapshotter::default(),
             interval,
         }
     }
