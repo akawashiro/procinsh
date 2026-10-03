@@ -140,7 +140,7 @@ function renderProcessDetails(kind: DetailKind) {
     $(`${kind}-info`).textContent = "Not captured";
     return;
   }
-  const time = new Date(data.captured_at).toLocaleTimeString("en-US");
+  const time = new Date(data.captured_at).toLocaleTimeString("en-GB", { hour12: false });
   if ("warnings" in data) {
     renderDescriptors(data, time);
     return;
@@ -542,7 +542,7 @@ function renderTarget() {
     mapsTimestamp = target.maps_captured_at;
     $("maps-info").textContent =
       target.maps_error ||
-      `${target.maps.length} mappings · PSS ${bytes(target.rollup?.pss_bytes)} · ${mapsTimestamp ? new Date(mapsTimestamp).toLocaleTimeString("en-US") : "N/A"} · every 5s`;
+      `${target.maps.length} mappings · PSS ${bytes(target.rollup?.pss_bytes)} · ${mapsTimestamp ? new Date(mapsTimestamp).toLocaleTimeString("en-GB", { hour12: false }) : "N/A"} · every 5s`;
     $("maps").replaceChildren(
       ...target.maps.map((m) => {
         const row = node("tr");
