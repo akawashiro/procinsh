@@ -6,7 +6,7 @@
 
 同梱 unit はログインユーザーのホームを基準に、開発用 checkout `~/ghq/github.com/akawashiro/procinsh`、専用領域 `~/procinsh-main-preview` を使用します。専用領域内の worktree は更新処理が管理するため、手作業で編集しないでください。開発用 checkout のブランチとファイルは変更しませんが、専用 Git ref と worktree 登録を追加します。
 
-[開発環境](DEVELOPMENT.md)のビルド依存に加え、`gh`、`curl`、`flock` が必要です。利用するユーザーとして `gh auth login` を済ませてください。更新処理は HTTPS と `gh auth git-credential` を使います。Cargo は `~/.cargo/bin`、Node.js 22 以降と npm は `/usr/local/bin` または `/usr/bin` から利用できる必要があります。別の場所にある場合は更新 unit の `PATH` を調整してください。
+[開発環境](DEVELOPMENT.md)のビルド依存に加え、`gh`、`curl`、`flock` が必要です。利用するユーザーとして `gh auth login` を済ませてください。更新処理は HTTPS と `gh auth git-credential` を使います。Cargo は `~/.cargo/bin`、Node.js 22 以降と npm は `/usr/local/bin` または `/usr/bin` から利用できる必要があります。npm が PATH にない場合は `${NVM_DIR:-$HOME/.nvm}/nvm.sh` を読み込み、nvm の `default` alias を選択します。nvm を使う場合は `nvm alias default` が Node.js 22 以降を指すよう設定してください。それ以外の場所にある場合は更新 unit の `PATH` を調整してください。systemd は `.zshrc` などのシェル初期化ファイルを読み込みません。
 
 ビルド・配置・サービス管理はすべてログインユーザーで行います。ビルド後の候補バイナリに対して `sudo -n setcap cap_sys_ptrace,cap_bpf,cap_perfmon=ep` を実行し、観測用の権限を付与します。このコマンドを候補ファイル `~/procinsh-main-preview/candidate` に対してパスワード入力なしで実行できることが前提です。権限付与に失敗した場合は更新を中止し、稼働版を維持します。
 
@@ -45,6 +45,11 @@ install -m 0755 scripts/main_preview.sh "$HOME/procinsh-main-preview/main_previe
 install -m 0644 scripts/systemd/procinsh-preview.service \
   scripts/systemd/procinsh-preview-update.service \
   scripts/systemd/procinsh-preview-update.timer "$HOME/.config/systemd/user/"
+mkdir -p "$HOME/.config/systemd/user/procinsh-preview.service.d"
+cat > "$HOME/.config/systemd/user/procinsh-preview.service.d/logging.conf" <<'EOF'
+[Service]
+Environment=RUST_LOG=debug
+EOF
 systemctl --user daemon-reload
 systemctl --user enable procinsh-preview.service
 systemctl --user enable --now procinsh-preview-update.timer
@@ -52,6 +57,8 @@ systemctl --user start procinsh-preview-update.service
 ```
 
 初回ビルド成功後に常設サービスが起動します。以降はユーザーマネージャー起動時に自動起動します。ログアウト後も稼働させ、OS 起動時からログインせず利用するには、一度 `loginctl enable-linger "$USER"` を実行してください。これはユーザーの linger 設定を有効にします。[systemd の説明](https://www.freedesktop.org/software/systemd/man/252/loginctl.html)を参照してください。unit と更新スクリプト自身は自動更新の対象ではありません。これらを変更したときは timer を停止して更新処理の終了を待ち、再インストールと `daemon-reload` を行ってから timer を再開してください。
+
+本体のログは `RUST_LOG=debug` で journal に出力します。`journalctl --user -u procinsh-preview.service -f` で確認できます。この drop-in 設定は unit の再インストール後も維持されます。既に本体が稼働している場合は、`daemon-reload` 後に `systemctl --user restart procinsh-preview.service` を実行してログレベルを反映してください。
 
 ## 更新と運用
 
