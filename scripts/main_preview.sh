@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-state=${PROCINSH_PREVIEW_STATE:-$HOME/.local/share/procinsh-preview}
+state=${PROCINSH_PREVIEW_STATE:-$HOME/procinsh-main-preview}
 source_repo=${PROCINSH_PREVIEW_SOURCE:-$HOME/ghq/github.com/akawashiro/procinsh}
 service=procinsh-preview.service
 mkdir -p "$state"

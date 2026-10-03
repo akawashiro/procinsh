@@ -1,11 +1,11 @@
 [Unit]
 Description=ProcInSh main preview
-ConditionPathExists=%h/.local/share/procinsh-preview/procinsh
+ConditionPathExists=%h/procinsh-main-preview/procinsh
 StartLimitIntervalSec=0
 
 [Service]
 Type=exec
-ExecStart=%h/.local/share/procinsh-preview/procinsh --listen 0.0.0.0:9090 --allow-non-loopback
+ExecStart=%h/procinsh-main-preview/procinsh --listen 0.0.0.0:9090 --allow-non-loopback
 Restart=on-failure
 RestartSec=3s
 TimeoutStopSec=30s

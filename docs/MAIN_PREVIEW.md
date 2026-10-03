@@ -4,11 +4,11 @@
 
 ## 前提
 
-同梱 unit はログインユーザーのホームを基準に、開発用 checkout `~/ghq/github.com/akawashiro/procinsh`、専用領域 `~/.local/share/procinsh-preview` を使用します。専用領域内の worktree は更新処理が管理するため、手作業で編集しないでください。開発用 checkout のブランチとファイルは変更しませんが、専用 Git ref と worktree 登録を追加します。
+同梱 unit はログインユーザーのホームを基準に、開発用 checkout `~/ghq/github.com/akawashiro/procinsh`、専用領域 `~/procinsh-main-preview` を使用します。専用領域内の worktree は更新処理が管理するため、手作業で編集しないでください。開発用 checkout のブランチとファイルは変更しませんが、専用 Git ref と worktree 登録を追加します。
 
 [開発環境](DEVELOPMENT.md)のビルド依存に加え、`gh`、`curl`、`flock` が必要です。利用するユーザーとして `gh auth login` を済ませてください。更新処理は HTTPS と `gh auth git-credential` を使います。Cargo は `~/.cargo/bin`、Node.js 22 以降と npm は `/usr/local/bin` または `/usr/bin` から利用できる必要があります。別の場所にある場合は更新 unit の `PATH` を調整してください。
 
-ビルド・配置・サービス管理はすべてログインユーザーで行います。ビルド後の候補バイナリに対して `sudo -n setcap cap_sys_ptrace,cap_bpf,cap_perfmon=ep` を実行し、観測用の権限を付与します。このコマンドを候補ファイル `~/.local/share/procinsh-preview/candidate` に対してパスワード入力なしで実行できることが前提です。権限付与に失敗した場合は更新を中止し、稼働版を維持します。
+ビルド・配置・サービス管理はすべてログインユーザーで行います。ビルド後の候補バイナリに対して `sudo -n setcap cap_sys_ptrace,cap_bpf,cap_perfmon=ep` を実行し、観測用の権限を付与します。このコマンドを候補ファイル `~/procinsh-main-preview/candidate` に対してパスワード入力なしで実行できることが前提です。権限付与に失敗した場合は更新を中止し、稼働版を維持します。
 
 ## 登録
 
@@ -26,7 +26,7 @@ sudo visudo -f /etc/sudoers.d/procinsh-preview
 ユーザーが `akira`、`setcap` が `/usr/sbin/setcap` にある場合の設定例です。ユーザー名・ホーム・実行ファイルのパスは実際の環境に合わせ、絶対パスで記載してください。
 
 ```sudoers
-akira ALL=(root) NOPASSWD: /usr/sbin/setcap cap_sys_ptrace\,cap_bpf\,cap_perfmon=ep /home/akira/.local/share/procinsh-preview/candidate
+akira ALL=(root) NOPASSWD: /usr/sbin/setcap cap_sys_ptrace\,cap_bpf\,cap_perfmon=ep /home/akira/procinsh-main-preview/candidate
 ```
 
 sudoers では capability の区切りのカンマを `\,` としてエスケープします。このルールはコマンド・引数・対象パスを指定して許可します。[sudoers の説明](https://www.sudo.ws/docs/man/1.9.14/sudoers.man.pdf)を参照してください。保存後に構文を確認します。
@@ -40,8 +40,8 @@ sudo visudo -c
 以下はユーザーが実行するホスト設定です。リポジトリのルートで実行します。
 
 ```sh
-mkdir -p "$HOME/.local/share/procinsh-preview" "$HOME/.config/systemd/user"
-install -m 0755 scripts/main_preview.sh "$HOME/.local/share/procinsh-preview/main_preview.sh"
+mkdir -p "$HOME/procinsh-main-preview" "$HOME/.config/systemd/user"
+install -m 0755 scripts/main_preview.sh "$HOME/procinsh-main-preview/main_preview.sh"
 install -m 0644 scripts/systemd/procinsh-preview.service \
   scripts/systemd/procinsh-preview-update.service \
   scripts/systemd/procinsh-preview-update.timer "$HOME/.config/systemd/user/"
@@ -63,7 +63,7 @@ systemctl --user start procinsh-preview-update.service
 
 ```sh
 # 稼働中の commit とログ
-cat "$HOME/.local/share/procinsh-preview/current.commit"
+cat "$HOME/procinsh-main-preview/current.commit"
 journalctl --user -u procinsh-preview.service -u procinsh-preview-update.service -f
 
 # 次回を待たずに更新
