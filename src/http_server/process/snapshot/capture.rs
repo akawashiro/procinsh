@@ -427,7 +427,8 @@ mod live_tests {
         let thread = &sampler.threads[&target.id.pid];
         assert!(thread.sampled_ns > first);
         assert_eq!(thread.latest.sample_source, Some(SampleSource::Ptrace));
-        assert!(thread.latest.error.is_none());
+        assert!(thread.ptrace_error.is_none());
+        assert_eq!(thread.latest.error, thread.setup_error);
         assert!(
             sampler.next_ptrace.unwrap().duration_since(Instant::now()) > Duration::from_secs(9)
         );
@@ -457,7 +458,8 @@ mod live_tests {
         assert!(sampler.threads.contains_key(&rediscovered));
         for (&tid, thread) in &sampler.threads {
             assert_eq!(thread.latest.sample_source, Some(SampleSource::Ptrace));
-            assert!(thread.latest.error.is_none(), "{:?}", thread.latest.error);
+            assert!(thread.ptrace_error.is_none());
+            assert_eq!(thread.latest.error, thread.setup_error);
             if let Some(previous) = old.get(&tid) {
                 assert!(thread.sampled_ns > *previous);
             }
@@ -517,7 +519,8 @@ mod live_tests {
         sampler.poll(&maps).unwrap();
         let thread = &sampler.threads[&target.id.pid];
         assert!(thread.sampled_ns > first);
-        assert!(thread.latest.error.is_none());
+        assert!(thread.ptrace_error.is_none());
+        assert_eq!(thread.latest.error, thread.setup_error);
         assert_eq!(thread.latest.sample_source, Some(SampleSource::Ptrace));
         target.assert_detached();
     }
