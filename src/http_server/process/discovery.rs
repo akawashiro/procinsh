@@ -17,6 +17,7 @@ pub(in crate::http_server) struct ProcessSummary {
     pub(in crate::http_server) euid: Option<u32>,
     pub(in crate::http_server) effective_username: Option<String>,
     pub(super) state: String,
+    pub(super) started_at: Option<u64>,
     pub(in crate::http_server) cpu_percent: Option<f64>,
     pub(in crate::http_server) rss_bytes: u64,
     pub(super) thread_count: u32,
@@ -49,10 +50,29 @@ pub(super) fn summary(stat: &procfs::Stat, users: &HashMap<u32, String>) -> Proc
         euid,
         effective_username: euid.and_then(|u| users.get(&u).cloned()),
         state: stat.state.clone(),
+        started_at: started_at(stat.start_time),
         cpu_percent: None,
         rss_bytes: stat.rss,
         thread_count: stat.thread_count,
     }
+}
+
+fn started_at(ticks: u64) -> Option<u64> {
+    // Avoid reading /proc/stat for every process in the discovery loop.
+    static BOOT_TIME: std::sync::OnceLock<Option<u64>> = std::sync::OnceLock::new();
+    let boot = *BOOT_TIME.get_or_init(|| {
+        fs::read_to_string("/proc/stat")
+            .ok()?
+            .lines()
+            .find_map(|line| line.strip_prefix("btime ")?.trim().parse::<u64>().ok())
+    });
+    start_timestamp(boot?, ticks, procfs::ticks_per_second())
+}
+
+fn start_timestamp(boot_seconds: u64, ticks: u64, ticks_per_second: f64) -> Option<u64> {
+    boot_seconds
+        .checked_mul(1000)?
+        .checked_add((ticks as f64 / ticks_per_second * 1000.0) as u64)
 }
 
 pub(super) fn users() -> HashMap<u32, String> {
@@ -123,6 +143,19 @@ fn parse_uids(value: &str) -> (Option<u32>, Option<u32>) {
 #[cfg(test)]
 mod uid_tests {
     use super::*;
+
+    #[test]
+    fn start_time_converts_boot_relative_ticks_to_unix_milliseconds() {
+        assert_eq!(
+            start_timestamp(1_700_000_000, 341232, 100.0),
+            Some(1_700_003_412_320)
+        );
+        assert_eq!(start_timestamp(u64::MAX, 0, 100.0), None);
+        let stat = procfs::read_stat(&format!("/proc/{}/stat", std::process::id())).unwrap();
+        let timestamp = started_at(stat.start_time).unwrap();
+        assert!(timestamp <= super::super::timestamp_ms());
+        assert!(timestamp > 1_000_000_000_000);
+    }
 
     #[test]
     fn real_and_effective_users() {
