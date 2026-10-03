@@ -55,7 +55,7 @@ cargo publish --dry-run
 | `src/http_server/api/` | HTTP 入力・応答、domain error のステータス変換、JSON と SSE (Server-Sent Events) |
 | `src/http_server/web.rs` | 静的 Web UI 配信 |
 | `src/http_server/process/monitoring/` | 接続ごとの独立した観測、60秒の履歴、最新状態の配信 |
-| `src/http_server/process/` | `/proc` の解析、PID 識別、プロセス・スレッド・メモリ・FD・ソケット・シグナル情報 |
+| `src/http_server/process/` | `/proc` の解析、PID 識別、プロセス・スレッド・メモリ・FD・ソケット情報 |
 | `src/http_server/process/snapshot/` | 初回・10秒ごとの ptrace と継続 perf によるレジスタ・スタック取得、framehop による DWARF CFI unwind、逆アセンブル |
 | `src/http_server/process/snapshot/symbol/` | ELF 取得・キャッシュ、アドレス変換、ELF/DWARF によるシンボル・ソース位置の解決 |
 | `src/http_server/process/snapshot/stack.rs` | サンプルとシンボル解決で共有するフレーム型 |
@@ -98,7 +98,6 @@ JSON のプロセス識別子は `{ "pid": 123, "start_time_ticks": 456 }` で�
 | `GET /api/processes/fds` | 識別子クエリ | FD、接続候補、共有所有者、探索警告 |
 | `GET /api/processes/environment` | 識別子クエリ | 環境変数の名前・値の一覧と取得情報 |
 | `GET /api/processes/auxv` | 識別子クエリ | 補助ベクトルのタグ・値・参照先の解決結果 |
-| `GET /api/processes/signals` | 識別子クエリ | プロセス・スレッドのシグナル状態と警告 |
 | `GET /api/processes/events` | 識別子クエリ | SSE `observation`：指定プロセスの概要・最新観測・スレッド・履歴・マップ・終了状態 |
 | `GET /api/system/events` | なし | SSE `snapshot`・`activity`・`gap`：構造、CPU・IPC・ファイルI/O活動、配信欠落 |
 
@@ -126,7 +125,7 @@ SSE は `Content-Type: text/event-stream` で接続を維持し、`event:` に�
 
 時刻はUnix epochからのミリ秒、メモリ量はバイト、CPU使用率は1コアを100%とします。`rates` はfault・context switchが回/秒、read/writeがバイト/秒です。差分がない初回のCPU使用率や算出不能なrate、取得不能な任意項目は null になり、ゼロとは区別します。`summary` は接続開始時の概要で、継続的に更新される値は `observation` を参照します。
 
-マップは約5秒間隔で取得するため、イベントの最新観測時刻とマップの取得時刻は一致しません。終了を検出したら `exited: true` を含む最終状態を配信し、ストリームを終了します。レジスタ・コールスタック・逆アセンブルは live_samples で配信します。FD詳細・環境変数・auxv・シグナル詳細は個別APIで取得します。
+マップは約5秒間隔で取得するため、イベントの最新観測時刻とマップの取得時刻は一致しません。終了を検出したら `exited: true` を含む最終状態を配信し、ストリームを終了します。レジスタ・コールスタック・逆アセンブルは live_samples で配信します。FD詳細・環境変数・auxvは個別APIで取得します。
 
 ### `GET /api/system/events`
 
@@ -162,7 +161,7 @@ SSE は `Content-Type: text/event-stream` で接続を維持し、`event:` に�
 
 ソケットの protocol は `{kind: "tcp" | "udp", family: "ipv4" | "ipv6"}` または `{kind: "unix", socket_type: {kind, code?}}`、state は `{kind, code?}` です。未知のコードは数値を保持します。INET の local/remote は `{ip, port}`、UNIX パスは `path` に分離しています。FD の access は `read`, `write`, `read_write`, `unknown`、kind は `pipe`, `socket`, `fifo` です。
 
-thread の scheduler は `{kind, code?}`、affinity は両端を含む `{start, end}` の配列（取得不能は null）です。シグナルの queued は `{count, limit}`（十進文字列）、signals は `{number, name}` の配列です。mask の hex は精度を保持する16進文字列です。
+thread の scheduler は `{kind, code?}`、affinity は両端を含む `{start, end}` の配列（取得不能は null）です。
 
 register の mapping は `{pathname, readable, writable, executable, private}` または null、offset は16進文字列または null、kind は分類 enum の snake_case 名です。memory map の permissions 文字列は廃止し、権限 boolean から表示を生成します。
 
@@ -199,7 +198,7 @@ Axum がルートごとにクエリや JSON を取り出し、ハンドラへ渡
 
 実装は [FD 情報の収集](../src/http_server/process/fds.rs)、[通信相手の候補の照合](../src/http_server/process/fds.rs)、[候補を所有するプロセス・FD の探索](../src/http_server/process/fds.rs) を参照してください。UNIX domain socket の通信相手の inode を取得する処理は [socket diagnostic](../src/http_server/process/sockets.rs) にあります。
 
-### 環境変数・補助ベクトル・シグナル
+### 環境変数・補助ベクトル
 
 いずれも識別子・生存を確認して要求時に取得します。定期観測に含めて再収集するものではありません。
 
@@ -207,7 +206,6 @@ Axum がルートごとにクエリや JSON を取り出し、ハンドラへ渡
 
 - `GET /api/processes/environment`：procfs の [`/proc/<pid>/environ`](https://man7.org/linux/man-pages/man5/proc_pid_environ.5.html) を最大1 MiB読み取り、NUL 区切りの各項目を最初の `=` で名前と値に分けます。重複名・空値・値中の `=` を維持します。通常は exec 時の環境領域であり、起動後の変更すべてを反映しません。実装は [ファイルの読み取り](../src/http_server/process/details.rs) と [環境変数の解析](../src/http_server/process/details.rs) を参照してください。
 - `GET /api/processes/auxv`：`/proc/<pid>/exe` の ELF ヘッダから32/64 bitを判別し、procfs の [`/proc/<pid>/auxv`](https://man7.org/linux/man-pages/man5/proc_pid_auxv.5.html) を最大64 KiB読み取ります。タグと値の組として解析し、既知・未知のタグを扱います。`AT_EXECFN`・`AT_PLATFORM`・`AT_BASE_PLATFORM` の文字列参照は、`process_vm_readv` で最大4096バイトまで解決します。参照先が読めなくても数値は保持します。big-endian ELF は対象外です。実装は [ELF ヘッダと auxv の読み取り](../src/http_server/process/details.rs)、[文字列参照の解決](../src/http_server/process/details.rs)、[メモリの読み取り](../src/http_server/process/memory.rs) を参照してください。
-- `GET /api/processes/signals`：procfs の [`/proc/<pid>/status`](https://man7.org/linux/man-pages/man5/proc_pid_status.5.html) と、各スレッドの [`/proc/<pid>/task/<tid>/status`](https://man7.org/linux/man-pages/man5/proc_pid_task.5.html) を読み取ります。`SigPnd`（スレッドの保留）・`ShdPnd`（プロセス全体の保留）・`SigBlk`（ブロック）・`SigIgn`（無視）・`SigCgt`（ハンドラ登録）の16進マスクを解析します。最大4096スレッド・2秒で打ち切ります。受信履歴や送信元の追跡、シグナル送信は行いません。実装は [status の読み取りとスレッドの列挙](../src/http_server/process/signals.rs) と [シグナル状態の解析](../src/http_server/process/signals.rs) を参照してください。
 
 ### 初回・定期スナップショットと非停止ライブサンプリング
 
@@ -276,7 +274,7 @@ watch channelは接続ごとに独立し、遅い購読者へ古い状態を蓄�
 | `GET /api/config` | 一覧と共通の初期化 |
 | `GET /api/processes` | 直接URLアクセス時に一覧からPIDの開始時刻を解決 |
 | `GET /api/processes/events` | 識別子クエリを付けて接続し、概要・観測・履歴・スレッド・マップ・終了状態を更新 |
-| `GET /api/processes/environment`、`GET /api/processes/auxv`、`GET /api/processes/fds`、`GET /api/processes/signals` | 各パネルを初めて開くときと再取得操作時 |
+| `GET /api/processes/environment`、`GET /api/processes/auxv`、`GET /api/processes/fds` | 各パネルを初めて開くときと再取得操作時 |
 
 プロセス詳細を開くとライブサンプルを表示します。スレッドを選択すると最新のレジスタ・スタック・命令を表示し、sample age と欠落数を示します。Call Stack は詳細グリッドの全列にまたがって表示します。
 

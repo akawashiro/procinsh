@@ -75,9 +75,6 @@ pub(in crate::http_server) fn fds(id: ProcessId) -> Result<impl Serialize> {
     super::fds::read(id)
 }
 
-pub(in crate::http_server) fn signals(id: ProcessId) -> Result<impl Serialize> {
-    super::signals::read(id)
-}
 // Minimal primitives also used by system-wide monitoring.
 pub(in crate::http_server) fn memory_maps(pid: i32) -> Result<Vec<MemoryMap>> {
     maps::read(pid, false)

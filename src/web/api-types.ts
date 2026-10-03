@@ -8,8 +8,6 @@ export interface RegisterMapping extends MappingPermissions { pathname: string |
 export type MemoryKind = "integer" | "stack" | "heap" | "shared_library" | "executable" | "file" | "anonymous";
 export interface CpuRange { start: number; end: number }
 export type SchedulerPolicy = {kind:"other" | "fifo" | "rr" | "batch" | "idle" | "deadline" | "ext"} | {kind:"unknown";code:number};
-export interface Signal { number: number; name: string }
-export interface SignalQueue { count: string; limit: string }
 export type FdAccess = "read" | "write" | "read_write" | "unknown";
 export type FdKind = "pipe" | "socket" | "fifo";
 export interface InetAddress { ip: string; port: number }
@@ -198,30 +196,10 @@ export interface FileDescriptors extends ProcessDetail {
     note: string;
   }[];
 }
-export interface SignalMask {
-  hex: string;
-  signals: Signal[];
-}
-interface SignalStatus {
-  tid: number;
-  name: string;
-  pending: SignalMask;
-  shared_pending: SignalMask;
-  blocked: SignalMask;
-  ignored: SignalMask;
-  caught: SignalMask;
-  queued: SignalQueue;
-}
-export interface Signals extends ProcessDetail {
-  leader: SignalStatus;
-  threads: SignalStatus[];
-  warnings: string[];
-}
 export interface DetailData {
   environment: Environment;
   auxv: AuxVector;
   fds: FileDescriptors;
-  signals: Signals;
 }
 export interface Process {
   identity: ProcessId;

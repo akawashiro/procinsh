@@ -28,11 +28,6 @@ export interface AppElements {
   disassembly: HTMLElement;
   "maps-info": HTMLElement;
   maps: HTMLElement;
-  "signals-panel": HTMLDetailsElement;
-  "signals-refresh": HTMLButtonElement;
-  "signals-info": HTMLElement;
-  "signals-error": HTMLElement;
-  "signals-entries": HTMLElement;
   "fds-panel": HTMLDetailsElement;
   "fds-search": HTMLInputElement;
   "fds-refresh": HTMLButtonElement;
