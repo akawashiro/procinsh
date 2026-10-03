@@ -34,7 +34,10 @@
 //!
 //! - [`registers::RegisterSet`]: `struct RegisterSet(pub(super) [u64; 24])`, indexed by PERF_REG_X86_* .
 //! - [`disasm::Disassembly::capture`]: `fn capture(pid: i32, rip: u64, maps: &[MemoryMap]) -> Self`.
-//! - [`unwind_fp::walk`]: `fn walk(rip: u64, rsp: u64, rbp: u64, maps: &[MemoryMap], read: impl FnMut(u64) -> Option<[u8; 16]>) -> (Vec<StackFrame>, String)`.
+//! - [`unwind::UnwindState`]: `struct UnwindState`, per-sampler module list and rule cache.
+//! - [`unwind::UnwindState::refresh`]: `fn refresh(&mut self, pid: i32, maps: &[MemoryMap], symbols: &mut ElfCache)`.
+//! - [`unwind::UnwindState::walk`]: `fn walk(&mut self, rip: u64, rsp: u64, rbp: u64, maps: &[MemoryMap], stack: &[u8]) -> (Vec<StackFrame>, String)`.
+//! - Tests-only `unwind_fp::walk`: `fn walk(rip: u64, rsp: u64, rbp: u64, maps: &[MemoryMap], read: impl FnMut(u64) -> Option<[u8; 16]>) -> (Vec<StackFrame>, String)`.
 //!
 //! Memory kinds are defined in [`super::maps::MemoryKind`].
 mod capture;
@@ -43,5 +46,7 @@ mod perf;
 mod registers;
 mod stack;
 mod symbol;
+mod unwind;
+#[cfg(test)]
 mod unwind_fp;
 pub(super) use capture::{Sampler, ThreadSample};

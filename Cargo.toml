@@ -39,6 +39,7 @@ async-stream = "0.3"
 iced-x86 = { version = "1.21", default-features = false, features = ["std", "decoder", "intel"] }
 libbpf-rs = "0.26.2"
 tower-http = { version = "0.7", features = ["compression-gzip"] }
+framehop = { version = "0.16.0", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }

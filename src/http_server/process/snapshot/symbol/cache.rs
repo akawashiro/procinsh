@@ -1,5 +1,5 @@
 use crate::http_server::process::maps::MemoryMap;
-use object::{Object, ObjectSegment, ObjectSymbol};
+use object::{Object, ObjectSection, ObjectSegment, ObjectSymbol};
 use std::{
     collections::HashMap,
     fs,
@@ -9,6 +9,8 @@ use std::{
 };
 /// Parsed ELF data. The DWARF loader has its own synchronization for lazy data.
 pub(in crate::http_server::process::snapshot) struct ElfSymbols {
+    pub(in crate::http_server::process::snapshot) unwind:
+        framehop::ExplicitModuleSectionInfo<Arc<[u8]>>,
     pub(super) segments: Vec<(u64, u64, u64)>,
     pub(super) symbols: Vec<(u64, u64, String)>,
     pub(super) dwarf: Option<Mutex<addr2line::Loader>>,
@@ -34,7 +36,32 @@ impl ElfSymbols {
         symbols.sort_by_key(|s| s.0);
         let dwarf = addr2line::Loader::new(path).ok().map(Mutex::new);
 
+        let range = |name| {
+            file.section_by_name(name)
+                .and_then(|s| Some(s.address()..s.address().checked_add(s.size())?))
+        };
+        let data = |name| {
+            file.section_by_name(name)
+                .and_then(|s| s.uncompressed_data().ok())
+                .map(|bytes| Arc::<[u8]>::from(bytes.as_ref()))
+        };
+        // framehop selects one format per module and prefers .eh_frame. When
+        // -fno-unwind-tables produces .debug_frame, CRT-only .eh_frame would
+        // shadow the application's CFI. Prefer its complete debug frame data.
+        let debug_frame = data(".debug_frame");
+        let prefer_debug = debug_frame.is_some();
+        let unwind = framehop::ExplicitModuleSectionInfo {
+            text_svma: range(".text"),
+            got_svma: range(".got"),
+            eh_frame_svma: range(".eh_frame"),
+            eh_frame: (!prefer_debug).then(|| data(".eh_frame")).flatten(),
+            eh_frame_hdr_svma: range(".eh_frame_hdr"),
+            eh_frame_hdr: (!prefer_debug).then(|| data(".eh_frame_hdr")).flatten(),
+            debug_frame,
+            ..Default::default()
+        };
         Some(Self {
+            unwind,
             segments,
             symbols,
             dwarf,

@@ -65,7 +65,7 @@ impl Event {
             flags: (1 << 5) | (1 << 6) | (1 << 25),
             wakeup: 1,
             regs: REGS_MASK,
-            stack: 8192,
+            stack: 16384,
             clock: libc::CLOCK_MONOTONIC,
             ..Attr::default()
         };
@@ -83,7 +83,7 @@ impl Event {
                 flags: (1 << 18) | (1 << 25) | (1 << 26),
                 wakeup: 1,
                 regs: REGS_MASK,
-                stack: 2048,
+                stack: 16384,
                 clock: libc::CLOCK_MONOTONIC,
                 ..Attr::default()
             },
