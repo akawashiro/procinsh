@@ -6,7 +6,7 @@ use super::{
     registers::{self, Register},
     stack::StackFrame,
     symbol::{ElfCache, SymbolInfo, elf_address, instruction_address, resolve_frame},
-    unwind_fp,
+    unwind::UnwindState,
 };
 use crate::http_server::process::{self, ProcessId, maps::MemoryMap, procfs};
 use anyhow::Result;
@@ -59,6 +59,7 @@ pub(in crate::http_server::process) struct Sampler {
     id: ProcessId,
     threads: BTreeMap<i32, Thread>,
     symbols: ElfCache,
+    unwind: UnwindState,
 }
 impl Sampler {
     pub(in crate::http_server::process) fn new(id: ProcessId) -> Self {
@@ -66,10 +67,12 @@ impl Sampler {
             id,
             threads: BTreeMap::new(),
             symbols: ElfCache::default(),
+            unwind: UnwindState::default(),
         }
     }
     pub(in crate::http_server::process) fn poll(&mut self, maps: &[MemoryMap]) -> Result<()> {
         process::check_identity(self.id)?;
+        self.unwind.refresh(self.id.pid, maps, &mut self.symbols);
         let mut alive = BTreeSet::new();
         for entry in std::fs::read_dir(format!("/proc/{}/task", self.id.pid))? {
             let entry = entry?;
@@ -147,14 +150,9 @@ impl Sampler {
                 && thread.sampled_ns.is_none_or(|time| sample.time_ns > time)
             {
                 let r = &sample.registers;
-                let (mut frames, reason) = unwind_fp::walk(r.0[8], r.0[7], r.0[6], maps, |bp| {
-                    let offset = usize::try_from(bp.checked_sub(r.0[7])?).ok()?;
-                    sample
-                        .stack
-                        .get(offset..offset.checked_add(16)?)?
-                        .try_into()
-                        .ok()
-                });
+                let (mut frames, reason) =
+                    self.unwind
+                        .walk(r.0[8], r.0[7], r.0[6], maps, &sample.stack);
                 for (index, frame) in frames.iter_mut().enumerate() {
                     let address = instruction_address(frame.address, index > 0);
                     let info = maps
@@ -359,7 +357,7 @@ mod live_tests {
                     .call_stack
                     .iter()
                     .any(|f| f.symbol.as_deref() == Some("main"));
-                truncated |= sample.unwind_stop == "stack memory could not be read";
+                truncated |= sample.unwind_stop.contains("stack snapshot exhausted");
                 if sample.sampled_at != previous {
                     updates += 1;
                     previous = sample.sampled_at;
@@ -380,7 +378,12 @@ mod live_tests {
 
     #[test]
     fn live_busy_and_recursive_samples_advance_without_tracing() {
-        for name in ["busy_loop", "recursive"] {
+        for name in [
+            "busy_loop",
+            "recursive",
+            "recursive_no_fp",
+            "recursive_no_fp_nopie",
+        ] {
             let target = TestTarget::new(name);
             if !perf_available(target.id.pid) {
                 return;
@@ -393,8 +396,22 @@ mod live_tests {
             let first = sampler.latest()[0].clone();
             assert_eq!(first.registers.len(), 18);
             assert!(!first.disassembly.as_ref().unwrap().instructions.is_empty());
-            if name == "recursive" {
+            if name.starts_with("recursive") {
                 assert!(first.call_stack.len() >= 4, "{:?}", first.call_stack);
+                assert!(
+                    first
+                        .call_stack
+                        .iter()
+                        .any(|f| f.symbol.as_deref() == Some("main")),
+                    "{:?}",
+                    first.call_stack
+                );
+                assert!(
+                    first
+                        .call_stack
+                        .iter()
+                        .any(|f| f.source_file.is_some() && f.line.is_some())
+                );
                 assert!(
                     first
                         .call_stack
@@ -409,6 +426,42 @@ mod live_tests {
             drop(sampler);
             target.assert_detached();
         }
+    }
+
+    #[test]
+    fn live_no_fp_unwinds_across_shared_library_and_libc() {
+        let target = TestTarget::new("shared_no_fp");
+        if !perf_available(target.id.pid) {
+            return;
+        }
+        Event::context_switch(target.id.pid).unwrap();
+        let maps = process::maps::read(target.id.pid, false).unwrap();
+        let mut sampler = Sampler::new(target.id);
+        poll_until(&mut sampler, &maps, |s| {
+            let latest = s.latest();
+            latest.iter().any(|sample| {
+                sample
+                    .call_stack
+                    .iter()
+                    .filter(|f| f.symbol.as_deref() == Some("shared_recurse"))
+                    .count()
+                    >= 13
+                    && sample
+                        .call_stack
+                        .iter()
+                        .any(|f| f.symbol.as_deref() == Some("main"))
+                    && sample.call_stack.iter().any(|f| {
+                        maps.iter().any(|map| {
+                            map.contains(f.address)
+                                && map
+                                    .pathname
+                                    .as_deref()
+                                    .is_some_and(|p| p.contains("libc.so"))
+                        })
+                    })
+            })
+        });
+        target.assert_detached();
     }
 
     #[test]

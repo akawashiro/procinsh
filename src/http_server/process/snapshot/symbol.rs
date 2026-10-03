@@ -9,6 +9,7 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
+//! | [`ElfSymbols`](cache::ElfSymbols) | `pub(in crate::http_server::process::snapshot)` | `unwind: framehop::ExplicitModuleSectionInfo<Arc<[u8]>>` (shared ELF section bytes) |
 //! | [`ElfCache`] | `pub(super)` | `struct `[`ElfCache`] |
 //! | [`SymbolInfo`] | `pub(super)` | `struct `[`SymbolInfo`] |
 //! | [`instruction_address`] | `pub(super)` | `fn instruction_address(address: `[`u64`]`, return_address: `[`bool`]`) -> `[`u64`] |

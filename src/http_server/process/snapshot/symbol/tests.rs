@@ -6,6 +6,7 @@ use std::{fs, sync::Arc};
 
 fn empty_elf() -> ElfSymbols {
     ElfSymbols {
+        unwind: Default::default(),
         segments: vec![(0x1100, 0x800, 0x2100)],
         symbols: vec![],
         dwarf: None,

@@ -16,11 +16,13 @@ __attribute__((noinline)) static void blocked_leaf(void) {
                  : "rax", "rsi", "rcx", "r11", "r12", "r13", "r14", "r15", "memory");
 }
 __attribute__((noinline)) static void blocked_recurse(int depth) {
+    volatile char padding[256];
+    padding[0] = (char)depth;
     if (depth)
         blocked_recurse(depth - 1);
     else
         blocked_leaf();
-    asm volatile("" ::: "memory");
+    asm volatile("" : : "m"(padding) : "memory");
 }
 int main(int argc, char **argv) {
     setup(argc, argv);
