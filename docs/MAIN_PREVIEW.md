@@ -53,8 +53,6 @@ systemctl --user start procinsh-preview-update.service
 
 初回ビルド成功後に常設サービスが起動します。以降はユーザーマネージャー起動時に自動起動します。ログアウト後も稼働させ、OS 起動時からログインせず利用するには、一度 `loginctl enable-linger "$USER"` を実行してください。これはユーザーの linger 設定を有効にします。[systemd の説明](https://www.freedesktop.org/software/systemd/man/252/loginctl.html)を参照してください。unit と更新スクリプト自身は自動更新の対象ではありません。これらを変更したときは timer を停止して更新処理の終了を待ち、再インストールと `daemon-reload` を行ってから timer を再開してください。
 
-外の端末から `http://開発マシンのLANまたはVPNアドレス:9090/` を開きます。
-
 ## 更新と運用
 
 `origin/main` に相当する GitHub の main を専用 ref に取得し、`current.commit` と異なる場合だけ `npm ci`、`npm run build:web`、`cargo build --locked` を実行します。作業ブランチや未コミット変更は公開しません。timer は `OnUnitInactiveSec=10s`、`AccuracySec=1s` を使うため、長いビルド中に次の更新は重なりません。スクリプトもファイルロックで多重実行を防ぎます。
