@@ -1,0 +1,3388 @@
+{
+  "date": "2026-10-03",
+  "kernel": "Linux 7.0.0-15-generic x86_64 PREEMPT_DYNAMIC",
+  "cpu": "AMD Ryzen 9 5950X, 32 logical CPUs",
+  "perf_event_paranoid": 4,
+  "launcher": "./scripts/dev_run.sh (test harness installed at target/debug/procinsh)",
+  "poll_ms": 1,
+  "ring_bytes": 65536,
+  "target_seconds": 8,
+  "observer_seconds": 5,
+  "baseline_binary_sha256": "12d463a9fd50bfde3455fbf7a4b59c4661b4d079d9fbb5d6951a35b2eb68a9ce",
+  "timing_status_binary_sha256": "b50515c19a3852fa25377ac25cb4d5c15d27dac0d7fd66f966639250279422ad",
+  "notes": [
+    "CPU and sleep matrices: three repeats, fixed configuration order, no CPU pinning.",
+    "fsync-small and oneshot add first usable time and target status diagnostics; other runs use the initial PoC binary.",
+    "First six raw records are (kind, misc, monotonic time_ns). Full dumped stack bytes are not retained.",
+    "Observer CPU includes drain/poll but excludes open/maps and final symbol resolution.",
+    "initial runs last 10s; oneshot runs last 6.5s."
+  ],
+  "runs": [
+    {
+      "experiment": "sleep",
+      "repeat": 0,
+      "mode": "sleep",
+      "config": "baseline",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "iterations": 7575,
+      "wall": 8.00028,
+      "cpu": 0.036384
+    },
+    {
+      "experiment": "sleep",
+      "repeat": 0,
+      "mode": "sleep",
+      "config": "clock",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 23964942,
+      "samples": 0,
+      "abi_none": 0,
+      "switch_in": 0,
+      "voluntary_out": 0,
+      "preempt_out": 0,
+      "ring_bytes": 0,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "iterations": 7572,
+      "wall": 8.000656,
+      "cpu": 0.04019,
+      "observation_seconds": 5.000144414,
+      "first_six_records": []
+    },
+    {
+      "experiment": "sleep",
+      "repeat": 0,
+      "mode": "sleep",
+      "config": "context-2048",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 246027889,
+      "samples": 4726,
+      "abi_none": 0,
+      "switch_in": 4726,
+      "voluntary_out": 4726,
+      "preempt_out": 0,
+      "ring_bytes": 10926512,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 0.044066,
+      "stack_bytes": 2048,
+      "iterations": 7567,
+      "wall": 8.000449,
+      "observation_seconds": 5.000307819,
+      "RIP": "0x725025aa060e",
+      "RSP": "0x7ffd91f4b370",
+      "RBP": "0x7ffd91f4b380",
+      "frame_count": 15,
+      "frame_symbols": [
+        null,
+        "clock_nanosleep",
+        "__nanosleep",
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          14,
+          0,
+          344592545625209
+        ],
+        [
+          9,
+          1,
+          344592545630228
+        ],
+        [
+          14,
+          8192,
+          344592545633084
+        ],
+        [
+          14,
+          0,
+          344592546682636
+        ],
+        [
+          9,
+          1,
+          344592546685682
+        ],
+        [
+          14,
+          8192,
+          344592546687175
+        ]
+      ]
+    },
+    {
+      "experiment": "sleep",
+      "repeat": 0,
+      "mode": "sleep",
+      "config": "context-4096",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 419661507,
+      "samples": 4727,
+      "abi_none": 0,
+      "switch_in": 4727,
+      "voluntary_out": 4727,
+      "preempt_out": 0,
+      "ring_bytes": 20609720,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 0.044235,
+      "stack_bytes": 1552,
+      "iterations": 7566,
+      "wall": 8.000042,
+      "observation_seconds": 5.000935248,
+      "RIP": "0x78f0666a060e",
+      "RSP": "0x7ffcf65c19f0",
+      "RBP": "0x7ffcf65c1a00",
+      "frame_count": 15,
+      "frame_symbols": [
+        null,
+        "clock_nanosleep",
+        "__nanosleep",
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          14,
+          0,
+          344600550290060
+        ],
+        [
+          9,
+          1,
+          344600550294338
+        ],
+        [
+          14,
+          8192,
+          344600550298656
+        ],
+        [
+          14,
+          0,
+          344600551347197
+        ],
+        [
+          9,
+          1,
+          344600551351044
+        ],
+        [
+          14,
+          8192,
+          344600551353859
+        ]
+      ]
+    },
+    {
+      "experiment": "sleep",
+      "repeat": 0,
+      "mode": "sleep",
+      "config": "context-8192",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 726872871,
+      "samples": 4727,
+      "abi_none": 0,
+      "switch_in": 4727,
+      "voluntary_out": 4727,
+      "preempt_out": 0,
+      "ring_bytes": 39971512,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 0.043869,
+      "stack_bytes": 7680,
+      "iterations": 7568,
+      "wall": 8.000464,
+      "observation_seconds": 5.000879836,
+      "RIP": "0x7aaee24a060e",
+      "RSP": "0x7fff6ff88200",
+      "RBP": "0x7fff6ff88210",
+      "frame_count": 15,
+      "frame_symbols": [
+        null,
+        "clock_nanosleep",
+        "__nanosleep",
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          14,
+          0,
+          344608544630429
+        ],
+        [
+          9,
+          1,
+          344608544634847
+        ],
+        [
+          14,
+          8192,
+          344608544638775
+        ],
+        [
+          14,
+          0,
+          344608545687726
+        ],
+        [
+          9,
+          1,
+          344608545690912
+        ],
+        [
+          14,
+          8192,
+          344608545693898
+        ]
+      ]
+    },
+    {
+      "experiment": "sleep",
+      "repeat": 0,
+      "mode": "sleep",
+      "config": "both-8192",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 725429909,
+      "samples": 4724,
+      "abi_none": 0,
+      "switch_in": 4724,
+      "voluntary_out": 4724,
+      "preempt_out": 0,
+      "ring_bytes": 39946144,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 0.047131,
+      "stack_bytes": 2464,
+      "iterations": 7565,
+      "wall": 8.00094,
+      "observation_seconds": 5.000863843,
+      "RIP": "0x7cef222a060e",
+      "RSP": "0x7ffd31599660",
+      "RBP": "0x7ffd31599670",
+      "frame_count": 15,
+      "frame_symbols": [
+        null,
+        "clock_nanosleep",
+        "__nanosleep",
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          14,
+          0,
+          344616545069522
+        ],
+        [
+          9,
+          1,
+          344616545081063
+        ],
+        [
+          14,
+          8192,
+          344616545085281
+        ],
+        [
+          14,
+          0,
+          344616546134894
+        ],
+        [
+          9,
+          1,
+          344616546139092
+        ],
+        [
+          14,
+          8192,
+          344616546142087
+        ]
+      ]
+    },
+    {
+      "experiment": "sleep",
+      "repeat": 0,
+      "mode": "sleep",
+      "config": "no-switch-8192",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 728501686,
+      "samples": 4731,
+      "abi_none": 0,
+      "switch_in": 0,
+      "voluntary_out": 0,
+      "preempt_out": 0,
+      "ring_bytes": 39702552,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 0.040732,
+      "stack_bytes": 1664,
+      "iterations": 7572,
+      "wall": 8.000871,
+      "observation_seconds": 5.001098658,
+      "RIP": "0x72f49caa060e",
+      "RSP": "0x7ffe26e79980",
+      "RBP": "0x7ffe26e79990",
+      "frame_count": 15,
+      "frame_symbols": [
+        null,
+        "clock_nanosleep",
+        "__nanosleep",
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          9,
+          1,
+          344624548013709
+        ],
+        [
+          9,
+          1,
+          344624549071196
+        ],
+        [
+          9,
+          1,
+          344624550126559
+        ],
+        [
+          9,
+          1,
+          344624551182203
+        ],
+        [
+          9,
+          1,
+          344624552237497
+        ],
+        [
+          9,
+          1,
+          344624553292920
+        ]
+      ]
+    },
+    {
+      "experiment": "sleep",
+      "repeat": 1,
+      "mode": "sleep",
+      "config": "baseline",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "iterations": 7576,
+      "wall": 8.001019,
+      "cpu": 0.036099
+    },
+    {
+      "experiment": "sleep",
+      "repeat": 1,
+      "mode": "sleep",
+      "config": "clock",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 22823564,
+      "samples": 0,
+      "abi_none": 0,
+      "switch_in": 0,
+      "voluntary_out": 0,
+      "preempt_out": 0,
+      "ring_bytes": 0,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "iterations": 7572,
+      "wall": 8.000643,
+      "cpu": 0.040763,
+      "observation_seconds": 5.000630998,
+      "first_six_records": []
+    },
+    {
+      "experiment": "sleep",
+      "repeat": 1,
+      "mode": "sleep",
+      "config": "context-2048",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 243846973,
+      "samples": 4729,
+      "abi_none": 0,
+      "switch_in": 4729,
+      "voluntary_out": 4729,
+      "preempt_out": 0,
+      "ring_bytes": 10933448,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 0.042062,
+      "stack_bytes": 2048,
+      "iterations": 7571,
+      "wall": 8.000876,
+      "observation_seconds": 5.000229379,
+      "RIP": "0x7c5f122a060e",
+      "RSP": "0x7ffd3a9bad30",
+      "RBP": "0x7ffd3a9bad40",
+      "frame_count": 15,
+      "frame_symbols": [
+        null,
+        "clock_nanosleep",
+        "__nanosleep",
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          14,
+          0,
+          344648555180556
+        ],
+        [
+          9,
+          1,
+          344648555185485
+        ],
+        [
+          14,
+          8192,
+          344648555188480
+        ],
+        [
+          14,
+          0,
+          344648556238053
+        ],
+        [
+          9,
+          1,
+          344648556241880
+        ],
+        [
+          14,
+          8192,
+          344648556243714
+        ]
+      ]
+    },
+    {
+      "experiment": "sleep",
+      "repeat": 1,
+      "mode": "sleep",
+      "config": "context-4096",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 418802166,
+      "samples": 4726,
+      "abi_none": 0,
+      "switch_in": 4726,
+      "voluntary_out": 4726,
+      "preempt_out": 0,
+      "ring_bytes": 20605360,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 0.043979,
+      "stack_bytes": 4096,
+      "iterations": 7567,
+      "wall": 8.000326,
+      "observation_seconds": 5.000381115,
+      "RIP": "0x794557aa060e",
+      "RSP": "0x7ffe3c194d90",
+      "RBP": "0x7ffe3c194da0",
+      "frame_count": 15,
+      "frame_symbols": [
+        null,
+        "clock_nanosleep",
+        "__nanosleep",
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          14,
+          0,
+          344656554796446
+        ],
+        [
+          9,
+          1,
+          344656554800905
+        ],
+        [
+          14,
+          8192,
+          344656554803940
+        ],
+        [
+          14,
+          0,
+          344656555854044
+        ],
+        [
+          9,
+          1,
+          344656555857831
+        ],
+        [
+          14,
+          8192,
+          344656555859885
+        ]
+      ]
+    },
+    {
+      "experiment": "sleep",
+      "repeat": 1,
+      "mode": "sleep",
+      "config": "context-8192",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 724498045,
+      "samples": 4726,
+      "abi_none": 0,
+      "switch_in": 4726,
+      "voluntary_out": 4726,
+      "preempt_out": 0,
+      "ring_bytes": 39963056,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 0.043944,
+      "stack_bytes": 3936,
+      "iterations": 7568,
+      "wall": 8.000628,
+      "observation_seconds": 5.000345515,
+      "RIP": "0x7a5d748a060e",
+      "RSP": "0x7ffea39800a0",
+      "RBP": "0x7ffea39800b0",
+      "frame_count": 15,
+      "frame_symbols": [
+        null,
+        "clock_nanosleep",
+        "__nanosleep",
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          14,
+          0,
+          344664558963470
+        ],
+        [
+          9,
+          1,
+          344664558968640
+        ],
+        [
+          14,
+          8192,
+          344664558972497
+        ],
+        [
+          14,
+          0,
+          344664560006741
+        ],
+        [
+          9,
+          1,
+          344664560010478
+        ],
+        [
+          14,
+          8192,
+          344664560013203
+        ]
+      ]
+    },
+    {
+      "experiment": "sleep",
+      "repeat": 1,
+      "mode": "sleep",
+      "config": "both-8192",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 731818165,
+      "samples": 4726,
+      "abi_none": 0,
+      "switch_in": 4726,
+      "voluntary_out": 4726,
+      "preempt_out": 0,
+      "ring_bytes": 39963056,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 0.045022,
+      "stack_bytes": 2480,
+      "iterations": 7569,
+      "wall": 8.000507,
+      "observation_seconds": 5.000242775,
+      "RIP": "0x7fcbdcaa060e",
+      "RSP": "0x7ffcae7d6650",
+      "RBP": "0x7ffcae7d6660",
+      "frame_count": 15,
+      "frame_symbols": [
+        null,
+        "clock_nanosleep",
+        "__nanosleep",
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          14,
+          0,
+          344672559648445
+        ],
+        [
+          9,
+          1,
+          344672559652823
+        ],
+        [
+          14,
+          8192,
+          344672559657642
+        ],
+        [
+          14,
+          0,
+          344672560706614
+        ],
+        [
+          9,
+          1,
+          344672560710431
+        ],
+        [
+          14,
+          8192,
+          344672560713547
+        ]
+      ]
+    },
+    {
+      "experiment": "sleep",
+      "repeat": 1,
+      "mode": "sleep",
+      "config": "no-switch-8192",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 738597774,
+      "samples": 4731,
+      "abi_none": 0,
+      "switch_in": 0,
+      "voluntary_out": 0,
+      "preempt_out": 0,
+      "ring_bytes": 39702552,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 0.039819,
+      "stack_bytes": 8192,
+      "iterations": 7573,
+      "wall": 8.000982,
+      "observation_seconds": 5.00130918,
+      "RIP": "0x7750996a060e",
+      "RSP": "0x7ffd469e4a40",
+      "RBP": "0x7ffd469e4a50",
+      "frame_count": 15,
+      "frame_symbols": [
+        null,
+        "clock_nanosleep",
+        "__nanosleep",
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          9,
+          1,
+          344680563072675
+        ],
+        [
+          9,
+          1,
+          344680564128118
+        ],
+        [
+          9,
+          1,
+          344680565185145
+        ],
+        [
+          9,
+          1,
+          344680566241230
+        ],
+        [
+          9,
+          1,
+          344680567297625
+        ],
+        [
+          9,
+          1,
+          344680568353549
+        ]
+      ]
+    },
+    {
+      "experiment": "sleep",
+      "repeat": 2,
+      "mode": "sleep",
+      "config": "baseline",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "iterations": 7574,
+      "wall": 8.00037,
+      "cpu": 0.036467
+    },
+    {
+      "experiment": "sleep",
+      "repeat": 2,
+      "mode": "sleep",
+      "config": "clock",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 24102876,
+      "samples": 1,
+      "abi_none": 0,
+      "switch_in": 0,
+      "voluntary_out": 0,
+      "preempt_out": 0,
+      "ring_bytes": 8392,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 0.041117,
+      "stack_bytes": 3472,
+      "iterations": 7571,
+      "wall": 8.000985,
+      "observation_seconds": 5.000684198,
+      "RIP": "0x7bb0fdaa060e",
+      "RSP": "0x7fff38dad270",
+      "RBP": "0x7fff38dad280",
+      "frame_count": 15,
+      "frame_symbols": [
+        null,
+        "clock_nanosleep",
+        "__nanosleep",
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          9,
+          2,
+          344699968008161
+        ]
+      ]
+    },
+    {
+      "experiment": "sleep",
+      "repeat": 2,
+      "mode": "sleep",
+      "config": "context-2048",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 243361772,
+      "samples": 4726,
+      "abi_none": 0,
+      "switch_in": 4726,
+      "voluntary_out": 4726,
+      "preempt_out": 0,
+      "ring_bytes": 10926512,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 0.043494,
+      "stack_bytes": 2048,
+      "iterations": 7568,
+      "wall": 8.00086,
+      "observation_seconds": 5.000923307,
+      "RIP": "0x77782eaa060e",
+      "RSP": "0x7ffc83df6280",
+      "RBP": "0x7ffc83df6290",
+      "frame_count": 15,
+      "frame_symbols": [
+        null,
+        "clock_nanosleep",
+        "__nanosleep",
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          14,
+          0,
+          344704565980651
+        ],
+        [
+          9,
+          1,
+          344704565985039
+        ],
+        [
+          14,
+          8192,
+          344704565987284
+        ],
+        [
+          14,
+          0,
+          344704567007621
+        ],
+        [
+          9,
+          1,
+          344704567011378
+        ],
+        [
+          14,
+          8192,
+          344704567013212
+        ]
+      ]
+    },
+    {
+      "experiment": "sleep",
+      "repeat": 2,
+      "mode": "sleep",
+      "config": "context-4096",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 417518406,
+      "samples": 4731,
+      "abi_none": 0,
+      "switch_in": 4731,
+      "voluntary_out": 4730,
+      "preempt_out": 1,
+      "ring_bytes": 20627160,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 0.041588,
+      "stack_bytes": 2816,
+      "iterations": 7572,
+      "wall": 8.000525,
+      "observation_seconds": 5.00059528,
+      "RIP": "0x798d45ea060e",
+      "RSP": "0x7fffc939a500",
+      "RBP": "0x7fffc939a510",
+      "frame_count": 15,
+      "frame_symbols": [
+        null,
+        "clock_nanosleep",
+        "__nanosleep",
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          14,
+          0,
+          344712575065168
+        ],
+        [
+          9,
+          1,
+          344712575070367
+        ],
+        [
+          14,
+          8192,
+          344712575074705
+        ],
+        [
+          14,
+          0,
+          344712576123046
+        ],
+        [
+          9,
+          1,
+          344712576126873
+        ],
+        [
+          14,
+          8192,
+          344712576129558
+        ]
+      ]
+    },
+    {
+      "experiment": "sleep",
+      "repeat": 2,
+      "mode": "sleep",
+      "config": "context-8192",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 727176221,
+      "samples": 4726,
+      "abi_none": 0,
+      "switch_in": 4726,
+      "voluntary_out": 4726,
+      "preempt_out": 0,
+      "ring_bytes": 39963056,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 0.044136,
+      "stack_bytes": 5824,
+      "iterations": 7567,
+      "wall": 8.000082,
+      "observation_seconds": 5.000964764,
+      "RIP": "0x7e5f47ca060e",
+      "RSP": "0x7fffb0605940",
+      "RBP": "0x7fffb0605950",
+      "frame_count": 15,
+      "frame_symbols": [
+        null,
+        "clock_nanosleep",
+        "__nanosleep",
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          14,
+          0,
+          344720576789075
+        ],
+        [
+          9,
+          1,
+          344720576794475
+        ],
+        [
+          14,
+          8192,
+          344720576798783
+        ],
+        [
+          14,
+          0,
+          344720577846753
+        ],
+        [
+          9,
+          1,
+          344720577850340
+        ],
+        [
+          14,
+          8192,
+          344720577853035
+        ]
+      ]
+    },
+    {
+      "experiment": "sleep",
+      "repeat": 2,
+      "mode": "sleep",
+      "config": "both-8192",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 731549976,
+      "samples": 4728,
+      "abi_none": 0,
+      "switch_in": 4728,
+      "voluntary_out": 4727,
+      "preempt_out": 1,
+      "ring_bytes": 39979968,
+      "lost": 0,
+      "clock_samples": 2,
+      "clock_lost": 0,
+      "cpu": 0.044919,
+      "stack_bytes": 6592,
+      "iterations": 7568,
+      "wall": 8.000537,
+      "observation_seconds": 5.001102599,
+      "RIP": "0x79615aaa060e",
+      "RSP": "0x7ffe3056b640",
+      "RBP": "0x7ffe3056b650",
+      "frame_count": 15,
+      "frame_symbols": [
+        null,
+        "clock_nanosleep",
+        "__nanosleep",
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          14,
+          0,
+          344728577572350
+        ],
+        [
+          9,
+          1,
+          344728577577319
+        ],
+        [
+          14,
+          8192,
+          344728577582338
+        ],
+        [
+          14,
+          0,
+          344728578630599
+        ],
+        [
+          9,
+          1,
+          344728578634696
+        ],
+        [
+          14,
+          8192,
+          344728578638423
+        ]
+      ]
+    },
+    {
+      "experiment": "sleep",
+      "repeat": 2,
+      "mode": "sleep",
+      "config": "no-switch-8192",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 722106384,
+      "samples": 4729,
+      "abi_none": 0,
+      "switch_in": 0,
+      "voluntary_out": 0,
+      "preempt_out": 0,
+      "ring_bytes": 39685768,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 0.041654,
+      "stack_bytes": 8192,
+      "iterations": 7570,
+      "wall": 8.000956,
+      "observation_seconds": 5.001053723,
+      "RIP": "0x704ed26a060e",
+      "RSP": "0x7ffc1f90ca00",
+      "RBP": "0x7ffc1f90ca10",
+      "frame_count": 15,
+      "frame_symbols": [
+        null,
+        "clock_nanosleep",
+        "__nanosleep",
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          9,
+          1,
+          344736577039166
+        ],
+        [
+          9,
+          1,
+          344736578095331
+        ],
+        [
+          9,
+          1,
+          344736579152968
+        ],
+        [
+          9,
+          1,
+          344736580209724
+        ],
+        [
+          9,
+          1,
+          344736581266110
+        ],
+        [
+          9,
+          1,
+          344736582322335
+        ]
+      ]
+    },
+    {
+      "experiment": "socket",
+      "repeat": 0,
+      "mode": "socket",
+      "config": "clock",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 22285141,
+      "samples": 0,
+      "abi_none": 0,
+      "switch_in": 0,
+      "voluntary_out": 0,
+      "preempt_out": 0,
+      "ring_bytes": 0,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "iterations": 7567,
+      "wall": 8.000301,
+      "cpu": 0.046216,
+      "observation_seconds": 5.000742586,
+      "first_six_records": []
+    },
+    {
+      "experiment": "socket",
+      "repeat": 0,
+      "mode": "socket",
+      "config": "context-8192",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 724025578,
+      "samples": 4725,
+      "abi_none": 0,
+      "switch_in": 4725,
+      "voluntary_out": 4725,
+      "preempt_out": 0,
+      "ring_bytes": 39954600,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 0.049498,
+      "stack_bytes": 6608,
+      "iterations": 7561,
+      "wall": 8.000427,
+      "observation_seconds": 5.001172484,
+      "RIP": "0x7350cbaa06c6",
+      "RSP": "0x7fff91fbb630",
+      "RBP": "0x7fff91fbb640",
+      "frame_count": 14,
+      "frame_symbols": [
+        null,
+        "__recv",
+        "recv",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          14,
+          0,
+          344779463358880
+        ],
+        [
+          9,
+          1,
+          344779463364411
+        ],
+        [
+          14,
+          8192,
+          344779463368969
+        ],
+        [
+          14,
+          0,
+          344779464414625
+        ],
+        [
+          9,
+          1,
+          344779464419664
+        ],
+        [
+          14,
+          8192,
+          344779464422770
+        ]
+      ]
+    },
+    {
+      "experiment": "socket",
+      "repeat": 0,
+      "mode": "socket",
+      "config": "both-8192",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 729555882,
+      "samples": 4728,
+      "abi_none": 0,
+      "switch_in": 4728,
+      "voluntary_out": 4727,
+      "preempt_out": 1,
+      "ring_bytes": 39979968,
+      "lost": 0,
+      "clock_samples": 2,
+      "clock_lost": 0,
+      "cpu": 0.051832,
+      "stack_bytes": 3168,
+      "iterations": 7564,
+      "wall": 8.000606,
+      "observation_seconds": 5.000616239,
+      "RIP": "0x75ffd66a06c6",
+      "RSP": "0x7ffca88183a0",
+      "RBP": "0x7ffca88183b0",
+      "frame_count": 14,
+      "frame_symbols": [
+        null,
+        "__recv",
+        "recv",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          14,
+          0,
+          344787467882366
+        ],
+        [
+          9,
+          1,
+          344787467888127
+        ],
+        [
+          14,
+          8192,
+          344787467892946
+        ],
+        [
+          14,
+          0,
+          344787468935846
+        ],
+        [
+          9,
+          1,
+          344787468940875
+        ],
+        [
+          14,
+          8192,
+          344787468944131
+        ]
+      ]
+    },
+    {
+      "experiment": "fsync",
+      "repeat": 0,
+      "mode": "fsync",
+      "config": "clock",
+      "fsync_filesystem": "tmpfs",
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 58521515,
+      "samples": 227,
+      "abi_none": 0,
+      "switch_in": 0,
+      "voluntary_out": 0,
+      "preempt_out": 0,
+      "ring_bytes": 1904984,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 7.999268,
+      "stack_bytes": 1776,
+      "iterations": 8248199,
+      "wall": 8.000002,
+      "observation_seconds": 5.000034757,
+      "RIP": "0x75ebd5ca06c6",
+      "RSP": "0x7ffdd05ee910",
+      "RBP": "0x7ffdd05ee920",
+      "frame_count": 14,
+      "frame_symbols": [
+        null,
+        "fsync",
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          9,
+          2,
+          344795634045759
+        ],
+        [
+          9,
+          2,
+          344795684044947
+        ],
+        [
+          9,
+          2,
+          344795694044781
+        ],
+        [
+          9,
+          2,
+          344795754055155
+        ],
+        [
+          9,
+          2,
+          344795764054989
+        ],
+        [
+          9,
+          2,
+          344795774054932
+        ]
+      ]
+    },
+    {
+      "experiment": "fsync",
+      "repeat": 0,
+      "mode": "fsync",
+      "config": "context-8192",
+      "fsync_filesystem": "tmpfs",
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 32839141,
+      "samples": 50,
+      "abi_none": 0,
+      "switch_in": 50,
+      "voluntary_out": 0,
+      "preempt_out": 50,
+      "ring_bytes": 422800,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 7.998945,
+      "stack_bytes": 2960,
+      "iterations": 8249176,
+      "wall": 8.000002,
+      "observation_seconds": 5.000490734,
+      "RIP": "0x72a5566a06c6",
+      "RSP": "0x7ffd9e864470",
+      "RBP": "0x7ffd9e864480",
+      "frame_count": 14,
+      "frame_symbols": [
+        null,
+        "write",
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          9,
+          1,
+          344803721009172
+        ],
+        [
+          14,
+          24576,
+          344803721013851
+        ],
+        [
+          14,
+          0,
+          344803721022777
+        ],
+        [
+          9,
+          1,
+          344803849007983
+        ],
+        [
+          14,
+          24576,
+          344803849010909
+        ],
+        [
+          14,
+          0,
+          344803849021920
+        ]
+      ]
+    },
+    {
+      "experiment": "fsync",
+      "repeat": 0,
+      "mode": "fsync",
+      "config": "both-8192",
+      "fsync_filesystem": "tmpfs",
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 68178779,
+      "samples": 63,
+      "abi_none": 0,
+      "switch_in": 63,
+      "voluntary_out": 0,
+      "preempt_out": 63,
+      "ring_bytes": 532728,
+      "lost": 0,
+      "clock_samples": 227,
+      "clock_lost": 0,
+      "cpu": 7.999176,
+      "stack_bytes": 8192,
+      "iterations": 8198099,
+      "wall": 8.000002,
+      "observation_seconds": 5.000289575,
+      "RIP": "0x79f5042a06c6",
+      "RSP": "0x7ffd48d88f30",
+      "RBP": "0x7ffd48d88f40",
+      "frame_count": 14,
+      "frame_symbols": [
+        null,
+        "write",
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          9,
+          1,
+          344811721010167
+        ],
+        [
+          14,
+          24576,
+          344811721012332
+        ],
+        [
+          14,
+          0,
+          344811721021900
+        ],
+        [
+          9,
+          1,
+          344811918004830
+        ],
+        [
+          14,
+          24576,
+          344811918006964
+        ],
+        [
+          14,
+          0,
+          344811918013366
+        ]
+      ]
+    },
+    {
+      "experiment": "fsync-ext4",
+      "repeat": 0,
+      "mode": "fsync",
+      "config": "clock",
+      "fsync_filesystem": "ext4",
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 24445847,
+      "samples": 2,
+      "abi_none": 0,
+      "switch_in": 0,
+      "voluntary_out": 0,
+      "preempt_out": 0,
+      "ring_bytes": 16784,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 0.319164,
+      "stack_bytes": 8192,
+      "iterations": 17411,
+      "wall": 8.0002,
+      "observation_seconds": 5.000970735,
+      "RIP": "0x7353b2aa06c6",
+      "RSP": "0x7ffe52222ee0",
+      "RBP": "0x7ffe52222ef0",
+      "frame_count": 14,
+      "frame_symbols": [
+        null,
+        "write",
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          9,
+          2,
+          344868562443289
+        ],
+        [
+          9,
+          2,
+          344869444333057
+        ]
+      ]
+    },
+    {
+      "experiment": "fsync-ext4",
+      "repeat": 0,
+      "mode": "fsync",
+      "config": "context-8192",
+      "fsync_filesystem": "ext4",
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 2183441095,
+      "samples": 14831,
+      "abi_none": 0,
+      "switch_in": 21442,
+      "voluntary_out": 21425,
+      "preempt_out": 16,
+      "ring_bytes": 126151288,
+      "lost": 6610,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 0.339245,
+      "stack_bytes": 5584,
+      "iterations": 17238,
+      "wall": 8.000445,
+      "observation_seconds": 5.000937764,
+      "RIP": "0x76dfd3ea06c6",
+      "RSP": "0x7ffe59ef1a30",
+      "RBP": "0x7ffe59ef1a40",
+      "frame_count": 14,
+      "frame_symbols": [
+        null,
+        "fsync",
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          14,
+          0,
+          344873067159602
+        ],
+        [
+          9,
+          1,
+          344873067175772
+        ],
+        [
+          14,
+          8192,
+          344873067181473
+        ],
+        [
+          14,
+          0,
+          344873067193015
+        ],
+        [
+          9,
+          1,
+          344873067197483
+        ],
+        [
+          14,
+          8192,
+          344873067201270
+        ]
+      ]
+    },
+    {
+      "experiment": "fsync-ext4",
+      "repeat": 0,
+      "mode": "fsync",
+      "config": "both-8192",
+      "fsync_filesystem": "ext4",
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 2164019636,
+      "samples": 14907,
+      "abi_none": 0,
+      "switch_in": 21401,
+      "voluntary_out": 21391,
+      "preempt_out": 10,
+      "ring_bytes": 126780920,
+      "lost": 6494,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 0.349229,
+      "stack_bytes": 3936,
+      "iterations": 17251,
+      "wall": 8.000087,
+      "observation_seconds": 5.001052138,
+      "RIP": "0x7f429caa06c6",
+      "RSP": "0x7ffc2c3990a0",
+      "RBP": "0x7ffc2c3990b0",
+      "frame_count": 14,
+      "frame_symbols": [
+        null,
+        "fsync",
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          14,
+          0,
+          344881062209272
+        ],
+        [
+          9,
+          1,
+          344881062222397
+        ],
+        [
+          14,
+          8192,
+          344881062227366
+        ],
+        [
+          14,
+          0,
+          344881062238307
+        ],
+        [
+          9,
+          1,
+          344881062241944
+        ],
+        [
+          14,
+          8192,
+          344881062245360
+        ]
+      ]
+    },
+    {
+      "experiment": "initial",
+      "repeat": 0,
+      "mode": "initial",
+      "config": "clock",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 22720224,
+      "samples": 0,
+      "abi_none": 0,
+      "switch_in": 0,
+      "voluntary_out": 0,
+      "preempt_out": 0,
+      "ring_bytes": 0,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "iterations": 0,
+      "wall": 10.000378,
+      "cpu": 5e-05,
+      "observation_seconds": 5.000570593,
+      "first_six_records": []
+    },
+    {
+      "experiment": "initial",
+      "repeat": 0,
+      "mode": "initial",
+      "config": "context-8192",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 24041791,
+      "samples": 0,
+      "abi_none": 0,
+      "switch_in": 0,
+      "voluntary_out": 0,
+      "preempt_out": 0,
+      "ring_bytes": 0,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "iterations": 0,
+      "wall": 10.000369,
+      "cpu": 3.2e-05,
+      "observation_seconds": 5.000311344,
+      "first_six_records": []
+    },
+    {
+      "experiment": "initial",
+      "repeat": 0,
+      "mode": "initial",
+      "config": "both-8192",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 24223313,
+      "samples": 0,
+      "abi_none": 0,
+      "switch_in": 0,
+      "voluntary_out": 0,
+      "preempt_out": 0,
+      "ring_bytes": 0,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "iterations": 0,
+      "wall": 10.000068,
+      "cpu": 1.4e-05,
+      "observation_seconds": 5.00065573,
+      "first_six_records": []
+    },
+    {
+      "experiment": "fpo",
+      "repeat": 0,
+      "mode": "sleep",
+      "config": "context-2048",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": true,
+      "observer_cpu_ns": 244828033,
+      "samples": 4727,
+      "abi_none": 0,
+      "switch_in": 4727,
+      "voluntary_out": 4727,
+      "preempt_out": 0,
+      "ring_bytes": 10928824,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 0.042911,
+      "stack_bytes": 2048,
+      "iterations": 7568,
+      "wall": 8.000132,
+      "observation_seconds": 5.000827625,
+      "RIP": "0x7f376f6a060e",
+      "RSP": "0x7ffda8bf2630",
+      "RBP": "0x7ffda8bf2640",
+      "frame_count": 4,
+      "frame_symbols": [
+        null,
+        "clock_nanosleep",
+        "__nanosleep",
+        "wait_once"
+      ],
+      "unwind_stop": "RBP outside stack / unaligned (frame pointers may be omitted)",
+      "first_six_records": [
+        [
+          14,
+          0,
+          344889218253705
+        ],
+        [
+          9,
+          1,
+          344889218257773
+        ],
+        [
+          14,
+          8192,
+          344889218260217
+        ],
+        [
+          14,
+          0,
+          344889219311283
+        ],
+        [
+          9,
+          1,
+          344889219314719
+        ],
+        [
+          14,
+          8192,
+          344889219316442
+        ]
+      ]
+    },
+    {
+      "experiment": "fpo",
+      "repeat": 0,
+      "mode": "sleep",
+      "config": "context-8192",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": true,
+      "observer_cpu_ns": 720279367,
+      "samples": 4730,
+      "abi_none": 0,
+      "switch_in": 4730,
+      "voluntary_out": 4728,
+      "preempt_out": 2,
+      "ring_bytes": 39996880,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 0.042883,
+      "stack_bytes": 8192,
+      "iterations": 7569,
+      "wall": 8.000043,
+      "observation_seconds": 5.000084293,
+      "RIP": "0x7cab61ea060e",
+      "RSP": "0x7ffd948d5f00",
+      "RBP": "0x7ffd948d5f10",
+      "frame_count": 4,
+      "frame_symbols": [
+        null,
+        "clock_nanosleep",
+        "__nanosleep",
+        "wait_once"
+      ],
+      "unwind_stop": "RBP outside stack / unaligned (frame pointers may be omitted)",
+      "first_six_records": [
+        [
+          14,
+          0,
+          344897217808559
+        ],
+        [
+          9,
+          1,
+          344897217814059
+        ],
+        [
+          14,
+          8192,
+          344897217816634
+        ],
+        [
+          14,
+          0,
+          344897218866147
+        ],
+        [
+          9,
+          1,
+          344897218869834
+        ],
+        [
+          14,
+          8192,
+          344897218872028
+        ]
+      ]
+    },
+    {
+      "experiment": "busy",
+      "repeat": 0,
+      "mode": "busy",
+      "config": "baseline",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "iterations": 382276,
+      "wall": 8.000008,
+      "cpu": 7.99936
+    },
+    {
+      "experiment": "busy",
+      "repeat": 0,
+      "mode": "busy",
+      "config": "clock",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 95718101,
+      "samples": 499,
+      "abi_none": 0,
+      "switch_in": 0,
+      "voluntary_out": 0,
+      "preempt_out": 0,
+      "ring_bytes": 4187608,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 7.999078,
+      "stack_bytes": 7568,
+      "iterations": 382187,
+      "wall": 8.000007,
+      "observation_seconds": 5.000024206,
+      "RIP": "0x583ed271c7a4",
+      "RSP": "0x7ffc42589270",
+      "RBP": "0x7ffc425892a0",
+      "frame_count": 12,
+      "frame_symbols": [
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          9,
+          2,
+          344913387052875
+        ],
+        [
+          9,
+          2,
+          344913397051917
+        ],
+        [
+          9,
+          2,
+          344913407051881
+        ],
+        [
+          9,
+          2,
+          344913417051955
+        ],
+        [
+          9,
+          2,
+          344913427051909
+        ],
+        [
+          9,
+          2,
+          344913437051893
+        ]
+      ]
+    },
+    {
+      "experiment": "busy",
+      "repeat": 0,
+      "mode": "busy",
+      "config": "context-2048",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 27063940,
+      "samples": 63,
+      "abi_none": 0,
+      "switch_in": 63,
+      "voluntary_out": 0,
+      "preempt_out": 63,
+      "ring_bytes": 145656,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 7.998815,
+      "stack_bytes": 2048,
+      "iterations": 382263,
+      "wall": 8.000008,
+      "observation_seconds": 5.000916052,
+      "RIP": "0x5d4316a737af",
+      "RSP": "0x7ffde9e8eaf0",
+      "RBP": "0x7ffde9e8eb20",
+      "frame_count": 12,
+      "frame_symbols": [
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          9,
+          1,
+          344921481007727
+        ],
+        [
+          14,
+          24576,
+          344921481010602
+        ],
+        [
+          14,
+          0,
+          344921481019309
+        ],
+        [
+          9,
+          1,
+          344921545006516
+        ],
+        [
+          14,
+          24576,
+          344921545008230
+        ],
+        [
+          14,
+          0,
+          344921545017748
+        ]
+      ]
+    },
+    {
+      "experiment": "busy",
+      "repeat": 0,
+      "mode": "busy",
+      "config": "context-8192",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 30730779,
+      "samples": 58,
+      "abi_none": 0,
+      "switch_in": 58,
+      "voluntary_out": 0,
+      "preempt_out": 58,
+      "ring_bytes": 490448,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 7.998764,
+      "stack_bytes": 2240,
+      "iterations": 381959,
+      "wall": 8.000018,
+      "observation_seconds": 5.001007714,
+      "RIP": "0x62a1792297af",
+      "RSP": "0x7ffdddb9f740",
+      "RBP": "0x7ffdddb9f770",
+      "frame_count": 12,
+      "frame_symbols": [
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          9,
+          1,
+          344929481008090
+        ],
+        [
+          14,
+          24576,
+          344929481012559
+        ],
+        [
+          14,
+          0,
+          344929481021185
+        ],
+        [
+          9,
+          1,
+          344929545012801
+        ],
+        [
+          14,
+          24576,
+          344929545015626
+        ],
+        [
+          14,
+          0,
+          344929545025455
+        ]
+      ]
+    },
+    {
+      "experiment": "busy",
+      "repeat": 0,
+      "mode": "busy",
+      "config": "both-8192",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 106616860,
+      "samples": 53,
+      "abi_none": 0,
+      "switch_in": 53,
+      "voluntary_out": 0,
+      "preempt_out": 53,
+      "ring_bytes": 448168,
+      "lost": 0,
+      "clock_samples": 499,
+      "clock_lost": 0,
+      "cpu": 7.999191,
+      "stack_bytes": 2528,
+      "iterations": 381816,
+      "wall": 8.000006,
+      "observation_seconds": 5.00069676,
+      "RIP": "0x651dc954d7a4",
+      "RSP": "0x7fffdc3e7620",
+      "RBP": "0x7fffdc3e7650",
+      "frame_count": 12,
+      "frame_symbols": [
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          9,
+          1,
+          344937481007742
+        ],
+        [
+          14,
+          24576,
+          344937481010417
+        ],
+        [
+          14,
+          0,
+          344937481019484
+        ],
+        [
+          9,
+          1,
+          344937545007464
+        ],
+        [
+          14,
+          24576,
+          344937545010369
+        ],
+        [
+          14,
+          0,
+          344937545022642
+        ]
+      ]
+    },
+    {
+      "experiment": "busy",
+      "repeat": 1,
+      "mode": "busy",
+      "config": "baseline",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "iterations": 382904,
+      "wall": 8.000003,
+      "cpu": 7.999391
+    },
+    {
+      "experiment": "busy",
+      "repeat": 1,
+      "mode": "busy",
+      "config": "clock",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 100787985,
+      "samples": 499,
+      "abi_none": 0,
+      "switch_in": 0,
+      "voluntary_out": 0,
+      "preempt_out": 0,
+      "ring_bytes": 4187608,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 7.999002,
+      "stack_bytes": 6144,
+      "iterations": 382430,
+      "wall": 8.000007,
+      "observation_seconds": 5.000036659,
+      "RIP": "0x5bc7ca25c7a4",
+      "RSP": "0x7ffca31e7800",
+      "RBP": "0x7ffca31e7830",
+      "frame_count": 12,
+      "frame_symbols": [
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          9,
+          2,
+          344953388018984
+        ],
+        [
+          9,
+          2,
+          344953398018357
+        ],
+        [
+          9,
+          2,
+          344953408018190
+        ],
+        [
+          9,
+          2,
+          344953418018214
+        ],
+        [
+          9,
+          2,
+          344953428018359
+        ],
+        [
+          9,
+          2,
+          344953438018313
+        ]
+      ]
+    },
+    {
+      "experiment": "busy",
+      "repeat": 1,
+      "mode": "busy",
+      "config": "context-2048",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 27366246,
+      "samples": 60,
+      "abi_none": 0,
+      "switch_in": 60,
+      "voluntary_out": 0,
+      "preempt_out": 60,
+      "ring_bytes": 138720,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 7.998817,
+      "stack_bytes": 2048,
+      "iterations": 382175,
+      "wall": 8.000014,
+      "observation_seconds": 5.000613123,
+      "RIP": "0x618ac74af7a4",
+      "RSP": "0x7fff9c3aaba0",
+      "RBP": "0x7fff9c3aabd0",
+      "frame_count": 12,
+      "frame_symbols": [
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          9,
+          1,
+          344961400009942
+        ],
+        [
+          14,
+          24576,
+          344961400012998
+        ],
+        [
+          14,
+          0,
+          344961400023247
+        ],
+        [
+          9,
+          1,
+          344961401025661
+        ],
+        [
+          14,
+          24576,
+          344961401028216
+        ],
+        [
+          14,
+          0,
+          344961401038515
+        ]
+      ]
+    },
+    {
+      "experiment": "busy",
+      "repeat": 1,
+      "mode": "busy",
+      "config": "context-8192",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 32044208,
+      "samples": 59,
+      "abi_none": 0,
+      "switch_in": 59,
+      "voluntary_out": 0,
+      "preempt_out": 59,
+      "ring_bytes": 498904,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 7.998858,
+      "stack_bytes": 3072,
+      "iterations": 382395,
+      "wall": 8.000011,
+      "observation_seconds": 5.000153649,
+      "RIP": "0x5ab0d47457a4",
+      "RSP": "0x7ffd0c926400",
+      "RBP": "0x7ffd0c926430",
+      "frame_count": 12,
+      "frame_symbols": [
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          9,
+          1,
+          344969545007493
+        ],
+        [
+          14,
+          24576,
+          344969545012272
+        ],
+        [
+          14,
+          0,
+          344969545025708
+        ],
+        [
+          9,
+          1,
+          344969673006726
+        ],
+        [
+          14,
+          24576,
+          344969673009741
+        ],
+        [
+          14,
+          0,
+          344969673017466
+        ]
+      ]
+    },
+    {
+      "experiment": "busy",
+      "repeat": 1,
+      "mode": "busy",
+      "config": "both-8192",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 107663126,
+      "samples": 57,
+      "abi_none": 0,
+      "switch_in": 57,
+      "voluntary_out": 0,
+      "preempt_out": 57,
+      "ring_bytes": 481992,
+      "lost": 0,
+      "clock_samples": 499,
+      "clock_lost": 0,
+      "cpu": 7.9989,
+      "stack_bytes": 8192,
+      "iterations": 382353,
+      "wall": 8.000008,
+      "observation_seconds": 5.000936521,
+      "RIP": "0x5b26b399e7a4",
+      "RSP": "0x7fff51a24d20",
+      "RBP": "0x7fff51a24d50",
+      "frame_count": 12,
+      "frame_symbols": [
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          9,
+          1,
+          344977545032653
+        ],
+        [
+          14,
+          24576,
+          344977545034797
+        ],
+        [
+          14,
+          0,
+          344977545052520
+        ],
+        [
+          9,
+          1,
+          344977673006908
+        ],
+        [
+          14,
+          24576,
+          344977673009032
+        ],
+        [
+          14,
+          0,
+          344977673017648
+        ]
+      ]
+    },
+    {
+      "experiment": "busy",
+      "repeat": 2,
+      "mode": "busy",
+      "config": "baseline",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "iterations": 382500,
+      "wall": 8.000007,
+      "cpu": 7.999396
+    },
+    {
+      "experiment": "busy",
+      "repeat": 2,
+      "mode": "busy",
+      "config": "clock",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 97869279,
+      "samples": 499,
+      "abi_none": 0,
+      "switch_in": 0,
+      "voluntary_out": 0,
+      "preempt_out": 0,
+      "ring_bytes": 4187608,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 7.998988,
+      "stack_bytes": 1904,
+      "iterations": 381471,
+      "wall": 8.000013,
+      "observation_seconds": 5.000077626,
+      "RIP": "0x6270f6f917a4",
+      "RSP": "0x7fffffe36890",
+      "RBP": "0x7fffffe368c0",
+      "frame_count": 12,
+      "frame_symbols": [
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          9,
+          2,
+          344993402017063
+        ],
+        [
+          9,
+          2,
+          344993412016376
+        ],
+        [
+          9,
+          2,
+          344993422016310
+        ],
+        [
+          9,
+          2,
+          344993432016404
+        ],
+        [
+          9,
+          2,
+          344993442016318
+        ],
+        [
+          9,
+          2,
+          344993452016302
+        ]
+      ]
+    },
+    {
+      "experiment": "busy",
+      "repeat": 2,
+      "mode": "busy",
+      "config": "context-2048",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 28143800,
+      "samples": 61,
+      "abi_none": 0,
+      "switch_in": 61,
+      "voluntary_out": 0,
+      "preempt_out": 61,
+      "ring_bytes": 141032,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 7.997664,
+      "stack_bytes": 2048,
+      "iterations": 379285,
+      "wall": 8.00002,
+      "observation_seconds": 5.001048882,
+      "RIP": "0x5676c6c9b7a4",
+      "RSP": "0x7fffe9fc4b90",
+      "RBP": "0x7fffe9fc4bc0",
+      "frame_count": 12,
+      "frame_symbols": [
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          9,
+          1,
+          345001428013673
+        ],
+        [
+          14,
+          24576,
+          345001428017180
+        ],
+        [
+          14,
+          0,
+          345001428030946
+        ],
+        [
+          9,
+          1,
+          345001443010278
+        ],
+        [
+          14,
+          24576,
+          345001443012873
+        ],
+        [
+          14,
+          0,
+          345001443037760
+        ]
+      ]
+    },
+    {
+      "experiment": "busy",
+      "repeat": 2,
+      "mode": "busy",
+      "config": "context-8192",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 33271343,
+      "samples": 64,
+      "abi_none": 0,
+      "switch_in": 64,
+      "voluntary_out": 0,
+      "preempt_out": 64,
+      "ring_bytes": 541184,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "cpu": 7.998619,
+      "stack_bytes": 6912,
+      "iterations": 382090,
+      "wall": 8.000015,
+      "observation_seconds": 5.000613173,
+      "RIP": "0x5eb6178fb7a4",
+      "RSP": "0x7ffdb60f7500",
+      "RBP": "0x7ffdb60f7530",
+      "frame_count": 12,
+      "frame_symbols": [
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          9,
+          1,
+          345009545007524
+        ],
+        [
+          14,
+          24576,
+          345009545012414
+        ],
+        [
+          14,
+          0,
+          345009545019787
+        ],
+        [
+          9,
+          1,
+          345009609006765
+        ],
+        [
+          14,
+          24576,
+          345009609009901
+        ],
+        [
+          14,
+          0,
+          345009609018407
+        ]
+      ]
+    },
+    {
+      "experiment": "busy",
+      "repeat": 2,
+      "mode": "busy",
+      "config": "both-8192",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 107743626,
+      "samples": 59,
+      "abi_none": 0,
+      "switch_in": 59,
+      "voluntary_out": 0,
+      "preempt_out": 59,
+      "ring_bytes": 498904,
+      "lost": 0,
+      "clock_samples": 499,
+      "clock_lost": 0,
+      "cpu": 7.998826,
+      "stack_bytes": 6320,
+      "iterations": 382354,
+      "wall": 8.000005,
+      "observation_seconds": 5.000869584,
+      "RIP": "0x5558b2acb7af",
+      "RSP": "0x7ffc8517a750",
+      "RBP": "0x7ffc8517a780",
+      "frame_count": 12,
+      "frame_symbols": [
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          9,
+          1,
+          345017609008490
+        ],
+        [
+          14,
+          24576,
+          345017609011586
+        ],
+        [
+          14,
+          0,
+          345017609025582
+        ],
+        [
+          9,
+          1,
+          345017673007179
+        ],
+        [
+          14,
+          24576,
+          345017673010285
+        ],
+        [
+          14,
+          0,
+          345017673018461
+        ]
+      ]
+    },
+    {
+      "experiment": "fsync-small",
+      "repeat": 0,
+      "mode": "fsync",
+      "config": "context-2048",
+      "fsync_filesystem": "ext4",
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 909734778,
+      "samples": 21568,
+      "abi_none": 0,
+      "switch_in": 21568,
+      "voluntary_out": 21560,
+      "preempt_out": 8,
+      "ring_bytes": 49865216,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "last_sample_age_ms": 1,
+      "cpu": 0.328812,
+      "stack_bytes": 2048,
+      "iterations": 17316,
+      "wall": 8.000096,
+      "observation_seconds": 5.000442482,
+      "first_usable_after_poll_ms": 0.076905,
+      "RIP": "0x7a1b19ca06c6",
+      "RSP": "0x7fff1a6fcb20",
+      "RBP": "0x7fff1a6fcb30",
+      "frame_count": 14,
+      "frame_symbols": [
+        null,
+        "fsync",
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          14,
+          0,
+          345050555349971
+        ],
+        [
+          9,
+          1,
+          345050555363266
+        ],
+        [
+          14,
+          8192,
+          345050555366342
+        ],
+        [
+          14,
+          0,
+          345050555381020
+        ],
+        [
+          9,
+          1,
+          345050555384787
+        ],
+        [
+          14,
+          8192,
+          345050555386570
+        ]
+      ],
+      "target_states": [
+        "D (disk sleep)",
+        "D (disk sleep)"
+      ],
+      "tracer_pids": [
+        0,
+        0
+      ]
+    },
+    {
+      "experiment": "fsync-small",
+      "repeat": 0,
+      "mode": "fsync",
+      "config": "context-4096",
+      "fsync_filesystem": "ext4",
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 1613137970,
+      "samples": 21222,
+      "abi_none": 0,
+      "switch_in": 21222,
+      "voluntary_out": 21217,
+      "preempt_out": 5,
+      "ring_bytes": 92527920,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "last_sample_age_ms": 2,
+      "cpu": 0.330526,
+      "stack_bytes": 4096,
+      "iterations": 17168,
+      "wall": 8.000397,
+      "observation_seconds": 5.000412776,
+      "first_usable_after_poll_ms": 0.195468,
+      "RIP": "0x74e1720a06c6",
+      "RSP": "0x7ffcc7daf030",
+      "RBP": "0x7ffcc7daf040",
+      "frame_count": 14,
+      "frame_symbols": [
+        null,
+        "fsync",
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          14,
+          0,
+          345058559216108
+        ],
+        [
+          9,
+          1,
+          345058559230786
+        ],
+        [
+          14,
+          8192,
+          345058559234012
+        ],
+        [
+          14,
+          0,
+          345058559246876
+        ],
+        [
+          9,
+          1,
+          345058559250894
+        ],
+        [
+          14,
+          8192,
+          345058559252877
+        ]
+      ],
+      "target_states": [
+        "D (disk sleep)",
+        "D (disk sleep)"
+      ],
+      "tracer_pids": [
+        0,
+        0
+      ]
+    },
+    {
+      "experiment": "oneshot",
+      "repeat": 0,
+      "mode": "oneshot",
+      "config": "clock",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 22820413,
+      "samples": 0,
+      "abi_none": 0,
+      "switch_in": 0,
+      "voluntary_out": 0,
+      "preempt_out": 0,
+      "ring_bytes": 0,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "iterations": 1,
+      "wall": 6.500176,
+      "cpu": 4.9e-05,
+      "observation_seconds": 5.000777221,
+      "first_six_records": [],
+      "target_states": [
+        "S (sleeping)",
+        "S (sleeping)"
+      ],
+      "tracer_pids": [
+        0,
+        0
+      ]
+    },
+    {
+      "experiment": "oneshot",
+      "repeat": 0,
+      "mode": "oneshot",
+      "config": "context-2048",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 23364905,
+      "samples": 1,
+      "abi_none": 0,
+      "switch_in": 1,
+      "voluntary_out": 1,
+      "preempt_out": 0,
+      "ring_bytes": 2312,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "last_sample_age_ms": 4728,
+      "cpu": 4.9e-05,
+      "stack_bytes": 2048,
+      "iterations": 1,
+      "wall": 6.500386,
+      "observation_seconds": 5.000048075,
+      "first_usable_after_poll_ms": 272.51159,
+      "RIP": "0x75ccd9ea060e",
+      "RSP": "0x7fff87b2b3b0",
+      "RBP": "0x7fff87b2b3c0",
+      "frame_count": 15,
+      "frame_symbols": [
+        null,
+        "clock_nanosleep",
+        "__nanosleep",
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          14,
+          0,
+          345073495549353
+        ],
+        [
+          9,
+          1,
+          345073495558490
+        ],
+        [
+          14,
+          8192,
+          345073495561115
+        ]
+      ],
+      "target_states": [
+        "S (sleeping)",
+        "S (sleeping)"
+      ],
+      "tracer_pids": [
+        0,
+        0
+      ]
+    },
+    {
+      "experiment": "oneshot",
+      "repeat": 0,
+      "mode": "oneshot",
+      "config": "both-8192",
+      "fsync_filesystem": null,
+      "frame_pointer_omitted": false,
+      "observer_cpu_ns": 23859156,
+      "samples": 1,
+      "abi_none": 0,
+      "switch_in": 1,
+      "voluntary_out": 1,
+      "preempt_out": 0,
+      "ring_bytes": 8456,
+      "lost": 0,
+      "clock_samples": 0,
+      "clock_lost": 0,
+      "last_sample_age_ms": 4720,
+      "cpu": 4.8e-05,
+      "stack_bytes": 5312,
+      "iterations": 1,
+      "wall": 6.500171,
+      "observation_seconds": 5.000922702,
+      "first_usable_after_poll_ms": 281.184129,
+      "RIP": "0x717bfe6a060e",
+      "RSP": "0x7ffc971b0b40",
+      "RBP": "0x7ffc971b0b50",
+      "frame_count": 15,
+      "frame_symbols": [
+        null,
+        "clock_nanosleep",
+        "__nanosleep",
+        "wait_once",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "nested",
+        "main",
+        null,
+        "__libc_start_main",
+        "_start"
+      ],
+      "unwind_stop": "end of chain / non-increasing RBP",
+      "first_six_records": [
+        [
+          14,
+          0,
+          345079997193453
+        ],
+        [
+          9,
+          1,
+          345079997203822
+        ],
+        [
+          14,
+          8192,
+          345079997208491
+        ]
+      ],
+      "target_states": [
+        "S (sleeping)",
+        "S (sleeping)"
+      ],
+      "tracer_pids": [
+        0,
+        0
+      ]
+    }
+  ]
+}

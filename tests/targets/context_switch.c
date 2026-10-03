@@ -27,7 +27,8 @@ __attribute__((noinline)) static void wait_once(const char *mode, int fd) {
         if (recv(fd, &byte, 1, 0) != 1)
             exit(2);
     } else {
-        struct timespec delay = {0, 1000000};
+        struct timespec delay = {!strcmp(mode, "oneshot") ? 6 : 0,
+                                 !strcmp(mode, "oneshot") ? 0 : 1000000};
         nanosleep(&delay, NULL);
     }
 }
@@ -45,10 +46,24 @@ int main(int argc, char **argv) {
     int fd = -1;
     pid_t writer = -1;
     if (!strcmp(mode, "fsync")) {
-        FILE *file = tmpfile();
-        if (!file)
-            return 2;
-        fd = fileno(file);
+        const char *directory = getenv("PROCINSH_POC_IO_DIR");
+        if (directory) {
+            char *path;
+            if (asprintf(&path, "%s/procinsh-fsync-XXXXXX", directory) < 0)
+                return 2;
+            fd = mkstemp(path);
+            if (fd < 0) {
+                free(path);
+                return 2;
+            }
+            unlink(path);
+            free(path);
+        } else {
+            FILE *file = tmpfile();
+            if (!file)
+                return 2;
+            fd = fileno(file);
+        }
     } else if (!strcmp(mode, "socket")) {
         int pair[2];
         if (socketpair(AF_UNIX, SOCK_STREAM, 0, pair))
@@ -73,10 +88,16 @@ int main(int argc, char **argv) {
     double begin = now(CLOCK_MONOTONIC), cpu = now(CLOCK_PROCESS_CPUTIME_ID);
     if (!strcmp(mode, "initial"))
         sleep(10);
+    if (!strcmp(mode, "oneshot")) {
+        struct timespec delay = {0, 500000000};
+        nanosleep(&delay, NULL);
+    }
     uint64_t iterations = 0;
     while (now(CLOCK_MONOTONIC) - begin < 8) {
         nested(6, mode, fd);
         iterations++;
+        if (!strcmp(mode, "oneshot"))
+            break;
     }
     printf("iterations=%lu wall=%.6f cpu=%.6f\n", iterations, now(CLOCK_MONOTONIC) - begin,
            now(CLOCK_PROCESS_CPUTIME_ID) - cpu);

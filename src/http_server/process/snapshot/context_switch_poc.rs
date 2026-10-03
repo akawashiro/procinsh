@@ -29,6 +29,7 @@ fn context_switch_poc() -> anyhow::Result<()> {
     } else {
         None
     };
+    report_target_status(tid)?;
     let mappings = maps::read(tid, false)?;
     let mut cache = symbol::ElfCache::default();
     let cpu_start = cpu_ns();
@@ -41,6 +42,7 @@ fn context_switch_poc() -> anyhow::Result<()> {
     let mut bytes = 0u64;
     let mut clock_samples = 0u64;
     let mut latest = None;
+    let mut first_usable_after_poll_ms = None;
     let mut record_log = Vec::new();
     while start.elapsed() < Duration::from_secs(seconds) {
         if let Some(sample) = event.drain_records(|kind, misc, payload| {
@@ -70,6 +72,8 @@ fn context_switch_poc() -> anyhow::Result<()> {
                 ));
             }
         })? {
+            first_usable_after_poll_ms
+                .get_or_insert_with(|| start.elapsed().as_secs_f64() * 1000.0);
             latest = Some(sample);
         }
         if let Some(clock) = &mut clock {
@@ -89,7 +93,13 @@ fn context_switch_poc() -> anyhow::Result<()> {
         clock.as_ref().map_or(0, |c| c.lost)
     );
     eprintln!("first_records(kind,misc,time_ns)={record_log:?}");
+    eprintln!("first_usable_after_poll_ms={first_usable_after_poll_ms:?}");
+    report_target_status(tid)?;
     if let Some(sample) = latest {
+        eprintln!(
+            "last_sample_age_ms={}",
+            monotonic_ns().saturating_sub(sample.time_ns) / 1_000_000
+        );
         let r = sample.registers.0;
         let (mut frames, stop) = unwind_fp::walk(r[8], r[7], r[6], &mappings, |bp| {
             let offset = usize::try_from(bp.checked_sub(r[7])?).ok()?;
@@ -140,4 +150,23 @@ fn cpu_ns() -> u64 {
         libc::clock_gettime(libc::CLOCK_PROCESS_CPUTIME_ID, &mut time);
     }
     time.tv_sec as u64 * 1_000_000_000 + time.tv_nsec as u64
+}
+
+fn monotonic_ns() -> u64 {
+    let mut time: libc::timespec = unsafe { std::mem::zeroed() };
+    unsafe {
+        libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut time);
+    }
+    time.tv_sec as u64 * 1_000_000_000 + time.tv_nsec as u64
+}
+
+fn report_target_status(tid: i32) -> anyhow::Result<()> {
+    let status = std::fs::read_to_string(format!("/proc/{tid}/status"))?;
+    for line in status
+        .lines()
+        .filter(|line| line.starts_with("State:") || line.starts_with("TracerPid:"))
+    {
+        eprintln!("target_{line}");
+    }
+    Ok(())
 }
