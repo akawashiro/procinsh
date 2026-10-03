@@ -2,7 +2,7 @@ use super::registers::RegisterSet;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum SampleSource {
     CpuClock,
-    PtraceBootstrap,
+    Ptrace,
     ContextSwitch { preempted: bool },
 }
 pub(super) struct RawSample {

@@ -1,4 +1,4 @@
-//! Initial ptrace bootstrap, non-stopping perf samples, sampled-stack unwind and best-effort live disassembly.
+//! Initial and ten-second ptrace snapshots, non-stopping perf samples, sampled-stack unwind and best-effort live disassembly.
 //!
 //! # Interface
 //!
@@ -12,6 +12,9 @@
 //! - [`Sampler::poll`]: `fn poll(&mut self, maps: &[MemoryMap]) -> anyhow::Result<()>`.
 //! - [`Sampler::latest`]: `fn latest(&self) -> Vec<ThreadSample>`.
 //!
+//! Bootstrap schedules the next ptrace snapshot ten seconds after completion.
+//! Poll drains perf and captures all current threads when the ptrace deadline is due.
+//!
 //! [`ThreadSample`] fields (private, serialized): `tid: i32, sampled_at: Option<u64>,
 //! sample_age_ms: Option<u64>, cpu: Option<u32>, lost_samples: u64, registers: Vec<Register>,
 //! call_stack: Vec<StackFrame>, disassembly: Option<Disassembly>, unwind_stop: String, error: Option<String>`.
@@ -23,7 +26,7 @@
 //!
 //! Internal sampling interface (`pub(super)`):
 //! - [`perf::REGS_MASK`]: `const REGS_MASK: u64`, GPR/RIP/RSP/RBP/RFLAGS mask.
-//! - [`sample::SampleSource`]: `enum SampleSource { CpuClock, ContextSwitch { preempted: bool }, PtraceBootstrap }`.
+//! - [`sample::SampleSource`]: `enum SampleSource { CpuClock, ContextSwitch { preempted: bool }, Ptrace }`.
 //! - [`perf::Event::context_switch`]: `fn context_switch(tid: i32) -> anyhow::Result<Self>`.
 //! - [`sample::RawSample`]: `struct RawSample { source: SampleSource, tid: i32, time_ns: u64, cpu: Option<u32>, registers: RegisterSet, stack: Vec<u8> }`.
 //! - [`perf::Event`]: `struct Event`, fd/mmap owner, with `lost: u64`.

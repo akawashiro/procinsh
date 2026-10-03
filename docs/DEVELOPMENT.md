@@ -56,7 +56,7 @@ cargo publish --dry-run
 | `src/http_server/web.rs` | 静的 Web UI 配信 |
 | `src/http_server/process/monitoring/` | 接続ごとの独立した観測、60秒の履歴、最新状態の配信 |
 | `src/http_server/process/` | `/proc` の解析、PID 識別、プロセス・スレッド・メモリ・FD・ソケット・シグナル情報 |
-| `src/http_server/process/snapshot/` | 初回 ptrace と継続 perf によるレジスタ・スタック取得、framehop による DWARF CFI unwind、逆アセンブル |
+| `src/http_server/process/snapshot/` | 初回・10秒ごとの ptrace と継続 perf によるレジスタ・スタック取得、framehop による DWARF CFI unwind、逆アセンブル |
 | `src/http_server/process/snapshot/symbol/` | ELF 取得・キャッシュ、アドレス変換、ELF/DWARF によるシンボル・ソース位置の解決 |
 | `src/http_server/process/snapshot/stack.rs` | サンプルとシンボル解決で共有するフレーム型 |
 | `src/http_server/system/` | 全プロセスの構造、subscription、BPF 収集、名前解決 |
@@ -209,9 +209,9 @@ Axum がルートごとにクエリや JSON を取り出し、ハンドラへ渡
 - `GET /api/processes/auxv`：`/proc/<pid>/exe` の ELF ヘッダから32/64 bitを判別し、procfs の [`/proc/<pid>/auxv`](https://man7.org/linux/man-pages/man5/proc_pid_auxv.5.html) を最大64 KiB読み取ります。タグと値の組として解析し、既知・未知のタグを扱います。`AT_EXECFN`・`AT_PLATFORM`・`AT_BASE_PLATFORM` の文字列参照は、`process_vm_readv` で最大4096バイトまで解決します。参照先が読めなくても数値は保持します。big-endian ELF は対象外です。実装は [ELF ヘッダと auxv の読み取り](../src/http_server/process/details.rs)、[文字列参照の解決](../src/http_server/process/details.rs)、[メモリの読み取り](../src/http_server/process/memory.rs) を参照してください。
 - `GET /api/processes/signals`：procfs の [`/proc/<pid>/status`](https://man7.org/linux/man-pages/man5/proc_pid_status.5.html) と、各スレッドの [`/proc/<pid>/task/<tid>/status`](https://man7.org/linux/man-pages/man5/proc_pid_task.5.html) を読み取ります。`SigPnd`（スレッドの保留）・`ShdPnd`（プロセス全体の保留）・`SigBlk`（ブロック）・`SigIgn`（無視）・`SigCgt`（ハンドラ登録）の16進マスクを解析します。最大4096スレッド・2秒で打ち切ります。受信履歴や送信元の追跡、シグナル送信は行いません。実装は [status の読み取りとスレッドの列挙](../src/http_server/process/signals.rs) と [シグナル状態の解析](../src/http_server/process/signals.rs) を参照してください。
 
-### 初回スナップショットと非停止ライブサンプリング
+### 初回・定期スナップショットと非停止ライブサンプリング
 
-各 SSE collector は初回 watch 値の配信前にスレッドを列挙し、通常の perf event を開いてから、各 TID を独立に `PTRACE_SEIZE` → `PTRACE_INTERRUPT` → `waitpid(__WALL)` で停止します。`PTRACE_GETREGSET(NT_PRSTATUS)` と `process_vm_readv` で同じ停止状態のレジスタと RSP から最大16 KiB（含有 mapping の末尾まで）のスタックを取得し、成功・失敗ともに detach します。初回 ptrace と継続 perf は共通の `RawSample` と unwind・シンボル解決・レジスタ分類を使います。ptrace の CPU は null です。ptrace は初回だけで、取得できない TID があっても通常監視を継続します。
+各 SSE collector は初回 watch 値の配信前にスレッドを列挙し、通常の perf event を開いてから、各 TID を独立に `PTRACE_SEIZE` → `PTRACE_INTERRUPT` → `waitpid(__WALL)` で停止します。`PTRACE_GETREGSET(NT_PRSTATUS)` と `process_vm_readv` で同じ停止状態のレジスタと RSP から最大16 KiB（含有 mapping の末尾まで）のスタックを取得し、成功・失敗ともに detach します。初回・10秒ごとの ptrace と継続 perf は共通の `RawSample` と unwind・シンボル解決・レジスタ分類を使います。ptrace の CPU は null です。ptrace は初回に加え、取得完了から10秒後に全 TID を再取得します。perf で更新中の TID も対象です。遅延時の連続取得はせず、失敗しても次回試行は10秒後です。取得できない TID があっても前回サンプルを保持し、perf 監視を継続します。定期取得結果は通常の観測周期で配信します。
 
 各 SSE collector は TID ごとに `perf_event_open(pid=tid, cpu=-1)` で software CPU-clock event を開き、CPU migration に追従します。初期周期は実行中の user CPU 時間10ms（約100Hz）、user stack dump は16384バイトです。待機遷移には追加の `PERF_COUNT_SW_CONTEXT_SWITCHES` event（周期1、stack dump 16384バイト）を使います。`context_switch` と `sample_id_all` を有効にし、同じ ring の次の SWITCH_OUT record の TID・CPU・時刻・PREEMPT flag を確認して voluntary / preempted を区別します。対応する sample がない場合や loss / throttle / switch-in の際は対応付けを破棄します。両 event の最新サンプルを monotonic 時刻で比較し、新しいものだけを採用します。TID/TIME/CPU/REGS_USER/STACK_USER を ring buffer から読み、最新値だけを保持します。約50msごとに drain と thread 追加・終了確認を行います。TID と開始時刻を確認して再利用を検出し、プロセス識別子も採取前後に検証します。
 
@@ -219,11 +219,11 @@ Axum がルートごとにクエリや JSON を取り出し、ハンドラへ渡
 
 `unwind_stop` は正常終了、256-frame 上限、stack snapshot の取得範囲不足、範囲外アドレス、module 取得失敗、module の metadata 不足を示します。後二者は fallback を使用した旨を添えます。section が存在しても個別の PC の CFI が欠ける／対応外の場合、framehop は内部で fallback するため、その詳細までは区別できません。unwind 中に live stack を追加取得したり ptrace stop したりしません。実行可能 mapping が変わるまで取得に失敗した module は再取得しません。
 
-SSE の `live_samples` は TID、`sampled_at`（Unix ms）、`sample_age_ms`（monotonic clock）、CPU、`lost_samples`、registers、call_stack、disassembly、unwind_stop、error を含みます。未採取は時刻 null と Waiting for sample、3秒以上古い値は Stale と表示します。sleeping/blocked thread は強制更新せず最後の値を保持します。保存された user-space の状態を表示し、眠っている thread の現在値ではありません。観測開始前から眠っている thread も ptrace が許可されれば初回配信で採取できます。初回取得に失敗した場合は次の実行／switch-out を待ちます。取得時刻、経過時間と制約を画面に表示します。取得元や voluntary / preempted の区別は内部で保持し、GUI・HTTP API には公開しません。全スレッドの同時点状態は保証しません。perf 権限不足は thread error、collector エラーは `sampling_error` で表示し、通常観測は継続します。
+SSE の `live_samples` は TID、`sampled_at`（Unix ms）、`sample_age_ms`（monotonic clock）、CPU、`lost_samples`、registers、call_stack、disassembly、unwind_stop、error を含みます。未採取は時刻 null と Waiting for sample、3秒以上古い値は Stale と表示します。sleeping/blocked thread も10秒ごとの ptrace で更新を試み、それ以外は最後の値を保持します。保存された user-space の状態を表示し、眠っている thread の現在値ではありません。観測開始前から眠っている thread も ptrace が許可されれば初回配信で採取できます。初回取得に失敗した場合は次の実行／switch-out または10秒後の ptrace 再試行を待ちます。取得時刻、経過時間と制約を画面に表示します。取得元や voluntary / preempted の区別は内部で保持し、GUI・HTTP API には公開しません。全スレッドの同時点状態は保証しません。perf 権限不足は thread error、collector エラーは `sampling_error` で表示し、通常観測は継続します。
 
 逆アセンブルは sampled RIP から `process_vm_readv` で後読みする best-effort 表示です。最大256バイト、最大32命令を iced-x86 で decode します。JIT/self-modifying code の命令バイトと sample 時点の RIP は整合しない場合があります。32-bit compatibility mode は対象外です。
 
-PERF_RECORD_LOST と ring overrun/不正レコードを欠落として保持します。thread 終了、対象終了、SSE 切断、サーバー終了で RAII により fd/mmap を解放します。CAP_SYS_PTRACE と process_vm_readv は auxv・live disassembly 用に維持しています。
+PERF_RECORD_LOST と ring overrun/不正レコードを欠落として保持します。thread 終了、対象終了、SSE 切断、サーバー終了で RAII により fd/mmap を解放します。CAP_SYS_PTRACE と process_vm_readv は ptrace スナップショット・auxv・live disassembly に使います。
 
 ### プロセス詳細監視の SSE 配信処理
 
@@ -373,7 +373,7 @@ Rust テストは明示的な識別子の必須性、SSEの独立した履歴・
 
 `./scripts/dev_run.sh --test [テスト名フィルター] [--nocapture]` は単体テストをビルドし、既存の sudoers で許可された実行パスに一時配置して capability を付けます。テスト成功・失敗のいずれでも元のアプリケーションバイナリを復元します。この実行中は同じ checkout でビルドや dev_run を並行実行しないでください。
 
-perf の実機 fixture は権限が利用できない環境では明示メッセージとともにスキップします。`PROCINSH_REQUIRE_PERF=1` を設定するとスキップを禁止して権限不足も失敗にします。実機テストは `blocked_stack` fixture の100ms nanosleepで3秒間に30回の更新を確認しました（Linux 7.0.0-15-generic）。R12〜R15をasmで既知値にして照合し、12段再帰はmainまで復元、96段再帰（各 frame に256バイトの領域）は16 KiB dumpの範囲で停止することを検証します。全18レジスタの独立照合や全kernelでの精度・性能を保証する検証ではありません。開始前からsleep中のfixtureで初回 ptrace 取得・detach と後続 perf への切り替えを検証します。frame pointer を省略した PIE／非 PIE と `.debug_frame` fixture は実際の call 命令から組み立てた snapshot でも main までの unwind を検証します。実機 fixture には共有ライブラリの再帰から libc の nanosleep を跨いで main まで復元するケースもあります。CAP_PERFMON を持つテストプロセスで busy-loop の更新、再帰 frame、複数 TID、churn の追加・削除、sleep 後の age、対象終了を確認してください。
+perf の実機 fixture は権限が利用できない環境では明示メッセージとともにスキップします。`PROCINSH_REQUIRE_PERF=1` を設定するとスキップを禁止して権限不足も失敗にします。実機テストは `blocked_stack` fixture の100ms nanosleepで3秒間に30回の更新を確認しました（Linux 7.0.0-15-generic）。R12〜R15をasmで既知値にして照合し、12段再帰はmainまで復元、96段再帰（各 frame に256バイトの領域）は16 KiB dumpの範囲で停止することを検証します。全18レジスタの独立照合や全kernelでの精度・性能を保証する検証ではありません。開始前からsleep中のfixtureで初回・定期 ptrace 取得・detach と後続 perf への切り替えを検証します。frame pointer を省略した PIE／非 PIE と `.debug_frame` fixture は実際の call 命令から組み立てた snapshot でも main までの unwind を検証します。実機 fixture には共有ライブラリの再帰から libc の nanosleep を跨いで main まで復元するケースもあります。CAP_PERFMON を持つテストプロセスで busy-loop の更新、再帰 frame、複数 TID、churn の追加・削除、sleep 後の age、対象終了を確認してください。
 
 ### ブラウザテスト
 

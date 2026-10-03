@@ -1,4 +1,4 @@
-//! One-shot stopped-thread capture. The guard owns the attachment on every error path.
+//! Stopped-thread capture for initial and periodic sampling. The guard owns the attachment on every error path.
 use super::{
     registers::RegisterSet,
     sample::{RawSample, SampleSource, monotonic_ns},
@@ -40,7 +40,7 @@ impl Attachment {
             }
             ensure!(
                 libc::WIFSTOPPED(status),
-                "Thread exited during ptrace bootstrap"
+                "Thread exited during ptrace sampling"
             );
             self.stopped = true;
             // Preserve signal-delivery stops; synthetic PTRACE_EVENT_STOP carries no signal.
@@ -129,7 +129,7 @@ pub(super) fn capture(tid: i32, maps: &[MemoryMap]) -> Result<RawSample> {
         cpu: None,
         registers: RegisterSet(values),
         stack,
-        source: SampleSource::PtraceBootstrap,
+        source: SampleSource::Ptrace,
     })
 }
 
@@ -179,7 +179,7 @@ mod tests {
             value[0]["error"]
                 .as_str()
                 .unwrap()
-                .contains("ptrace bootstrap")
+                .contains("ptrace sampling")
         );
         drop(attachment);
         sampler.poll(&maps).unwrap();
