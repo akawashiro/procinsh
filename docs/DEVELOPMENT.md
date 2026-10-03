@@ -340,7 +340,7 @@ cargo build --locked
 sh tests/targets/build.sh
 cargo test --locked
 # ローカルの権限付き単体テスト（perf のスキップを禁止）
-PROCINSH_REQUIRE_PERF=1 ./scripts/dev_run.sh --test
+PROCINSH_REQUIRE_PERF=1 ./scripts/dev_test.sh
 PROCINSH_BINARY=./scripts/dev_run.sh python3 tests/listen-policy.py
 node tests/space-model.mjs
 
@@ -371,7 +371,7 @@ matrix の native dependency は Ubuntu では `build-essential clang llvm pkg-c
 
 Rust テストは明示的な識別子の必須性、SSEの独立した履歴・切断・接続上限、`/proc` の解析、PID 再利用、メモリ読み取り、perf sample と欠落処理、シンボル、HTTP、システム全体の構造・SSE接続管理・集計を検証します。ログテストは既定レベル、debug、off、標準エラー、SIGTERM、ポート競合、クエリ非出力、IPv4/IPv6 の loopback 起動、非 loopback の bind 前拒否と明示的許可・警告、CLI ヘルプを検証します。プロセス観測を拒否するサンドボックスでは一部テストが失敗するため、テスト対象への perf_event_open/process_vm_readv とローカル通信が許可された環境が必要です。
 
-`./scripts/dev_run.sh --test [テスト名フィルター] [--nocapture]` は単体テストをビルドし、既存の sudoers で許可された実行パスに一時配置して capability を付けます。テスト成功・失敗のいずれでも元のアプリケーションバイナリを復元します。この実行中は同じ checkout でビルドや dev_run を並行実行しないでください。
+`./scripts/dev_test.sh [テスト名フィルター] [--nocapture]` は単体テストをビルドし、既存の sudoers で許可された実行パスに一時配置して capability を付けます。テスト成功・失敗のいずれでも元のアプリケーションバイナリを復元します。権限設定と実行は変更していない `dev_run.sh` に委譲します。この実行中は同じ checkout でビルドや dev_run を並行実行しないでください。
 
 perf の実機 fixture は権限が利用できない環境では明示メッセージとともにスキップします。`PROCINSH_REQUIRE_PERF=1` を設定するとスキップを禁止して権限不足も失敗にします。実機テストは `blocked_stack` fixture の100ms nanosleepで3秒間に30回の更新を確認しました（Linux 7.0.0-15-generic）。R12〜R15をasmで既知値にして照合し、12段再帰はmainまで復元、96段再帰（各 frame に256バイトの領域）は16 KiB dumpの範囲で停止することを検証します。全18レジスタの独立照合や全kernelでの精度・性能を保証する検証ではありません。開始前からsleep中のfixtureで初回・定期 ptrace 取得・detach と後続 perf への切り替えを検証します。frame pointer を省略した PIE／非 PIE と `.debug_frame` fixture は実際の call 命令から組み立てた snapshot でも main までの unwind を検証します。実機 fixture には共有ライブラリの再帰から libc の nanosleep を跨いで main まで復元するケースもあります。CAP_PERFMON を持つテストプロセスで busy-loop の更新、再帰 frame、複数 TID、churn の追加・削除、sleep 後の age、対象終了を確認してください。
 
