@@ -12,6 +12,31 @@
 
 ## 登録
 
+### sudoers の設定
+
+自動更新を開始する前に、候補バイナリへの `setcap` を `NOPASSWD` で許可してください。`dev_run.sh` 用の設定が開発用バイナリのパスに限定されている場合は、常設版の候補パスを追加する必要があります。既存の設定はそのまま残します。
+
+`command -v setcap` で実行ファイルのパスを確認し、`visudo` で設定を追加します。
+
+```sh
+command -v setcap
+sudo visudo -f /etc/sudoers.d/procinsh-preview
+```
+
+ユーザーが `akira`、`setcap` が `/usr/sbin/setcap` にある場合の設定例です。ユーザー名・ホーム・実行ファイルのパスは実際の環境に合わせ、絶対パスで記載してください。
+
+```sudoers
+akira ALL=(root) NOPASSWD: /usr/sbin/setcap cap_sys_ptrace\,cap_bpf\,cap_perfmon=ep /home/akira/.local/share/procinsh-preview/candidate
+```
+
+sudoers では capability の区切りのカンマを `\,` としてエスケープします。このルールはコマンド・引数・対象パスを指定して許可します。[sudoers の説明](https://www.sudo.ws/docs/man/1.9.14/sudoers.man.pdf)を参照してください。保存後に構文を確認します。
+
+```sh
+sudo visudo -c
+```
+
+### user service の登録
+
 以下はユーザーが実行するホスト設定です。リポジトリのルートで実行します。
 
 ```sh
