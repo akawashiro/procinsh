@@ -221,7 +221,7 @@ Axum がルートごとにクエリや JSON を取り出し、ハンドラへ渡
 
 SSE の `live_samples` は TID、`sampled_at`（Unix ms）、`sample_age_ms`（monotonic clock）、CPU、`lost_samples`、registers、call_stack、disassembly、unwind_stop、error を含みます。未採取は時刻 null と Waiting for sample、採取済みの値は Threads 一覧に経過時間を表示します。sleeping/blocked thread も10秒ごとの ptrace で更新を試み、それ以外は最後の値を保持します。保存された user-space の状態を表示し、眠っている thread の現在値ではありません。観測開始前から眠っている thread も ptrace が許可されれば初回配信で採取できます。初回取得に失敗した場合は次の実行／switch-out または10秒後の ptrace 再試行を待ちます。Registers パネルにはレジスタ表だけを表示します。取得元や voluntary / preempted の区別は内部で保持し、GUI・HTTP API には公開しません。全スレッドの同時点状態は保証しません。perf 権限不足は Threads 一覧の thread error に表示します。collector エラーは API の `sampling_error` に保持し、通常観測は継続します。
 
-逆アセンブルは sampled RIP から `process_vm_readv` で後読みする best-effort 表示です。最大256バイト、最大32命令を iced-x86 で decode します。JIT/self-modifying code の命令バイトと sample 時点の RIP は整合しない場合があります。32-bit compatibility mode は対象外です。
+Disassembly パネルには命令表と取得エラーを表示し、RIP・mapping・シンボル・ソース位置・取得バイト数の要約行や説明文は表示しません。逆アセンブルは sampled RIP から `process_vm_readv` で後読みする best-effort 表示です。最大256バイト、最大32命令を iced-x86 で decode します。JIT/self-modifying code の命令バイトと sample 時点の RIP は整合しない場合があります。32-bit compatibility mode は対象外です。
 
 PERF_RECORD_LOST と ring overrun/不正レコードを欠落として保持します。thread 終了、対象終了、SSE 切断、サーバー終了で RAII により fd/mmap を解放します。CAP_SYS_PTRACE と process_vm_readv は ptrace スナップショット・auxv・live disassembly に使います。
 

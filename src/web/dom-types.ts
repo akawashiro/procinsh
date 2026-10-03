@@ -24,7 +24,6 @@ export interface AppElements {
   "stack-tid": HTMLElement;
   "call-stack": HTMLElement;
   "disasm-time": HTMLElement;
-  "disasm-location": HTMLElement;
   "disasm-error": HTMLElement;
   disassembly: HTMLElement;
   "maps-info": HTMLElement;

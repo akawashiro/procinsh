@@ -405,8 +405,6 @@ function resetSamples() {
   $("disassembly").replaceChildren();
   $("disasm-error").hidden = true;
   $("disasm-time").textContent = "Live best-effort · x86-64 / Intel";
-  $("disasm-location").textContent =
-    "Waiting for sample";
 }
 function acceptTarget(next: Target | null) {
   $("back").hidden = !next;
@@ -642,16 +640,7 @@ function renderDisassembly(thread: ThreadSample | undefined) {
   $("disassembly").replaceChildren();
   $("disasm-error").hidden = true;
   const code = thread?.disassembly;
-  if (!thread || !code) {
-    $("disasm-location").textContent =
-      thread?.error ||
-      "Waiting for sample";
-    return;
-  }
-  const rip = thread.registers.find((r) => r.name === "RIP");
-  const frame = thread.call_stack[0];
-  $("disasm-location").textContent =
-    `RIP ${code.address} · ${rip?.mapping ? Display.mapping(rip.mapping) : "mapping N/A"}${frame?.symbol ? ` · ${frame.symbol}${frame.symbol_offset ? ` +${frame.symbol_offset}` : ""}` : ""}${frame?.source_file ? ` · ${frame.source_file}:${frame.line ?? "?"}` : ""} · ${code.bytes.length} bytes captured`;
+  if (!thread || !code) return;
   if (code.error) {
     $("disasm-error").textContent = code.error;
     $("disasm-error").hidden = false;

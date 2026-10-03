@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 export async function checkLiveSamples({evaluate, waitFor, delay}) {
   assert.equal(await evaluate("document.querySelector('#snapshot, #auto-snapshot')"), null);
   await waitFor("document.querySelectorAll('#registers tr').length===18", 'automatic live registers');
+  assert.equal(await evaluate("document.getElementById('disasm-location')"), null);
+  assert.doesNotMatch(await evaluate("document.querySelector('.disassembly').textContent"), /RIP marks the sampled instruction/);
+  await waitFor("document.querySelectorAll('#disassembly tr').length > 0", 'live disassembly instructions');
   const before = await evaluate('liveSamples.find(t=>t.tid===selectedTid).sampled_at');
   await waitFor(`liveSamples.find(t=>t.tid===selectedTid)?.sampled_at > ${before}`, 'live sample advances');
   assert.equal(await evaluate("document.getElementById('sample-time')"), null);
