@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-state=${PROCINSH_PREVIEW_STATE:-/home/akira/.local/share/procinsh-preview}
-source_repo=${PROCINSH_PREVIEW_SOURCE:-/home/akira/ghq/github.com/akawashiro/procinsh}
+state=${PROCINSH_PREVIEW_STATE:-$HOME/.local/share/procinsh-preview}
+source_repo=${PROCINSH_PREVIEW_SOURCE:-$HOME/ghq/github.com/akawashiro/procinsh}
 service=procinsh-preview.service
 mkdir -p "$state"
 
@@ -30,6 +30,8 @@ case "${1:-}" in
     npm run build:web
     cargo build --locked
     install -m 0755 target/debug/procinsh "$state/candidate"
+    # Apply privileges before touching the running version; no password prompt.
+    sudo -n setcap cap_sys_ptrace,cap_bpf,cap_perfmon=ep "$state/candidate"
     printf '%s\n' "$commit" > "$state/candidate.commit"
     echo "Built main $commit"
     ;;
@@ -38,15 +40,16 @@ case "${1:-}" in
     exec 9>"$state/activate.lock"
     flock -n 9 || exit 0
     if [[ -f "$state/procinsh" ]]; then
-      cp "$state/procinsh" "$state/previous"
+      # A hard link retains file capabilities for rollback without another sudo.
+      ln -f "$state/procinsh" "$state/previous"
       cp "$state/current.commit" "$state/previous.commit"
     fi
     mv "$state/candidate" "$state/procinsh"
     mv "$state/candidate.commit" "$state/current.commit"
     # Probe the actual HTTP server, rather than only systemd's process state.
-    if systemctl restart "$service"; then
+    if systemctl --user restart "$service"; then
       for _ in {1..20}; do
-        if systemctl is-active --quiet "$service" && \
+        if systemctl --user is-active --quiet "$service" && \
           curl --noproxy '*' --fail --silent --max-time 1 http://127.0.0.1:9090/ >/dev/null; then
           echo "Activated main $(cat "$state/current.commit")"
           exit 0
@@ -55,11 +58,11 @@ case "${1:-}" in
       done
     fi
     echo "Activation failed for $(cat "$state/current.commit")" >&2
-    systemctl stop "$service"
+    systemctl --user stop "$service"
     if [[ -f "$state/previous" ]]; then
       mv "$state/previous" "$state/procinsh"
       mv "$state/previous.commit" "$state/current.commit"
-      systemctl start "$service"
+      systemctl --user start "$service"
       echo "Restored $(cat "$state/current.commit")" >&2
     else
       rm -f "$state/procinsh" "$state/current.commit"

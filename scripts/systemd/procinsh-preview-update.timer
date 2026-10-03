@@ -2,7 +2,7 @@
 Description=Check ProcInSh main approximately every ten seconds
 
 [Timer]
-OnBootSec=10s
+OnStartupSec=10s
 OnUnitInactiveSec=10s
 AccuracySec=1s
 Unit=procinsh-preview-update.service

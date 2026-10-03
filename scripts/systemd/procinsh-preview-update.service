@@ -1,15 +1,11 @@
 [Unit]
 Description=Build and deploy latest ProcInSh main
-Wants=network-online.target
-After=network-online.target
 
 [Service]
 Type=oneshot
-User=akira
-Environment=HOME=/home/akira
-Environment=PATH=/home/akira/.cargo/bin:/usr/local/bin:/usr/bin:/bin
-Environment=PROCINSH_PREVIEW_STATE=/home/akira/.local/share/procinsh-preview
-Environment=PROCINSH_PREVIEW_SOURCE=/home/akira/ghq/github.com/akawashiro/procinsh
-ExecStart=/bin/bash /usr/local/libexec/procinsh-main-preview build
-ExecStartPost=+/bin/bash /usr/local/libexec/procinsh-main-preview activate
+Environment=PATH=%h/.cargo/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PROCINSH_PREVIEW_STATE=%h/.local/share/procinsh-preview
+Environment=PROCINSH_PREVIEW_SOURCE=%h/ghq/github.com/akawashiro/procinsh
+ExecStart=/bin/bash %h/.local/share/procinsh-preview/main_preview.sh build
+ExecStartPost=/bin/bash %h/.local/share/procinsh-preview/main_preview.sh activate
 TimeoutStartSec=infinity
