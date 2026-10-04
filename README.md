@@ -21,8 +21,8 @@ Requires Linux x86-64. Both installation methods compile native code and require
 Rust, a C compiler, clang with the BPF backend, bpftool, pkg-config, libelf and
 zlib development files, and BTF information at `/sys/kernel/btf/vmlinux`.
 
-Support on WSL2 is very restriced, I recommend you to build `procinsh` yourselves instead of using crates.io.
-And I haven't checked the operation on any containers such as Docker.
+Support on WSL2 is very limited, I recommend building procinsh from source rather than installing it from crates.io.
+I haven't tested it in container environment such as Docker.
 
 ### Install from crates.io
 
