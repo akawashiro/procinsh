@@ -101,6 +101,9 @@ try {
   await waitFor("window.spaceTestSources.at(-1)!==window.failedSource && window.spaceTestSources.at(-1).readyState===EventSource.OPEN", 'error reconnect');
   await evaluate("window.failedSource.dispatchEvent(new MessageEvent('snapshot',{data:'invalid stale data'}))");
   assert.ok(await evaluate("document.getElementById('failure').hidden"),'reconnection clears error');
+  await evaluate("window.mismatchedSource=window.spaceTestSources.at(-1);window.mismatchedSource.dispatchEvent(new MessageEvent('snapshot',{data:JSON.stringify({kind:'delta',sequence:999,base_sequence:-1,processes:[],fd_relations:[]})}))");
+  await waitFor("window.spaceTestSources.at(-1)!==window.mismatchedSource && window.spaceTestSources.at(-1).readyState===EventSource.OPEN", 'baseline mismatch reconnect');
+  await waitFor("window.spaceTestSystemSnapshot?.kind==='full' && window.spaceTestSystemSnapshot?.sequence===1", 'baseline mismatch full reset');
   await evaluate(`(async()=>{
     window.spaceTestSources.forEach(source=>source.close());
     const m=await import('/space.js'), id={pid:424242,start_time_ticks:7}, peerId={pid:434343,start_time_ticks:8};

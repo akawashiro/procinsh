@@ -158,13 +158,29 @@ assert.equal(Display.mapping({pathname:null,readable:true,writable:false,executa
 
 const {mergeSnapshot}=await import('../dist/web/space-model.js');
 const original={identity:{pid:1,start_time_ticks:10},maps:[{start:'0x1000',end:'0x2000'}],maps_epoch:10,maps_error:null};
-const base={processes:[original],fd_relations:[]};
+const base={processes:[original],fd_relations:[],sequence:1};
+const delta=extra=>({kind:"delta",sequence:2,base_sequence:1,fd_relations:[],...extra});
 const omitted={identity:original.identity,maps_epoch:20,maps_error:'read failed'};
-const retained=mergeSnapshot(base,{processes:[omitted],fd_relations:[]});
+const retained=mergeSnapshot(base,delta({processes:[omitted]}));
 assert.deepEqual(retained.processes[0].maps,original.maps);
 assert.equal(retained.processes[0].maps_epoch,10);
 assert.equal(retained.processes[0].maps_error,'read failed');
-assert.deepEqual(mergeSnapshot(base,{processes:[{...omitted,maps:[]}],fd_relations:[]}).processes[0].maps,[]);
-assert.deepEqual(mergeSnapshot(base,{processes:[],fd_relations:[]}).processes,[]);
-assert.deepEqual(mergeSnapshot(base,{processes:[{...omitted,identity:{pid:1,start_time_ticks:11}}],fd_relations:[]}).processes[0].maps,[]);
-assert.equal(mergeSnapshot(retained,base).processes[0].maps_epoch,10);
+assert.deepEqual(mergeSnapshot(base,delta({processes:[{...omitted,maps:[]}]})).processes[0].maps,[]);
+assert.deepEqual(mergeSnapshot(base,delta({processes:[]})).processes,[]);
+assert.deepEqual(mergeSnapshot(base,delta({processes:[{...omitted,identity:{pid:1,start_time_ticks:11}}]})).processes[0].maps,[]);
+assert.equal(mergeSnapshot(retained,{...base,kind:"full"}).processes[0].maps_epoch,10);
+
+const changedMap={start:'0x1000',end:'0x1800',writable:true};
+const added={start:'0x1800',end:'0x2000'};
+const split=mergeSnapshot(base,delta({processes:[{...omitted,maps_delta:{upsert:[added,changedMap],remove:[]}}]}));
+assert.deepEqual(split.processes[0].maps,[changedMap,added]);
+assert.equal(split.processes[0].maps_epoch,20);
+const joined=mergeSnapshot(split,{kind:'delta',sequence:3,base_sequence:2,processes:[{...omitted,maps_delta:{upsert:[original.maps[0]],remove:['0x1800']}}],fd_relations_delta:{upsert:[{id:'new',label:'pipe'}],remove:[]}});
+assert.deepEqual(joined.processes[0].maps,original.maps);
+assert.deepEqual(joined.fd_relations,[{id:'new',label:'pipe'}]);
+const removed=mergeSnapshot(joined,{kind:'delta',sequence:4,base_sequence:3,processes:[],fd_relations_delta:{upsert:[],remove:['new']}});
+assert.deepEqual(removed.fd_relations,[]);
+assert.throws(()=>mergeSnapshot(base,{kind:'delta',sequence:9,base_sequence:8,processes:[]}),/baseline mismatch/);
+assert.throws(()=>mergeSnapshot(base,delta({processes:[{...omitted,identity:{pid:1,start_time_ticks:99},maps_delta:{upsert:[],remove:[]}}]})),/Missing process maps baseline/);
+assert.deepEqual(mergeSnapshot(joined,{kind:'full',sequence:10,processes:[],fd_relations:[]}).fd_relations,[]);
+console.log('Snapshot delta checks passed: split/merge, permissions, FD additions/removal, epoch, baseline mismatch, full reset.');
