@@ -93,7 +93,8 @@ try {
   assert.match(resolutionFrames[7].indicator,/100% render/);
   assert.equal(await evaluate("document.documentElement.lang"),'en');
   assert.equal(await evaluate('document.title'),'procinsh');
-  assert.equal(await evaluate("document.querySelector('header #brand').textContent"),'procinsh');
+  const config = await evaluate("fetch('/api/config').then(response=>response.json())");
+  assert.equal(await evaluate("document.querySelector('header #brand').textContent"),`procinsh v${config.version}`);
   assert.equal(await evaluate("document.querySelector('.counts')"),null,'process counts are removed');
   assert.equal(await evaluate("document.querySelector('.telemetry')"),null,'sensor status is removed');
   assert.equal(await evaluate("document.querySelector('header #back').textContent"),'Go to list view');
