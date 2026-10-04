@@ -144,5 +144,3 @@ systemctl --user disable --now procinsh-release-preview.service
 登録後は `systemctl --user status procinsh-preview.service procinsh-release-preview.service` と、`curl --noproxy '*' --fail http://127.0.0.1:9090/`、`curl --noproxy '*' --fail http://127.0.0.1:9091/` で状態と HTTP 応答を確認してください。片方だけ登録した場合は対応するサービス・ポートだけ確認します。LAN・VPN からはホストのアドレスの 9090・9091 に接続します。ログアウト・OS 再起動後も接続できること、観測機能が動くこと、main の新しい commit と公開版の新しいバージョンがそれぞれ反映されることを実機で確認してください。更新失敗時の復元確認は検証用ホストで行ってください。
 
 外部接続、再起動後の起動、観測機能、更新と復元の実機確認はユーザーが行います。
-
-公開版の更新処理は `python3 tests/release-preview.py` で検証できます。Cargo・sudo・systemd・HTTP 応答を模擬し、ホスト設定や実行中のサービスを変更せずに更新・復元・再試行・多重実行防止を確認します。
