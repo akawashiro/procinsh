@@ -43,7 +43,7 @@
 //! Maps use start-address upsert/remove deltas; FD relations use ID upsert/remove deltas.
 //! Each collection falls back to replacement when a delta is larger.
 //! Unchanged maps are omitted, retaining their previous `maps_epoch`;
-//! initial, gap recovery, and 10-second refresh snapshots contain all maps.
+//! initial, gap recovery, and 60-second refresh snapshots contain all maps.
 //!
 //! File and IPC identities are defined in [`super::resource`].
 //! [`snapshot::FdEndpoint::resource`] is `pub(super) resource: IpcIdentity`.

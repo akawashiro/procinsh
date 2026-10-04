@@ -79,7 +79,7 @@ impl SnapshotDelivery {
         let full = force_full
             || self
                 .last_full
-                .is_none_or(|last| now.duration_since(last) >= Duration::from_secs(10));
+                .is_none_or(|last| now.duration_since(last) >= Duration::from_secs(60));
         let previous: HashMap<_, _> = self
             .previous
             .as_ref()
@@ -241,7 +241,7 @@ mod tests {
         let map = &first["processes"][0]["maps"][0];
         assert_eq!(map["start"], "0x0000000000001000");
         assert!(map.get("rss_bytes").is_none() && map.get("pss_bytes").is_none());
-        for second in [1, 2, 9] {
+        for second in [1, 10, 59] {
             let next = payload(
                 &mut delivery,
                 fixture(1, true, 20),
@@ -255,23 +255,31 @@ mod tests {
             &mut delivery,
             fixture(1, true, 30),
             false,
-            now + Duration::from_secs(10),
+            now + Duration::from_secs(60),
         );
         assert!(full["processes"][0]["maps"].is_array());
         let gap = payload(
             &mut delivery,
             fixture(1, true, 40),
             true,
-            now + Duration::from_secs(11),
+            now + Duration::from_secs(61),
         );
         assert_eq!(gap["processes"][0]["maps_epoch"], 40);
         let next = payload(
             &mut delivery,
             fixture(1, true, 50),
             false,
-            now + Duration::from_secs(20),
+            now + Duration::from_secs(120),
         );
         assert!(next["processes"][0].get("maps").is_none());
+        let refresh = payload(
+            &mut delivery,
+            fixture(1, true, 60),
+            false,
+            now + Duration::from_secs(121),
+        );
+        assert_eq!(refresh["kind"], "full");
+        assert!(refresh["processes"][0]["maps"].is_array());
     }
     #[test]
     fn changed_empty_reused_and_new_connections_send_maps() {
