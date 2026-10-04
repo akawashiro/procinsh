@@ -1,6 +1,6 @@
 # main・公開最新版の常設プレビュー
 
-最新 main と、`cargo install procinsh --locked` でインストールできる crates.io の公開最新版を、systemd の user service で常設します。それぞれの更新処理が終了するたび約10秒後に再確認します。ビルド中は旧版が動き続け、成功した場合だけ再起動します。
+最新 main と、`cargo install procinsh --locked` でインストールできる crates.io の公開最新版を、systemd の user service で常設します。更新処理の終了から main は約10秒後、公開版は約1分後に再確認します。ビルド中は旧版が動き続け、成功した場合だけ再起動します。
 
 | 対象 | 待受 | 専用領域 | 本体 service |
 |---|---|---|---|
@@ -105,7 +105,7 @@ capability 一覧を変更した場合は、sudoers の許可する引数も新�
 
 ### main の更新
 
-`origin/main` に相当する GitHub の main を専用 ref に取得し、`current.commit` と異なる場合だけ `npm ci`、`npm run build:web`、`cargo build --locked` を実行します。作業ブランチや未コミット変更は公開しません。両版の timer は `OnUnitInactiveSec=10s`、`AccuracySec=1s` を使うため、長いビルド中に次の更新は重なりません。スクリプトもファイルロックで多重実行を防ぎます。
+`origin/main` に相当する GitHub の main を専用 ref に取得し、`current.commit` と異なる場合だけ `npm ci`、`npm run build:web`、`cargo build --locked` を実行します。作業ブランチや未コミット変更は公開しません。timer の `OnUnitInactiveSec` は main が `10s`、公開版が `1min` で、両方とも `AccuracySec=1s` を使います。更新処理の終了を基準にするため、長いビルド中に次の更新は重なりません。スクリプトもファイルロックで多重実行を防ぎます。
 
 ### 公開最新版の更新
 

@@ -1,9 +1,9 @@
 [Unit]
-Description=Check ProcInSh crates.io release approximately every ten seconds
+Description=Check ProcInSh crates.io release approximately every minute
 
 [Timer]
-OnStartupSec=10s
-OnUnitInactiveSec=10s
+OnStartupSec=1min
+OnUnitInactiveSec=1min
 AccuracySec=1s
 Unit=procinsh-release-preview-update.service
 
