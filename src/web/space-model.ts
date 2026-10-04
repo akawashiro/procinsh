@@ -9,6 +9,8 @@ import type {
   FileIdentity,
   IpcIdentity,
   MemoryMap,
+  SystemSnapshot,
+  SystemSnapshotUpdate,
   CpuActivity,
 } from "./api-types.js";
 export interface Position {
@@ -490,4 +492,23 @@ export function fileLayout(
       { ...p, z: 9 - p.z },
     ]),
   );
+}
+
+/** Omitted maps retain the previous mapping for this exact process identity. */
+export function mergeSnapshot(
+  previous: SystemSnapshot,
+  update: SystemSnapshotUpdate,
+): SystemSnapshot {
+  const known = new Map(previous.processes.map((p) => [key(p.identity), p]));
+  return {
+    ...update,
+    processes: update.processes.map((p) => {
+      const old = known.get(key(p.identity));
+      return {
+        ...p,
+        maps: p.maps ?? old?.maps ?? [],
+        maps_epoch: p.maps === undefined ? old?.maps_epoch ?? 0 : p.maps_epoch,
+      };
+    }),
+  };
 }

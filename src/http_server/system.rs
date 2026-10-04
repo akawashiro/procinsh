@@ -35,6 +35,13 @@
 //! maps: Vec<MemoryMap>, maps_epoch: u64, maps_error: Option<String>`.
 //! All fields are `pub(super)`; CPU/RSS remain in [`super::process::ProcessSummary`].
 //!
+//! Maps use the structural [`super::process::MemoryMap`] directly and exclude RSS/PSS.
+//! [`SnapshotDelivery`] re-exports [`delivery::SnapshotDelivery`] as `pub(super)`.
+//! [`delivery::SnapshotDelivery::encode`] is `pub(in crate::http_server)`:
+//! `fn encode(&mut self, snapshot: Arc<SystemSnapshot>, force_full: bool, now: Instant) -> serde_json::Result<String>`.
+//! SSE snapshots omit unchanged `maps`, retaining their previous `maps_epoch`;
+//! initial, gap recovery, and 10-second refresh snapshots contain all maps.
+//!
 //! File and IPC identities are defined in [`super::resource`].
 //! [`snapshot::FdEndpoint::resource`] is `pub(super) resource: IpcIdentity`.
 //!
@@ -61,6 +68,8 @@
 //!   [`ipc::Ipc::lost`]: `fn lost(&self) -> u64`;
 //!   [`ipc::Ipc::unresolved`]: `fn unresolved(&self) -> u64`.
 mod activity;
+mod delivery;
+pub(super) use delivery::SnapshotDelivery;
 mod files;
 mod ipc;
 mod model;

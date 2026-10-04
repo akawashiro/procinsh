@@ -165,7 +165,7 @@ mod tests {
     #[test]
     fn already_traced_thread_failure_keeps_perf_sampler_usable() {
         let target = TestTarget::new("sleeping");
-        let maps = process::maps::read(target.id.pid, false).unwrap();
+        let maps = process::maps::read_maps(target.id.pid).unwrap();
         request(libc::PTRACE_SEIZE, target.id.pid, 0, 0).unwrap();
         let attachment = Attachment {
             tid: target.id.pid,

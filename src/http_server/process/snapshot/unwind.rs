@@ -159,7 +159,7 @@ mod tests {
             "recursive_debug_frame",
         ] {
             let target = TestTarget::new(name);
-            let maps = process::maps::read(target.id.pid, false).unwrap();
+            let maps = process::maps::read_maps(target.id.pid).unwrap();
             let mut symbols = ElfCache::default();
             let map = maps
                 .iter()

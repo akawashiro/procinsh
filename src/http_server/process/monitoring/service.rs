@@ -7,7 +7,7 @@ use crate::http_server::process::SubscribeError;
 
 use crate::http_server::process::{
     self, ProcessId, ProcessSummary,
-    maps::{self, MemoryMap, MemoryRollup},
+    maps::{self, MemoryMap, MemoryRollup, SmapsEntry},
     procfs,
 };
 use anyhow::{Result, ensure};
@@ -29,7 +29,7 @@ pub(in crate::http_server) struct Target {
     error: Option<String>,
     observation: Option<ProcessObservation>,
     history: VecDeque<HistoryPoint>,
-    maps: Vec<MemoryMap>,
+    maps: Vec<SmapsEntry>,
     maps_error: Option<String>,
     maps_captured_at: Option<u64>,
     rollup: Option<MemoryRollup>,
@@ -94,8 +94,10 @@ impl Monitoring {
         permit: ObservationPermit,
     ) -> Result<ObservationSession> {
         let (mut target, mut previous_sample) = capture_target(id)?;
+        let mut structural_maps: Vec<MemoryMap> =
+            target.maps.iter().map(|m| m.mapping.clone()).collect();
         let mut sampler = process::snapshot::Sampler::new(id);
-        if let Err(error) = sampler.bootstrap(&target.maps) {
+        if let Err(error) = sampler.bootstrap(&structural_maps) {
             target.sampling_error = Some(format!("{error:#}"));
         }
         target.live_samples = sampler.latest();
@@ -131,7 +133,7 @@ impl Monitoring {
                         && !state.is_stopped()
                         && !cancelled.load(Ordering::Relaxed)
                     {
-                        match sampler.poll(&target.maps) {
+                        match sampler.poll(&structural_maps) {
                             Ok(()) => target.sampling_error = None,
                             Err(e) => target.sampling_error = Some(e.to_string()),
                         }
@@ -154,6 +156,8 @@ impl Monitoring {
                             }
                             if maps_at.elapsed() >= Duration::from_secs(5) {
                                 refresh_maps(&mut target);
+                                structural_maps =
+                                    target.maps.iter().map(|m| m.mapping.clone()).collect();
                                 maps_at = Instant::now();
                             }
                         }
@@ -235,7 +239,7 @@ pub(in crate::http_server::process) fn capture_target(
 
 fn refresh_maps(target: &mut Target) {
     let id = target.summary.identity;
-    match maps::read(id.pid, true).and_then(|m| {
+    match maps::read_smaps(id.pid).and_then(|m| {
         process::check_identity(id)?;
         Ok(m)
     }) {

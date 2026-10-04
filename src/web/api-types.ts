@@ -49,6 +49,8 @@ export interface MemoryMap {
   device: DeviceId;
   inode: string;
   pathname: string | null;
+}
+export interface SmapsEntry extends MemoryMap {
   rss_bytes: number | null;
   pss_bytes: number | null;
 }
@@ -97,7 +99,7 @@ export interface Target {
   observation: ProcessObservation | null;
   exited: boolean;
   error: string | null;
-  maps: MemoryMap[];
+  maps: SmapsEntry[];
   maps_captured_at: number | null;
   maps_error: string | null;
   rollup: {
@@ -242,6 +244,9 @@ export interface FdRelation {
 export interface SystemSnapshot {
   processes: Process[];
   fd_relations: FdRelation[];
+}
+export interface SystemSnapshotUpdate extends Omit<SystemSnapshot, "processes"> {
+  processes: (Omit<Process, "maps"> & { maps?: MemoryMap[] })[];
 }
 export interface IoActivity {
   process_id: ProcessId;

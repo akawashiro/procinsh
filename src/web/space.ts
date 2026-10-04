@@ -1,6 +1,7 @@
 import * as T from "/vendor/three.module.js";
 import { OrbitControls } from "/vendor/OrbitControls.js";
 import {
+  mergeSnapshot,
   RecentFiles,
   fileKey,
   fileLabel,
@@ -1382,7 +1383,7 @@ function start() {
     if (!document.hidden) retry = setTimeout(start, 3000);
   };
   current.addEventListener("snapshot", (event) => {
-    if (source === current) rebuild(JSON.parse(event.data));
+    if (source === current) rebuild(mergeSnapshot(snapshot, JSON.parse(event.data)));
   });
   current.addEventListener("activity", (event) => {
     if (source === current) activity(JSON.parse(event.data));
