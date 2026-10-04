@@ -77,7 +77,7 @@ try {
   await waitFor("document.querySelectorAll('#process-list tr').length > 2", 'process explorer');
   await waitFor("document.getElementById('error').hidden", 'initial SSE recovers from connection error');
   assert.equal(await evaluate("document.getElementById('inspector').hidden"), true);
-  assert.equal(await evaluate('document.title'), 'procinsh / list');
+  assert.equal(await evaluate('document.title'), 'procinsh');
   assert.equal(await evaluate("document.querySelector('header #back').hidden"), true);
   async function choose(pid) {
     await evaluate(`document.getElementById('search').value = '${pid}'; document.getElementById('search').dispatchEvent(new Event('input'));`);
@@ -104,7 +104,7 @@ try {
   assert.equal(await evaluate("document.getElementById('target-status').hidden"), true);
   assert.equal(await evaluate("document.querySelector('header #back').hidden"), false);
   assert.equal(await evaluate("document.querySelector('header #back').textContent"), 'Go to list view');
-  assert.equal(await evaluate('document.title'), await evaluate("'procinsh / ' + document.getElementById('target-name').textContent"));
+  assert.equal(await evaluate('document.title'), 'procinsh');
   await checkProcessSessions({cdp,evaluate,choose,until,delay,url,debugPort,originalPid:recursive.pid,otherPid:threads.pid});
   await checkLiveSamples({evaluate, waitFor, delay, choose, otherPid: threads.pid, originalPid: recursive.pid});
   await checkProcessDetails({evaluate, waitFor, delay, choose, otherPid: threads.pid, originalPid: recursive.pid});

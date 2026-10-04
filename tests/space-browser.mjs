@@ -63,7 +63,7 @@ try {
   const first=snapshot.processes[0].identity;
   await waitFor(`import('/space.js').then(m=>Boolean(m.processPosition('${first.pid}:${first.start_time_ticks}')))`, 'rendered space snapshot');
   assert.equal(await evaluate("document.documentElement.lang"),'en');
-  assert.equal(await evaluate('document.title'),'procinsh / graph');
+  assert.equal(await evaluate('document.title'),'procinsh');
   assert.equal(await evaluate("document.querySelector('header #brand').textContent"),'procinsh');
   assert.equal(await evaluate("document.querySelector('.counts')"),null,'process counts are removed');
   assert.equal(await evaluate("document.querySelector('.telemetry')"),null,'sensor status is removed');

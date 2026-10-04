@@ -424,7 +424,6 @@ function acceptTarget(next: Target | null) {
     $("explorer").hidden = false;
     $("inspector").hidden = true;
     history.replaceState(null, "", "/list");
-    document.title = "procinsh / list";
     refresh();
     return;
   }
@@ -436,7 +435,6 @@ function acceptTarget(next: Target | null) {
   $("explorer").hidden = true;
   $("inspector").hidden = false;
   history.replaceState(null, "", `/process/${next.summary.identity.pid}`);
-  document.title = `procinsh / ${target.summary.name}`;
   renderTarget();
   renderLiveSample();
 }
