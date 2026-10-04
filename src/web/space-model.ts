@@ -13,6 +13,40 @@ import type {
   SystemSnapshotUpdate,
   CpuActivity,
 } from "./api-types.js";
+// Each sample covers roughly one second of visible rendering. Separate thresholds
+// and consecutive windows keep transient scene rebuilds from changing resolution.
+export class AdaptiveRenderScale {
+  readonly max: number;
+  readonly min: number;
+  scale: number;
+  private slowWindows = 0;
+  private healthyWindows = 0;
+
+  constructor(devicePixelRatio: number) {
+    this.max = Math.min(devicePixelRatio, 1.5);
+    this.min = Math.min(this.max, 0.5);
+    this.scale = this.max;
+  }
+
+  resetSampling() {
+    this.slowWindows = 0;
+    this.healthyWindows = 0;
+  }
+
+  sample(fps: number): number {
+    this.slowWindows = fps < 24 ? this.slowWindows + 1 : 0;
+    this.healthyWindows = fps >= 45 ? this.healthyWindows + 1 : 0;
+    if (this.slowWindows >= 3) {
+      this.scale = Math.max(this.min, this.scale * 0.9);
+      this.resetSampling();
+    } else if (this.healthyWindows >= 5) {
+      this.scale = Math.min(this.max, this.scale / 0.9);
+      this.resetSampling();
+    }
+    return this.scale;
+  }
+}
+
 export interface Position {
   x: number;
   y: number;

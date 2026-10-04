@@ -62,6 +62,35 @@ try {
   const snapshot=await until(()=>evaluate('window.spaceTestSystemSnapshot?.processes.length>2 ? window.spaceTestSystemSnapshot : null'),'space snapshot');
   const first=snapshot.processes[0].identity;
   await waitFor(`import('/space.js').then(m=>Boolean(m.processPosition('${first.pid}:${first.start_time_ticks}')))`, 'rendered space snapshot');
+  // Feed deterministic FPS samples through the live animation loop, then verify
+  // that both the WebGL drawing buffer and the render indicator recover.
+  const resolutionFrames=await evaluate(`(async()=>{
+    const {AdaptiveRenderScale}=await import('/space-model.js');
+    const original=AdaptiveRenderScale.prototype.sample;
+    const captures=[];
+    let index=0;
+    try {
+      return await new Promise((resolve,reject)=>{
+        const timeout=setTimeout(()=>reject(new Error('Render-scale recovery timed out')),15000);
+        AdaptiveRenderScale.prototype.sample=function(){
+          if(index===0){this.scale=this.max;this.resetSampling();}
+          const scale=original.call(this,index++<3?15:60);
+          setTimeout(()=>{
+            captures.push({scale,width:document.getElementById('world').width,
+              indicator:document.getElementById('fps').textContent});
+            if(captures.length===8){clearTimeout(timeout);resolve(captures);}
+          },0);
+          return scale;
+        };
+      });
+    } finally { AdaptiveRenderScale.prototype.sample=original; }
+  })()`);
+  assert.equal(resolutionFrames[2].scale,.9,'sustained low FPS lowers live render scale');
+  assert.ok(resolutionFrames[2].width<resolutionFrames[0].width,'WebGL drawing buffer shrinks');
+  assert.match(resolutionFrames[2].indicator,/90% render/);
+  assert.equal(resolutionFrames[7].scale,1,'live animation restores initial render scale');
+  assert.equal(resolutionFrames[7].width,resolutionFrames[0].width,'WebGL drawing buffer recovers');
+  assert.match(resolutionFrames[7].indicator,/100% render/);
   assert.equal(await evaluate("document.documentElement.lang"),'en');
   assert.equal(await evaluate('document.title'),'procinsh');
   assert.equal(await evaluate("document.querySelector('header #brand').textContent"),'procinsh');

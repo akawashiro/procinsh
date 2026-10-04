@@ -1,5 +1,43 @@
 import assert from 'node:assert/strict';
 import {layoutMaps,edgeDirection,ipcParticlePlan,cpuGlowLevel,treeLayout,stableLayout} from '../dist/web/space-model.js';
+const {AdaptiveRenderScale}=await import('../dist/web/space-model.js');
+{
+  const resolution=new AdaptiveRenderScale(1);
+  const sample=(fps,count)=>{for(let i=0;i<count;i++)resolution.sample(fps);};
+  for(let i=0;i<20;i++) { sample(15,2); sample(60,1); }
+  assert.equal(resolution.scale,1,'transient low FPS never accumulates into a permanent quality drop');
+  sample(15,3);
+  assert.equal(resolution.scale,.9,'sustained low FPS reduces resolution gently');
+  sample(24,10);
+  assert.equal(resolution.scale,.9,'24 FPS is outside the low-FPS range');
+  sample(60,4);
+  assert.equal(resolution.scale,.9,'recovery waits for sustained healthy FPS');
+  sample(45,1);
+  assert.equal(resolution.scale,1,'healthy FPS restores initial sharpness without reloading');
+  sample(15,100);
+  assert.equal(resolution.scale,.5,'sustained load respects the lower bound');
+  sample(60,100);
+  assert.equal(resolution.scale,1,'resolution recovers fully even after reaching the floor');
+  sample(15,3);
+  for(let i=0;i<10;i++) { sample(60,4); sample(35,1); }
+  assert.equal(resolution.scale,.9,'middle FPS holds resolution and interrupts recovery');
+  sample(15,2);
+  resolution.resetSampling();
+  sample(15,1);
+  assert.equal(resolution.scale,.9,'hidden tabs discard pending slow windows');
+  sample(60,4);
+  resolution.resetSampling();
+  sample(60,1);
+  assert.equal(resolution.scale,.9,'hidden tabs discard pending healthy windows');
+  for(const dpr of [.4,.75,1,2,3]) {
+    const bounded=new AdaptiveRenderScale(dpr);
+    for(let i=0;i<100;i++)bounded.sample(10);
+    assert.equal(bounded.scale,Math.min(dpr,.5));
+    for(let i=0;i<100;i++)bounded.sample(60);
+    assert.equal(bounded.scale,Math.min(dpr,1.5),'recovery respects the initial DPR cap');
+  }
+}
+console.log('Adaptive resolution checks passed: transient dips, sustained load, recovery, hysteresis, visibility reset, and DPR bounds.');
 const regions=layoutMaps([{start:'0xffffffffff600000',end:'0xffffffffff601000'},{start:'0x1000',end:'0x3000'},{start:'0x7fff00000000',end:'0x7fff00001000'}]);
 assert.equal(regions[0].start,'0x1000');
 assert.ok(regions[2].z > regions[1].z);
