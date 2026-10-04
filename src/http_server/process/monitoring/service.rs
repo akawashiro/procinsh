@@ -7,7 +7,7 @@ use crate::http_server::process::SubscribeError;
 
 use crate::http_server::process::{
     self, ProcessId, ProcessSummary,
-    maps::{self, MemoryMap, MemoryMapObservation, MemoryRollup},
+    maps::{self, MemoryMap, MemoryRollup, SmapsEntry},
     procfs,
 };
 use anyhow::{Result, ensure};
@@ -29,7 +29,7 @@ pub(in crate::http_server) struct Target {
     error: Option<String>,
     observation: Option<ProcessObservation>,
     history: VecDeque<HistoryPoint>,
-    maps: Vec<MemoryMapObservation>,
+    maps: Vec<SmapsEntry>,
     maps_error: Option<String>,
     maps_captured_at: Option<u64>,
     rollup: Option<MemoryRollup>,

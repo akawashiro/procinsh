@@ -35,13 +35,13 @@ pub(in crate::http_server) struct MemoryMap {
 
 /// A mapping with optional resident/proportional usage measured from smaps.
 #[derive(Clone, Debug, Serialize)]
-pub(super) struct MemoryMapObservation {
+pub(super) struct SmapsEntry {
     #[serde(flatten)]
     pub(super) mapping: MemoryMap,
     pub(super) rss_bytes: Option<u64>,
     pub(super) pss_bytes: Option<u64>,
 }
-impl From<MemoryMap> for MemoryMapObservation {
+impl From<MemoryMap> for SmapsEntry {
     fn from(mapping: MemoryMap) -> Self {
         Self {
             mapping,
@@ -107,8 +107,8 @@ pub(super) fn parse_map(line: &str) -> Result<MemoryMap> {
     })
 }
 
-pub(super) fn parse_smaps(text: &str) -> Result<Vec<MemoryMapObservation>> {
-    let mut maps: Vec<MemoryMapObservation> = Vec::new();
+pub(super) fn parse_smaps(text: &str) -> Result<Vec<SmapsEntry>> {
+    let mut maps: Vec<SmapsEntry> = Vec::new();
     for line in text.lines() {
         if line
             .split_whitespace()
@@ -141,14 +141,11 @@ pub(super) fn read_maps(pid: i32) -> Result<Vec<MemoryMap>> {
         .collect()
 }
 
-pub(super) fn read_smaps(pid: i32) -> Result<Vec<MemoryMapObservation>> {
+pub(super) fn read_smaps(pid: i32) -> Result<Vec<SmapsEntry>> {
     if let Ok(text) = fs::read_to_string(format!("/proc/{pid}/smaps")) {
         return parse_smaps(&text);
     }
-    Ok(read_maps(pid)?
-        .into_iter()
-        .map(MemoryMapObservation::from)
-        .collect())
+    Ok(read_maps(pid)?.into_iter().map(SmapsEntry::from).collect())
 }
 
 #[derive(Clone, Debug, Default, Serialize)]
@@ -199,7 +196,7 @@ mod tests {
         let structural = serde_json::to_value(&mapping).unwrap();
         assert!(structural.get("rss_bytes").is_none());
         assert!(structural.get("pss_bytes").is_none());
-        let fallback = MemoryMapObservation::from(mapping.clone());
+        let fallback = SmapsEntry::from(mapping.clone());
         let json = serde_json::to_value(&fallback).unwrap();
         assert!(json["rss_bytes"].is_null());
         assert!(json["pss_bytes"].is_null());

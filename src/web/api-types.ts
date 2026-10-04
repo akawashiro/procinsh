@@ -50,7 +50,7 @@ export interface MemoryMap {
   inode: string;
   pathname: string | null;
 }
-export interface MemoryMapObservation extends MemoryMap {
+export interface SmapsEntry extends MemoryMap {
   rss_bytes: number | null;
   pss_bytes: number | null;
 }
@@ -99,7 +99,7 @@ export interface Target {
   observation: ProcessObservation | null;
   exited: boolean;
   error: string | null;
-  maps: MemoryMapObservation[];
+  maps: SmapsEntry[];
   maps_captured_at: number | null;
   maps_error: string | null;
   rollup: {

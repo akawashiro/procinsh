@@ -19,13 +19,13 @@
 //! [`MemoryMap`] fields have `pub(in crate::http_server)` visibility: `start: u64, end: u64,
 //! readable: bool, writable: bool, executable: bool, private: bool, file_offset: u64,
 //! device: DeviceId, inode: u64, pathname: Option<String>`.
-//! [`maps::MemoryMapObservation`] is `pub(super)` with fields of the same visibility:
+//! [`maps::SmapsEntry`] is `pub(super)` with fields of the same visibility:
 //! `mapping: MemoryMap, rss_bytes: Option<u64>, pss_bytes: Option<u64>`.
 //! `mapping` is flattened for serialization, preserving detailed map JSON.
 //! [`maps::parse_map`] is `pub(super) fn parse_map(line: &str) -> anyhow::Result<MemoryMap>`.
-//! [`maps::parse_smaps`] is `pub(super) fn parse_smaps(text: &str) -> anyhow::Result<Vec<MemoryMapObservation>>`.
+//! [`maps::parse_smaps`] is `pub(super) fn parse_smaps(text: &str) -> anyhow::Result<Vec<SmapsEntry>>`.
 //! [`maps::read_maps`] is `pub(super) fn read_maps(pid: i32) -> anyhow::Result<Vec<MemoryMap>>`.
-//! [`maps::read_smaps`] is `pub(super) fn read_smaps(pid: i32) -> anyhow::Result<Vec<MemoryMapObservation>>`;
+//! [`maps::read_smaps`] is `pub(super) fn read_smaps(pid: i32) -> anyhow::Result<Vec<SmapsEntry>>`;
 //! unavailable smaps falls back to maps with absent usage measurements.
 //! [`MemoryMap`] exposes the existing `readable`, `writable`, `executable`, `private` booleans; the redundant `permissions` string is removed.
 //! [`MemoryMap`] uses `device: DeviceId` ([`super::resource::DeviceId`]) and `inode: u64` serialized as a decimal string.

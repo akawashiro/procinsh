@@ -2,7 +2,7 @@
 //!
 //! # Interface
 //!
-//! [`service::Target`] stores private `maps: Vec<super::maps::MemoryMapObservation>`;
+//! [`service::Target`] stores private `maps: Vec<super::maps::SmapsEntry>`;
 //! its JSON flattens structural maps with optional RSS/PSS measurements.
 //! The collector caches structural maps for the sampler at each map refresh.
 //!

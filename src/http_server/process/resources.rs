@@ -1,6 +1,6 @@
 use super::{
     ProcessId, check_identity, details,
-    maps::{self, MemoryMap, MemoryMapObservation},
+    maps::{self, MemoryMap, SmapsEntry},
     monitoring, procfs,
     sockets::{self, SocketInfo},
 };
@@ -39,7 +39,7 @@ pub(in crate::http_server) fn threads(id: ProcessId) -> Result<impl Serialize> {
 #[derive(Serialize)]
 struct MemoryMaps {
     process_id: ProcessId,
-    maps: Vec<MemoryMapObservation>,
+    maps: Vec<SmapsEntry>,
     error: Option<String>,
     captured_at: Option<u64>,
     rollup: Option<maps::MemoryRollup>,
