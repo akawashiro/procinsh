@@ -499,15 +499,43 @@ export function mergeSnapshot(
   previous: SystemSnapshot,
   update: SystemSnapshotUpdate,
 ): SystemSnapshot {
+  if (update.kind !== "full" && update.kind !== "delta")
+    throw new Error("Unknown snapshot kind");
+  if (update.kind === "delta" &&
+      (previous.sequence === undefined || update.base_sequence !== previous.sequence))
+    throw new Error("Snapshot baseline mismatch");
   const known = new Map(previous.processes.map((p) => [key(p.identity), p]));
+  const relations = new Map(
+    (update.kind === "full" ? [] : previous.fd_relations).map((r) => [r.id, r]),
+  );
+  if (update.fd_relations_delta) {
+    for (const id of update.fd_relations_delta.remove) relations.delete(id);
+    for (const r of update.fd_relations_delta.upsert) relations.set(r.id, r);
+  }
   return {
     ...update,
+    fd_relations: update.fd_relations ?? [...relations.values()],
     processes: update.processes.map((p) => {
-      const old = known.get(key(p.identity));
+      const old = update.kind === "full" ? undefined : known.get(key(p.identity));
+      let maps = p.maps ?? old?.maps ?? [];
+      if (p.maps_delta) {
+        if (!old) throw new Error("Missing process maps baseline");
+        const entries = new Map(old.maps.map((m) => [m.start, m]));
+        for (const address of p.maps_delta.remove) entries.delete(address);
+        for (const m of p.maps_delta.upsert) entries.set(m.start, m);
+        maps = [...entries.values()].sort((a, b) => {
+          const startA = BigInt(a.start), startB = BigInt(b.start);
+          return startA < startB ? -1 : startA > startB ? 1 : 0;
+        });
+      }
+      const { maps_delta: _delta, ...process } = p;
       return {
-        ...p,
-        maps: p.maps ?? old?.maps ?? [],
-        maps_epoch: p.maps === undefined ? old?.maps_epoch ?? 0 : p.maps_epoch,
+        ...process,
+        maps,
+        maps_epoch:
+          p.maps === undefined && p.maps_delta === undefined
+            ? old?.maps_epoch ?? 0
+            : p.maps_epoch,
       };
     }),
   };

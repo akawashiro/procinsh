@@ -26,7 +26,7 @@ pub(super) struct Process {
     pub(super) maps_error: Option<String>,
 }
 /// A process-owned file descriptor endpoint, including coalesced shared FDs.
-#[derive(Clone, Serialize)]
+#[derive(Clone, PartialEq, Eq, Serialize)]
 pub(super) struct FdEndpoint {
     pub(super) process_id: ProcessId,
     pub(super) fd: u32,
@@ -35,7 +35,7 @@ pub(super) struct FdEndpoint {
     pub(super) kind: FdKind,
     pub(super) access: FdAccess,
 }
-#[derive(Clone, Serialize)]
+#[derive(Clone, PartialEq, Eq, Serialize)]
 pub(super) struct SocketEndpoint {
     pub(super) protocol: SocketProtocol,
     pub(super) state: SocketState,
@@ -64,7 +64,7 @@ impl From<&SocketInfo> for SocketEndpoint {
 }
 /// A socket, pipe, or shared-ownership relation between file descriptor endpoints.
 /// An absent peer represents an external or unidentified process endpoint.
-#[derive(Clone, Serialize)]
+#[derive(Clone, PartialEq, Eq, Serialize)]
 pub(super) struct FdRelation {
     pub(super) id: String,
     pub(super) endpoint: FdEndpoint,

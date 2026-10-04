@@ -244,9 +244,19 @@ export interface FdRelation {
 export interface SystemSnapshot {
   processes: Process[];
   fd_relations: FdRelation[];
+  sequence?: number;
 }
-export interface SystemSnapshotUpdate extends Omit<SystemSnapshot, "processes"> {
-  processes: (Omit<Process, "maps"> & { maps?: MemoryMap[] })[];
+export interface EntryDelta<T> {
+  upsert: T[];
+  remove: string[];
+}
+export interface SystemSnapshotUpdate {
+  kind: "full" | "delta";
+  sequence: number;
+  base_sequence?: number;
+  processes: (Omit<Process, "maps"> & { maps?: MemoryMap[]; maps_delta?: EntryDelta<MemoryMap> })[];
+  fd_relations?: FdRelation[];
+  fd_relations_delta?: EntryDelta<FdRelation>;
 }
 export interface IoActivity {
   process_id: ProcessId;

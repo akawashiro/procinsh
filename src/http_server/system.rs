@@ -39,8 +39,11 @@
 //! [`SnapshotDelivery`] re-exports [`delivery::SnapshotDelivery`] as `pub(super)`.
 //! [`delivery::SnapshotDelivery::encode`] is `pub(in crate::http_server)`:
 //! `fn encode(&mut self, snapshot: Arc<SystemSnapshot>, force_full: bool, now: Instant) -> serde_json::Result<String>`.
-//! SSE snapshots omit unchanged `maps`, retaining their previous `maps_epoch`;
-//! initial, gap recovery, and 10-second refresh snapshots contain all maps.
+//! SSE snapshots carry kind (full/delta), sequence, and delta base_sequence.
+//! Maps use start-address upsert/remove deltas; FD relations use ID upsert/remove deltas.
+//! Each collection falls back to replacement when a delta is larger.
+//! Unchanged maps are omitted, retaining their previous `maps_epoch`;
+//! initial, gap recovery, and 60-second refresh snapshots contain all maps.
 //!
 //! File and IPC identities are defined in [`super::resource`].
 //! [`snapshot::FdEndpoint::resource`] is `pub(super) resource: IpcIdentity`.

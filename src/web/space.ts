@@ -1402,7 +1402,16 @@ function start() {
     if (!document.hidden) retry = setTimeout(start, 3000);
   };
   current.addEventListener("snapshot", (event) => {
-    if (source === current) rebuild(mergeSnapshot(snapshot, JSON.parse(event.data)));
+    if (source !== current) return;
+    let merged: SystemSnapshot;
+    try {
+      merged = mergeSnapshot(snapshot, JSON.parse(event.data));
+    } catch {
+      stop();
+      start();
+      return;
+    }
+    rebuild(merged);
   });
   current.addEventListener("activity", (event) => {
     if (source === current) activity(JSON.parse(event.data));
