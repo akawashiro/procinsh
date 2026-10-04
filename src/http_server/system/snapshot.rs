@@ -11,44 +11,6 @@ use std::{
     os::unix::fs::{FileTypeExt, MetadataExt},
     time::{Duration, Instant},
 };
-/// Structural mapping data for the space view; excludes RSS and PSS.
-#[derive(Clone, PartialEq, Eq, Serialize)]
-pub(super) struct SpaceMemoryMap {
-    #[serde(serialize_with = "hex")]
-    start: u64,
-    #[serde(serialize_with = "hex")]
-    end: u64,
-    readable: bool,
-    writable: bool,
-    executable: bool,
-    private: bool,
-    #[serde(serialize_with = "hex")]
-    file_offset: u64,
-    device: DeviceId,
-    #[serde(serialize_with = "super::super::resource::decimal")]
-    inode: u64,
-    pathname: Option<String>,
-}
-fn hex<S: serde::Serializer>(value: &u64, serializer: S) -> Result<S::Ok, S::Error> {
-    serializer.serialize_str(&format!("0x{value:016x}"))
-}
-impl From<MemoryMap> for SpaceMemoryMap {
-    fn from(map: MemoryMap) -> Self {
-        Self {
-            start: map.start,
-            end: map.end,
-            readable: map.readable,
-            writable: map.writable,
-            executable: map.executable,
-            private: map.private,
-            file_offset: map.file_offset,
-            device: map.device,
-            inode: map.inode,
-            pathname: map.pathname,
-        }
-    }
-}
-
 /// A Linux process and its observed address space.
 #[derive(Clone, Serialize)]
 pub(super) struct Process {
@@ -59,7 +21,7 @@ pub(super) struct Process {
     pub(super) username: Option<String>,
     pub(super) euid: Option<u32>,
     pub(super) effective_username: Option<String>,
-    pub(super) maps: Vec<SpaceMemoryMap>,
+    pub(super) maps: Vec<MemoryMap>,
     pub(super) maps_epoch: u64,
     pub(super) maps_error: Option<String>,
 }
@@ -185,7 +147,7 @@ pub(super) fn collect(discovery: &mut Discovery) -> SystemSnapshot {
                     m.truncate(4096);
                     truncated = true;
                 }
-                n.maps = m.into_iter().map(SpaceMemoryMap::from).collect();
+                n.maps = m;
             }
             Err(e) => n.maps_error = Some(e.to_string()),
         }

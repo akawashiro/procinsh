@@ -8,7 +8,7 @@ import type {
   FileActivity,
   FileIdentity,
   IpcIdentity,
-  SpaceMemoryMap,
+  MemoryMap,
   SystemSnapshot,
   SystemSnapshotUpdate,
   CpuActivity,
@@ -53,7 +53,7 @@ export interface RecentFile {
   last: number;
 }
 export type CpuGlow = CpuActivity & { last: number; window_ms: number };
-export type Region = SpaceMemoryMap & { z: number; h: number };
+export type Region = MemoryMap & { z: number; h: number };
 export const remoteLabel = (socket: SocketEndpoint | null | undefined) =>
   socket?.remote_hostname && socket.remote ? `${socket.remote_hostname}:${socket.remote.port}` : Display.address(socket?.remote);
 export const key = (id: ProcessId) => `${id.pid}:${id.start_time_ticks}`;
@@ -127,7 +127,7 @@ export function connectionState(
   if (e.socket?.protocol.kind === "udp") return "No destination set";
   return "Unknown destination";
 }
-export function layoutMaps<M extends Pick<SpaceMemoryMap, "start" | "end">>(
+export function layoutMaps<M extends Pick<MemoryMap, "start" | "end">>(
   maps: M[],
 ) {
   const sorted = [...maps].sort((a, b) =>

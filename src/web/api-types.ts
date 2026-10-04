@@ -49,6 +49,8 @@ export interface MemoryMap {
   device: DeviceId;
   inode: string;
   pathname: string | null;
+}
+export interface MemoryMapObservation extends MemoryMap {
   rss_bytes: number | null;
   pss_bytes: number | null;
 }
@@ -97,7 +99,7 @@ export interface Target {
   observation: ProcessObservation | null;
   exited: boolean;
   error: string | null;
-  maps: MemoryMap[];
+  maps: MemoryMapObservation[];
   maps_captured_at: number | null;
   maps_error: string | null;
   rollup: {
@@ -201,7 +203,6 @@ export interface DetailData {
   auxv: AuxVector;
   fds: FileDescriptors;
 }
-export type SpaceMemoryMap = Omit<MemoryMap, "rss_bytes" | "pss_bytes">;
 export interface Process {
   identity: ProcessId;
   parent_id: ProcessId | null;
@@ -210,7 +211,7 @@ export interface Process {
   username: string | null;
   euid: number | null;
   effective_username: string | null;
-  maps: SpaceMemoryMap[];
+  maps: MemoryMap[];
   maps_epoch: number;
   maps_error: string | null;
 }
@@ -245,7 +246,7 @@ export interface SystemSnapshot {
   fd_relations: FdRelation[];
 }
 export interface SystemSnapshotUpdate extends Omit<SystemSnapshot, "processes"> {
-  processes: (Omit<Process, "maps"> & { maps?: SpaceMemoryMap[] })[];
+  processes: (Omit<Process, "maps"> & { maps?: MemoryMap[] })[];
 }
 export interface IoActivity {
   process_id: ProcessId;

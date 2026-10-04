@@ -366,7 +366,7 @@ mod live_tests {
     #[test]
     fn live_sleeping_bootstrap_and_perf_handoff() {
         let target = TestTarget::new("sleeping");
-        let maps = process::maps::read(target.id.pid, false).unwrap();
+        let maps = process::maps::read_maps(target.id.pid).unwrap();
         let mut sampler = Sampler::new(target.id);
         sampler.bootstrap(&maps).unwrap();
         let first = sampler.latest()[0].clone();
@@ -409,7 +409,7 @@ mod live_tests {
     #[test]
     fn periodic_ptrace_waits_for_deadline_and_refreshes_sleeping_thread() {
         let target = TestTarget::new("sleeping");
-        let maps = process::maps::read(target.id.pid, false).unwrap();
+        let maps = process::maps::read_maps(target.id.pid).unwrap();
         let mut sampler = Sampler::new(target.id);
         sampler.bootstrap(&maps).unwrap();
         let deadline = sampler.next_ptrace.unwrap();
@@ -441,7 +441,7 @@ mod live_tests {
     #[test]
     fn periodic_ptrace_captures_all_threads_including_newly_discovered_threads() {
         let target = TestTarget::new("threads");
-        let maps = process::maps::read(target.id.pid, false).unwrap();
+        let maps = process::maps::read_maps(target.id.pid).unwrap();
         let mut sampler = Sampler::new(target.id);
         sampler.bootstrap(&maps).unwrap();
         // This fixture also churns short-lived threads; only its main and four
@@ -485,7 +485,7 @@ mod live_tests {
     #[test]
     fn periodic_ptrace_failure_preserves_sample_and_retries_only_when_due() {
         let target = TestTarget::new("sleeping");
-        let maps = process::maps::read(target.id.pid, false).unwrap();
+        let maps = process::maps::read_maps(target.id.pid).unwrap();
         let mut sampler = Sampler::new(target.id);
         sampler.bootstrap(&maps).unwrap();
         let thread = sampler.threads.get_mut(&target.id.pid).unwrap();
@@ -543,7 +543,7 @@ mod live_tests {
     #[test]
     fn sample_ordering_preserves_bootstrap_then_accepts_newer_perf() {
         let target = TestTarget::new("sleeping");
-        let maps = process::maps::read(target.id.pid, false).unwrap();
+        let maps = process::maps::read_maps(target.id.pid).unwrap();
         let mut sampler = Sampler::new(target.id);
         sampler.bootstrap(&maps).unwrap();
         let thread = sampler.threads.get_mut(&target.id.pid).unwrap();
@@ -595,7 +595,7 @@ mod live_tests {
             return;
         }
         Event::context_switch(target.id.pid).unwrap();
-        let maps = process::maps::read(target.id.pid, false).unwrap();
+        let maps = process::maps::read_maps(target.id.pid).unwrap();
         let mut sampler = Sampler::new(target.id);
         let mut complete = false;
         let mut truncated = false;
@@ -657,7 +657,7 @@ mod live_tests {
             if !perf_available(target.id.pid) {
                 return;
             }
-            let maps = process::maps::read(target.id.pid, false).unwrap();
+            let maps = process::maps::read_maps(target.id.pid).unwrap();
             let mut sampler = Sampler::new(target.id);
             poll_until(&mut sampler, &maps, |s| {
                 s.latest().iter().any(|t| t.sampled_at.is_some())
@@ -704,7 +704,7 @@ mod live_tests {
             return;
         }
         Event::context_switch(target.id.pid).unwrap();
-        let maps = process::maps::read(target.id.pid, false).unwrap();
+        let maps = process::maps::read_maps(target.id.pid).unwrap();
         let mut sampler = Sampler::new(target.id);
         poll_until(&mut sampler, &maps, |s| {
             let latest = s.latest();
@@ -739,7 +739,7 @@ mod live_tests {
         if !perf_available(target.id.pid) {
             return;
         }
-        let maps = process::maps::read(target.id.pid, false).unwrap();
+        let maps = process::maps::read_maps(target.id.pid).unwrap();
         let mut sampler = Sampler::new(target.id);
         poll_until(&mut sampler, &maps, |s| {
             s.latest().iter().filter(|t| t.sampled_at.is_some()).count() >= 4

@@ -15,7 +15,7 @@ pub(in crate::http_server) enum MemoryKind {
     File,
     Anonymous,
 }
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub(in crate::http_server) struct MemoryMap {
     #[serde(serialize_with = "hex")]
     pub(in crate::http_server) start: u64,
@@ -31,8 +31,24 @@ pub(in crate::http_server) struct MemoryMap {
     #[serde(serialize_with = "decimal")]
     pub(in crate::http_server) inode: u64,
     pub(in crate::http_server) pathname: Option<String>,
-    pub(in crate::http_server) rss_bytes: Option<u64>,
-    pub(in crate::http_server) pss_bytes: Option<u64>,
+}
+
+/// A mapping with optional resident/proportional usage measured from smaps.
+#[derive(Clone, Debug, Serialize)]
+pub(super) struct MemoryMapObservation {
+    #[serde(flatten)]
+    pub(super) mapping: MemoryMap,
+    pub(super) rss_bytes: Option<u64>,
+    pub(super) pss_bytes: Option<u64>,
+}
+impl From<MemoryMap> for MemoryMapObservation {
+    fn from(mapping: MemoryMap) -> Self {
+        Self {
+            mapping,
+            rss_bytes: None,
+            pss_bytes: None,
+        }
+    }
 }
 
 pub(super) fn hex<S: serde::Serializer>(value: &u64, serializer: S) -> Result<S::Ok, S::Error> {
@@ -88,20 +104,18 @@ pub(super) fn parse_map(line: &str) -> Result<MemoryMap> {
         },
         inode: columns[4].parse()?,
         pathname: (!rest.is_empty()).then(|| rest.to_owned()),
-        rss_bytes: None,
-        pss_bytes: None,
     })
 }
 
-pub(super) fn parse_smaps(text: &str) -> Result<Vec<MemoryMap>> {
-    let mut maps: Vec<MemoryMap> = Vec::new();
+pub(super) fn parse_smaps(text: &str) -> Result<Vec<MemoryMapObservation>> {
+    let mut maps: Vec<MemoryMapObservation> = Vec::new();
     for line in text.lines() {
         if line
             .split_whitespace()
             .next()
             .is_some_and(|word| word.contains('-'))
         {
-            maps.push(parse_map(line)?);
+            maps.push(parse_map(line)?.into());
         } else if let Some(map) = maps.last_mut()
             && let Some((key, value)) = line.split_once(':')
         {
@@ -120,14 +134,21 @@ pub(super) fn parse_smaps(text: &str) -> Result<Vec<MemoryMap>> {
     Ok(maps)
 }
 
-pub(super) fn read(pid: i32, detailed: bool) -> Result<Vec<MemoryMap>> {
-    if detailed && let Ok(text) = fs::read_to_string(format!("/proc/{pid}/smaps")) {
-        return parse_smaps(&text);
-    }
+pub(super) fn read_maps(pid: i32) -> Result<Vec<MemoryMap>> {
     fs::read_to_string(format!("/proc/{pid}/maps"))?
         .lines()
         .map(parse_map)
         .collect()
+}
+
+pub(super) fn read_smaps(pid: i32) -> Result<Vec<MemoryMapObservation>> {
+    if let Ok(text) = fs::read_to_string(format!("/proc/{pid}/smaps")) {
+        return parse_smaps(&text);
+    }
+    Ok(read_maps(pid)?
+        .into_iter()
+        .map(MemoryMapObservation::from)
+        .collect())
 }
 
 #[derive(Clone, Debug, Default, Serialize)]
@@ -156,14 +177,36 @@ mod tests {
     #[test]
     fn maps_and_smaps_keep_paths_and_boundaries() {
         let maps = parse_smaps("1000-2000 r-xp 00001000 08:01 10 /tmp/a b (deleted)\nRss: 4 kB\nPss: 2 kB\n2000-3000 rw-p 0 00:00 0\n").unwrap();
-        assert_eq!(maps[0].pathname.as_deref(), Some("/tmp/a b (deleted)"));
+        assert_eq!(
+            maps[0].mapping.pathname.as_deref(),
+            Some("/tmp/a b (deleted)")
+        );
         assert_eq!(maps[0].rss_bytes, Some(4096));
         let detailed = serde_json::to_value(&maps[0]).unwrap();
         assert_eq!(detailed["rss_bytes"], 4096);
         assert_eq!(detailed["pss_bytes"], 2048);
-        assert!(maps[0].contains(0x1000));
-        assert!(!maps[0].contains(0x2000));
-        assert!(maps[1].pathname.is_none());
+        assert_eq!(detailed["start"], "0x0000000000001000");
+        assert!(detailed.get("mapping").is_none());
+        assert!(maps[0].mapping.contains(0x1000));
+        assert!(!maps[0].mapping.contains(0x2000));
+        assert!(maps[1].mapping.pathname.is_none());
         assert!(parse_map("2000-1000 rw-p 0 00:00 0").is_err());
+    }
+
+    #[test]
+    fn structural_maps_exclude_usage_and_fallback_observations_keep_shape() {
+        let mapping = parse_map("1000-2000 r-xp 0 00:00 0 /tmp/test").unwrap();
+        let structural = serde_json::to_value(&mapping).unwrap();
+        assert!(structural.get("rss_bytes").is_none());
+        assert!(structural.get("pss_bytes").is_none());
+        let fallback = MemoryMapObservation::from(mapping.clone());
+        let json = serde_json::to_value(&fallback).unwrap();
+        assert!(json["rss_bytes"].is_null());
+        assert!(json["pss_bytes"].is_null());
+        assert_eq!(json["pathname"], "/tmp/test");
+        let measured =
+            parse_smaps("1000-2000 r-xp 0 00:00 0 /tmp/test\nRss: 8 kB\nPss: 4 kB\n").unwrap();
+        assert_eq!(measured[0].mapping, mapping);
+        assert_eq!(measured[0].rss_bytes, Some(8192));
     }
 }

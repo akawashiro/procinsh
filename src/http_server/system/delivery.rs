@@ -1,5 +1,5 @@
-use super::snapshot::{FdRelation, SpaceMemoryMap, SystemSnapshot};
-use crate::http_server::process::ProcessId;
+use super::snapshot::{FdRelation, SystemSnapshot};
+use crate::http_server::process::{MemoryMap, ProcessId};
 use serde::Serialize;
 use std::{
     collections::HashMap,
@@ -26,7 +26,7 @@ struct ProcessPayload<'a> {
     maps_epoch: u64,
     maps_error: &'a Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    maps: Option<&'a [SpaceMemoryMap]>,
+    maps: Option<&'a [MemoryMap]>,
 }
 #[derive(Serialize)]
 struct SnapshotPayload<'a> {
@@ -123,7 +123,7 @@ mod tests {
                 maps_epoch: epoch,
                 maps_error: None,
                 maps: if mapped {
-                    vec![SpaceMemoryMap::from(MemoryMap {
+                    vec![MemoryMap {
                         start: 4096,
                         end: 8192,
                         readable: true,
@@ -134,9 +134,7 @@ mod tests {
                         device: DeviceId::from_stat(0),
                         inode: 1,
                         pathname: None,
-                        rss_bytes: Some(123),
-                        pss_bytes: Some(45),
-                    })]
+                    }]
                 } else {
                     vec![]
                 },

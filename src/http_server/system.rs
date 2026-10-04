@@ -32,13 +32,10 @@
 //! [`snapshot::Process`] has `pub(super)` visibility and fields:
 //! `identity: ProcessId, parent_id: Option<ProcessId>, name: String, uid: Option<u32>,
 //! username: Option<String>, euid: Option<u32>, effective_username: Option<String>,
-//! maps: Vec<SpaceMemoryMap>, maps_epoch: u64, maps_error: Option<String>`.
+//! maps: Vec<MemoryMap>, maps_epoch: u64, maps_error: Option<String>`.
 //! All fields are `pub(super)`; CPU/RSS remain in [`super::process::ProcessSummary`].
 //!
-//! [`snapshot::SpaceMemoryMap`] is `pub(super)` with private fields:
-//! `start: u64, end: u64, readable: bool, writable: bool, executable: bool,
-//! private: bool, file_offset: u64, device: DeviceId, inode: u64, pathname: Option<String>`.
-//! It excludes RSS/PSS; addresses are hex strings and inode is a decimal string.
+//! Maps use the structural [`super::process::MemoryMap`] directly and exclude RSS/PSS.
 //! [`SnapshotDelivery`] re-exports [`delivery::SnapshotDelivery`] as `pub(super)`.
 //! [`delivery::SnapshotDelivery::encode`] is `pub(in crate::http_server)`:
 //! `fn encode(&mut self, snapshot: Arc<SystemSnapshot>, force_full: bool, now: Instant) -> serde_json::Result<String>`.

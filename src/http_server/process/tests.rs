@@ -10,10 +10,10 @@ fn memory_partial_reads_and_map_statistics() {
     let data = memory::read_raw(target.id.pid, target.address + page - 8, 16).unwrap();
     assert_eq!(data.len(), 8);
     assert!(memory::read_raw(target.id.pid, target.address + page, 16).is_err());
-    let maps = maps::read(target.id.pid, true).unwrap();
+    let maps = maps::read_smaps(target.id.pid).unwrap();
     assert!(
         maps.iter()
-            .any(|m| m.contains(target.address) && m.rss_bytes.is_some())
+            .any(|m| m.mapping.contains(target.address) && m.rss_bytes.is_some())
     );
 }
 

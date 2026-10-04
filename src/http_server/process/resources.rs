@@ -1,6 +1,6 @@
 use super::{
     ProcessId, check_identity, details,
-    maps::{self, MemoryMap},
+    maps::{self, MemoryMap, MemoryMapObservation},
     monitoring, procfs,
     sockets::{self, SocketInfo},
 };
@@ -39,7 +39,7 @@ pub(in crate::http_server) fn threads(id: ProcessId) -> Result<impl Serialize> {
 #[derive(Serialize)]
 struct MemoryMaps {
     process_id: ProcessId,
-    maps: Vec<MemoryMap>,
+    maps: Vec<MemoryMapObservation>,
     error: Option<String>,
     captured_at: Option<u64>,
     rollup: Option<maps::MemoryRollup>,
@@ -47,7 +47,7 @@ struct MemoryMaps {
 
 pub(in crate::http_server) fn maps(id: ProcessId) -> Result<impl Serialize> {
     check_identity(id)?;
-    let result = maps::read(id.pid, true);
+    let result = maps::read_smaps(id.pid);
     let rollup = maps::rollup(id.pid);
     check_identity(id)?;
     let (maps, error, captured_at) = match result {
@@ -77,7 +77,7 @@ pub(in crate::http_server) fn fds(id: ProcessId) -> Result<impl Serialize> {
 
 // Minimal primitives also used by system-wide monitoring.
 pub(in crate::http_server) fn memory_maps(pid: i32) -> Result<Vec<MemoryMap>> {
-    maps::read(pid, false)
+    maps::read_maps(pid)
 }
 
 pub(in crate::http_server) fn ticks_per_second() -> f64 {
