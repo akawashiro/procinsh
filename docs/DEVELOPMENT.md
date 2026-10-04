@@ -390,6 +390,38 @@ CHROME=/usr/bin/chromium node tests/space-browser.mjs
 
 通常画面は検索・選択・SSE・ライブサンプル・詳細パネル・終了処理を、SPACE は WebGL、配置、選択、ネットワークとファイルの描画を検証します。ブラウザテストは一時サーバーとブラウザプロファイルを作り、終了時に片付けます。画面・モデルの検証と実機センサーの検証は別です。
 
+### Chrome による通信・IPC の負荷生成
+
+`scripts/chrome_load.mjs` は Google Chrome のタブを約10秒ごとにキャッシュを無視してリロードします。Node.js 22以降と Chrome が必要で、追加の npm パッケージは不要です。標準では `scripts/chrome_sites.txt` の先頭20サイトを開きます。GPU を無効にして実行し、画面セッション（`DISPLAY` / `WAYLAND_DISPLAY`）がない場合はヘッドレスで起動します。
+
+```sh
+node scripts/chrome_load.mjs
+
+# 100サイト、10秒間隔
+TAB_COUNT=100 INTERVAL_SECONDS=10 node scripts/chrome_load.mjs
+
+# Chrome の実行ファイルと観測する URL を指定
+CHROME=/usr/bin/chromium node scripts/chrome_load.mjs http://127.0.0.1:8080/
+
+# 独自のサイト一覧（1行1 URL、空行と # から始まる行は無視）
+SITE_LIST=/path/to/sites.txt TAB_COUNT=5 node scripts/chrome_load.mjs
+```
+
+`TAB_COUNT` は1〜1000、`INTERVAL_SECONDS` は1秒以上です。タブ数が URL 数を超える場合は一覧を繰り返します。サイトによって読み込み時間、リダイレクト、アクセス制限が異なるため、ログのリロード完了は DevTools コマンドの成功を表し、すべてのコンテンツの読み込み完了は保証しません。
+
+Chrome は独立した一時プロファイルと loopback の DevTools ポートを使い、起動したコントローラーと Chrome の PID をログに出します。Ctrl+C またはコントローラーへの SIGTERM で Chrome を停止して一時プロファイルを削除します。`PID_FILE=/path/to/load.pid` を指定するとコントローラーの PID を保存し、終了時に削除します。既存の PID ファイルは上書きしません。
+
+対話セッション終了後も継続する場合は tmux で起動できます。下記はリポジトリのルートで実行します。
+
+```sh
+tmux new-session -d -s procinsh-load \
+  "exec env PID_FILE=/tmp/procinsh-chrome-load.pid node '$PWD/scripts/chrome_load.mjs' >> /tmp/procinsh-chrome-load.log 2>&1"
+tail -f /tmp/procinsh-chrome-load.log
+
+# 負荷生成を停止
+kill -TERM "$(cat /tmp/procinsh-chrome-load.pid)"
+```
+
 ### 実機センサーテスト
 
 BPF の観測権限（`CAP_BPF`・`CAP_PERFMON` など）と対応するカーネルのフックを利用できるサーバーに対して実行します。CPU/IPC とファイル I/O を検証します。センサー利用不可を成功扱いにはしません。
