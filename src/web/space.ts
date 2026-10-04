@@ -19,6 +19,7 @@ import {
   networkGroups,
   networkLayout,
   connectionState,
+  AdaptiveRenderScale,
 } from "/space-model.js";
 import type {
   Process,
@@ -110,8 +111,7 @@ const canvas = $("world"),
   labelCanvas = $("labels"),
   labelContext = context2d(labelCanvas);
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-let renderScale = Math.min(devicePixelRatio, 1.5),
-  slowFrames = 0;
+const renderResolution = new AdaptiveRenderScale(devicePixelRatio);
 let renderer: T.WebGLRenderer;
 try {
   renderer = new T.WebGLRenderer({ canvas, antialias: false, alpha: false });
@@ -121,7 +121,7 @@ try {
     "WebGL2 is unavailable. Use Go to list view to return to the process list.";
   throw e;
 }
-renderer.setPixelRatio(renderScale);
+renderer.setPixelRatio(renderResolution.scale);
 renderer.setSize(innerWidth, innerHeight);
 renderer.setClearColor(0x03090e);
 renderer.outputColorSpace = T.SRGBColorSpace;
@@ -1342,12 +1342,9 @@ function animate(now: number) {
   frames++;
   if (now - frameTime > 1000) {
     const fps = Math.round((frames * 1000) / (now - frameTime));
-    slowFrames = fps < 24 ? slowFrames + 1 : 0;
-    if (slowFrames >= 2 && renderScale > 0.55) {
-      renderScale = Math.max(0.5, renderScale * 0.75);
-      renderer.setPixelRatio(renderScale);
-      slowFrames = 0;
-    }
+    const previousScale = renderResolution.scale;
+    const renderScale = renderResolution.sample(fps);
+    if (renderScale !== previousScale) renderer.setPixelRatio(renderScale);
     $("fps").textContent =
       `${fps} FPS · ${Math.round(renderScale * 100)}% render`;
     frames = 0;
@@ -1430,13 +1427,25 @@ function stop() {
   refreshFileScene();
 }
 
+function resetRenderSampling() {
+  frames = 0;
+  frameTime = performance.now();
+  renderResolution.resetSampling();
+}
 document.addEventListener("visibilitychange", () => {
+  resetRenderSampling();
   if (document.hidden) stop();
   else start();
 });
-addEventListener("pagehide", stop);
+addEventListener("pagehide", () => {
+  resetRenderSampling();
+  stop();
+});
 addEventListener("pageshow", (e) => {
-  if (e.persisted) start();
+  if (e.persisted) {
+    resetRenderSampling();
+    start();
+  }
 });
 start();
 
