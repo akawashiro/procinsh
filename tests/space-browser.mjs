@@ -70,7 +70,8 @@ try {
   assert.equal(await evaluate("document.querySelector('header #back').textContent"),'Go to list view');
   assert.equal(await evaluate("document.querySelector('header #back').getAttribute('href')"),'/list');
   assert.equal(await evaluate("document.querySelector('footer')"),null,'footer content is moved into the header');
-  assert.match(await evaluate("document.querySelector('header').textContent"),/CODE[\s\S]*HEAP[\s\S]*CPU[\s\S]*WRITE[\s\S]*DRAG · ORBIT/);
+  assert.equal(await evaluate("document.querySelector('header .legend')"),null,'header legend is removed');
+  assert.match(await evaluate("document.querySelector('header').textContent"),/DRAG · ORBIT/);
   assert.ok(await evaluate("document.querySelector('header').getBoundingClientRect().height<=42"),'header is compact');
   assert.equal(await evaluate("getComputedStyle(document.getElementById('labels')).pointerEvents"),'none');
   assert.ok(await evaluate("(()=>{const c=document.getElementById('labels'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;for(let i=3;i<d.length;i+=4)if(d[i])return true;return false})()"),'process names are rendered above the 3D scene');
