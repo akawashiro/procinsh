@@ -162,7 +162,7 @@ HTTP、`/proc` の解析、libbpf の FFI、perf の unsafe、ELF/DWARF の解�
 
 file capability は一度付けると、通常の終了で消えない。実行ファイル・祖先ディレクトリのアクセス権によっては、他ユーザーも強い権限付きのバイナリを起動できる。loopback の HTTP にも OS ユーザーの認証はないので、ローカルの別ユーザーからの利用を禁止するものではない。
 
-[main_preview.sh](../scripts/main_preview.sh) は候補を mode `0755` で配置し、capability を付けて更新する。[MAIN_PREVIEW.md](MAIN_PREVIEW.md) の sudoers 例はユーザー所有の candidate パスへの `NOPASSWD setcap` を許す。そのパスに別の実行ファイルを置けるユーザーは、文書通りのルールならそれにも同じ capability を付与できる。これはルールが procinsh の内容・ハッシュを検証しないことから導かれる権限上の意味であり、稼働ホストにそのルールが存在することを確認したわけではない。
+[main_preview.sh](../scripts/main_preview.sh) と [release_preview.sh](../scripts/release_preview.sh) は候補を mode `0755` で配置し、capability を付けて更新する。[PREVIEW.md](PREVIEW.md) の sudoers 例はユーザー所有の candidate パスへの `NOPASSWD setcap` を許す。そのパスに別の実行ファイルを置けるユーザーは、文書通りのルールならそれにも同じ capability を付与できる。これはルールが procinsh の内容・ハッシュを検証しないことから導かれる権限上の意味であり、稼働ホストにそのルールが存在することを確認したわけではない。
 
 **対策:** バイナリと配置ディレクトリの owner/mode、capability、sudoers を確認し、実行ユーザーを限定する。特権を付ける成果物を root 管理の配備経路で検証する。最新 main の自動ビルドへそのまま権限を付ける運用は、リポジトリ・ビルド依存・更新経路まで信頼することを意味する。常設する場合はレビュー済みの版を固定する。
 
@@ -180,7 +180,7 @@ file capability は一度付けると、通常の終了で消えない。実行�
 
 `0.0.0.0` 公開時の環境変数漏えいに加え、到達できるクライアントは SSE の GET 要求で上述の ptrace/perf を開始できる。したがって、非 loopback 公開の問題は情報漏えいだけではなく、**強い権限を持つ観測操作を他者が起動できること**でもある。任意アドレスのメモリ読み取り HTTP API があるわけではないが、レジスタ・スタックフレーム・命令 bytes・maps 等の情報は返る。
 
-[middleware.rs](../src/http_server/middleware.rs) の Host/Origin/Fetch Metadata 検査はブラウザ経由の攻撃に対する防御になるが、任意の header を付けられる HTTP クライアントの認証ではない。既定 loopback と `--allow-non-loopback` の明示要求は有効な防御である一方、[常設プレビューの service](../scripts/systemd/procinsh-preview.service) は `0.0.0.0` を明示して起動する。リバースプロキシを置く場合は認証/TLSに加え、裏側ポートへ直接到達できない配置にする必要がある。
+[middleware.rs](../src/http_server/middleware.rs) の Host/Origin/Fetch Metadata 検査はブラウザ経由の攻撃に対する防御になるが、任意の header を付けられる HTTP クライアントの認証ではない。既定 loopback と `--allow-non-loopback` の明示要求は有効な防御である一方、[main の常設プレビュー service](../scripts/systemd/procinsh-preview.service) と [公開版の service](../scripts/systemd/procinsh-release-preview.service) は [preview_bind.sh](../scripts/preview_bind.sh) 経由で Tailscale IPv4 のみに bind する。待受範囲は限定されるが、Tailscale 経由で到達できるクライアントに対するアプリケーション側の認証はない。リバースプロキシを置く場合は認証/TLSに加え、裏側ポートへ直接到達できない配置にする必要がある。
 
 ## 9. 対策と追加検証の順番
 

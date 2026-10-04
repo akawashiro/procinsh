@@ -1,0 +1,15 @@
+[Unit]
+Description=ProcInSh crates.io release preview
+ConditionPathExists=%h/procinsh-release-preview/procinsh
+StartLimitIntervalSec=0
+
+[Service]
+Type=exec
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/bin/bash %h/procinsh-release-preview/preview_bind.sh run %h/procinsh-release-preview/procinsh 9091
+Restart=on-failure
+RestartSec=3s
+TimeoutStopSec=30s
+
+[Install]
+WantedBy=default.target

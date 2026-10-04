@@ -1,0 +1,11 @@
+[Unit]
+Description=Check ProcInSh crates.io release approximately every minute
+
+[Timer]
+OnStartupSec=1min
+OnUnitInactiveSec=1min
+AccuracySec=1s
+Unit=procinsh-release-preview-update.service
+
+[Install]
+WantedBy=timers.target
