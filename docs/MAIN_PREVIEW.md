@@ -20,7 +20,7 @@
 
 ```sh
 command -v setcap
-sudo visudo -f /etc/sudoers.d/procinsh-preview
+sudo visudo -f /etc/sudoers.d/procinsh
 ```
 
 ユーザーが `akira`、`setcap` が `/usr/sbin/setcap` にある場合の設定例です。ユーザー名・ホーム・実行ファイルのパスは実際の環境に合わせ、絶対パスで記載してください。
