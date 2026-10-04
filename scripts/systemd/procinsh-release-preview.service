@@ -1,0 +1,14 @@
+[Unit]
+Description=ProcInSh crates.io release preview
+ConditionPathExists=%h/procinsh-release-preview/procinsh
+StartLimitIntervalSec=0
+
+[Service]
+Type=exec
+ExecStart=%h/procinsh-release-preview/procinsh --listen 0.0.0.0:9091 --allow-non-loopback
+Restart=on-failure
+RestartSec=3s
+TimeoutStopSec=30s
+
+[Install]
+WantedBy=default.target

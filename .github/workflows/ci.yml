@@ -30,6 +30,10 @@ jobs:
           echo "$RUNNER_TEMP/clang-format/bin" >> "$GITHUB_PATH"
       - name: Check C formatting
         run: python3 scripts/format_c.py --check
+      - name: Check release preview deployment
+        run: |
+          bash -n scripts/main_preview.sh scripts/release_preview.sh
+          python3 tests/release-preview.py
 
   build:
     name: Build and test
