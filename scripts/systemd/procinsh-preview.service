@@ -5,7 +5,8 @@ StartLimitIntervalSec=0
 
 [Service]
 Type=exec
-ExecStart=%h/procinsh-main-preview/procinsh --listen 0.0.0.0:9090 --allow-non-loopback
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/bin/bash %h/procinsh-main-preview/preview_bind.sh run %h/procinsh-main-preview/procinsh 9090
 Restart=on-failure
 RestartSec=3s
 TimeoutStopSec=30s

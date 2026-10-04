@@ -180,7 +180,7 @@ file capability は一度付けると、通常の終了で消えない。実行�
 
 `0.0.0.0` 公開時の環境変数漏えいに加え、到達できるクライアントは SSE の GET 要求で上述の ptrace/perf を開始できる。したがって、非 loopback 公開の問題は情報漏えいだけではなく、**強い権限を持つ観測操作を他者が起動できること**でもある。任意アドレスのメモリ読み取り HTTP API があるわけではないが、レジスタ・スタックフレーム・命令 bytes・maps 等の情報は返る。
 
-[middleware.rs](../src/http_server/middleware.rs) の Host/Origin/Fetch Metadata 検査はブラウザ経由の攻撃に対する防御になるが、任意の header を付けられる HTTP クライアントの認証ではない。既定 loopback と `--allow-non-loopback` の明示要求は有効な防御である一方、[main の常設プレビュー service](../scripts/systemd/procinsh-preview.service) と [公開版の service](../scripts/systemd/procinsh-release-preview.service) は `0.0.0.0` を明示して起動する。リバースプロキシを置く場合は認証/TLSに加え、裏側ポートへ直接到達できない配置にする必要がある。
+[middleware.rs](../src/http_server/middleware.rs) の Host/Origin/Fetch Metadata 検査はブラウザ経由の攻撃に対する防御になるが、任意の header を付けられる HTTP クライアントの認証ではない。既定 loopback と `--allow-non-loopback` の明示要求は有効な防御である一方、[main の常設プレビュー service](../scripts/systemd/procinsh-preview.service) と [公開版の service](../scripts/systemd/procinsh-release-preview.service) は [preview_bind.sh](../scripts/preview_bind.sh) 経由で Tailscale IPv4 のみに bind する。待受範囲は限定されるが、Tailscale 経由で到達できるクライアントに対するアプリケーション側の認証はない。リバースプロキシを置く場合は認証/TLSに加え、裏側ポートへ直接到達できない配置にする必要がある。
 
 ## 9. 対策と追加検証の順番
 

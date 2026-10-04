@@ -14,6 +14,7 @@ exec 9>"$state/update.lock"
 flock -n 9 || exit 0
 # Keep one lock through installation, activation, and rollback.
 rm -f "$state/candidate" "$state/candidate.version"
+address=$(/bin/bash "$state/preview_bind.sh" address)
 cd "$state"
 # Keep Cargo's install metadata separate from the active binary. After a failed
 # activation Cargo can reuse the installed candidate on the next attempt.
@@ -41,7 +42,7 @@ mv "$state/candidate.version" "$state/current.version"
 if systemctl --user restart "$service"; then
   for _ in {1..20}; do
     if systemctl --user is-active --quiet "$service" && \
-      curl --noproxy '*' --fail --silent --max-time 1 http://127.0.0.1:9091/ >/dev/null; then
+      curl --noproxy '*' --fail --silent --max-time 1 "http://$address:9091/" >/dev/null; then
       echo "Activated release $version"
       exit 0
     fi

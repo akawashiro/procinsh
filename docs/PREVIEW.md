@@ -4,12 +4,16 @@
 
 | 対象 | 待受 | 専用領域 | 本体 service |
 |---|---|---|---|
-| main | `0.0.0.0:9090` | `~/procinsh-main-preview` | `procinsh-preview.service` |
-| 公開最新版 | `0.0.0.0:9091` | `~/procinsh-release-preview` | `procinsh-release-preview.service` |
+| main | `<Tailscale IPv4>:9090` | `~/procinsh-main-preview` | `procinsh-preview.service` |
+| 公開最新版 | `<Tailscale IPv4>:9091` | `~/procinsh-release-preview` | `procinsh-release-preview.service` |
+
+両版とも起動時に `tailscale ip -4` でこのホストの Tailscale IPv4 を取得し、その IP だけで待ち受けます。Tailscale の IP を取得できない場合は起動しません。LAN の IP や wildcard・loopback には待ち受けません。Tailscale 接続が起動時にまだ利用できない場合は、サービスの自動再起動で再試行します。
 
 両方または必要な片方を登録できます。既存 main のサービス名と配置先は変更しません。
 
 ## 前提
+
+ホストを Tailscale に接続し、ログインユーザーが `tailscale ip -4` で IPv4 を取得できることが前提です。`tailscale` は `/usr/local/bin`、`/usr/bin` または `/bin` から利用できる必要があります。それ以外の場所にある場合は本体・更新 unit の `PATH` を調整してください。
 
 main 用 unit はログインユーザーのホームを基準に、開発用 checkout `~/ghq/github.com/akawashiro/procinsh`、専用領域 `~/procinsh-main-preview` を使用します。専用領域内の worktree は更新処理が管理するため、手作業で編集しないでください。開発用 checkout のブランチとファイルは変更しませんが、専用 Git ref と worktree 登録を追加します。
 
@@ -51,7 +55,7 @@ sudo visudo -c
 
 ```sh
 mkdir -p "$HOME/procinsh-main-preview" "$HOME/.config/systemd/user"
-install -m 0755 scripts/main_preview.sh "$HOME/procinsh-main-preview/main_preview.sh"
+install -m 0755 scripts/main_preview.sh scripts/preview_bind.sh "$HOME/procinsh-main-preview/"
 install -m 0644 scripts/systemd/procinsh-preview.service \
   scripts/systemd/procinsh-preview-update.service \
   scripts/systemd/procinsh-preview-update.timer "$HOME/.config/systemd/user/"
@@ -72,7 +76,7 @@ systemctl --user start procinsh-preview-update.service
 
 ```sh
 mkdir -p "$HOME/procinsh-release-preview" "$HOME/.config/systemd/user"
-install -m 0755 scripts/release_preview.sh "$HOME/procinsh-release-preview/release_preview.sh"
+install -m 0755 scripts/release_preview.sh scripts/preview_bind.sh "$HOME/procinsh-release-preview/"
 install -m 0644 scripts/systemd/procinsh-release-preview.service \
   scripts/systemd/procinsh-release-preview-update.service \
   scripts/systemd/procinsh-release-preview-update.timer "$HOME/.config/systemd/user/"
@@ -89,7 +93,7 @@ systemctl --user start procinsh-release-preview-update.service
 
 ### 共通の運用設定
 
-初回ビルド成功後に常設サービスが起動します。以降はユーザーマネージャー起動時に自動起動します。ログアウト後も稼働させ、OS 起動時からログインせず利用するには、一度 `loginctl enable-linger "$USER"` を実行してください。これはユーザーの linger 設定を有効にします。[systemd の説明](https://www.freedesktop.org/software/systemd/man/252/loginctl.html)を参照してください。unit と更新スクリプト自身は自動更新の対象ではありません。これらを変更したときは timer を停止して更新処理の終了を待ち、再インストールと `daemon-reload` を行ってから timer を再開してください。
+初回ビルド成功後に常設サービスが起動します。以降はユーザーマネージャー起動時に自動起動します。ログアウト後も稼働させ、OS 起動時からログインせず利用するには、一度 `loginctl enable-linger "$USER"` を実行してください。これはユーザーの linger 設定を有効にします。[systemd の説明](https://www.freedesktop.org/software/systemd/man/252/loginctl.html)を参照してください。unit と更新スクリプト自身は自動更新の対象ではありません。これらを変更したときは timer を停止して更新処理の終了を待ち、再インストールと `daemon-reload` を行ってから本体サービスを再起動し、timer を再開してください。既存の wildcard 待受から移行する場合も、`preview_bind.sh` の配置と本体サービスの再起動が必要です。再インストールと `daemon-reload` の後に、main は `systemctl --user restart procinsh-preview.service`、公開版は `systemctl --user restart procinsh-release-preview.service` を実行してください。
 
 capability 一覧を変更した場合は、sudoers の許可する引数も新しい一覧に合わせてください。配置済みの更新スクリプトを再インストールするだけでは、既存バイナリの権限は変わりません。同じ commit や同じ公開版バイナリでは更新を省略するため、timer を停止して進行中の更新が終了した後、既存バイナリを `candidate` にコピーし、上記の `sudo -n setcap` をその候補に実行してから `procinsh` に置き換え、サービスを再起動してください。稼働 commit または version の記録は維持し、起動と権限を確認してから timer を再開します。置き換え前のバイナリは hard link で退避すると capability を保持したまま復元できます。未反映の候補が残っている場合は、候補と `candidate.commit`（公開版は `candidate.version`）を先に退避してください。
 
@@ -111,7 +115,7 @@ capability 一覧を変更した場合は、sudoers の許可する引数も新�
 
 ### 更新失敗と復元
 
-ビルド・インストール・権限付与失敗時は稼働版を維持します。成功時は同じ専用領域内でバイナリを原子的に入れ替えて再起動し、約10秒を目安に loopback の HTTP 応答とサービス状態を確認します。起動失敗時は直前のバイナリと commit または version に戻します。初回起動が失敗した場合は候補を撤去してサービスを停止します。失敗した版は次回の更新で再試行します。更新時には短い切断が発生し、観測履歴がリセットされます。
+ビルド・インストール・権限付与失敗時は稼働版を維持します。成功時は同じ専用領域内でバイナリを原子的に入れ替えて再起動し、約10秒を目安に Tailscale IPv4 の HTTP 応答とサービス状態を確認します。起動失敗時は直前のバイナリと commit または version に戻します。初回起動が失敗した場合は候補を撤去してサービスを停止します。失敗した版は次回の更新で再試行します。更新時には短い切断が発生し、観測履歴がリセットされます。
 
 ```sh
 # main: 稼働中の commit とログ
@@ -141,6 +145,15 @@ systemctl --user stop procinsh-release-preview-update.service
 systemctl --user disable --now procinsh-release-preview.service
 ```
 
-登録後は `systemctl --user status procinsh-preview.service procinsh-release-preview.service` と、`curl --noproxy '*' --fail http://127.0.0.1:9090/`、`curl --noproxy '*' --fail http://127.0.0.1:9091/` で状態と HTTP 応答を確認してください。片方だけ登録した場合は対応するサービス・ポートだけ確認します。LAN・VPN からはホストのアドレスの 9090・9091 に接続します。ログアウト・OS 再起動後も接続できること、観測機能が動くこと、main の新しい commit と公開版の新しいバージョンがそれぞれ反映されることを実機で確認してください。更新失敗時の復元確認は検証用ホストで行ってください。
+登録後は次のコマンドで状態と HTTP 応答を確認してください。片方だけ登録した場合は対応するサービス・ポートだけ確認します。
+
+```sh
+systemctl --user status procinsh-preview.service procinsh-release-preview.service
+preview_ip=$(tailscale ip -4)
+curl --noproxy '*' --fail "http://$preview_ip:9090/"
+curl --noproxy '*' --fail "http://$preview_ip:9091/"
+```
+
+Tailscale に接続した端末からは、このホストの Tailscale IPv4 の 9090・9091 に接続します。ログアウト・OS 再起動後も接続できること、観測機能が動くこと、main の新しい commit と公開版の新しいバージョンがそれぞれ反映されることを実機で確認してください。更新失敗時の復元確認は検証用ホストで行ってください。
 
 外部接続、再起動後の起動、観測機能、更新と復元の実機確認はユーザーが行います。
