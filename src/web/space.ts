@@ -777,7 +777,7 @@ function networkDetails() {
     button.textContent = `FD ${e.endpoint.fd}${e.endpoint.fd_count > 1 ? ` (+${e.endpoint.fd_count - 1} shared FDs)` : ""} · ${Display.state(e.socket!.state)}`;
     button.onclick = () => selectConnection(e.id);
     const address = document.createElement("span");
-    address.textContent = `${Display.address(e.socket!.local) || e.socket!.path || "—"} → ${e.socket!.remote}`;
+    address.textContent = `${Display.address(e.socket!.local) || e.socket!.path || "—"} → ${Display.address(e.socket!.remote)}`;
     const stat = edgeStats.get(e.id),
       observed = document.createElement("span");
     observed.textContent = stat
