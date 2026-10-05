@@ -65,6 +65,8 @@ cargo publish --dry-run
 
 `main.rs` が唯一の crate root で、CLI の検証後は `http_server::run` だけを呼びます。Rust library API は提供しません。モジュールは直接の利用者の最小共通祖先に置き、子モジュールの宣言は private、親に必要な item は原則 `pub(super)` とします。
 
+Rust の型名は責務を表します。データ・値は表す内容（`ProcessId`、`ProcessSummary`、`ProcessSnapshot` など）、処理・状態・リソースを管理する型は役割（`ProcessScanner`、`ProcessMonitor`、`FileActivityCollector`、`PerfEventReader`、`PtraceGuard` など）が伝わる名前にします。補助メソッドの有無だけでは分類せず、すべての型に機械的な接尾辞を付けることは求めません。
+
 階層モジュールは `foo.rs` + `foo/` で表し、`mod.rs` は使用しません。`foo.rs` は module documentation、子モジュール宣言、re-export のみを持ち、型・関数・定数の実装は責務を表す子ファイルに置きます。
 
 HTTP の起動と終了は `http_server/server.rs`、共有状態は `state.rs`、router の組み立ては `router.rs` と `api/router.rs`、HTTP guard とアクセスログは `middleware.rs` が担当します。process façade の実装は `process/identity.rs` と `process/resources.rs`、観測の lifecycle は `monitoring/service.rs`、snapshot の orchestration は `snapshot/capture.rs` に置きます。symbol は `symbol/cache.rs` と `symbol/resolve.rs`、system monitoring は `system/service.rs` と状態ログの `status.rs` に分けています。 `activity.rs` は BPF センサーの所有・収集・状態と欠落数の管理を担当します。依存関係図はこれらの子モジュールも含めて生成され、概要図では従来どおり各サブシステムへ集約されます。
@@ -142,7 +144,7 @@ SSE は `Content-Type: text/event-stream` で接続を維持し、`event:` に�
 | `activity` | 最大10Hzの活動集計。`captured_at`、`window_ms`、`cpu`、`ipc`、`files`、`status` |
 | `gap` | 購読遅延時の `{dropped_frames: 件数}`。続けて最新 `snapshot` を送り、失われた活動は再送しない |
 
-`system/snapshot.rs` の `SystemSnapshot` を配信します。`Process` はプロセス、`FdEndpoint` はプロセスの FD 端点、`FdRelation` は socket・pipe・共有所有の関係を表します。
+`system/snapshot.rs` の `SystemSnapshot` を配信します。`ProcessSnapshot` はプロセス、`FdEndpoint` はプロセスの FD 端点、`FdRelation` は socket・pipe・共有所有の関係を表します。
 
 `snapshot` のトップレベルは `captured_at`、`processes`、`fd_relations`、`warnings`、`inspected_processes`、`inspected_fds` です。初回収集前は空の構造の場合があります。
 
@@ -183,7 +185,7 @@ Axum がルートごとにクエリや JSON を取り出し、ハンドラへ渡
 ### 設定とプロセス一覧
 
 - `GET /api/config`：パッケージのバージョン、起動時に指定した更新間隔、履歴の保持秒数を返します。
-- `GET /api/processes`：要求ごとに `Discovery` が `/proc` を走査し、プロセス識別子、名前、コマンド、ユーザー、メモリ量などを返します。前回の収集値との差分から CPU 使用率を求めます。初回など差分がない場合は null です。
+- `GET /api/processes`：要求ごとに `ProcessScanner` が `/proc` を走査し、プロセス識別子、名前、コマンド、ユーザー、メモリ量などを返します。前回の収集値との差分から CPU 使用率を求めます。初回など差分がない場合は null です。
 
 ### 要求時の観測・スレッド・マップ
 

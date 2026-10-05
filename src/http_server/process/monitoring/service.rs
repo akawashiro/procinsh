@@ -25,7 +25,7 @@ use tokio::sync::watch;
 /// SSE observation state with detailed maps and independently aged live samples.
 /// Map entries flatten structural mappings with optional RSS/PSS measurements.
 #[derive(Clone, Debug, Serialize)]
-pub(in crate::http_server) struct Target {
+pub(in crate::http_server) struct ProcessDetailSnapshot {
     summary: ProcessSummary,
     pub(in crate::http_server) exited: bool,
     error: Option<String>,
@@ -38,14 +38,15 @@ pub(in crate::http_server) struct Target {
     live_samples: Vec<process::snapshot::ThreadSample>,
     sampling_error: Option<String>,
 }
-pub(in crate::http_server) struct Monitoring {
+/// Manages process observation sessions, collector workers and shutdown.
+pub(in crate::http_server) struct ProcessMonitor {
     interval: Duration,
     stopped: AtomicBool,
     viewers: Mutex<usize>,
     workers: Mutex<Vec<std::thread::JoinHandle<()>>>,
 }
 pub(in crate::http_server) struct ObservationPermit {
-    state: Arc<Monitoring>,
+    state: Arc<ProcessMonitor>,
     cancelled: Arc<AtomicBool>,
 }
 impl Drop for ObservationPermit {
@@ -55,10 +56,10 @@ impl Drop for ObservationPermit {
     }
 }
 pub(in crate::http_server) struct ObservationSession {
-    pub(in crate::http_server) receiver: watch::Receiver<Target>,
+    pub(in crate::http_server) receiver: watch::Receiver<ProcessDetailSnapshot>,
     _permit: ObservationPermit,
 }
-impl Monitoring {
+impl ProcessMonitor {
     pub(in crate::http_server) fn new(interval: Duration) -> Self {
         Self {
             interval,
@@ -213,7 +214,7 @@ impl Monitoring {
 
 pub(in crate::http_server::process) fn capture_target(
     id: ProcessId,
-) -> Result<(Target, ProcessSample)> {
+) -> Result<(ProcessDetailSnapshot, ProcessSample)> {
     process::check_identity(id)?;
     let stat = procfs::read_stat(&format!("/proc/{}/stat", id.pid))?;
     let summary = process::summary(&stat, &process::users());
@@ -222,7 +223,7 @@ pub(in crate::http_server::process) fn capture_target(
     let observation = initial_observation(&sample);
     let mut history = VecDeque::new();
     history::push(&mut history, &observation);
-    let mut target = Target {
+    let mut target = ProcessDetailSnapshot {
         summary,
         exited: false,
         error: None,
@@ -240,7 +241,7 @@ pub(in crate::http_server::process) fn capture_target(
     Ok((target, sample))
 }
 
-fn refresh_maps(target: &mut Target) {
+fn refresh_maps(target: &mut ProcessDetailSnapshot) {
     let id = target.summary.identity;
     match maps::read_smaps(id.pid).and_then(|m| {
         process::check_identity(id)?;

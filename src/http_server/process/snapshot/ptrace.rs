@@ -21,12 +21,13 @@ fn request(operation: libc::c_uint, tid: i32, address: usize, data: usize) -> Re
     }
     Ok(())
 }
-struct Attachment {
+/// Owns a ptrace attachment and attempts to detach the thread when dropped.
+struct PtraceGuard {
     tid: i32,
     stopped: bool,
     signal: usize,
 }
-impl Attachment {
+impl PtraceGuard {
     fn wait(&mut self) -> Result<()> {
         loop {
             let mut status = 0;
@@ -51,7 +52,7 @@ impl Attachment {
         }
     }
 }
-impl Drop for Attachment {
+impl Drop for PtraceGuard {
     fn drop(&mut self) {
         if !self.stopped {
             let _ = request(libc::PTRACE_INTERRUPT, self.tid, 0, 0);
@@ -80,7 +81,7 @@ impl Drop for Attachment {
 }
 pub(super) fn capture(tid: i32, maps: &[MemoryMap]) -> Result<RawSample> {
     request(libc::PTRACE_SEIZE, tid, 0, 0)?;
-    let mut attachment = Attachment {
+    let mut attachment = PtraceGuard {
         tid,
         stopped: false,
         signal: 0,
@@ -143,7 +144,7 @@ mod tests {
         let target = TestTarget::new("sleeping");
         let failed = (|| -> Result<()> {
             request(libc::PTRACE_SEIZE, target.id.pid, 0, 0)?;
-            let mut attachment = Attachment {
+            let mut attachment = PtraceGuard {
                 tid: target.id.pid,
                 stopped: false,
                 signal: 0,
@@ -167,7 +168,7 @@ mod tests {
         let target = TestTarget::new("sleeping");
         let maps = process::maps::read_maps(target.id.pid).unwrap();
         request(libc::PTRACE_SEIZE, target.id.pid, 0, 0).unwrap();
-        let attachment = Attachment {
+        let attachment = PtraceGuard {
             tid: target.id.pid,
             stopped: false,
             signal: 0,

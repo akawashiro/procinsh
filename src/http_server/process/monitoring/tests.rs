@@ -1,11 +1,11 @@
-use super::Monitoring as AppState;
-use crate::http_server::process::{self as process, Discovery, test_support::Target};
+use super::ProcessMonitor as AppState;
+use crate::http_server::process::{self as process, ProcessScanner, test_support::Target};
 use std::{sync::Arc, time::Duration};
 
 #[test]
 fn discovery_rates_history_and_process_exit() {
     let mut target = Target::new("busy_loop");
-    let mut discovery = Discovery::default();
+    let mut discovery = ProcessScanner::default();
     assert!(
         discovery
             .collect()

@@ -10,11 +10,12 @@ struct Entry {
     expires: Instant,
     pending: bool,
 }
-pub(super) struct Resolver {
+/// Queues background reverse DNS lookups and caches their results.
+pub(super) struct ReverseDnsResolver {
     cache: Arc<Mutex<HashMap<IpAddr, Entry>>>,
     tx: mpsc::SyncSender<IpAddr>,
 }
-impl Resolver {
+impl ReverseDnsResolver {
     pub(super) fn new() -> Self {
         let cache = Arc::new(Mutex::new(HashMap::<IpAddr, Entry>::new()));
         let (tx, rx) = mpsc::sync_channel::<IpAddr>(4096);
@@ -120,7 +121,7 @@ mod tests {
     #[test]
     fn queues_once_and_retries_expired_negative_entries() {
         let (tx, rx) = mpsc::sync_channel(4096);
-        let r = Resolver {
+        let r = ReverseDnsResolver {
             cache: Arc::new(Mutex::new(HashMap::new())),
             tx,
         };
@@ -155,7 +156,7 @@ mod tests {
 
     #[test]
     fn cached_positive_negative_and_pending() {
-        let r = Resolver::new();
+        let r = ReverseDnsResolver::new();
         for (ip, name, pending) in [
             ("192.0.2.1", Some("example.test".to_string()), false),
             ("2001:db8::1", None, false),

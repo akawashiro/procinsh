@@ -79,13 +79,14 @@ impl Batch {
         }
     }
 }
-pub(super) struct Files {
+/// Owns BPF resources and collects aggregated regular-file I/O activity.
+pub(super) struct FileActivityCollector {
     ring: libbpf_rs::RingBuffer<'static>,
     _links: Vec<libbpf_rs::Link>,
     obj: libbpf_rs::Object,
     batch: Arc<Mutex<Batch>>,
 }
-impl Files {
+impl FileActivityCollector {
     pub(super) fn new() -> Result<Self> {
         let obj = ObjectBuilder::default()
             .open_memory(include_bytes!(concat!(env!("OUT_DIR"), "/files.bpf.o")))?

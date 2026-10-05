@@ -2,7 +2,8 @@ use super::model::CpuActivity;
 use anyhow::{Context, Result};
 use libbpf_rs::{MapCore, MapFlags, ObjectBuilder};
 use std::collections::HashMap;
-pub(super) struct Scheduler {
+/// Owns BPF resources and derives CPU activity from scheduler counters.
+pub(super) struct CpuActivityCollector {
     _links: Vec<libbpf_rs::Link>,
     obj: libbpf_rs::Object,
     previous_cpu: HashMap<ProcessKey, (u64, u64)>,
@@ -31,7 +32,7 @@ fn process_key(bytes: &[u8]) -> Option<ProcessKey> {
         pid: u32_at(bytes, 8)?,
     })
 }
-impl Scheduler {
+impl CpuActivityCollector {
     pub(super) fn new() -> Result<Self> {
         let open = ObjectBuilder::default()
             .open_memory(include_bytes!(concat!(env!("OUT_DIR"), "/sched.bpf.o")))?;

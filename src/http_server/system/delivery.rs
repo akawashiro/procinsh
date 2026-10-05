@@ -7,9 +7,10 @@ use std::{
     time::{Duration, Instant},
 };
 
-/// Per-connection baseline of the last successfully serialized snapshot.
+/// Encodes full/delta snapshots using a per-connection baseline of the last
+/// successfully serialized snapshot.
 #[derive(Default)]
-pub(in crate::http_server) struct SnapshotDelivery {
+pub(in crate::http_server) struct SnapshotEncoder {
     previous: Option<Arc<SystemSnapshot>>,
     last_full: Option<Instant>,
     epochs: HashMap<ProcessId, u64>,
@@ -67,7 +68,7 @@ fn map_delta<'a>(old: &[MemoryMap], current: &'a [MemoryMap]) -> EntryDelta<'a, 
             .collect(),
     }
 }
-impl SnapshotDelivery {
+impl SnapshotEncoder {
     /// Encodes full or delta SSE snapshots with a sequence and, for deltas, base sequence.
     /// Map deltas use start addresses; FD relation deltas use relation IDs. Collections
     /// use replacement when a delta is larger. Unchanged maps are omitted and retain
@@ -191,13 +192,13 @@ impl SnapshotDelivery {
 
 #[cfg(test)]
 mod tests {
-    use super::super::snapshot::Process;
+    use super::super::snapshot::ProcessSnapshot;
     use super::*;
     use crate::http_server::{process::MemoryMap, resource::DeviceId};
 
     fn fixture(start: u64, mapped: bool, epoch: u64) -> Arc<SystemSnapshot> {
         Arc::new(SystemSnapshot {
-            processes: vec![Process {
+            processes: vec![ProcessSnapshot {
                 identity: ProcessId {
                     pid: 42,
                     start_time_ticks: start,
@@ -231,7 +232,7 @@ mod tests {
         })
     }
     fn payload(
-        delivery: &mut SnapshotDelivery,
+        delivery: &mut SnapshotEncoder,
         data: Arc<SystemSnapshot>,
         full: bool,
         now: Instant,
@@ -241,7 +242,7 @@ mod tests {
     #[test]
     fn unchanged_maps_are_omitted_until_refresh_or_gap() {
         let now = Instant::now();
-        let mut delivery = SnapshotDelivery::default();
+        let mut delivery = SnapshotEncoder::default();
         let first = payload(&mut delivery, fixture(1, true, 10), false, now);
         let map = &first["processes"][0]["maps"][0];
         assert_eq!(map["start"], "0x0000000000001000");
@@ -289,7 +290,7 @@ mod tests {
     #[test]
     fn changed_empty_reused_and_new_connections_send_maps() {
         let now = Instant::now();
-        let mut delivery = SnapshotDelivery::default();
+        let mut delivery = SnapshotEncoder::default();
         payload(&mut delivery, fixture(1, true, 1), false, now);
         let empty = payload(&mut delivery, fixture(1, false, 2), false, now);
         assert_eq!(empty["processes"][0]["maps"], serde_json::json!([]));
@@ -306,7 +307,7 @@ mod tests {
         let returned = payload(&mut delivery, fixture(2, true, 5), false, now);
         assert!(returned["processes"][0]["maps"].is_array());
         let other = payload(
-            &mut SnapshotDelivery::default(),
+            &mut SnapshotEncoder::default(),
             fixture(2, true, 5),
             false,
             now,
@@ -347,7 +348,7 @@ mod tests {
                 shared: false,
             })
             .collect();
-        let mut delivery = SnapshotDelivery::default();
+        let mut delivery = SnapshotEncoder::default();
         let full = payload(&mut delivery, Arc::new(initial.clone()), false, now);
         assert_eq!(full["kind"], "full");
         let mut current = initial.clone();

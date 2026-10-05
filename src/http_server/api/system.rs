@@ -1,6 +1,6 @@
 use super::super::{
     AppState,
-    system::{SnapshotDelivery, SubscribeError, SystemMonitorEvent},
+    system::{SnapshotEncoder, SubscribeError, SystemMonitorEvent},
 };
 use axum::{
     extract::State,
@@ -23,7 +23,7 @@ pub(super) async fn events(State(s): State<Arc<AppState>>) -> Result<Response, S
         SubscribeError::TooManySubscribers => StatusCode::TOO_MANY_REQUESTS,
     })?;
     let stream = async_stream::stream! {
-        let mut delivery = SnapshotDelivery::default();
+        let mut delivery = SnapshotEncoder::default();
         let initial = delivery.encode(subscription.initial.clone(), true, Instant::now()).unwrap();
         log::debug!("SSE /api/system/events event=snapshot payload_bytes={}", initial.len());
         yield Ok::<_,Infallible>(Event::default().event("snapshot").data(initial));

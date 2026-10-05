@@ -55,7 +55,7 @@ Rust の本番コード、3種類の BPF C コード、起動・テスト・常�
 
 ロックを持つスレッドを停止すると、他スレッドや別プロセスもそのロック待ちになりうる。リアルタイム処理、heartbeat、短い deadline を持つ通信やトランザクションには、メモリを変更しなくても影響する。全スレッドを同時停止していないため、共有メモリや maps を含む観測がプロセス全体の一貫した snapshot になるわけでもない。
 
-`Attachment::wait` は `waitpid(tid, ..., __WALL)` をブロッキングで呼ぶ。期限、キャンセルの確認、`WNOHANG` による監視がない。対象がカーネル内の長い待ちから停止可能な状態へ戻らない場合、観測側は待ち続けうる。また、停止後の `process_vm_readv` にも時間の上限がない。ページ取得などで読み取りが遅れる場合、16 KiB というサイズ制限だけでは停止時間を制限できない。
+`PtraceGuard::wait` は `waitpid(tid, ..., __WALL)` をブロッキングで呼ぶ。期限、キャンセルの確認、`WNOHANG` による監視がない。対象がカーネル内の長い待ちから停止可能な状態へ戻らない場合、観測側は待ち続けうる。また、停止後の `process_vm_readv` にも時間の上限がない。ページ取得などで読み取りが遅れる場合、16 KiB というサイズ制限だけでは停止時間を制限できない。
 
 この待機中は [monitoring/service.rs](../src/http_server/process/monitoring/service.rs) のキャンセル・停止フラグを確認できない。接続が切れても `spawn_blocking` 内の初期化を直ちに止める仕組みはなく、collector の `join` にも期限がない。停止時間を含む悪条件での再現確認が必要である。
 
@@ -63,7 +63,7 @@ Rust の本番コード、3種類の BPF C コード、起動・テスト・常�
 
 ### 2.2 group-stop を「合成停止」とまとめて扱っている
 
-`Attachment::wait` は `status >> 16 == 0` の場合だけ `WSTOPSIG` を保存し、それ以外では `signal = 0` のまま detach する。コメントは `PTRACE_EVENT_STOP` を合成停止として説明しているが、`PTRACE_SEIZE` では SIGSTOP/SIGTSTP 等による **group-stop も `PTRACE_EVENT_STOP` として通知される**。`WSTOPSIG` とイベント種別を合わせた分類が必要であり、再開操作は停止状態を変えうる。[ptrace(2): Group-stop / PTRACE_DETACH](https://man7.org/linux/man-pages/man2/ptrace.2.html)
+`PtraceGuard::wait` は `status >> 16 == 0` の場合だけ `WSTOPSIG` を保存し、それ以外では `signal = 0` のまま detach する。コメントは `PTRACE_EVENT_STOP` を合成停止として説明しているが、`PTRACE_SEIZE` では SIGSTOP/SIGTSTP 等による **group-stop も `PTRACE_EVENT_STOP` として通知される**。`WSTOPSIG` とイベント種別を合わせた分類が必要であり、再開操作は停止状態を変えうる。[ptrace(2): Group-stop / PTRACE_DETACH](https://man7.org/linux/man-pages/man2/ptrace.2.html)
 
 現実装は通常の割り込み停止と group-stop を区別しないため、既に停止している対象や、捕捉と SIGSTOP/SIGCONT が競合した対象で、停止・再開の意味を保存できるかが懸念となる。実機で意図しない再開が起きることを確認したわけではないが、ユーザーが気にしている「観測だけで対象の挙動を変える」経路として優先的に検証すべきである。
 
@@ -71,7 +71,7 @@ Rust の本番コード、3種類の BPF C コード、起動・テスト・常�
 
 ### 2.3 エラー時の detach は配慮されているが、回復を保証しない
 
-`SEIZE` 成功後すぐに `Attachment` を作るため、通常の早期 return と panic unwind では `Drop` が detach を試みる。`waitpid` と `DETACH` の `EINTR` は再試行し、通常の signal-delivery-stop は保存したシグナルを detach 時に渡す。この配慮は有効である。
+`SEIZE` 成功後すぐに `PtraceGuard` を作るため、通常の早期 return と panic unwind では `Drop` が detach を試みる。`waitpid` と `DETACH` の `EINTR` は再試行し、通常の signal-delivery-stop は保存したシグナルを detach 時に渡す。この配慮は有効である。
 
 一方、停止していない場合の `Drop` 自体も `INTERRUPT → wait` を行い、そこでブロックしうる。detach が `EINTR` 以外で失敗すると警告だけを出して終了し、attachment の回復を追跡しない。対象終了による `ESRCH` は問題のない場合もあるので、すべての失敗を対象の取り残しと断定してはいけない。しかし、生存中の対象について回復できたことの確認もない。
 
