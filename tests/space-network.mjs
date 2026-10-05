@@ -24,6 +24,8 @@ export async function checkNetworkSpace(evaluate, delay, cdp) {
   await clickProjected('screen');
   assert.equal(await evaluate("document.getElementById('connection-state').textContent"),'Network destination');
   assert.match(await evaluate("document.getElementById('connection-endpoints').textContent"),/FD 40[\s\S]*FD 41/);
+  assert.match(await evaluate("document.getElementById('connection-endpoints').textContent"),/127\.0\.0\.1:40 → 203\.0\.113\.10:443/);
+  assert.match(await evaluate("document.getElementById('connection-endpoints').textContent"),/127\.0\.0\.1:41 → 203\.0\.113\.10:443/);
   await evaluate("document.querySelector('#connection-endpoints button').click()");
   assert.match(await evaluate("document.getElementById('connection-endpoints').textContent"),/FD 40/);
   await evaluate("Array.from(document.querySelectorAll('#connection-endpoints button')).find(b=>b.textContent==='Show all connections to this destination').click()");
