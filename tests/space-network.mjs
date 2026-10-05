@@ -5,7 +5,7 @@ export async function checkNetworkSpace(evaluate, delay, cdp) {
   await evaluate(`(async()=>{
     const m=await import('/space.js');
     const node={identity:{pid:900001,start_time_ticks:1},name:'network-browser',uid:1000,euid:0,maps:[]};
-    const edge=(id,remote,fd)=>({id,endpoint:{process_id:node.identity,fd,fd_count:1,resource:{kind:'socket',device:{major:0,minor:0},inode:String(fd)},access:'read_write'},peer:null,label:'TCP '+remote,shared:false,candidate:false,socket:{protocol:{kind:'tcp',family:'ipv4'},state:{kind:'established'},local:{ip:'127.0.0.1',port:fd},remote:(()=>{const i=remote.lastIndexOf(':');return {ip:remote.slice(0,i),port:Number(remote.slice(i+1))}})(),remote_hostname:remote.startsWith('203.')?'example.test':null,network_peer:true}});
+    const edge=(id,remote,fd)=>({id,endpoint:{process_id:node.identity,fd,fd_count:1,resource:{kind:'socket',device:{major:0,minor:0},inode:String(fd)},access:'read_write'},peer:null,label:'TCP '+remote,shared:false,candidate:false,socket:{protocol:{kind:'tcp',family:'ipv4'},state:{kind:'established'},local:{ip:'127.0.0.1',port:fd},remote:(()=>{const i=remote.lastIndexOf(':');return {ip:remote.startsWith('[')?remote.slice(1,i-1):remote.slice(0,i),port:Number(remote.slice(i+1))}})(),remote_hostname:remote.startsWith('203.')?'example.test':null,network_peer:true}});
     const edges=[edge('net-a','203.0.113.10:443',40),edge('net-b','203.0.113.10:443',41),edge('net-v6','[2001:db8::1]:443',42)];
     edges.push({...edge('listen','0.0.0.0:0',43),socket:{protocol:{kind:'tcp',family:'ipv4'},state:{kind:'listen'},local:{ip:'0.0.0.0',port:8080},remote:{ip:'0.0.0.0',port:0},network_peer:false}});
     window.networkFixture={processes:[node],fd_relations:edges};m.renderSystemSnapshot(window.networkFixture,true);m.fitScene();
@@ -26,6 +26,24 @@ export async function checkNetworkSpace(evaluate, delay, cdp) {
   assert.match(await evaluate("document.getElementById('connection-endpoints').textContent"),/FD 40[\s\S]*FD 41/);
   assert.match(await evaluate("document.getElementById('connection-endpoints').textContent"),/127\.0\.0\.1:40 → 203\.0\.113\.10:443/);
   assert.match(await evaluate("document.getElementById('connection-endpoints').textContent"),/127\.0\.0\.1:41 → 203\.0\.113\.10:443/);
+  const heading = () => evaluate("document.querySelector('#connection-endpoints > p').textContent");
+  assert.equal(await heading(),'network-browser · PID 900001 → example.test:443 (203.0.113.10:443) · 2 connections');
+  for (const hostname of [null, '']) {
+    await evaluate(`(async()=>{
+      const m=await import('/space.js'),f=window.networkFixture;
+      for(const e of f.fd_relations)if(e.id==='net-a'||e.id==='net-b')e.socket.remote_hostname=${JSON.stringify(hostname)};
+      m.renderSystemSnapshot(f);
+    })()`);
+    assert.equal(await heading(),'network-browser · PID 900001 → 203.0.113.10:443 · 2 connections','unresolved IPv4 address is shown once');
+  }
+  await evaluate(`(async()=>{
+    const m=await import('/space.js'),f=window.networkFixture;
+    for(const e of f.fd_relations)if(e.id==='net-a'||e.id==='net-b')e.socket.remote_hostname='example.test';
+    m.renderSystemSnapshot(f);
+    m.selectNetwork(m.networkVisuals().find(g=>g.members.includes('net-v6')).id);
+  })()`);
+  assert.equal(await heading(),'network-browser · PID 900001 → [2001:db8::1]:443 · 1 connections','unresolved IPv6 address is shown once with one pair of brackets');
+  await evaluate("import('/space.js').then(m=>m.selectNetwork(m.networkVisuals().find(g=>g.members.includes('net-a')).id))");
   await evaluate("document.querySelector('#connection-endpoints button').click()");
   assert.match(await evaluate("document.getElementById('connection-endpoints').textContent"),/FD 40/);
   await evaluate("Array.from(document.querySelectorAll('#connection-endpoints button')).find(b=>b.textContent==='Show all connections to this destination').click()");
@@ -44,6 +62,7 @@ export async function checkNetworkSpace(evaluate, delay, cdp) {
     const before=m.networkVisuals().map(g=>[g.id,g.position]);
     for(const e of f.fd_relations)if(e.socket.remote_hostname)e.socket.remote_hostname='renamed.example.test';
     m.renderSystemSnapshot({...f,fd_relations:[...f.fd_relations].reverse()});
+    const renamed=document.querySelector('#connection-endpoints > p').textContent==='network-browser · PID 900001 → renamed.example.test:443 (203.0.113.10:443) · 2 connections';
     const stable=before.every(([id,p])=>JSON.stringify(m.networkVisuals().find(g=>g.id===id).position)===JSON.stringify(p));
     document.getElementById('rearrange').click();
     const rearranged=m.networkVisuals().length===2&&!document.getElementById('details').hidden&&m.networkParticles().length===0;
@@ -54,7 +73,7 @@ export async function checkNetworkSpace(evaluate, delay, cdp) {
     m.renderSystemSnapshot(f);m.selectConnection('listen');
     const listening=document.getElementById('connection-state').textContent==='Listening';
     document.getElementById('reset').click();
-    return {stable,rearranged,kept,removed,listening};
+    return {renamed,stable,rearranged,kept,removed,listening};
   })()`);
   for(const [name,passed] of Object.entries(checks))assert.equal(passed,true,name);
   await evaluate("import('/space.js').then(m=>{m.selectNetwork(m.networkVisuals()[0].id);m.fitScene();})");
