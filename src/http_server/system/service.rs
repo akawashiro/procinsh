@@ -154,8 +154,8 @@ impl SystemMonitor {
         workers.push(spawn_worker("snapshot", move || {
             log::info!("System snapshot worker started");
             let mut previous_warnings = Vec::new();
-            let resolver = resolver::Resolver::new();
-            let mut discovery = crate::http_server::process::Discovery::default();
+            let resolver = resolver::ReverseDnsResolver::new();
+            let mut discovery = crate::http_server::process::ProcessScanner::default();
             let mut full = Instant::now() - Duration::from_secs(10);
             while !monitor.stopped() {
                 if !monitor.active() {

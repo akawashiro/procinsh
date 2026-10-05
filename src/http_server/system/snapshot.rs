@@ -1,5 +1,5 @@
 use crate::http_server::process::{
-    self, Discovery, MemoryMap, ProcessId, ProcessSummary, SocketInfo,
+    self, MemoryMap, ProcessId, ProcessScanner, ProcessSummary, SocketInfo,
 };
 use crate::http_server::resource::{DeviceId, IpcIdentity, IpcKind};
 use crate::http_server::socket_types::{AddressFamily, SocketProtocol, SocketState, SocketType};
@@ -14,7 +14,7 @@ use std::{
 /// A Linux process and its observed structural address space, without RSS/PSS.
 /// CPU and RSS measurements belong to [`crate::http_server::process::ProcessSummary`].
 #[derive(Clone, Serialize)]
-pub(super) struct Process {
+pub(super) struct ProcessSnapshot {
     pub(super) identity: ProcessId,
     pub(super) parent_id: Option<ProcessId>,
     pub(super) name: String,
@@ -80,7 +80,7 @@ pub(super) struct FdRelation {
 // Re-exported by system for subscription consumers.
 pub(in crate::http_server) struct SystemSnapshot {
     pub(super) captured_at: u64,
-    pub(super) processes: Vec<Process>,
+    pub(super) processes: Vec<ProcessSnapshot>,
     pub(super) fd_relations: Vec<FdRelation>,
     pub(super) warnings: Vec<String>,
     pub(super) inspected_processes: usize,
@@ -90,8 +90,8 @@ pub(in crate::http_server) struct SystemSnapshot {
 pub(super) fn process_from_summary(
     summary: ProcessSummary,
     parent_id: Option<ProcessId>,
-) -> Process {
-    Process {
+) -> ProcessSnapshot {
+    ProcessSnapshot {
         identity: summary.identity,
         parent_id,
         name: summary.name,
@@ -105,7 +105,7 @@ pub(super) fn process_from_summary(
     }
 }
 
-pub(super) fn collect(discovery: &mut Discovery) -> SystemSnapshot {
+pub(super) fn collect(discovery: &mut ProcessScanner) -> SystemSnapshot {
     let mut result = SystemSnapshot {
         captured_at: process::timestamp_ms(),
         ..Default::default()

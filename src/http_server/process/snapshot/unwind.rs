@@ -12,14 +12,15 @@ use std::sync::Arc;
 type Mapping = (u64, u64, u64, u64, u32, u32);
 
 #[derive(Default)]
-pub(super) struct UnwindState {
+/// Unwinds sampled stacks using cached rules and executable mapping metadata.
+pub(super) struct StackUnwinder {
     unwinder: UnwinderX86_64<Arc<[u8]>>,
     cache: CacheX86_64<framehop::MayAllocateDuringUnwind>,
     mappings: Vec<Mapping>,
     modules: Vec<(u64, u64, bool)>,
 }
 
-impl UnwindState {
+impl StackUnwinder {
     /// Rebuild on executable-map changes, including unload/reload and ASLR.
     /// Failed acquisitions remain diagnostic until executable mappings change.
     pub(super) fn refresh(&mut self, pid: i32, maps: &[MemoryMap], symbols: &mut ElfCache) {
@@ -214,7 +215,7 @@ mod tests {
                 .unwrap()
                 .start;
             for indexed in [true, false] {
-                let mut state = UnwindState::default();
+                let mut state = StackUnwinder::default();
                 state.refresh(target.id.pid, &maps, &mut symbols);
                 if !indexed {
                     let mut sections = elf.unwind.clone();
@@ -251,7 +252,7 @@ mod tests {
                     "{stop}"
                 );
             }
-            let mut state = UnwindState::default();
+            let mut state = StackUnwinder::default();
             state.refresh(target.id.pid, &maps, &mut symbols);
             assert!(!state.modules.is_empty());
             state.refresh(target.id.pid, &[], &mut symbols);
@@ -266,7 +267,7 @@ mod tests {
             process::maps::parse_map("1000-2000 rw-p 0 00:00 0 [stack]").unwrap(),
             process::maps::parse_map("3000-4000 r-xp 0 00:00 0 /missing").unwrap(),
         ];
-        let mut state = UnwindState::default();
+        let mut state = StackUnwinder::default();
         let (_, reason) = state.walk(0x3010, 0x1000, 0x1100, &maps, &[]);
         assert!(reason.contains("snapshot exhausted"), "{reason}");
         assert!(reason.contains("module lookup failure"), "{reason}");

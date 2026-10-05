@@ -35,7 +35,8 @@ fn event(bytes: &[u8]) -> Option<Event> {
         worker: u32at(52) != 0,
     })
 }
-pub(super) struct Ipc {
+/// Owns BPF resources and collects IPC activity attributed to observed processes.
+pub(super) struct IpcActivityCollector {
     ring: libbpf_rs::RingBuffer<'static>,
     _links: Vec<libbpf_rs::Link>,
     obj: libbpf_rs::Object,
@@ -45,7 +46,7 @@ pub(super) struct Ipc {
     pending: HashMap<(crate::http_server::process::ProcessId, IpcIdentity, bool), (u64, u64)>,
 }
 
-impl Ipc {
+impl IpcActivityCollector {
     pub(super) fn new() -> Result<Self> {
         let open = ObjectBuilder::default()
             .open_memory(include_bytes!(concat!(env!("OUT_DIR"), "/ipc.bpf.o")))?;

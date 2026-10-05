@@ -32,7 +32,8 @@ struct Attr {
     stack: u32,
     clock: i32,
 }
-pub(super) struct Event {
+/// Owns a perf event fd and mmap ring buffer and reads thread samples.
+pub(super) struct PerfEventReader {
     _fd: OwnedFd,
     mapping: *mut u8,
     length: usize,
@@ -43,11 +44,11 @@ pub(super) struct Event {
     context_switch: bool,
     pending: Option<Sample>,
 }
-// SAFETY: Event exclusively owns its mmap and fd. Access requires &mut self;
+// SAFETY: PerfEventReader exclusively owns its mmap and fd. Access requires &mut self;
 // moving ownership to the observation worker does not share the mapping.
-unsafe impl Send for Event {}
+unsafe impl Send for PerfEventReader {}
 
-impl Event {
+impl PerfEventReader {
     pub(super) fn open(tid: i32) -> Result<Self> {
         let attr = Attr {
             kind: 1,
@@ -214,7 +215,7 @@ impl Event {
         result
     }
 }
-impl Drop for Event {
+impl Drop for PerfEventReader {
     fn drop(&mut self) {
         unsafe {
             libc::munmap(self.mapping.cast(), self.length);
@@ -270,7 +271,7 @@ fn parse(bytes: &[u8]) -> Result<Option<Sample>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn fake_event() -> Event {
+    fn fake_event() -> PerfEventReader {
         let length = 8192;
         let mapping = unsafe {
             libc::mmap(
@@ -284,7 +285,7 @@ mod tests {
         }
         .cast::<u8>();
         assert_ne!(mapping.cast(), libc::MAP_FAILED);
-        Event {
+        PerfEventReader {
             _fd: std::fs::File::open("/dev/null").unwrap().into(),
             mapping,
             length,
@@ -296,7 +297,7 @@ mod tests {
             pending: None,
         }
     }
-    fn push(event: &Event, kind: u32, misc: u16, payload: &[u8]) {
+    fn push(event: &PerfEventReader, kind: u32, misc: u16, payload: &[u8]) {
         let head = unsafe { &*event.mapping.add(1024).cast::<AtomicU64>() };
         let position = head.load(Ordering::Acquire);
         let mut bytes = Vec::new();
@@ -395,7 +396,7 @@ mod tests {
         .cast::<u8>();
         assert_ne!(mapping.cast(), libc::MAP_FAILED);
         let fd: OwnedFd = std::fs::File::open("/dev/null").unwrap().into();
-        let mut event = Event {
+        let mut event = PerfEventReader {
             _fd: fd,
             mapping,
             length,

@@ -3,11 +3,11 @@ use super::sample::SampleSource;
 use super::sample::monotonic_ns;
 use super::{
     disasm::Disassembly,
-    perf::Event,
+    perf::PerfEventReader,
     registers::{self, Register},
     stack::StackFrame,
     symbol::{ElfCache, SymbolInfo, elf_address, instruction_address, resolve_frame},
-    unwind::UnwindState,
+    unwind::StackUnwinder,
 };
 use crate::http_server::process::{self, ProcessId, maps::MemoryMap, procfs};
 use anyhow::Result;
@@ -57,8 +57,8 @@ impl ThreadSample {
 }
 struct Thread {
     start_time: u64,
-    event: Option<Event>,
-    switch_event: Option<Event>,
+    event: Option<PerfEventReader>,
+    switch_event: Option<PerfEventReader>,
     setup_error: Option<String>,
     ptrace_error: Option<String>,
     latest: ThreadSample,
@@ -68,7 +68,7 @@ pub(in crate::http_server::process) struct Sampler {
     id: ProcessId,
     threads: BTreeMap<i32, Thread>,
     symbols: ElfCache,
-    unwind: UnwindState,
+    unwind: StackUnwinder,
     next_ptrace: Option<Instant>,
 }
 impl Sampler {
@@ -77,7 +77,7 @@ impl Sampler {
             id,
             threads: BTreeMap::new(),
             symbols: ElfCache::default(),
-            unwind: UnwindState::default(),
+            unwind: StackUnwinder::default(),
             next_ptrace: None,
         }
     }
@@ -144,14 +144,14 @@ impl Sampler {
             }
             let thread = self.threads.entry(tid).or_insert_with(|| {
                 let mut latest = ThreadSample::waiting(tid);
-                let event = match Event::open(tid) {
+                let event = match PerfEventReader::open(tid) {
                     Ok(event) => Some(event),
                     Err(e) => {
                         latest.error = Some(format!("{e:#}"));
                         None
                     }
                 };
-                let switch_event = match Event::context_switch(tid) {
+                let switch_event = match PerfEventReader::context_switch(tid) {
                     Ok(event) => Some(event),
                     Err(e) => {
                         let message = format!("context-switch perf: {e:#}");
@@ -239,7 +239,7 @@ impl Sampler {
 }
 fn process_sample(
     pid: i32,
-    unwind: &mut UnwindState,
+    unwind: &mut StackUnwinder,
     symbols: &mut ElfCache,
     thread: &mut Thread,
     sample: super::sample::RawSample,
@@ -336,7 +336,7 @@ mod live_tests {
     use std::time::{Duration, Instant};
 
     fn perf_available(tid: i32) -> bool {
-        match Event::open(tid) {
+        match PerfEventReader::open(tid) {
             Ok(_) => true,
             Err(e) => {
                 let denied = e.downcast_ref::<std::io::Error>().is_some_and(|error| {
@@ -600,7 +600,7 @@ mod live_tests {
         if !perf_available(target.id.pid) {
             return;
         }
-        Event::context_switch(target.id.pid).unwrap();
+        PerfEventReader::context_switch(target.id.pid).unwrap();
         let maps = process::maps::read_maps(target.id.pid).unwrap();
         let mut sampler = Sampler::new(target.id);
         let mut complete = false;
@@ -709,7 +709,7 @@ mod live_tests {
         if !perf_available(target.id.pid) {
             return;
         }
-        Event::context_switch(target.id.pid).unwrap();
+        PerfEventReader::context_switch(target.id.pid).unwrap();
         let maps = process::maps::read_maps(target.id.pid).unwrap();
         let mut sampler = Sampler::new(target.id);
         poll_until(&mut sampler, &maps, |s| {

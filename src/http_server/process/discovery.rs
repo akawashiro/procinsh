@@ -88,10 +88,11 @@ pub(super) fn users() -> HashMap<u32, String> {
 }
 
 #[derive(Default)]
-pub(in crate::http_server) struct Discovery {
+/// Scans procfs for process summaries and retains counters for CPU-rate calculation.
+pub(in crate::http_server) struct ProcessScanner {
     previous: HashMap<ProcessId, (u64, Instant)>,
 }
-impl Discovery {
+impl ProcessScanner {
     pub(in crate::http_server) fn collect(&mut self) -> Result<Vec<ProcessSummary>> {
         let users = users();
         let now = Instant::now();

@@ -6,11 +6,11 @@
 //!
 //! | Definition | Visibility | Kind / type |
 //! | --- | --- | --- |
-//! | [`Discovery`] | `pub(super)` | `struct `[`Discovery`] |
+//! | [`ProcessScanner`] | `pub(super)` | `struct `[`ProcessScanner`] |
 //! | [`ProcessSummary`] | `pub(super)` | `struct `[`ProcessSummary`] |
 //! | [`ProcessId`] | `pub(super)` | `struct `[`ProcessId`] |
 //! | [`MemoryMap`] | `pub(super)` | `struct `[`MemoryMap`] |
-//! | [`Monitoring`] | `pub(super)` | `struct `[`Monitoring`] |
+//! | [`ProcessMonitor`] | `pub(super)` | `struct `[`ProcessMonitor`] |
 //! | [`SubscribeError`] | `pub(super)` | `enum `[`SubscribeError`] |
 //! | [`SocketInfo`] | `pub(super)` | `struct `[`SocketInfo`] |
 //!
@@ -46,13 +46,13 @@ mod resources;
 mod snapshot;
 mod sockets;
 mod threads;
-pub(super) use discovery::{Discovery, ProcessSummary};
+pub(super) use discovery::{ProcessScanner, ProcessSummary};
 use discovery::{summary, users};
 #[cfg(test)]
 pub(super) use identity::identity;
 pub(super) use identity::{ProcessId, check_identity};
 pub(super) use maps::MemoryMap;
-pub(super) use monitoring::Monitoring;
+pub(super) use monitoring::ProcessMonitor;
 use resources::permission_help;
 pub(super) use resources::{
     SubscribeError, auxv, environment, fds, fields, inet_sockets, maps, memory_maps, observation,

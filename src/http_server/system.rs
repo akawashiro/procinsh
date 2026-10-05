@@ -8,14 +8,14 @@
 //! | [`SystemMonitor`] | `pub(super)` | `struct `[`SystemMonitor`] |
 //! | [`SystemMonitorEvent`] | `pub(super)` | `enum `[`SystemMonitorEvent`] |
 //! | [`SystemSnapshot`] | `pub(super)` | `struct `[`SystemSnapshot`] |
-//! | [`SnapshotDelivery`] | `pub(super)` | `struct `[`SnapshotDelivery`] |
+//! | [`SnapshotEncoder`] | `pub(super)` | `struct `[`SnapshotEncoder`] |
 //!
 //! [`SystemMonitorEvent`] delivers structural snapshots and [`model::SystemActivity`]
-//! sensor observations. [`SnapshotDelivery`] encodes snapshots for each SSE connection.
+//! sensor observations. [`SnapshotEncoder`] encodes snapshots for each SSE connection.
 
 mod activity;
 mod delivery;
-pub(super) use delivery::SnapshotDelivery;
+pub(super) use delivery::SnapshotEncoder;
 mod files;
 mod ipc;
 mod model;

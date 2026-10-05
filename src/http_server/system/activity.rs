@@ -1,12 +1,15 @@
 use super::files::FileActivity;
 use super::model::{CpuActivity, IpcActivity, SensorState, SystemMonitorStatus};
-use super::{SystemSnapshot, files::Files, ipc::Ipc, sched::Scheduler};
+use super::{
+    SystemSnapshot, files::FileActivityCollector, ipc::IpcActivityCollector,
+    sched::CpuActivityCollector,
+};
 
 /// Owns independently initialized BPF sensors, without service lifecycle or delivery.
 pub(super) struct ActivityCollector {
-    ipc: Option<Ipc>,
-    scheduler: Option<Scheduler>,
-    files: Option<Files>,
+    ipc: Option<IpcActivityCollector>,
+    scheduler: Option<CpuActivityCollector>,
+    files: Option<FileActivityCollector>,
     status: SystemMonitorStatus,
 }
 
@@ -27,9 +30,9 @@ impl ActivityCollector {
             files_coverage: Some(super::files::COVERAGE),
             ..SystemMonitorStatus::default()
         };
-        let ipc = initialize(Ipc::new(), &mut status.ipc);
-        let scheduler = initialize(Scheduler::new(), &mut status.cpu);
-        let files = initialize(Files::new(), &mut status.files);
+        let ipc = initialize(IpcActivityCollector::new(), &mut status.ipc);
+        let scheduler = initialize(CpuActivityCollector::new(), &mut status.cpu);
+        let files = initialize(FileActivityCollector::new(), &mut status.files);
         Self {
             ipc,
             scheduler,
@@ -39,7 +42,10 @@ impl ActivityCollector {
     }
 
     pub(super) fn poll(&mut self, snapshot: &SystemSnapshot) {
-        update_state(self.files.as_ref().map(Files::poll), &mut self.status.files);
+        update_state(
+            self.files.as_ref().map(FileActivityCollector::poll),
+            &mut self.status.files,
+        );
         update_state(
             self.ipc.as_mut().map(|sensor| sensor.poll(snapshot)),
             &mut self.status.ipc,
@@ -47,7 +53,10 @@ impl ActivityCollector {
     }
 
     pub(super) fn drain(&mut self, now_ns: u64, snapshot: &SystemSnapshot) -> ActivityBatch {
-        let ipc = self.ipc.as_mut().map_or_else(Vec::new, Ipc::drain);
+        let ipc = self
+            .ipc
+            .as_mut()
+            .map_or_else(Vec::new, IpcActivityCollector::drain);
         let result = self
             .scheduler
             .as_mut()
@@ -63,10 +72,17 @@ impl ActivityCollector {
             }
             None => Vec::new(),
         };
-        self.status.lost = Some(self.ipc.as_ref().map_or(0, Ipc::lost));
-        self.status.unresolved = Some(self.ipc.as_ref().map_or(0, Ipc::unresolved));
-        self.status.files_lost = Some(self.files.as_ref().map_or(0, Files::lost));
-        let files = self.files.as_ref().map_or_else(Vec::new, Files::drain);
+        self.status.lost = Some(self.ipc.as_ref().map_or(0, IpcActivityCollector::lost));
+        self.status.unresolved = Some(
+            self.ipc
+                .as_ref()
+                .map_or(0, IpcActivityCollector::unresolved),
+        );
+        self.status.files_lost = Some(self.files.as_ref().map_or(0, FileActivityCollector::lost));
+        let files = self
+            .files
+            .as_ref()
+            .map_or_else(Vec::new, FileActivityCollector::drain);
         ActivityBatch { files, ipc, cpu }
     }
 
