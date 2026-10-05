@@ -69,9 +69,9 @@ Rust の型名は責務を表します。データ・値は表す内容（`Proce
 
 階層モジュールは `foo.rs` + `foo/` で表し、`mod.rs` は使用しません。`foo.rs` は module documentation、子モジュール宣言、re-export のみを持ち、型・関数・定数の実装は責務を表す子ファイルに置きます。
 
-HTTP の起動と終了は `http_server/server.rs`、共有状態は `state.rs`、router の組み立ては `router.rs` と `api/router.rs`、HTTP guard とアクセスログは `middleware.rs` が担当します。process façade の実装は `process/identity.rs` と `process/resources.rs`、観測の lifecycle は `monitoring/service.rs`、snapshot の orchestration は `snapshot/capture.rs` に置きます。symbol は `symbol/cache.rs` と `symbol/resolve.rs`、system monitoring は `system/service.rs` と状態ログの `status.rs` に分けています。 `activity.rs` は BPF センサーの所有・収集・状態と欠落数の管理を担当します。依存関係図はこれらの子モジュールも含めて生成され、概要図では従来どおり各サブシステムへ集約されます。
+HTTP の起動と終了は `http_server/server.rs`、共有状態は `state.rs`、router の組み立ては `router.rs` と `api/router.rs`、HTTP guard とアクセスログは `middleware.rs` が担当します。process façade の実装は `process/identity.rs` と `process/resources.rs`、観測の lifecycle は `monitoring/service.rs`、snapshot の orchestration は `snapshot/capture.rs` に置きます。symbol は `symbol/cache.rs` と `symbol/resolve.rs`、system monitoring は `system/service.rs` と状態ログの `status.rs` に分けています。 `activity.rs` は BPF センサーの所有・収集・状態と欠落数の管理を担当します。依存関係図はこれらの子モジュールも含めて生成され、概要図では各サブシステムへ集約されます。
 
-HTTP handler と system monitoring は `process.rs` の façade だけを利用します。`process` 内部の `monitoring` は継続観測、`snapshot` は初回の短時間停止と継続的な非停止の詳細取得を担当します。各 collector の sampler が perf fd・mmap と ELF キャッシュを所有します。`process` / `system` は Axum 型に依存しません。
+HTTP handler と system monitoring は `process.rs` の façade だけを利用します。`process` 内部の `monitoring` は継続観測、`snapshot` は初回・10秒ごとの ptrace による停止状態の取得と、継続的な perf による非停止の詳細取得を担当します。各 collector の sampler が perf fd・mmap と ELF キャッシュを所有します。`process` / `system` は Axum 型に依存しません。
 
 例外として、façade から再公開する domain 型と subscription の操作は `pub(in crate::http_server)` に限定しています。private な子モジュールから親で再公開するために必要な可視性であり、crate 外部への公開ではありません。内部テストは各モジュールに置き、`tests/http.rs` はバイナリを起動して HTTP と SSE、SIGTERM による終了を検証します。
 
@@ -106,7 +106,7 @@ JSON のプロセス識別子は `{ "pid": 123, "start_time_ticks": 456 }` で�
 | `GET /api/processes/events` | 識別子クエリ | SSE `observation`：指定プロセスの概要・最新観測・スレッド・履歴・マップ・終了状態 |
 | `GET /api/system/events` | なし | SSE `snapshot`・`activity`・`gap`：構造、CPU・IPC・ファイルI/O活動、配信欠落 |
 
-識別子クエリの欠落・構文不正は400、JSON本文の必須フィールド欠落や型不正は422です。PIDは正の整数である必要があります。対象の終了・PID再利用は410で返します。不正なアドレス・範囲は400、その他の観測処理の失敗は原則422、ブロッキングタスクの失敗は500です。observation/threads/mapsを含め、終了済みプロセスの単発GETは成功しません。
+識別子クエリの欠落・構文不正は400です。PIDは正の整数である必要があります。observation/threads/mapsを含め、単発GETで対象の終了・PID再利用を検出した場合は410で返します。その他の観測処理の失敗は原則422、ブロッキングタスクの失敗は500です。
 
 SSE は `Content-Type: text/event-stream` で接続を維持し、`event:` にイベント名、`data:` に JSON を送ります。接続直後に送るのは `GET /api/processes/events` が `observation`、`GET /api/system/events` が `snapshot` です。keep-alive はデータの更新ではありません。
 
@@ -140,16 +140,20 @@ SSE は `Content-Type: text/event-stream` で接続を維持し、`event:` に�
 
 | イベント | 配信内容とタイミング |
 |---|---|
-| `snapshot` | 接続直後の保持済み構造、約1秒の待機を挟む構造更新、配信欠落後の再同期。全体を置き換えるデータ |
-| `activity` | 最大10Hzの活動集計。`captured_at`、`window_ms`、`cpu`、`ipc`、`files`、`status` |
+| `snapshot` | 接続直後の保持済み構造、約1秒の待機を挟む構造更新、配信欠落後の再同期。`kind` に応じて全体または差分を反映 |
+| `activity` | 約1秒ごとの活動集計。`captured_at`、`window_ms`、`cpu`、`ipc`、`files`、`status` |
 | `gap` | 購読遅延時の `{dropped_frames: 件数}`。続けて最新 `snapshot` を送り、失われた活動は再送しない |
 
-`system/snapshot.rs` の `SystemSnapshot` を配信します。`ProcessSnapshot` はプロセス、`FdEndpoint` はプロセスの FD 端点、`FdRelation` は socket・pipe・共有所有の関係を表します。
+`system/snapshot.rs` の `SystemSnapshot` を、接続ごとの `SnapshotEncoder` で JSON に変換して配信します。`ProcessSnapshot` はプロセス、`FdEndpoint` はプロセスの FD 端点、`FdRelation` は socket・pipe・共有所有の関係を表します。
 
-`snapshot` のトップレベルは `captured_at`、`processes`、`fd_relations`、`warnings`、`inspected_processes`、`inspected_fds` です。初回収集前は空の構造の場合があります。
+`snapshot` のトップレベルは `kind`、`sequence`、`captured_at`、`processes`、`warnings`、`inspected_processes`、`inspected_fds` と、FD 関係のデータです。`kind` は `full` または `delta`、`sequence` は接続内で配信ごとに増加する番号です。`delta` は差分の基準となる直前の `sequence` を `base_sequence` に含みます。初回収集前は空の構造の場合があります。
 
-- `processes`：`identity`、`parent_id`、名前、実・実効ユーザー、`maps`、`maps_epoch`、`maps_error`。親を特定できなければ `parent_id` は null、マップ取得失敗時はエラーを含みます。
-- `fd_relations`：接続ID、端点 `endpoint`・`peer`、label、socket情報、`candidate`・`shared`。端点にはプロセス識別子、FD、FD数、resource、kind、accessがあります。`peer` はローカルの相手を持たなければ null です。`candidate` は接続候補、`shared` は同じリソースの共有で、一意な通信相手とは区別します。
+初回、`gap` 後の再同期、前回の `full` から60秒以上経過した構造更新では `full` を送り、全マップと FD 関係を含む構造全体を置き換えます。それ以外は `delta` を送ります。受信側は `base_sequence` を保持した構造の `sequence` と照合して差分を適用します。SPACE の実装は [mergeSnapshot](../src/web/space-model.ts) を参照してください。
+
+- `processes`：毎回、現在の全プロセスの `identity`、`parent_id`、名前、実・実効ユーザー、`maps_epoch`、`maps_error` を含みます。一覧から消えた識別子は削除します。親を特定できなければ `parent_id` は null、マップ取得失敗時はエラーを含みます。
+- マップ：`maps` があればそのプロセスのマップを置き換え、`maps_delta` があれば開始アドレスをキーに `upsert` の追加・更新と `remove` の削除を適用します。`delta` で両方を省略した場合は、同じプロセス識別子のマップと `maps_epoch` を保持します。新しい識別子には `maps` を含めます。
+- FD 関係：`fd_relations` があれば関係全体を置き換え、`fd_relations_delta` があれば接続IDをキーに `upsert` と `remove` を適用します。マップ・FD 関係とも、差分より全体の JSON が小さい場合は置換形式を使います。
+- FD 関係の各要素：接続ID、端点 `endpoint`・`peer`、label、socket情報、`candidate`・`shared`。端点にはプロセス識別子、FD、FD数、resource、kind、accessがあります。`peer` はローカルの相手を持たなければ null です。`candidate` は接続候補、`shared` は同じリソースの共有で、一意な通信相手とは区別します。
 - `socket`：protocol、state、local/remoteアドレス、network_peer、remote_hostname。socket情報や未取得のアドレス・名前は null になり得ます。
 - `warnings` と探索件数：取得不能・打ち切りなどの警告と、走査したプロセス・FDの件数。
 
@@ -168,9 +172,9 @@ SSE は `Content-Type: text/event-stream` で接続を維持し、`event:` に�
 
 thread の scheduler は `{kind, code?}`、affinity は両端を含む `{start, end}` の配列（取得不能は null）です。
 
-register の mapping は `{pathname, readable, writable, executable, private}` または null、offset は16進文字列または null、kind は分類 enum の snake_case 名です。memory map の permissions 文字列は廃止し、権限 boolean から表示を生成します。
+register の mapping は `{pathname, readable, writable, executable, private}` または null、offset は16進文字列または null、kind は分類 enum の snake_case 名です。memory map の権限は `readable`、`writable`、`executable`、`private` の boolean で表し、画面ではこれらから権限表示を生成します。
 
-センサー状態は `{state: "idle" | "starting" | "observing"}` または `{state: "unavailable" | "error", message: "…"}` です。ログ文面は従来どおりですが、レベルの判定は enum に基づきます。
+センサー状態は `{state: "idle" | "starting" | "observing"}` または `{state: "unavailable" | "error", message: "…"}` です。ログレベルの判定はセンサー状態の enum に基づきます。
 
 該当活動がない場合やセンサーが利用不能の場合、活動配列は空になります。空配列だけで「活動がなかった」とは判断せず、`status` の各センサーの `state`（observing・unavailable・error） なども確認します。
 
@@ -178,7 +182,7 @@ register の mapping は `{pathname, readable, writable, executable, private}` �
 
 ### 共通処理と状態管理
 
-Axum がルートごとにクエリや JSON を取り出し、ハンドラへ渡します。Host・Origin・Fetch Metadata の検証を通過した応答には no-store とセキュリティヘッダを付けます。ブロッキングするプロセス観測 API は `spawn_blocking` で実行し、`AppState` 内の状態は mutex で保護します。
+Axum がルートごとにクエリを取り出し、ハンドラへ渡します。Host・Origin・Fetch Metadata の検証を通過した応答には no-store とセキュリティヘッダを付けます。ブロッキングするプロセス観測 API は `spawn_blocking` で実行し、`AppState` 内の状態は mutex で保護します。
 
 対象は PID 単独ではなく `{pid, start_time_ticks}` で識別し、要求ごとに実際のプロセスの識別子と生存を確認します。サーバー全体の選択対象はありません。別のプロセスや別タブからの要求に依存せず、SSEなしでも単発APIを利用できます。
 
@@ -201,7 +205,7 @@ Axum がルートごとにクエリや JSON を取り出し、ハンドラへ渡
 
 `GET /api/processes/fds` は識別子・生存を確認し、pipe/FIFO/socket の FD、アクセス方向、接続候補、同じリソースの共有所有者を収集します。UNIX domain socket の通信相手は socket diagnostic を使って調べます。TCP/UDP ソケットの通信相手の候補は、対象プロセスが属するネットワーク名前空間の情報から探索します。共有所有者と通信相手は区別し、データを消費する読み取りは行いません。探索は3秒・100,000 FD・一致8192 FDを上限とし、打ち切りなどを結果に含めます。
 
-実装は [FD 情報の収集](../src/http_server/process/fds.rs)、[通信相手の候補の照合](../src/http_server/process/fds.rs)、[候補を所有するプロセス・FD の探索](../src/http_server/process/fds.rs) を参照してください。UNIX domain socket の通信相手の inode を取得する処理は [socket diagnostic](../src/http_server/process/sockets.rs) にあります。
+FD 情報の収集、通信相手の候補の照合、候補を所有するプロセス・FD の探索は [fds.rs](../src/http_server/process/fds.rs) を参照してください。UNIX domain socket の通信相手の inode を取得する処理は [socket diagnostic](../src/http_server/process/sockets.rs) にあります。
 
 ### 環境変数・補助ベクトル
 
@@ -224,7 +228,7 @@ Axum がルートごとにクエリや JSON を取り出し、ハンドラへ渡
 
 SSE の `live_samples` は TID、`sampled_at`（Unix ms）、`sample_age_ms`（monotonic clock）、CPU、`lost_samples`、registers、call_stack、disassembly、unwind_stop、error を含みます。未採取は時刻 null と Waiting for sample、採取済みの値は Threads 一覧に経過時間を表示します。sleeping/blocked thread も10秒ごとの ptrace で更新を試み、それ以外は最後の値を保持します。保存された user-space の状態を表示し、眠っている thread の現在値ではありません。観測開始前から眠っている thread も ptrace が許可されれば初回配信で採取できます。初回取得に失敗した場合は次の実行／switch-out または10秒後の ptrace 再試行を待ちます。Registers パネルにはレジスタ表だけを表示します。取得元や voluntary / preempted の区別は内部で保持し、GUI・HTTP API には公開しません。全スレッドの同時点状態は保証しません。perf 権限不足は Threads 一覧の thread error に表示します。collector エラーは API の `sampling_error` に保持し、通常観測は継続します。
 
-Disassembly パネルには命令表と取得エラーを表示し、RIP・mapping・シンボル・ソース位置・取得バイト数の要約行や説明文は表示しません。逆アセンブルは sampled RIP から `process_vm_readv` で後読みする best-effort 表示です。最大256バイト、最大32命令を iced-x86 で decode します。JIT/self-modifying code の命令バイトと sample 時点の RIP は整合しない場合があります。32-bit compatibility mode は対象外です。
+Disassembly パネルには命令表と取得エラーを表示します。逆アセンブルは sampled RIP から `process_vm_readv` で後読みする best-effort 表示です。最大256バイト、最大32命令を iced-x86 で decode します。JIT/self-modifying code の命令バイトと sample 時点の RIP は整合しない場合があります。32-bit compatibility mode は対象外です。
 
 PERF_RECORD_LOST と ring overrun/不正レコードを欠落として保持します。thread 終了、対象終了、SSE 切断、サーバー終了で RAII により fd/mmap を解放します。CAP_SYS_PTRACE と process_vm_readv は ptrace スナップショット・auxv・live disassembly に使います。
 
@@ -247,9 +251,9 @@ watch channelは接続ごとに独立し、遅い購読者へ古い状態を蓄�
 
 `GET /api/system/events` は閲覧者を登録して broadcast channel を購読します。最初に保持済みの構造を `snapshot` として返し、その後は構造・活動を配信します。センサー状態と収集統計は `activity` イベントの `status` に含まれます。切断・配信終了で登録を解除し、アプリ終了時にはストリームを終了します。
 
-購読側が遅延した場合は `gap` と最新の `snapshot` を送り、失われた活動を再生しません。keep-alive は10秒間隔です。活動は最大10Hzで集計・配信します。
+購読側が遅延した場合は `gap` と最新の `full` snapshot を送り、失われた活動を再生しません。keep-alive は10秒間隔です。活動は約1秒ごとに集計・配信し、実際の集計期間は `window_ms` で送ります。
 
-いずれのセンサーも CO-RE eBPF で実装しています。CPU scheduling・IPC・ファイル I/O は独立した eBPF プログラムで収集し、各センサーのロード・状態・解放も独立しています。Space では eBPF の `CpuActivity` を約100ms周期の scheduling activity・CPU glowに使います。scheduler event はカーネルの map で集約し、userspace へ逐次転送しません。
+いずれのセンサーも CO-RE eBPF で実装しています。CPU scheduling・IPC・ファイル I/O は独立した eBPF プログラムで収集し、各センサーのロード・状態・解放も独立しています。SPACE は配信された `CpuActivity` を CPU の発光に使います。scheduler event はカーネルの map で集約し、userspace では活動の集計時に読み取ります。
 
 | センサー | バックエンドの観測内容と制約 | eBPF ソース |
 |---|---|---|
@@ -337,7 +341,7 @@ HTTP アクセスログだけを絞り込む例は `RUST_LOG=info,procinsh::http
 
 ## 検証
 
-ビルドと fixture の準備後に実行します。Rust 結合テストの一部も fixture をビルドしますが、`tests/space.rs` の単独実行には事前準備が必要です。
+ビルドと fixture の準備後に実行します。
 
 ```sh
 npm ci
@@ -378,7 +382,7 @@ matrix の native dependency は Ubuntu では `build-essential clang llvm pkg-c
 
 Rust テストは明示的な識別子の必須性、SSEの独立した履歴・切断・接続上限、`/proc` の解析、PID 再利用、メモリ読み取り、perf sample と欠落処理、シンボル、HTTP、システム全体の構造・SSE接続管理・集計を検証します。ログテストは既定レベル、debug、off、標準エラー、SIGTERM、ポート競合、クエリ非出力、IPv4/IPv6 の loopback 起動、非 loopback の bind 前拒否と明示的許可・警告、CLI ヘルプを検証します。プロセス観測を拒否するサンドボックスでは一部テストが失敗するため、テスト対象への perf_event_open/process_vm_readv とローカル通信が許可された環境が必要です。
 
-`./scripts/dev_test.sh [テスト名フィルター] [--nocapture]` は単体テストをビルドし、既存の sudoers で許可された実行パスに一時配置して capability を付けます。テスト成功・失敗のいずれでも元のアプリケーションバイナリを復元します。権限設定と実行は変更していない `dev_run.sh` に委譲します。この実行中は同じ checkout でビルドや dev_run を並行実行しないでください。
+`./scripts/dev_test.sh [テスト名フィルター] [--nocapture]` は単体テストをビルドし、既存の sudoers で許可された実行パスに一時配置して capability を付けます。テスト成功・失敗のいずれでも元のアプリケーションバイナリを復元します。権限設定と実行は `dev_run.sh` に委譲します。この実行中は同じ checkout でビルドや dev_run を並行実行しないでください。
 
 perf の実機 fixture は権限が利用できない環境では明示メッセージとともにスキップします。`PROCINSH_REQUIRE_PERF=1` を設定するとスキップを禁止して権限不足も失敗にします。実機テストは `blocked_stack` fixture の100ms nanosleepで3秒間に30回の更新を確認しました（Linux 7.0.0-15-generic）。R12〜R15をasmで既知値にして照合し、12段再帰はmainまで復元、96段再帰（各 frame に256バイトの領域）は16 KiB dumpの範囲で停止することを検証します。全18レジスタの独立照合や全kernelでの精度・性能を保証する検証ではありません。開始前からsleep中のfixtureで初回・定期 ptrace 取得・detach と後続 perf への切り替えを検証します。frame pointer を省略した PIE／非 PIE と `.debug_frame` fixture は実際の call 命令から組み立てた snapshot でも main までの unwind を検証します。実機 fixture には共有ライブラリの再帰から libc の nanosleep を跨いで main まで復元するケースもあります。CAP_PERFMON を持つテストプロセスで busy-loop の更新、再帰 frame、複数 TID、churn の追加・削除、sleep 後の age、対象終了を確認してください。
 

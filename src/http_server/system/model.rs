@@ -1,4 +1,4 @@
-//! Typed monitoring data; serialization preserves the existing SSE schema.
+//! Serializable system activity and sensor health data.
 use super::files::FileActivity;
 use crate::http_server::process::ProcessId;
 use crate::http_server::resource::IpcIdentity;

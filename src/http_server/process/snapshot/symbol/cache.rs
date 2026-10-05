@@ -107,7 +107,7 @@ fn matching_file(pid: i32, map: &MemoryMap) -> Option<(PathBuf, fs::Metadata)> {
 impl ElfCache {
     /// Locate the mapped file by identity and reuse or load its ELF/DWARF data.
     /// Performs I/O; call only after the target has resumed. Returned data may
-    /// outlive eviction and can be resolved after releasing the cache lock.
+    /// outlive cache eviction.
     pub(in crate::http_server::process::snapshot) fn get(
         &mut self,
         pid: i32,
