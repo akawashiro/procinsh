@@ -47,6 +47,7 @@ pub(in crate::http_server) struct SystemMonitorStatus {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) files_lost: Option<u64>,
 }
+/// Serializes as `{state, message?}`; only unavailable and error states carry a message.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 #[serde(tag = "state", content = "message", rename_all = "snake_case")]
 pub(in crate::http_server) enum SensorState {

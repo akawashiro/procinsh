@@ -19,6 +19,7 @@ fn optional_hex<S: serde::Serializer>(
         None => serializer.serialize_none(),
     }
 }
+/// Classified register value; its mapping-relative offset serializes as hex or null.
 #[derive(Clone, Debug, Serialize)]
 pub(super) struct Register {
     pub(super) name: String,

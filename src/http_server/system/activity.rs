@@ -71,6 +71,7 @@ impl ActivityCollector {
     }
 
     /// Sensor health only; the service sets `active` on the returned status.
+    /// Returns sensor health; the service supplies the monitoring `active` flag.
     pub(super) fn status(&self) -> SystemMonitorStatus {
         self.status.clone()
     }

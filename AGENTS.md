@@ -1,7 +1,9 @@
 - github を使うときは gh コマンドを使うこと
 - 機能を実装するときは最新の main ブランチからブランチを作って PR を作ること
-- インターフェース（re-export、型、関数シグネチャ、visibility）を変更した場合は、対応する module root の `//! # Interface` コメントの一覧・型・シグネチャ・定義リンクにも必ず反映すること。
-  - 理由: 固定ツールチェーン Rust 1.98.1 の rustdoc では、非公開の祖先モジュールを持つ `pub(super)` / `pub(in ...)` などの restricted re-export が、façade 側の I/F として表示されない。`--document-private-items` や `#[doc(inline)]` でもこの構成では期待する表示にならないため、module root のコメントに型・シグネチャと定義元への intra-doc link を記載して補う。コメント内のシグネチャは自動同期されず、リンク検査でも不一致を検出できないため、インターフェース変更時に手動で更新する必要がある。
+- 各 module root の `//!` は責務と、そのモジュールの外から使う入口を説明する。`//! # Interface` の一覧は通常ビルドでその root が公開・再公開する型・関数を対象とし、型・visibility・関数シグネチャ・定義リンクを記載する。入口のシグネチャに登場する補助型は必要な定義リンクで案内する。
+  - 対象のインターフェース（re-export、型、関数シグネチャ、visibility）を変更した場合は、この一覧も更新する。
+  - 子モジュール内部の関数、フィールド、列挙値、テスト専用項目は網羅的に転記しない。公開型のメソッドの詳細、JSON の表現・フォールバックなどの契約、所有権・ロック・処理順序の注意点は定義側に記載する。変更履歴ではなく現在の振る舞いを説明する。
+  - 理由: 固定ツールチェーン Rust 1.98.1 の rustdoc では、非公開の祖先モジュールを持つ `pub(super)` / `pub(in ...)` などの restricted re-export が、façade 側の I/F として表示されない。`--document-private-items` や `#[doc(inline)]` でもこの構成では期待する表示にならないため、入口の一覧と定義元への intra-doc link で補う。コメント内のシグネチャは自動同期されず、リンク検査でも不一致を検出できないため、対象の変更時に手動で更新する。
 - C ソース・ヘッダー（BPF を含む）を変更したら `python3 scripts/format_c.py` で整形し、`python3 scripts/format_c.py --check` を実行すること。clang-format は `requirements-format.txt` の固定バージョンを使う。インストール手順は `docs/DEVELOPMENT.md` を参照。
 - procinsh を起動するときは強めの権限が必要になるので、./scripts/dev_run.sh を利用すること
 - ptrace・perf・BPF など権限が必要な Rust 単体テストは `./scripts/dev_test.sh` で実行すること（内部で既存の `./scripts/dev_run.sh` に権限設定・実行を委譲する）。perf の検証では `PROCINSH_REQUIRE_PERF=1 ./scripts/dev_test.sh` を使い、権限不足によるスキップを禁止すること。`dev_test.sh` の後ろにはテスト名フィルターや `--nocapture` などのテスト実行引数を渡せる。サーバーを起動する結合テストも dev_run 経由にすること（対応するテストでは `PROCINSH_BINARY=./scripts/dev_run.sh`）。
