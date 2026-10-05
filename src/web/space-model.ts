@@ -443,7 +443,7 @@ export const ipcKey = (r: IpcIdentity) => JSON.stringify([r.kind, r.device.major
 export const ipcLabel = (r: IpcIdentity) => `${r.kind}:${r.device.major}:${r.device.minor}:${r.inode}`;
 export const fileLabel = (r: FileIdentity) => `file:${r.device.major}:${r.device.minor}:${r.inode}:${r.generation}`;
 
-// Recent file activity is independent of the five-second system snapshot.
+// Recent file activity is retained across structural snapshot updates.
 export const fileKey = (event: Pick<FileActivity, "process_id" | "file">) =>
   JSON.stringify([key(event.process_id), event.file.device.major, event.file.device.minor, event.file.inode, event.file.generation]);
 export class RecentFiles {

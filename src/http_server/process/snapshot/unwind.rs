@@ -66,7 +66,7 @@ impl StackUnwinder {
         }
     }
 
-    /// Reads only the immutable perf snapshot; never reads the live target stack.
+    /// Unwinds from the supplied register values and captured stack bytes.
     pub(super) fn walk(
         &mut self,
         rip: u64,
