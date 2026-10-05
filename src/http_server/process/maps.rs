@@ -15,6 +15,8 @@ pub(in crate::http_server) enum MemoryKind {
     File,
     Anonymous,
 }
+/// Structural mapping without RSS/PSS measurements.
+/// Addresses and file offsets serialize as hexadecimal strings; inodes as decimal strings.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub(in crate::http_server) struct MemoryMap {
     #[serde(serialize_with = "hex")]
@@ -34,6 +36,7 @@ pub(in crate::http_server) struct MemoryMap {
 }
 
 /// A mapping with optional resident/proportional usage measured from smaps.
+/// Serialization flattens the structural mapping alongside the usage measurements.
 #[derive(Clone, Debug, Serialize)]
 pub(super) struct SmapsEntry {
     #[serde(flatten)]
@@ -141,6 +144,7 @@ pub(super) fn read_maps(pid: i32) -> Result<Vec<MemoryMap>> {
         .collect()
 }
 
+/// Reads smaps, falling back to maps without usage measurements if smaps cannot be read.
 pub(super) fn read_smaps(pid: i32) -> Result<Vec<SmapsEntry>> {
     if let Ok(text) = fs::read_to_string(format!("/proc/{pid}/smaps")) {
         return parse_smaps(&text);

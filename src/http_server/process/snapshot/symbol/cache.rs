@@ -9,6 +9,7 @@ use std::{
 };
 /// Parsed ELF data. The DWARF loader has its own synchronization for lazy data.
 pub(in crate::http_server::process::snapshot) struct ElfSymbols {
+    /// Shared ELF section bytes used by the unwinder.
     pub(in crate::http_server::process::snapshot) unwind:
         framehop::ExplicitModuleSectionInfo<Arc<[u8]>>,
     pub(super) segments: Vec<(u64, u64, u64)>,

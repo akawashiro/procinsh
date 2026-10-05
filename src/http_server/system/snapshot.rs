@@ -11,7 +11,8 @@ use std::{
     os::unix::fs::{FileTypeExt, MetadataExt},
     time::{Duration, Instant},
 };
-/// A Linux process and its observed address space.
+/// A Linux process and its observed structural address space, without RSS/PSS.
+/// CPU and RSS measurements belong to [`crate::http_server::process::ProcessSummary`].
 #[derive(Clone, Serialize)]
 pub(super) struct Process {
     pub(super) identity: ProcessId,

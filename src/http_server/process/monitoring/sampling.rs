@@ -16,6 +16,7 @@ struct Rates {
     read_bytes: Option<f64>,
     write_bytes: Option<f64>,
 }
+/// Serializable counters and derived rates, without raw ticks or monotonic sampling state.
 #[derive(Clone, Debug, Serialize)]
 pub(in crate::http_server::process) struct ProcessObservation {
     pub(super) timestamp: u64,
@@ -35,6 +36,7 @@ pub(in crate::http_server::process) struct ProcessObservation {
     priority: i64,
 }
 
+/// Raw process and thread counters with monotonic measurement time; no derived rates.
 #[derive(Clone, Debug)]
 pub(in crate::http_server::process) struct ProcessSample {
     pub(super) timestamp: u64,
@@ -92,6 +94,7 @@ pub(in crate::http_server::process) fn capture_sample(id: ProcessId) -> Result<P
     })
 }
 
+/// Produces an initial observation with absent CPU percentages and rates.
 pub(in crate::http_server::process) fn initial_observation(
     current: &ProcessSample,
 ) -> ProcessObservation {
@@ -118,6 +121,8 @@ pub(in crate::http_server::process) fn initial_observation(
     }
 }
 
+/// Derives rates from monotonic elapsed time for the same process identity.
+/// Thread rates match both TID and start time; missing or decreasing counters yield absent rates.
 pub(in crate::http_server::process) fn next_observation(
     previous: &ProcessSample,
     current: &ProcessSample,

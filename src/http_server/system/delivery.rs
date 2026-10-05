@@ -68,6 +68,11 @@ fn map_delta<'a>(old: &[MemoryMap], current: &'a [MemoryMap]) -> EntryDelta<'a, 
     }
 }
 impl SnapshotDelivery {
+    /// Encodes full or delta SSE snapshots with a sequence and, for deltas, base sequence.
+    /// Map deltas use start addresses; FD relation deltas use relation IDs. Collections
+    /// use replacement when a delta is larger. Unchanged maps are omitted and retain
+    /// their epoch. Initial, forced gap recovery and 60-second refresh snapshots
+    /// include all maps. The baseline advances only after successful serialization.
     pub(in crate::http_server) fn encode(
         &mut self,
         snapshot: Arc<SystemSnapshot>,

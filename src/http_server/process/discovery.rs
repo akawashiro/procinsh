@@ -17,6 +17,7 @@ pub(in crate::http_server) struct ProcessSummary {
     pub(in crate::http_server) euid: Option<u32>,
     pub(in crate::http_server) effective_username: Option<String>,
     pub(super) state: String,
+    /// Unix milliseconds derived from boot time and process start ticks; absent if unavailable.
     pub(super) started_at: Option<u64>,
     pub(in crate::http_server) cpu_percent: Option<f64>,
     pub(in crate::http_server) rss_bytes: u64,

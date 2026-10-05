@@ -29,6 +29,7 @@ impl SchedulerPolicy {
         }
     }
 }
+/// Inclusive range of CPU indices in a thread's affinity mask.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub(super) struct CpuRange {
     pub(super) start: u32,
@@ -60,6 +61,7 @@ pub(super) struct ThreadObservation {
     pub(super) nonvoluntary_context_switches: Option<u64>,
 }
 
+/// Raw thread metadata and counters; CPU percentages are derived between observations.
 #[derive(Clone, Debug)]
 pub(super) struct ThreadSample {
     pub(super) tid: i32,

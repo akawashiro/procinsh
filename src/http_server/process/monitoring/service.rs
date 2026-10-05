@@ -22,6 +22,8 @@ use std::{
 };
 use tokio::sync::watch;
 
+/// SSE observation state with detailed maps and independently aged live samples.
+/// Map entries flatten structural mappings with optional RSS/PSS measurements.
 #[derive(Clone, Debug, Serialize)]
 pub(in crate::http_server) struct Target {
     summary: ProcessSummary,
@@ -94,6 +96,7 @@ impl Monitoring {
         permit: ObservationPermit,
     ) -> Result<ObservationSession> {
         let (mut target, mut previous_sample) = capture_target(id)?;
+        // Cache structural mappings for the sampler, updating them at each map refresh.
         let mut structural_maps: Vec<MemoryMap> =
             target.maps.iter().map(|m| m.mapping.clone()).collect();
         let mut sampler = process::snapshot::Sampler::new(id);

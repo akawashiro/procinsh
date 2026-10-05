@@ -19,6 +19,8 @@ use std::{
 
 const PTRACE_INTERVAL: Duration = Duration::from_secs(10);
 
+/// Latest thread sample with loss and error diagnostics.
+/// `sampled_at` is Unix milliseconds; `sample_age_ms` uses monotonic time.
 #[derive(Clone, Debug, Serialize)]
 pub(in crate::http_server::process) struct ThreadSample {
     tid: i32,
@@ -79,6 +81,8 @@ impl Sampler {
             next_ptrace: None,
         }
     }
+    /// Captures the initial ptrace snapshot and schedules the next attempt ten seconds
+    /// after completion, including failed capture attempts.
     pub(in crate::http_server::process) fn bootstrap(&mut self, maps: &[MemoryMap]) -> Result<()> {
         // Discover all threads and open perf events before interrupting any thread.
         self.next_ptrace = None;
@@ -112,6 +116,7 @@ impl Sampler {
         self.next_ptrace = Some(Instant::now() + PTRACE_INTERVAL);
         process::check_identity(self.id)
     }
+    /// Drains perf samples and captures current threads when the ptrace deadline is due.
     pub(in crate::http_server::process) fn poll(&mut self, maps: &[MemoryMap]) -> Result<()> {
         process::check_identity(self.id)?;
         self.unwind.refresh(self.id.pid, maps, &mut self.symbols);
@@ -217,6 +222,7 @@ impl Sampler {
         process::check_identity(self.id)?;
         Ok(())
     }
+    /// Returns the latest samples with ages refreshed from monotonic time.
     pub(in crate::http_server::process) fn latest(&self) -> Vec<ThreadSample> {
         let now = monotonic_ns();
         self.threads

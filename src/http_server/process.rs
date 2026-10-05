@@ -2,7 +2,7 @@
 //!
 //! # Interface
 //!
-//! ## Types and constants
+//! ## Types
 //!
 //! | Definition | Visibility | Kind / type |
 //! | --- | --- | --- |
@@ -13,38 +13,6 @@
 //! | [`Monitoring`] | `pub(super)` | `struct `[`Monitoring`] |
 //! | [`SubscribeError`] | `pub(super)` | `enum `[`SubscribeError`] |
 //! | [`SocketInfo`] | `pub(super)` | `struct `[`SocketInfo`] |
-//!
-//! [`maps::MemoryKind`] is `pub(in crate::http_server) enum MemoryKind { Integer, Stack, Heap, SharedLibrary, Executable, File, Anonymous }`.
-//! [`maps::MemoryMap::kind`] is `pub(super) fn kind(&self) -> MemoryKind`.
-//! [`MemoryMap`] fields have `pub(in crate::http_server)` visibility: `start: u64, end: u64,
-//! readable: bool, writable: bool, executable: bool, private: bool, file_offset: u64,
-//! device: DeviceId, inode: u64, pathname: Option<String>`.
-//! [`maps::SmapsEntry`] is `pub(super)` with fields of the same visibility:
-//! `mapping: MemoryMap, rss_bytes: Option<u64>, pss_bytes: Option<u64>`.
-//! `mapping` is flattened for serialization, preserving detailed map JSON.
-//! [`maps::parse_map`] is `pub(super) fn parse_map(line: &str) -> anyhow::Result<MemoryMap>`.
-//! [`maps::parse_smaps`] is `pub(super) fn parse_smaps(text: &str) -> anyhow::Result<Vec<SmapsEntry>>`.
-//! [`maps::read_maps`] is `pub(super) fn read_maps(pid: i32) -> anyhow::Result<Vec<MemoryMap>>`.
-//! [`maps::read_smaps`] is `pub(super) fn read_smaps(pid: i32) -> anyhow::Result<Vec<SmapsEntry>>`;
-//! unavailable smaps falls back to maps with absent usage measurements.
-//! [`MemoryMap`] exposes the existing `readable`, `writable`, `executable`, `private` booleans; the redundant `permissions` string is removed.
-//! [`MemoryMap`] uses `device: DeviceId` ([`super::resource::DeviceId`]) and `inode: u64` serialized as a decimal string.
-//!
-//! [`ProcessSummary`] includes `started_at: Option<u64>` (Unix milliseconds), derived from
-//! procfs boot time and `identity.start_time_ticks`; unavailable boot time yields `None`.
-//!
-//! [`SocketInfo`] fields use [`super::socket_types::SocketProtocol`] and [`super::socket_types::SocketState`];
-//! `local` and `remote` remain `Option<std::net::SocketAddr>` internally.
-//! [`fds::Descriptor`] uses `kind: FdKind, access: FdAccess, protocol: Option<SocketProtocol>, state: Option<SocketState>, local: Option<InetAddress>, remote: Option<InetAddress>, path: Option<String>`;
-//! [`fds::Endpoint::access`] is `pub(super) access: FdAccess`.
-//!
-//! Structured thread payloads (types and fields `pub(super)`):
-//! - [`threads::SchedulerPolicy`]: `Other, Fifo, Rr, Batch, Idle, Deadline, Ext, Unknown(u32)`.
-//! - [`threads::CpuRange`]: `start: u32, end: u32` (inclusive).
-//! - [`threads::ThreadSample`]: raw thread metadata and counters, including `ticks: u64, start_time: u64`; no CPU rate.
-//! - [`threads::read`]: `pub(super) fn read(pid: i32, tid: i32) -> anyhow::Result<ThreadSample>`.
-//! - [`threads::ThreadSample::observation`]: `pub(super) fn observation(&self) -> ThreadObservation`.
-//! - [`threads::ThreadObservation`]: `scheduler: SchedulerPolicy, affinity: Option<Vec<CpuRange>>`.
 //!
 //! ## Functions
 //!
