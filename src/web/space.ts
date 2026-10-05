@@ -768,7 +768,10 @@ function networkDetails() {
     : "Recent traffic —";
   const content = document.createDocumentFragment(),
     heading = document.createElement("p");
-  heading.textContent = `${nodes.get(key(group.endpoint.process_id))?.name || ""} · PID ${group.endpoint.process_id.pid} → ${remoteLabel(group.socket)} (${Display.address(group.socket.remote)}) · ${group.members.length} connections`;
+  const remoteAddress = group.socket.remote_hostname && group.socket.remote
+    ? ` (${Display.address(group.socket.remote)})`
+    : "";
+  heading.textContent = `${nodes.get(key(group.endpoint.process_id))?.name || ""} · PID ${group.endpoint.process_id.pid} → ${remoteLabel(group.socket)}${remoteAddress} · ${group.members.length} connections`;
   content.append(heading);
   for (const e of group.members) {
     const row = document.createElement("div");
