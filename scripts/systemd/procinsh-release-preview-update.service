@@ -3,7 +3,7 @@ Description=Install and deploy latest ProcInSh crates.io release
 
 [Service]
 Type=oneshot
-Environment=PATH=%h/.cargo/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin
+Environment=PATH=%h/.local/share/procinsh/bpf-tools:%h/.cargo/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin
 Environment=PROCINSH_RELEASE_PREVIEW_STATE=%h/procinsh-release-preview
 ExecStart=/bin/bash %h/procinsh-release-preview/release_preview.sh update
 TimeoutStartSec=infinity

@@ -19,9 +19,17 @@ main 用 unit はログインユーザーのホームを基準に、開発用 ch
 
 [開発環境](DEVELOPMENT.md)のビルド依存に加え、`gh`、`curl`、`flock` が必要です。利用するユーザーとして `gh auth login` を済ませてください。更新処理は HTTPS と `gh auth git-credential` を使います。Cargo は `~/.cargo/bin`、Node.js 22 以降と npm は `/usr/local/bin` または `/usr/bin` から利用できる必要があります。npm が PATH にない場合は `${NVM_DIR:-$HOME/.nvm}/nvm.sh` を読み込み、nvm の `default` alias を選択します。nvm を使う場合は `nvm alias default` が Node.js 22 以降を指すよう設定してください。それ以外の場所にある場合は更新 unit の `PATH` を調整してください。systemd は `.zshrc` などのシェル初期化ファイルを読み込みません。
 
-公開版は `~/procinsh-release-preview/install` を Cargo の専用インストール先として使用します。通常の `~/.cargo/bin/procinsh` は変更しません。Rust とネイティブ・BPF のビルド依存、`curl`、`flock`、`cmp` が必要ですが、公開パッケージには生成済み JavaScript が含まれるため、Node.js・npm・GitHub 認証・開発用 checkout は不要です。Cargo は `~/.cargo/bin` から利用できる必要があります。公開版の更新は専用領域で実行するため、開発用 checkout の `rust-toolchain.toml` は適用されません。rustup の default toolchain は公開版をビルドできるバージョンに設定してください。
+公開版は `~/procinsh-release-preview/install` を Cargo の専用インストール先として使用します。通常の `~/.cargo/bin/procinsh` は変更しません。Rust のネイティブリンカーと固定 BPF ツール（nightly・rust-src・bpf-linker）、実行カーネル BTF、`curl`、`flock`、`cmp` が必要ですが、公開パッケージには生成済み JavaScript が含まれるため、Node.js・npm・GitHub 認証・開発用 checkout は不要です。Cargo は `~/.cargo/bin` から利用できる必要があります。公開版の更新は専用領域で実行するため、開発用 checkout の `rust-toolchain.toml` は適用されません。rustup の default toolchain は公開版をビルドできるバージョンに設定してください。
 
 ビルド・配置・サービス管理はすべてログインユーザーで行います。ビルド後の候補バイナリに対して `sudo -n setcap cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search=ep` を実行し、観測用の権限を付与します。このコマンドを候補ファイル `~/procinsh-main-preview/candidate` と `~/procinsh-release-preview/candidate` に対してパスワード入力なしで実行できることが前提です。権限付与に失敗した場合は更新を中止し、稼働版を維持します。
+
+BPF ツールは main・公開版の両方から使える共有ディレクトリに準備します。更新 unit はこの場所を PATH に含めます。既存 unit も登録手順に従って更新してください。
+
+```sh
+./scripts/setup_bpf.sh "$HOME/.local/share/procinsh/bpf-tools"
+```
+
+カーネル更新後は main の commit や公開版の version が同じでも再ビルドが必要です。timer の更新判定は commit/version が基準のため、同じ版のカーネル向け再ビルドは自動実行しません。再ビルド・候補配置・権限付与・サービス反映を手動で行ってください。BTF 不一致の間は HTTP サーバーは動き続け、BPF センサーは unavailable になります。
 
 ## 登録
 

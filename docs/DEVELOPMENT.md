@@ -6,9 +6,44 @@ ProcInSh は Linux x86-64 のプロセスを観測する Web アプリケーシ�
 
 ## ビルドと実行環境
 
-Rust edition は 2024 です。Rust は rustup 経由で利用し、`rust-toolchain.toml` でバージョンと rustfmt・clippy を固定しています。ローカルと CI は同じ設定を使い、必要なツールチェーンは rustup が自動インストールします。Rust の更新時はこのファイルを変更し、フォーマット・Clippy・テストを再確認します。ビルドには Node.js 22以降と npm、C コンパイラ、`ar`、BPF backend を持つ clang、bpftool、pkg-config、libelf・zlib 開発ファイル、実行カーネルの `/sys/kernel/btf/vmlinux` が必要です。
+Rust edition は 2024 です。Rust は rustup 経由で利用し、`rust-toolchain.toml` でバージョンと rustfmt・clippy を固定しています。ローカルと CI は同じ設定を使い、必要なツールチェーンは rustup が自動インストールします。Rust の更新時はこのファイルを変更し、フォーマット・Clippy・テストを再確認します。ビルドには Node.js 22以降と npm、Rust のネイティブリンカー、BPF 用の固定 nightly・rust-src・bpf-linker、実行カーネルの `/sys/kernel/btf/vmlinux` が必要です。
 
-`build.rs` は bpftool で BTF から `vmlinux.h` を生成し、`libbpf-cargo` で CPU/IPC とファイル I/O の BPF オブジェクトをビルドします。通常の `cargo build` でもこの処理を実行するため、BPF を画面で利用しない場合もビルド依存は必要です。
+`build.rs` はカーネル BTF を Rust で解析し、センサーが参照するフィールドのオフセット・幅・ポインタ型を検証します。生成した定数で Aya の CPU/IPC/ファイル I/O プログラムを実行カーネル向けにコンパイルします。CO-RE relocation は使いません。BPF のビルドに clang・bpftool・bindgen・libbpf・libelf・zlib 開発ファイルは不要です。
+
+### BPF toolchain
+
+`bpf-toolchain.toml` は **nightly-2026-09-28** と **bpf-linker 0.11.1** を固定しています。両者は LLVM 23 を使用します。配布済みの statically linked bpf-linker を使うため LLVM 開発ライブラリのインストールも不要です。BPF の Cargo パッケージは `src/ebpf/Cargo.toml.in` と lockfile・Rust ソースから `OUT_DIR` に作成します。manifest をテンプレートとして置くことで、Cargo が入れ子のパッケージを公開アーカイブから除外することを避けます。アプリ本体の Rust は既存の stable を維持します。setup スクリプトは BPF 用 Clippy も準備します。`PROCINSH_BPF_CLIPPY=1 cargo clippy --all-targets --locked -- -D warnings` で BPF とアプリ本体の両方を検査します。
+
+checkout では `gh`、`zstd` を用意して次を一度実行します。通常の Cargo ビルドはツールを自動インストールせず、不足やバージョン不一致をエラーにします。
+
+```sh
+./scripts/setup_bpf.sh
+export PATH="$PWD/target/bpf-tools:$PATH"
+```
+
+crates.io からインストールする環境では、checkout なしで同じツールを用意できます。公開アーカイブには setup スクリプトも含まれます。
+
+```sh
+rustup toolchain install nightly-2026-09-28 --profile minimal --component rust-src
+mkdir -p "$HOME/.local/share/procinsh/bpf-tools"
+gh release download v0.11.1 --repo aya-rs/bpf-linker \
+  --pattern bpf-linker-x86_64-unknown-linux-musl.tar.zst \
+  --dir "$HOME/.local/share/procinsh/bpf-tools" --clobber
+printf '%s  %s\n' \
+  e058a6aecc9e65fa4c977b298a8e4b738424d7629769fd352eed409fb57e16e8 \
+  "$HOME/.local/share/procinsh/bpf-tools/bpf-linker-x86_64-unknown-linux-musl.tar.zst" \
+  | sha256sum --check
+tar --zstd -xf "$HOME/.local/share/procinsh/bpf-tools/bpf-linker-x86_64-unknown-linux-musl.tar.zst" \
+  -C "$HOME/.local/share/procinsh/bpf-tools"
+export PATH="$HOME/.local/share/procinsh/bpf-tools:$PATH"
+cargo install procinsh --locked
+```
+
+ビルド時 BTF の SHA-256 を埋め込み、各センサーの初期化前に実行カーネルの BTF と比較します。不一致や読み取り失敗なら BPF センサーを `Unavailable` にし、状態 API とログで理由と再ビルド方法を案内します。ほかの `/proc`・perf・ptrace 機能は継続します。同じカーネルバージョン表記でも BTF が違うビルドは受け入れません。
+
+カーネル更新後は checkout で `cargo clean -p procinsh` を実行してからビルドするか、`cargo install procinsh --locked --force` で再インストールしてください。ビルドには `/sys/kernel/btf/vmlinux` が必要です。コンテナでビルドする場合も、実行先と同じカーネル BTF を使います。
+
+通常の開発ビルド:
 
 ```sh
 npm ci
@@ -44,7 +79,7 @@ npm run build:web
 cargo publish --dry-run
 ```
 
-`cargo publish --dry-run` は実際には公開しません。`cargo install procinsh --locked` では同梱済みの JavaScript を使うため、インストール先に Node.js・npm は不要です。Rust とネイティブ・BPF のビルド依存は必要です。
+`cargo publish --dry-run` は実際には公開しません。`cargo install procinsh --locked` では同梱済みの JavaScript を使うため、インストール先に Node.js・npm は不要です。Rust のネイティブリンカーと、上記 BPF ツール・カーネル BTF は必要です。
 
 ## 実装構成
 
@@ -253,15 +288,15 @@ watch channelは接続ごとに独立し、遅い購読者へ古い状態を蓄�
 
 購読側が遅延した場合は `gap` と最新の `full` snapshot を送り、失われた活動を再生しません。keep-alive は10秒間隔です。活動は約1秒ごとに集計・配信し、実際の集計期間は `window_ms` で送ります。
 
-いずれのセンサーも CO-RE eBPF で実装しています。CPU scheduling・IPC・ファイル I/O は独立した eBPF プログラムで収集し、各センサーのロード・状態・解放も独立しています。SPACE は配信された `CpuActivity` を CPU の発光に使います。scheduler event はカーネルの map で集約し、userspace では活動の集計時に読み取ります。
+いずれのセンサーも Aya の Rust eBPF で実装し、ビルドカーネルの BTF に合わせたフィールド位置を使用します。CPU scheduling・IPC・ファイル I/O は独立した eBPF プログラムで収集し、各センサーのロード・状態・解放も独立しています。SPACE は配信された `CpuActivity` を CPU の発光に使います。scheduler event はカーネルの map で集約し、userspace では活動の集計時に読み取ります。
 
 | センサー | バックエンドの観測内容と制約 | eBPF ソース |
 |---|---|---|
-| CPU | `sched_switch` で実行時間と実行中 CPU を集計 | [sched.bpf.c](../src/http_server/system/sched.bpf.c) |
-| IPC | pipe read/write と socket の送受信結果を観測。ペイロードは読まず、MSG_PEEK は加算しない。splice/sendfile、一部 io_uring、帰属不明のワーカーは対象外 | [ipc.bpf.c](../src/http_server/system/ipc.bpf.c) |
-| ファイル I/O | VFS の read/write、ベクトル I/O の成功バイト数と回数を観測。ページキャッシュ経由も含む。mmap、io_uring、splice/sendfile、物理ディスク転送量は対象外 | [files.bpf.c](../src/http_server/system/files.bpf.c) |
+| CPU | `sched_switch` で実行時間と実行中 CPU を集計 | [src/ebpf/src/bin/sched.rs](../src/ebpf/src/bin/sched.rs) |
+| IPC | pipe read/write と socket の送受信結果を観測。ペイロードは読まず、MSG_PEEK は加算しない。splice/sendfile、一部 io_uring、帰属不明のワーカーは対象外 | [src/ebpf/src/bin/ipc.rs](../src/ebpf/src/bin/ipc.rs) |
+| ファイル I/O | VFS の read/write、ベクトル I/O の成功バイト数と回数を観測。ページキャッシュ経由も含む。mmap、io_uring、splice/sendfile、物理ディスク転送量は対象外 | [src/ebpf/src/bin/files.rs](../src/ebpf/src/bin/files.rs) |
 
-ファイルのパスは操作時に取得し、取得できない場合は device/inode 等の識別子を使います。BPF のフックが利用できない場合はセンサーごとの理由を状態 API とログに出し、利用可能な情報の収集を継続します。必要なカーネル機能・権限はセンサーごとに異なります。
+ファイルのパスは操作時に取得し、取得できない場合は device/inode 等の識別子を使います。BPF のフックが利用できない場合はセンサーごとの理由を状態 API とログに出し、利用可能な情報の収集を継続します。必要なカーネル機能・権限はセンサーごとに異なります。fexit は attach 前に開始した操作の完了を観測できないため、操作の検証はセンサーが observing になってから開始します。
 
 ## フロントエンド側の処理
 
@@ -357,11 +392,12 @@ node tests/space-model.mjs
 
 # フォーマット・静的解析
 cargo fmt --all --check
-cargo clippy --all-targets --locked -- -D warnings
+rustfmt --edition 2024 --check src/ebpf/src/*.rs src/ebpf/src/bin/*.rs
+PROCINSH_BPF_CLIPPY=1 cargo clippy --all-targets --locked -- -D warnings
 RUSTDOCFLAGS="-D rustdoc::broken_intra_doc_links" cargo doc --locked --workspace --no-deps --document-private-items
 ```
 
-C ソース・ヘッダー（BPF とテスト用プログラムを含む）は `.clang-format` に従って整形します。clang-format は `requirements-format.txt` の **21.1.8** に固定し、ローカルと CI で同じ `scripts/format_c.py` を使います。スクリプトは実行バイナリのバージョンも検査し、不一致なら失敗します。
+C ソース・ヘッダー（テスト用プログラム）は `.clang-format` に従って整形します。clang-format は `requirements-format.txt` の **21.1.8** に固定し、ローカルと CI で同じ `scripts/format_c.py` を使います。スクリプトは実行バイナリのバージョンも検査し、不一致なら失敗します。
 
 ```sh
 python3 -m venv .venv-format
@@ -376,9 +412,9 @@ CI は Rust と C のフォーマット確認、TypeScript の型チェックと
 
 `Publish rustdoc` workflow は `main` への push と手動実行時だけ動き、rustdoc とモジュール依存関係グラフを生成して GitHub Pages に公開します。PR では通常の `CI` workflow で rustdoc のリンクを検証し、`cargo-modules` のインストールやグラフ生成は行いません。
 
-`cargo build --locked --all-targets` と `cargo test --locked` は Ubuntu 24.04・Ubuntu 26.04・Fedora 44 のコンテナで実行します。matrix は `fail-fast: false` とし、各ディストリビューションの結果を個別に表示します。各コンテナで Node.js 22 と npm をインストールし、`npm ci`、`npm run build:web`（TypeScript 型チェックを含む）から実行します。フォーマット、Clippy、listen policy、SPACE モデルと明示的な bpftool・カーネル BTF 検査は単一環境に残します。各コンテナは Ubuntu 24.04 runner のカーネルと BTF を使うため、この matrix はディストリビューションのユーザー空間の差を検証します。各ディストリビューション固有のカーネルでの BPF センサー動作は検証しません。
+`cargo build --locked --all-targets` と `cargo test --locked` は Ubuntu 24.04・Ubuntu 26.04・Fedora 44 のコンテナで実行します。matrix は `fail-fast: false` とし、各ディストリビューションの結果を個別に表示します。各コンテナで Node.js 22 と npm をインストールし、`npm ci`、`npm run build:web`（TypeScript 型チェックを含む）から実行します。フォーマット、Clippy、listen policy、SPACE モデルと明示的なカーネル BTF 検査は単一環境に残します。各コンテナは Ubuntu 24.04 runner のカーネルと BTF を使うため、この matrix はディストリビューションのユーザー空間の差を検証します。各ディストリビューション固有のカーネルでの BPF センサー動作は検証しません。
 
-matrix の native dependency は Ubuntu では `build-essential clang llvm pkg-config libelf-dev zlib1g-dev python3` に加えて Ubuntu 24.04 は `linux-tools-generic`、Ubuntu 26.04 は `bpftool`、Fedora では `gcc gcc-c++ make clang llvm pkgconf-pkg-config elfutils-libelf-devel zlib-devel python3 bpftool` をインストールします。両方で Rust 導入・checkout に必要な `ca-certificates curl git tar gzip` もインストールします。Ubuntu 26.04 では独立した `bpftool` パッケージの実行ファイルを使います。Ubuntu 24.04 の bpftool は実行カーネルのバージョンに依存する wrapper を避け、`/usr/lib/linux-tools/*/bpftool` の実体を `BPFTOOL` に指定します。
+matrix の native dependency は Ubuntu では `build-essential python3 gh zstd`、Fedora では `gcc gcc-c++ make python3 gh zstd` です。Rust 導入・checkout 用の `ca-certificates curl git tar gzip` もインストールします。各環境で `scripts/setup_bpf.sh` を実行し、固定 nightly と配布版 bpf-linker を使います。clang・bpftool・libelf・zlib 開発ファイルは追加しません。テスト用 C fixture のビルドと整形は引き続き C コンパイラ・固定 clang-format を使います。
 
 Rust テストは明示的な識別子の必須性、SSEの独立した履歴・切断・接続上限、`/proc` の解析、PID 再利用、メモリ読み取り、perf sample と欠落処理、シンボル、HTTP、システム全体の構造・SSE接続管理・集計を検証します。ログテストは既定レベル、debug、off、標準エラー、SIGTERM、ポート競合、クエリ非出力、IPv4/IPv6 の loopback 起動、非 loopback の bind 前拒否と明示的許可・警告、CLI ヘルプを検証します。プロセス観測を拒否するサンドボックスでは一部テストが失敗するため、テスト対象への perf_event_open/process_vm_readv とローカル通信が許可された環境が必要です。
 
@@ -438,11 +474,13 @@ kill -TERM "$(cat /tmp/procinsh-chrome-load.pid)"
 BPF の観測権限（`CAP_BPF`・`CAP_PERFMON` など）と対応するカーネルのフックを利用できるサーバーに対して実行します。CPU/IPC とファイル I/O を検証します。センサー利用不可を成功扱いにはしません。
 
 ```sh
+PROCINSH_REQUIRE_BPF=1 ./scripts/dev_test.sh all_sensors_load_and_detach
+# 以下は ./scripts/dev_run.sh で起動したサーバーに対して実行する。
 python3 tests/space-live.py http://127.0.0.1:9090
 python3 tests/space-files-live.py http://127.0.0.1:9090
 ```
 
-URL を省略した場合は一時サーバーを起動・終了しますが、そのサーバーにも観測権限が必要です。
+ローカルの検証サーバーは `./scripts/dev_run.sh` で起動し、URL を指定してテストします。センサーのロードテストでは `PROCINSH_REQUIRE_BPF=1` で権限不足のスキップを禁止します。
 
 `tests/targets/` の C fixture には計算、sleep、スレッド増減、メモリ確保、再帰、mmap、IPC、活動計測用のプログラムがあります。手動観測には次を使えます。
 

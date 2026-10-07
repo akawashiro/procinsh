@@ -1,53 +1,22 @@
+//! Derives process CPU activity from per-CPU scheduler maps.
+//!
+//! # Interface
+//!
+//! - [`CpuActivityCollector`] (`pub(super) struct`): owns the sensor and computes activity deltas.
+use super::bpf::wire::{CpuSlot, CpuTotal, ProcessKey};
 use super::model::CpuActivity;
 use anyhow::{Context, Result};
-use libbpf_rs::{MapCore, MapFlags, ObjectBuilder};
+use aya::maps::{PerCpuArray, PerCpuHashMap};
 use std::collections::HashMap;
 /// Owns BPF resources and derives CPU activity from scheduler counters.
 pub(super) struct CpuActivityCollector {
-    _links: Vec<libbpf_rs::Link>,
-    obj: libbpf_rs::Object,
+    obj: aya::Ebpf,
     previous_cpu: HashMap<ProcessKey, (u64, u64)>,
-}
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-struct ProcessKey {
-    start: u64,
-    pid: u32,
-}
-
-fn u32_at(bytes: &[u8], offset: usize) -> Option<u32> {
-    Some(u32::from_ne_bytes(
-        bytes.get(offset..offset + 4)?.try_into().ok()?,
-    ))
-}
-
-fn u64_at(bytes: &[u8], offset: usize) -> Option<u64> {
-    Some(u64::from_ne_bytes(
-        bytes.get(offset..offset + 8)?.try_into().ok()?,
-    ))
-}
-
-fn process_key(bytes: &[u8]) -> Option<ProcessKey> {
-    Some(ProcessKey {
-        start: u64_at(bytes, 0)?,
-        pid: u32_at(bytes, 8)?,
-    })
 }
 impl CpuActivityCollector {
     pub(super) fn new() -> Result<Self> {
-        let open = ObjectBuilder::default()
-            .open_memory(include_bytes!(concat!(env!("OUT_DIR"), "/sched.bpf.o")))?;
-        let obj = open
-            .load()
-            .context("CAP_BPF / CAP_PERFMON and compatible BTF required")?;
-        let mut links = Vec::new();
-        for prog in obj.progs_mut() {
-            links.push(
-                prog.attach()
-                    .with_context(|| format!("attach {:?}", prog.name()))?,
-            );
-        }
+        let obj = super::bpf::load("sched")?;
         Ok(Self {
-            _links: links,
             obj,
             previous_cpu: HashMap::new(),
         })
@@ -58,26 +27,19 @@ impl CpuActivityCollector {
         now: u64,
         snapshot: &super::snapshot::SystemSnapshot,
     ) -> Result<Vec<CpuActivity>> {
-        let current = self
-            .obj
-            .maps()
-            .find(|map| map.name() == "cpu_current")
-            .context("cpu_current map")?
-            .lookup_percpu(&0u32.to_ne_bytes(), MapFlags::ANY)?
-            .unwrap_or_default();
-        let totals = self
-            .obj
-            .maps()
-            .find(|map| map.name() == "cpu_totals")
-            .context("cpu_totals map")?;
+        let current = PerCpuArray::<_, CpuSlot>::try_from(
+            self.obj.map("cpu_current").context("cpu_current map")?,
+        )?
+        .get(&0, 0)?;
+        let totals = PerCpuHashMap::<_, ProcessKey, CpuTotal>::try_from(
+            self.obj.map("cpu_totals").context("cpu_totals map")?,
+        )?;
 
         let mut running: HashMap<ProcessKey, Vec<usize>> = HashMap::new();
         let mut ongoing: HashMap<ProcessKey, u64> = HashMap::new();
         for (cpu, value) in current.iter().enumerate() {
-            let Some(key) = process_key(value) else {
-                continue;
-            };
-            let since = u64_at(value, 16).unwrap_or(now);
+            let key = value.process;
+            let since = value.since;
             if key.pid == 0 || since > now {
                 continue;
             }
@@ -86,17 +48,17 @@ impl CpuActivityCollector {
         }
 
         let mut cumulative: HashMap<ProcessKey, (u64, u64)> = HashMap::new();
-        for key_bytes in totals.keys().take(65_536) {
-            let Some(key) = process_key(&key_bytes) else {
-                continue;
-            };
-            let Some(values) = totals.lookup_percpu(&key_bytes, MapFlags::ANY)? else {
-                continue;
+        for key in totals.keys().take(65_536) {
+            let key = key?;
+            let values = match totals.get(&key, 0) {
+                Ok(values) => values,
+                Err(aya::maps::MapError::KeyNotFound) => continue,
+                Err(error) => return Err(error.into()),
             };
             let value = cumulative.entry(key).or_default();
-            for per_cpu in values {
-                value.0 = value.0.saturating_add(u64_at(&per_cpu, 0).unwrap_or(0));
-                value.1 = value.1.saturating_add(u64_at(&per_cpu, 8).unwrap_or(0));
+            for per_cpu in values.iter() {
+                value.0 = value.0.saturating_add(per_cpu.runtime);
+                value.1 = value.1.saturating_add(per_cpu.switches);
             }
         }
         for (key, runtime) in ongoing {
@@ -138,24 +100,5 @@ impl CpuActivityCollector {
         }
         self.previous_cpu = next_previous;
         Ok(result)
-    }
-}
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn decodes_process_key_with_kernel_layout_padding() {
-        let mut bytes = [0u8; 16];
-        bytes[..8].copy_from_slice(&9_876_543_210u64.to_ne_bytes());
-        bytes[8..12].copy_from_slice(&4242u32.to_ne_bytes());
-        assert_eq!(
-            process_key(&bytes),
-            Some(ProcessKey {
-                start: 9_876_543_210,
-                pid: 4242,
-            })
-        );
-        assert!(process_key(&bytes[..11]).is_none());
     }
 }

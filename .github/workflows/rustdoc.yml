@@ -29,23 +29,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends \
-            build-essential clang llvm pkg-config libelf-dev zlib1g-dev python3 \
-            linux-tools-common linux-tools-generic graphviz
-      - name: Configure bpftool and check kernel BTF
-        shell: bash
+            build-essential python3 gh zstd graphviz
+      - name: Install pinned BPF tools
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          # Use the packaged binary directly: the wrapper requires tools matching
-          # the runner's kernel, which may differ from the installed generic kernel.
-          shopt -s nullglob
-          bpftools=(/usr/lib/linux-tools/*/bpftool)
-          if (( ${#bpftools[@]} == 0 )); then
-            echo "::error::No packaged bpftool binary found"
-            exit 1
-          fi
-          echo "BPFTOOL=${bpftools[0]}" >> "$GITHUB_ENV"
+          ./scripts/setup_bpf.sh "$RUNNER_TEMP/bpf-tools"
+          echo "$RUNNER_TEMP/bpf-tools" >> "$GITHUB_PATH"
           test -r /sys/kernel/btf/vmlinux
-          "${bpftools[0]}" version
-
       - name: Install dependency graph tool
         run: cargo install cargo-modules --version 0.27.0 --locked
 

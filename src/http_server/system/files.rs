@@ -1,15 +1,18 @@
 //! Regular-file activity, independent of IPC/CPU availability.
+//!
+//! # Interface
+//!
+//! - [`COVERAGE`] (`pub(super) const COVERAGE: &str`): observation coverage.
+//! - [`FileActivity`] (`pub(in crate::http_server) struct`): serialized observation.
+//! - [`FileActivityCollector`] (`pub(super) struct`): owns and polls the sensor.
 use crate::http_server::{
     process::ProcessId,
     resource::{DeviceId, FileIdentity},
 };
 use anyhow::{Context, Result};
-use libbpf_rs::{MapCore, MapFlags, ObjectBuilder, RingBufferBuilder};
+use aya::maps::{Array, MapData, RingBuf};
 use serde::Serialize;
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
+use std::collections::HashMap;
 
 pub(super) const COVERAGE: &str = "Regular-file read/write, pread/pwrite and vectored I/O, including page cache. Not physical disk traffic. mmap, io_uring, splice/sendfile and kernel workers are not observed.";
 const MAX_AGGREGATES: usize = 8192;
@@ -81,75 +84,44 @@ impl Batch {
 }
 /// Owns BPF resources and collects aggregated regular-file I/O activity.
 pub(super) struct FileActivityCollector {
-    ring: libbpf_rs::RingBuffer<'static>,
-    _links: Vec<libbpf_rs::Link>,
-    obj: libbpf_rs::Object,
-    batch: Arc<Mutex<Batch>>,
+    ring: RingBuf<MapData>,
+    lost: Array<MapData, u64>,
+    _obj: aya::Ebpf,
+    batch: Batch,
 }
 impl FileActivityCollector {
     pub(super) fn new() -> Result<Self> {
-        let obj = ObjectBuilder::default()
-            .open_memory(include_bytes!(concat!(env!("OUT_DIR"), "/files.bpf.o")))?
-            .load()
-            .context("File I/O requires CAP_BPF / CAP_PERFMON and compatible VFS BTF hooks")?;
-        let mut links = Vec::new();
-        for prog in obj.progs_mut() {
-            links.push(
-                prog.attach()
-                    .with_context(|| format!("attach {:?}", prog.name()))?,
-            );
-        }
-        let batch = Arc::new(Mutex::new(Batch::default()));
-        let shared = batch.clone();
-        let map = obj
-            .maps()
-            .find(|m| m.name() == "events")
-            .context("file events map")?;
-        let mut builder = RingBufferBuilder::new();
-        builder.add(&map, move |data| {
-            let mut batch = shared.lock().unwrap();
-            if let Some(event) = decode(data) {
-                batch.add(event);
-            } else {
-                batch.dropped += 1;
-            }
-            0
-        })?;
+        let mut obj = super::bpf::load("files")?;
+        let ring = RingBuf::try_from(obj.take_map("events").context("file events map")?)?;
+        let lost = Array::try_from(obj.take_map("lost").context("file lost map")?)?;
         Ok(Self {
-            ring: builder.build()?,
-            _links: links,
-            obj,
-            batch,
+            ring,
+            lost,
+            _obj: obj,
+            batch: Batch::default(),
         })
     }
 
-    pub(super) fn poll(&self) -> Result<()> {
-        let result = self.ring.consume_raw_n(8192);
-        if result < 0 {
-            return Err(std::io::Error::from_raw_os_error(-result).into());
+    pub(super) fn poll(&mut self) -> Result<()> {
+        for _ in 0..8192 {
+            let Some(item) = self.ring.next() else {
+                break;
+            };
+            if let Some(event) = decode(&item) {
+                self.batch.add(event);
+            } else {
+                self.batch.dropped += 1;
+            }
         }
         Ok(())
     }
 
-    pub(super) fn drain(&self) -> Vec<FileActivity> {
-        self.batch
-            .lock()
-            .unwrap()
-            .events
-            .drain()
-            .map(|(_, event)| event)
-            .collect()
+    pub(super) fn drain(&mut self) -> Vec<FileActivity> {
+        self.batch.events.drain().map(|(_, event)| event).collect()
     }
 
     pub(super) fn lost(&self) -> u64 {
-        self.obj
-            .maps()
-            .find(|m| m.name() == "lost")
-            .and_then(|m| m.lookup(&0u32.to_ne_bytes(), MapFlags::ANY).ok().flatten())
-            .and_then(|bytes| bytes.try_into().ok())
-            .map(u64::from_ne_bytes)
-            .unwrap_or(0)
-            + self.batch.lock().unwrap().dropped
+        self.lost.get(&0, 0).unwrap_or(0) + self.batch.dropped
     }
 }
 #[cfg(test)]

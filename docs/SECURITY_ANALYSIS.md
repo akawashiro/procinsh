@@ -18,7 +18,7 @@ eBPF はカーネル内で実行されるが、この実装の書き込み先は
 
 ## 調査の範囲と確度
 
-Rust の本番コード、3種類の BPF C コード、起動・テスト・常設プレビュー用スクリプト、既存テストを読み、Linux の仕様資料と照合した。既知の非 loopback 公開による情報漏えいは前提とし、停止状態、メモリ取得、カーネルフック、資源管理、権限の境界を中心に調査した。
+Rust の本番コード、3種類の BPF プログラム、起動・テスト・常設プレビュー用スクリプト、既存テストを読み、Linux の仕様資料と照合した。既知の非 loopback 公開による情報漏えいは前提とし、停止状態、メモリ取得、カーネルフック、資源管理、権限の境界を中心に調査した。
 
 以下では「確認済み」はコードから確認できる実装上の事実、「要再現」はその実装から導かれるが、発生条件・結果を実機で確かめていない懸念を示す。攻撃の成立やデータ破壊を実証したという意味ではない。今回はサーバーの起動、権限付きテスト、負荷試験、カーネル障害の再現を行っていない。稼働ホストのカーネル版・修正状況・sudoers・ファイル権限も監査対象に含めていない。
 
@@ -99,13 +99,13 @@ Rust の本番コード、3種類の BPF C コード、起動・テスト・常�
 
 | BPF | 接続点 | 読むもの | 書き込み先 |
 |---|---|---|---|
-| [sched.bpf.c](../src/http_server/system/sched.bpf.c) | `tp_btf/sched_switch`、`sched_process_exit` | task の識別・開始時刻、時刻 | CPU ごとの現在状態と集計 map |
-| [ipc.bpf.c](../src/http_server/system/ipc.bpf.c) | pipe の `fexit`、socket の `tp_btf` | file/inode の識別、元処理の返り値 | ring buffer、欠落数 map |
-| [files.bpf.c](../src/http_server/system/files.bpf.c) | VFS の `fentry/fexit`、`security_file_permission` の `fentry`、終了 tracepoint | file/inode/path、元処理の返り値 | pending map、ring buffer、欠落数 map |
+| [sched.rs](../src/ebpf/src/bin/sched.rs) | `tp_btf/sched_switch`、`sched_process_exit` | task の識別・開始時刻、時刻 | CPU ごとの現在状態と集計 map |
+| [ipc.rs](../src/ebpf/src/bin/ipc.rs) | pipe の `fexit`、socket の `tp_btf` | file/inode の識別、元処理の返り値 | ring buffer、欠落数 map |
+| [files.rs](../src/ebpf/src/bin/files.rs) | VFS の `fentry/fexit`、`security_file_permission` の `fentry`、終了 tracepoint | file/inode/path、元処理の返り値 | pending map、ring buffer、欠落数 map |
 
 `bpf_probe_write_user`、`bpf_override_return`、シグナル送信、LSM の許可・拒否判定、XDP/TC のパケット変更は使っていない。`security_file_permission` に接続しているのも LSM policy の置換ではなく、path を取得する tracing hook である。BPF 関数の `return 0` を VFS の元の返り値を書き換える処理と解釈してはいけない。
 
-verifier はアクセス範囲、ポインタ種別、helper 引数などを検査する。そのため、通常の BPF C の不正なポインタ操作は、ロード拒否になるべきもので、ネイティブなカーネルモジュールの任意書き込みとは異なる。ただし verifier が正常に動作することを前提とする。[Linux kernel: eBPF verifier](https://docs.kernel.org/bpf/verifier.html)
+verifier はアクセス範囲、ポインタ種別、helper 引数などを検査する。そのため、通常の BPF の不正なポインタ操作は、ロード拒否になるべきもので、ネイティブなカーネルモジュールの任意書き込みとは異なる。ただし verifier が正常に動作することを前提とする。[Linux kernel: eBPF verifier](https://docs.kernel.org/bpf/verifier.html)
 
 ### 4.2 全システムの hot path に追加処理が入る
 
@@ -124,7 +124,7 @@ map / buffer は上限付きだが、小さいとは限らない。
 
 ### 4.3 attach/detach とエラー処理
 
-[sched.rs](../src/http_server/system/sched.rs)、[ipc.rs](../src/http_server/system/ipc.rs)、[files.rs](../src/http_server/system/files.rs) は組み込みの BPF オブジェクトをロードし、`Link` と `Object` を所有する。HTTP 入力から任意の BPF ソースや object をロードする API はない。pin や永続的なリンク配置も見つからず、通常の drop/プロセス終了で所有するリソースを解放する構造である。途中の attach 失敗も、ローカルの `Vec<Link>` の drop で既に接続した分を解放する構造になっている。
+[sched.rs](../src/http_server/system/sched.rs)、[ipc.rs](../src/http_server/system/ipc.rs)、[files.rs](../src/http_server/system/files.rs) は組み込みの BPF オブジェクトをロードし、Aya の `Ebpf` と型付き map を所有する。リンクは `Ebpf` 内のプログラムが所有する。HTTP 入力から任意の BPF ソースや object をロードする API はない。pin や永続的なリンク配置も見つからず、通常の drop/プロセス終了で所有するリソースを解放する構造である。途中の attach 失敗も、ローカルの `Ebpf` の drop で既に接続した分を解放する構造になっている。
 
 [system/service.rs](../src/http_server/system/service.rs) はシステム購読者がいないと collector を drop する。初期化失敗は [activity.rs](../src/http_server/system/activity.rs) でセンサー単位の unavailable 状態になる。一方、poll/collect のエラーは状態を変更するだけで、生きているセンサーを自動 detach しない。異常表示や観測欠落が出ても、kernel hook の負荷が止まったとは限らない。
 
@@ -132,7 +132,7 @@ map / buffer は上限付きだが、小さいとは限らない。
 
 ### 4.4 カーネル自体の不具合は別の残存リスク
 
-CO-RE と BTF は構造体配置の違いに対応するが、接続先の意味や workload に対する安全性まで保証しない。正常な verifier が拒否するコードと、verifier/JIT/helper/trampoline 自体の不具合で通ってしまうコードは区別する必要がある。後者の影響は procinsh の Rust の型安全性では防げない。
+ビルド時の BTF から構造体フィールド位置を生成し、起動時に BTF の SHA-256 を照合する。配置が異なるカーネルではセンサーを無効化するが、接続先の意味や workload に対する安全性まで保証しない。正常な verifier が拒否するコードと、verifier/JIT/helper/trampoline 自体の不具合で通ってしまうコードは区別する必要がある。後者の影響は procinsh の Rust の型安全性では防げない。
 
 今回、特定の CVE がこのバイナリや稼働ホストに成立するかは評価していない。カーネル更新の管理と、サポートする kernel/BTF の組み合わせごとの load/attach/負荷試験が必要である。カーネル障害の検証は本番ホストではなく使い捨て VM で行う。コンテナだけではカーネルをホストと共有するので、この種の障害を隔離できない。
 
@@ -154,7 +154,7 @@ CO-RE と BTF は構造体配置の違いに対応するが、接続先の意味
 
 [dev_run.sh](../scripts/dev_run.sh) は実行ファイルに `cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search=ep` を付ける。これらを持つ HTTP サーバーが侵害されると、現在の router に書き込み API がなくても、別の syscall を呼ぶことで対象メモリやレジスタを変更できる可能性がある。特に `CAP_SYS_PTRACE` は読み取り専用の capability ではない。`CAP_DAC_READ_SEARCH` は通常のファイル読み取り・ディレクトリの読み取りと探索に対する DAC の権限検査を迂回するので、侵害時の機密ファイル読み取りの影響も広がる。ただし、この権限単独で通常のファイル書き込み権限を迂回するものではなく、LSM 等の別の制約がなくなるわけでもない。root 起動は、さらに広い権限を与える。[capabilities(7)](https://man7.org/linux/man-pages/man7/capabilities.7.html)
 
-HTTP、`/proc` の解析、libbpf の FFI、perf の unsafe、ELF/DWARF の解析を同じプロセスで行う。Rust は多くのメモリ破壊を防ぐが、unsafe・ネイティブライブラリ・依存クレートの欠陥まで自動的に排除しない。観測対象が作る実行ファイルや mapping の情報も、強い権限を持つ解析器に入る信頼できない入力である。今回、そこからコード実行できる具体的な欠陥を見つけたわけではない。
+HTTP、`/proc` の解析、Aya の BPF ローダーと syscall、perf の unsafe、ELF/DWARF の解析を同じプロセスで行う。Rust は多くのメモリ破壊を防ぐが、unsafe・ネイティブライブラリ・依存クレートの欠陥まで自動的に排除しない。観測対象が作る実行ファイルや mapping の情報も、強い権限を持つ解析器に入る信頼できない入力である。今回、そこからコード実行できる具体的な欠陥を見つけたわけではない。
 
 **対策:** HTTP/UI と特権 collector を別プロセスに分け、対象と操作を限定した IPC にする。ptrace が必要な worker と BPF worker の権限を分け、不要になった capability を落とす。継続的な再 attach/open が必要なので、現構造のまま起動直後にすべて落とせるとは限らない。seccomp を併用する場合も、汎用 `ptrace` / `bpf` を許可しただけで読取専用になると考えない。
 

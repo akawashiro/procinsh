@@ -1,11 +1,13 @@
+//! Collects process-attributed pipe and socket activity using an Aya sensor.
+//!
+//! # Interface
+//!
+//! - [`IpcActivityCollector`] (`pub(super) struct`): owns, polls and drains IPC observations.
 use super::model::IpcActivity;
 use crate::http_server::resource::{DeviceId, IpcIdentity, IpcKind};
 use anyhow::{Context, Result};
-use libbpf_rs::{MapCore, MapFlags, ObjectBuilder, RingBufferBuilder};
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
+use aya::maps::{Array, MapData, RingBuf};
+use std::collections::HashMap;
 #[derive(Clone, Copy)]
 struct Event {
     start: u64,
@@ -37,83 +39,44 @@ fn event(bytes: &[u8]) -> Option<Event> {
 }
 /// Owns BPF resources and collects IPC activity attributed to observed processes.
 pub(super) struct IpcActivityCollector {
-    ring: libbpf_rs::RingBuffer<'static>,
-    _links: Vec<libbpf_rs::Link>,
-    obj: libbpf_rs::Object,
-    queue: Arc<Mutex<Vec<Event>>>,
-    drops: Arc<std::sync::atomic::AtomicU64>,
+    ring: RingBuf<MapData>,
+    lost: Array<MapData, u64>,
+    _obj: aya::Ebpf,
     unresolved: u64,
     pending: HashMap<(crate::http_server::process::ProcessId, IpcIdentity, bool), (u64, u64)>,
 }
 
 impl IpcActivityCollector {
     pub(super) fn new() -> Result<Self> {
-        let open = ObjectBuilder::default()
-            .open_memory(include_bytes!(concat!(env!("OUT_DIR"), "/ipc.bpf.o")))?;
-        let obj = open
-            .load()
-            .context("CAP_BPF / CAP_PERFMON and compatible BTF required")?;
-        let mut links = Vec::new();
-        for prog in obj.progs_mut() {
-            links.push(
-                prog.attach()
-                    .with_context(|| format!("attach {:?}", prog.name()))?,
-            );
-        }
-        let queue = Arc::new(Mutex::new(Vec::new()));
-        let q = queue.clone();
-        let drops = Arc::new(std::sync::atomic::AtomicU64::new(0));
-        let d = drops.clone();
-        let map = obj
-            .maps()
-            .find(|m| m.name() == "events")
-            .context("events map")?;
-        let mut builder = RingBufferBuilder::new();
-        builder.add(&map, move |bytes| {
-            if let Some(e) = event(bytes) {
-                let mut q = q.lock().unwrap();
-                if q.len() < 65536 {
-                    q.push(e);
-                } else {
-                    d.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                }
-            }
-            0
-        })?;
-        let ring = builder.build()?;
+        let mut obj = super::bpf::load("ipc")?;
+        let ring = RingBuf::try_from(obj.take_map("events").context("IPC events map")?)?;
+        let lost = Array::try_from(obj.take_map("lost").context("IPC lost map")?)?;
         Ok(Self {
             ring,
-            _links: links,
-            obj,
-            queue,
-            drops,
+            lost,
+            _obj: obj,
             unresolved: 0,
             pending: HashMap::new(),
         })
     }
 
     pub(super) fn lost(&self) -> u64 {
-        self.obj
-            .maps()
-            .find(|m| m.name() == "lost")
-            .and_then(|m| m.lookup(&0u32.to_ne_bytes(), MapFlags::ANY).ok().flatten())
-            .and_then(|v| v.try_into().ok())
-            .map(u64::from_ne_bytes)
-            .unwrap_or(0)
-            + self.drops.load(std::sync::atomic::Ordering::Relaxed)
+        self.lost.get(&0, 0).unwrap_or(0)
     }
 
     pub(super) fn poll(&mut self, snapshot: &super::snapshot::SystemSnapshot) -> Result<()> {
-        let consumed = self.ring.consume_raw_n(8192);
-        if consumed < 0 {
-            return Err(std::io::Error::from_raw_os_error(-consumed).into());
-        }
         let processes: HashMap<_, _> = snapshot
             .processes
             .iter()
             .map(|n| (n.identity.pid, n))
             .collect();
-        for e in self.queue.lock().unwrap().drain(..) {
+        for _ in 0..8192 {
+            let Some(item) = self.ring.next() else {
+                break;
+            };
+            let Some(e) = event(&item) else {
+                continue;
+            };
             let Some(n) = processes.get(&(e.pid as i32)) else {
                 self.unresolved += 1;
                 continue;

@@ -14,6 +14,7 @@
 //! sensor observations. [`SnapshotEncoder`] encodes snapshots for each SSE connection.
 
 mod activity;
+mod bpf;
 mod delivery;
 pub(super) use delivery::SnapshotEncoder;
 mod files;

@@ -43,7 +43,7 @@ impl ActivityCollector {
 
     pub(super) fn poll(&mut self, snapshot: &SystemSnapshot) {
         update_state(
-            self.files.as_ref().map(FileActivityCollector::poll),
+            self.files.as_mut().map(FileActivityCollector::poll),
             &mut self.status.files,
         );
         update_state(
@@ -81,7 +81,7 @@ impl ActivityCollector {
         self.status.files_lost = Some(self.files.as_ref().map_or(0, FileActivityCollector::lost));
         let files = self
             .files
-            .as_ref()
+            .as_mut()
             .map_or_else(Vec::new, FileActivityCollector::drain);
         ActivityBatch { files, ipc, cpu }
     }
@@ -117,7 +117,7 @@ fn update_state(result: Option<anyhow::Result<()>>, state: &mut SensorState) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use libbpf_rs::ObjectBuilder;
+    use object::{Object, ObjectSection};
 
     #[test]
     fn sensor_failures_are_independent_and_polling_can_recover() {
@@ -170,32 +170,65 @@ mod tests {
 
     #[test]
     fn compiled_collectors_have_independent_hooks_and_maps() {
-        let sched = ObjectBuilder::default()
-            .open_memory(include_bytes!(concat!(env!("OUT_DIR"), "/sched.bpf.o")))
-            .unwrap();
-        let ipc = ObjectBuilder::default()
-            .open_memory(include_bytes!(concat!(env!("OUT_DIR"), "/ipc.bpf.o")))
-            .unwrap();
-        let sched_maps: Vec<_> = sched.maps().map(|map| map.name().to_owned()).collect();
-        let ipc_maps: Vec<_> = ipc.maps().map(|map| map.name().to_owned()).collect();
-        for name in ["cpu_current", "cpu_totals"] {
-            assert!(sched_maps.iter().any(|map| map == name));
-            assert!(!ipc_maps.iter().any(|map| map == name));
-        }
-        for name in ["events", "lost"] {
-            assert!(ipc_maps.iter().any(|map| map == name));
-            assert!(!sched_maps.iter().any(|map| map == name));
-        }
-        let sched_hooks: Vec<_> = sched.progs().map(|prog| prog.name().to_owned()).collect();
-        let ipc_hooks: Vec<_> = ipc.progs().map(|prog| prog.name().to_owned()).collect();
-        assert_eq!(sched_hooks.len(), 2);
-        for name in ["schedule", "process_exit"] {
-            assert!(sched_hooks.iter().any(|hook| hook == name));
-            assert!(!ipc_hooks.iter().any(|hook| hook == name));
-        }
-        assert_eq!(ipc_hooks.len(), 4);
-        for name in ["anon_pipe_read", "anon_pipe_write", "send", "recv"] {
-            assert!(ipc_hooks.iter().any(|hook| hook == name));
+        for (name, data, hooks, maps) in [
+            (
+                "sched",
+                &include_bytes!(concat!(env!("OUT_DIR"), "/sched.bpf.o"))[..],
+                2,
+                &["cpu_current", "cpu_totals"][..],
+            ),
+            (
+                "ipc",
+                &include_bytes!(concat!(env!("OUT_DIR"), "/ipc.bpf.o"))[..],
+                4,
+                &["events", "lost"][..],
+            ),
+            (
+                "files",
+                &include_bytes!(concat!(env!("OUT_DIR"), "/files.bpf.o"))[..],
+                10,
+                &["pending", "events", "lost"][..],
+            ),
+        ] {
+            let object = object::File::parse(data).unwrap();
+            let sections: Vec<_> = object.sections().filter_map(|s| s.name().ok()).collect();
+            assert_eq!(
+                sections
+                    .iter()
+                    .filter(|s| s.starts_with("tp_btf/")
+                        || s.starts_with("fentry/")
+                        || s.starts_with("fexit/"))
+                    .count(),
+                hooks,
+                "{name}"
+            );
+            if let Some(ext) = object.section_by_name(".BTF.ext") {
+                let bytes = ext.data().unwrap();
+                let header_len = u32::from_le_bytes(bytes[4..8].try_into().unwrap());
+                if header_len >= 32 {
+                    assert_eq!(
+                        u32::from_le_bytes(bytes[28..32].try_into().unwrap()),
+                        0,
+                        "{name}: unexpected CO-RE relocations"
+                    );
+                }
+            }
+            use object::ObjectSymbol;
+            let map_section = object
+                .section_by_name("maps")
+                .or_else(|| object.section_by_name(".maps"))
+                .unwrap()
+                .index();
+            let actual_maps: Vec<_> = object
+                .symbols()
+                .filter(|symbol| symbol.section_index() == Some(map_section))
+                .filter_map(|symbol| symbol.name().ok())
+                .filter(|name| !name.is_empty())
+                .collect();
+            assert_eq!(actual_maps.len(), maps.len(), "{name}: map isolation");
+            for map in maps {
+                assert!(actual_maps.contains(map), "{name}: {map}");
+            }
         }
     }
 }

@@ -3,10 +3,9 @@ import json, subprocess, threading, time, sys
 from sse import Stream
 base=sys.argv[1] if len(sys.argv)>1 else 'http://127.0.0.1:8080'
 
-p=subprocess.Popen(['tests/targets/bin/activity'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True)
+p=None
 response=None;thread=None
 try:
-    pid,peer,address,size=p.stdout.readline().split();pid=int(pid);peer=int(peer);address=int(address,16);size=int(size)
     response=Stream(base+'/api/system/events')
     frames=[]; latest={"snapshot": {}, "status": {}}
     def consume():
@@ -21,6 +20,17 @@ try:
                             latest['status']=value['status']
         except (OSError,ValueError):pass
     thread=threading.Thread(target=consume,daemon=True);thread.start()
+    # fexit cannot report an operation that entered before its trampoline was
+    # attached. Start the blocking pipe fixture only once sensors are observing.
+    deadline=time.monotonic()+12
+    while time.monotonic()<deadline:
+        status=latest['status']
+        if any(status.get(sensor,{}).get('state')=='unavailable' for sensor in ('cpu','ipc')):raise AssertionError(status)
+        if all(status.get(sensor,{}).get('state')=='observing' for sensor in ('cpu','ipc')):break
+        time.sleep(.3)
+    else:raise AssertionError(('sensors did not become ready',latest))
+    p=subprocess.Popen(['tests/targets/bin/activity'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True)
+    pid,peer,address,size=p.stdout.readline().split();pid=int(pid);peer=int(peer);address=int(address,16);size=int(size)
     deadline=time.monotonic()+12
     while time.monotonic()<deadline:
         status=latest['status']
@@ -56,5 +66,6 @@ try:
 
 finally:
     if response:response.close(thread)
-    if p.poll() is None:p.terminate()
-    p.wait(timeout=5)
+    if p is not None:
+        if p.poll() is None:p.terminate()
+        p.wait(timeout=5)

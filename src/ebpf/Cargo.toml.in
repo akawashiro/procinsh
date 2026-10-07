@@ -1,0 +1,29 @@
+[package]
+name = "procinsh-ebpf"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+aya-ebpf = "=0.2.1"
+
+[[bin]]
+name = "sched"
+path = "src/bin/sched.rs"
+
+[[bin]]
+name = "ipc"
+path = "src/bin/ipc.rs"
+
+[[bin]]
+name = "files"
+path = "src/bin/files.rs"
+
+[profile.release]
+opt-level = 2
+lto = true
+codegen-units = 1
+panic = "abort"
+debug = 2
