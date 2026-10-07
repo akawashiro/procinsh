@@ -3,6 +3,8 @@
 A web-based process inspector for Linux.
 Like [Ghost in the Shell](https://en.wikipedia.org/wiki/Ghost_in_the_Shell), you can wander through process space with your ghost.
 
+See also [a blog post](https://akawashiro.com/articles/procinsh-en).
+
 ## Screenshot
 
 <img src="./images/procinsh_movie.gif" alt="Demo of procinsh" width="800">
