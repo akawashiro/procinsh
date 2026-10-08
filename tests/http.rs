@@ -125,7 +125,14 @@ fn binary_serves_assets_process_api_and_sse_and_shuts_down() {
         "/list/app.js",
         "/process/app.js",
         "/space/app.js",
-        "/space/model.js",
+        "/space/data.js",
+        "/space/scene.js",
+        "/space/renderer.js",
+        "/space/search.js",
+        "/space/selection.js",
+        "/space/camera.js",
+        "/space/details.js",
+        "/space/dom-types.js",
         "/shared/api.js",
         "/shared/display.js",
         "/shared/dom.js",
@@ -160,6 +167,7 @@ fn binary_serves_assets_process_api_and_sse_and_shuts_down() {
         "/style.css",
         "/space.js",
         "/space-model.js",
+        "/space/model.js",
         "/space.css",
     ] {
         assert_eq!(server.get(path).0, 404, "{path}");
