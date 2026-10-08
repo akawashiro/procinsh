@@ -80,20 +80,6 @@ Then run:
 sudo ./target/release/procinsh --listen 127.0.0.1:9090
 ```
 
-### Frontend development
-
-The vanilla TypeScript UI lives in `web/`. After the initial web and Rust build,
-run the backend with `./scripts/dev_run.sh --listen 127.0.0.1:9090`, then run
-`npm --prefix web run dev` in another terminal. Open Vite's URL for frontend
-HMR; `/api` requests, including SSE, proxy to the backend. Set
-`PROCINSH_BACKEND_URL` to use another backend address.
-
-Run `npm --prefix web test` for Vitest and `npm --prefix web run format:check`
-for formatting. Production builds embed the entire `web/dist/` output, including
-npm-managed Three.js, into the executable. Published crates ship those prebuilt
-assets, so `cargo install procinsh --locked` requires no Node.js or npm.
-See [development documentation](developer-docs/DEVELOPMENT.md) for details.
-
 ### Building on WSL2 (Ubuntu)
 
 Ubuntu's `bpftool` wrapper may fail with `bpftool not found for kernel ...`

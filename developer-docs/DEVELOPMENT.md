@@ -366,9 +366,9 @@ Environment・Auxiliary Vector・Pipe / Socket はパネルを開くたびに単
 
 | 対象 | テストソース | 実行手順 |
 |---|---|---|
-| 一覧の検索・並べ替え・更新キャンセル、詳細の識別子検証・SSE・追加 GET・選択 | [page-data.test.mjs](../web/tests/page-data.test.mjs) | `npm --prefix web test` |
-| CPU/RSS の軸・スケール、サンプル欠落、描画倍率 | [history-chart.test.mjs](../web/tests/history-chart.test.mjs) | `npm --prefix web test` |
-| 一覧から詳細への遷移、追加パネル、サンプル表示、モバイル、ページキャッシュ・終了 | [browser.mjs](../tests/browser.mjs) | [ブラウザテスト](#ブラウザテスト)の準備後に `node tests/browser.mjs` |
+| 一覧の検索・並べ替え・更新キャンセル、詳細の識別子検証・SSE・追加 GET・選択 | [page-data.test.ts](../web/tests/page-data.test.ts) | `npm --prefix web test` |
+| CPU/RSS の軸・スケール、サンプル欠落、描画倍率 | [history-chart.test.ts](../web/tests/history-chart.test.ts) | `npm --prefix web test` |
+| 一覧から詳細への遷移、追加パネル、サンプル表示、モバイル、ページキャッシュ・終了 | [browser.ts](../web/tests/browser/browser.ts) | [ブラウザテスト](#ブラウザテスト)の準備後に `npm --prefix web run test:browser:list` |
 
 ### SPACE `/space`
 
@@ -440,10 +440,10 @@ SPACE はシステム全体のプロセス、仮想アドレス空間、親子�
 
 | 対象 | テストソース | 実行手順 |
 |---|---|---|
-| 部品間の import 境界、シーンへの入力、当たり判定・選択、カメラ範囲、詳細表示のリンク・操作、描画の通知・停止復帰 | [space-components.test.mjs](../web/tests/space-components.test.mjs) | `npm --prefix web test` |
-| データのマージ、配置、活動モデル、解像度調整 | [space-model.test.mjs](../web/tests/space-model.test.mjs) | `npm --prefix web test` |
-| 観測状態・活動経路、SSE の停止・再同期・古い通知の破棄 | [space-data.test.mjs](../web/tests/space-data.test.mjs) | `npm --prefix web test` |
-| WebGL 描画、配置・選択・カメラ操作、接続管理 | [space-browser.mjs](../tests/space-browser.mjs)。ネットワークとファイルは [space-network.mjs](../tests/space-network.mjs)・[space-files.mjs](../tests/space-files.mjs) を呼び出して検証 | [ブラウザテスト](#ブラウザテスト)の準備後に `node tests/space-browser.mjs` |
+| 部品間の import 境界、シーンへの入力、当たり判定・選択、カメラ範囲、詳細表示のリンク・操作、描画の通知・停止復帰 | [space-components.test.ts](../web/tests/space-components.test.ts) | `npm --prefix web test` |
+| データのマージ、配置、活動モデル、解像度調整 | [space-model.test.ts](../web/tests/space-model.test.ts) | `npm --prefix web test` |
+| 観測状態・活動経路、SSE の停止・再同期・古い通知の破棄 | [space-data.test.ts](../web/tests/space-data.test.ts) | `npm --prefix web test` |
+| WebGL 描画、配置・選択・カメラ操作、接続管理 | [space-browser.ts](../web/tests/browser/space-browser.ts)。ネットワークとファイルは [space-network.ts](../web/tests/browser/space-network.ts)・[space-files.ts](../web/tests/browser/space-files.ts) を呼び出して検証 | [ブラウザテスト](#ブラウザテスト)の準備後に `npm --prefix web run test:browser:space` |
 | 実機の CPU・IPC・ファイル I/O センサー | [space-live.py](../tests/space-live.py)、[space-files-live.py](../tests/space-files-live.py) | [実機センサーテスト](#実機センサーテスト)を参照 |
 
 ## 権限
@@ -488,7 +488,7 @@ PROCINSH_BINARY=./scripts/dev_run.sh cargo test --locked --test http --test buil
 # ローカルの権限付き単体テスト（perf のスキップを禁止）
 PROCINSH_REQUIRE_PERF=1 ./scripts/dev_test.sh
 PROCINSH_BINARY=./scripts/dev_run.sh python3 tests/listen-policy.py
-node tests/web-dev.mjs
+npm --prefix web run test:dev
 
 # フォーマット・静的解析
 cargo fmt --all --check
@@ -496,7 +496,7 @@ cargo clippy --all-targets --locked -- -D warnings
 RUSTDOCFLAGS="-D rustdoc::broken_intra_doc_links" cargo doc --locked --workspace --no-deps --document-private-items
 ```
 
-TypeScript の `web/src/**/*.ts` は [Prettier](https://prettier.io/docs/install) で整形します。バージョンは [package.json](../web/package.json) で固定し、[.prettierrc.json](../web/.prettierrc.json) に従って標準の書式と LF 改行を使います。[.prettierignore](../web/.prettierignore) は生成物と node_modules を除外します。ローカルと CI は同じチェックコマンドを使います。
+TypeScript のソース・テスト・設定（`web/src/**/*.ts`、`web/tests/**/*.ts`、`web/*.ts`）は [Prettier](https://prettier.io/docs/install) で整形します。バージョンは [package.json](../web/package.json) で固定し、[.prettierrc.json](../web/.prettierrc.json) に従って標準の書式と LF 改行を使います。[.prettierignore](../web/.prettierignore) は生成物と node_modules を除外します。ローカルと CI は同じチェックコマンドを使います。
 
 ```sh
 npm --prefix web run format
@@ -520,6 +520,8 @@ CI は Rust・C・TypeScript のフォーマット確認、TypeScript の型チ�
 
 [Publish API documentation](../.github/workflows/docs.yml) workflow は `main` への push と手動実行時に、rustdoc・TypeDoc・Rust のモジュール依存関係グラフを生成し、`target/doc/` を単一の GitHub Pages artifact として公開します。Rust は既存の `/procinsh/`、TypeScript は `/typescript/`、依存関係グラフは `/architecture/` に配置し、トップページから各ドキュメントへリンクします。PR の `CI` workflow は rustdoc のリンクと TypeDoc の生成を検証し、`cargo-modules` のインストールやグラフ生成は行いません。
 
+`web/tests/` の単体テストは Vitest で実行します。通常は Node 環境を使い、DOM を操作する部品テストだけ jsdom を使います。単体・ブラウザ・開発サーバーのテストと共通ヘルパーはすべて `npm --prefix web run typecheck` の対象です。
+
 TypeScript のドキュメントは [typedoc.json](../web/typedoc.json) で `web/src/` を entry point として再帰的に展開します。外部ライブラリのドキュメントを除き、一覧・詳細・SPACE・共有モジュールの export された型・関数を対象にします。ローカルでは `npm --prefix web ci` 後に `npm --prefix web run docs` を実行すると、`target/doc/typescript/index.html` から参照できます。
 
 `cargo build --locked --all-targets` と `cargo test --locked` は Ubuntu 24.04・Ubuntu 26.04・Fedora 44 のコンテナで実行します。matrix は `fail-fast: false` とし、各ディストリビューションの結果を個別に表示します。各コンテナで Node.js 22 と npm をインストールし、`npm --prefix web ci`、`npm --prefix web run build`（TypeScript 型チェックを含む）から実行します。フォーマット、Clippy、listen policy、SPACE モデルと明示的な bpftool・カーネル BTF 検査は単一環境に残します。各コンテナは Ubuntu 24.04 runner のカーネルと BTF を使うため、この matrix はディストリビューションのユーザー空間の差を検証します。各ディストリビューション固有のカーネルでの BPF センサー動作は検証しません。
@@ -534,18 +536,18 @@ perf の実機 fixture は権限が利用できない環境では明示メッセ
 
 ### ブラウザテスト
 
-上記の Web・Rust ビルドと fixture の準備に加え、Google Chrome または Chromium が必要です。テスト自体は Node.js 標準機能と DevTools Protocol を使い、追加の npm テストライブラリは不要です。
+上記の Web・Rust ビルドと fixture の準備に加え、Google Chrome または Chromium が必要です。テストは `web/tests/browser/` に配置し、`npm --prefix web ci` で導入する tsx から実行します。Node.js 標準機能で DevTools Protocol に接続し、コマンドと応答は devtools-protocol の型で検査します。
 
 ```sh
-node tests/browser.mjs
-node tests/space-browser.mjs
+npm --prefix web run test:browser:list
+npm --prefix web run test:browser:space
 
 # ブラウザのパスを指定する場合
-CHROME=/usr/bin/chromium node tests/browser.mjs
-CHROME=/usr/bin/chromium node tests/space-browser.mjs
+CHROME=/usr/bin/chromium npm --prefix web run test:browser:list
+CHROME=/usr/bin/chromium npm --prefix web run test:browser:space
 ```
 
-`node tests/web-dev.mjs` は dev_run 経由でバックエンドと Vite を起動し、画面ルート、CSS 編集による HMR 更新、Origin 検査、JSON と両方の SSE のプロキシを確認します。
+[dev-server.ts](../web/tests/integration/dev-server.ts)（`npm --prefix web run test:dev`）は dev_run 経由でバックエンドと Vite を起動し、画面ルート、CSS 編集による HMR 更新、Origin 検査、JSON と両方の SSE のプロキシを確認します。
 
 通常画面は検索・選択・SSE・ライブサンプル・詳細パネル・終了処理を、SPACE は WebGL、配置、選択、ネットワークとファイルの描画を検証します。ブラウザテストは一時サーバーとブラウザプロファイルを作り、終了時に片付けます。画面・モデルの検証と実機センサーの検証は別です。
 

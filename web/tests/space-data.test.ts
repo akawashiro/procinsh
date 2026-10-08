@@ -1,38 +1,60 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
-import { SpaceDataStore, key, fileKey } from "../src/space/data.ts";
-import { visibleIds } from "../src/space/search.ts";
+import { SpaceDataStore, key, fileKey } from "../src/space/data.js";
+import { visibleIds } from "../src/space/search.js";
+
+import type { ProcessId, IpcIdentity } from "../src/shared/api-types.js";
+import {
+  processInfo,
+  fdEndpoint,
+  fdRelation,
+  spaceActivity,
+  cpuActivity,
+} from "./support/fixtures.js";
+import { TestEventSource } from "./support/mocks.js";
 
 test("space-data regression", async () => {
   const a = { pid: 101, start_time_ticks: 1 },
     b = { pid: 102, start_time_ticks: 2 };
-  const process = (identity, name, parent_id = null) => ({
-    identity,
-    name,
-    parent_id,
-    maps: [],
-  });
-  const resource = { kind: "pipe", device: { major: 0, minor: 1 }, inode: "7" };
-  const endpoint = (process_id) => ({ process_id, fd: 3, resource });
-  const relation = {
+  const process = (
+    identity: ProcessId,
+    name: string,
+    parent_id: ProcessId | null = null,
+  ) =>
+    processInfo({
+      identity,
+      name,
+      parent_id,
+      maps: [],
+    });
+  const resource: IpcIdentity = {
+    kind: "pipe",
+    device: { major: 0, minor: 1 },
+    inode: "7",
+  };
+  const endpoint = (process_id: ProcessId) =>
+    fdEndpoint({ process_id, fd: 3, resource });
+  const relation = fdRelation({
     id: "pipe",
     endpoint: endpoint(a),
     peer: endpoint(b),
     candidate: false,
     shared: false,
-  };
+  });
   const initial = {
     processes: [process(a, "writer"), process(b, "reader", a)],
     fd_relations: [relation],
   };
   const store = new SpaceDataStore();
   store.replaceSnapshot(initial, false, 1000);
-  assert.deepEqual(Object.keys(store.nodes.get(key(a)).pos).sort(), [
+  assert.deepEqual(Object.keys(store.nodes.get(key(a))!.pos).sort(), [
     "x",
     "y",
     "z",
   ]);
-  const positions = [...store.nodes].map(([id, p]) => [id, { ...p.pos }]);
+  const positions = [...store.nodes].map(
+    ([id, p]) => [id, { ...p.pos }] as const,
+  );
   store.replaceSnapshot(
     {
       ...initial,
@@ -46,7 +68,7 @@ test("space-data regression", async () => {
   );
   for (const [id, pos] of positions)
     assert.deepEqual(
-      store.nodes.get(id).pos,
+      store.nodes.get(id)!.pos,
       pos,
       "structural additions preserve positions",
     );
@@ -62,15 +84,17 @@ test("space-data regression", async () => {
     write: true,
   };
   const update = store.ingestActivity(
-    {
+    spaceActivity({
       window_ms: 100,
-      cpu: [{ process_id: a, runtime_ns: 100, running_threads: 1 }],
+      cpu: [
+        cpuActivity({ process_id: a, runtime_ns: 100, running_threads: 1 }),
+      ],
       files: [file],
       ipc: [
         { ...endpoint(a), write: true, bytes: 4, count: 1 },
         { ...endpoint(b), write: false, bytes: 4, count: 1 },
       ],
-    },
+    }),
     new Set(store.nodes.keys()),
     1000,
   );
@@ -86,10 +110,12 @@ test("space-data regression", async () => {
     count: 2,
     time: 1000,
   });
-  assert.equal(store.cpuGlows.get(key(a)).last, 1000);
+  assert.equal(store.cpuGlows.get(key(a))!.last, 1000);
   assert.ok(store.filePositions.has(fileKey(file)));
   const filtered = store.ingestActivity(
-    { ipc: [{ ...endpoint(a), write: true, bytes: 2, count: 1 }] },
+    spaceActivity({
+      ipc: [{ ...endpoint(a), write: true, bytes: 2, count: 1 }],
+    }),
     new Set([key(a)]),
     1100,
   );
@@ -99,7 +125,7 @@ test("space-data regression", async () => {
     "a hidden peer cannot be used as an exact visible route",
   );
   assert.equal(
-    store.edgeStats.get("pipe").time,
+    store.edgeStats.get("pipe")!.time,
     1000,
     "filtered activity does not replace visible relation totals",
   );
@@ -116,7 +142,9 @@ test("space-data regression", async () => {
   assert.deepEqual(
     store
       .ingestActivity(
-        { ipc: [{ ...endpoint(a), write: true, bytes: 1, count: 1 }] },
+        spaceActivity({
+          ipc: [{ ...endpoint(a), write: true, bytes: 1, count: 1 }],
+        }),
         new Set(store.nodes.keys()),
         1200,
       )
@@ -141,7 +169,10 @@ test("space-data regression", async () => {
   assert.equal(store.cpuGlows.has(key(a)), false);
   assert.equal(store.edgeStats.size, 0);
   store.ingestActivity(
-    { files: [file], cpu: [{ process_id: a, runtime_ns: 10 }] },
+    spaceActivity({
+      files: [file],
+      cpu: [cpuActivity({ process_id: a, runtime_ns: 10 })],
+    }),
     new Set(store.nodes.keys()),
     32000,
   );
@@ -152,30 +183,8 @@ test("space-data regression", async () => {
   );
   assert.equal(store.cpuGlows.has(key(a)), false);
 
-  class Source extends EventTarget {
-    readyState = 0;
-    constructor(url) {
-      super();
-      this.url = url;
-    }
-    close() {
-      this.readyState = 2;
-    }
-    emit(type, data) {
-      this.dispatchEvent(
-        new MessageEvent(type, { data: JSON.stringify(data) }),
-      );
-    }
-    open() {
-      this.readyState = 1;
-      this.onopen?.(new Event("open"));
-    }
-    error() {
-      this.onerror?.(new Event("error"));
-    }
-  }
-  const sources = [],
-    seen = [];
+  const sources: TestEventSource[] = [],
+    seen: [string, ...unknown[]][] = [];
   const live = new SpaceDataStore(
     {
       snapshot() {
@@ -196,9 +205,9 @@ test("space-data regression", async () => {
     },
     undefined,
     (url) => {
-      const source = new Source(url);
+      const source = new TestEventSource(url);
       sources.push(source);
-      return source;
+      return source.asEventSource();
     },
   );
   assert.equal(
