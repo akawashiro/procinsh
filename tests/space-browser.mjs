@@ -9,6 +9,7 @@ import {checkDescriptors} from './fds.mjs';
 import {checkFileSpace} from './space-files.mjs';
 import {checkNetworkSpace} from './space-network.mjs';
 import {processEventRecording} from './process-events.mjs';
+import {checkBuildHeader} from './build-header.mjs';
 
 const children = [], errors = [];
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -97,6 +98,7 @@ try {
   assert.equal(await evaluate('document.title'),'procinsh');
   const config = await evaluate("fetch('/api/config').then(response=>response.json())");
   assert.equal(await evaluate("document.querySelector('header #brand').textContent"),`procinsh v${config.version}`);
+  const buildRevision = await checkBuildHeader(evaluate);
   assert.equal(await evaluate("document.querySelector('.counts')"),null,'process counts are removed');
   assert.equal(await evaluate("document.querySelector('.telemetry')"),null,'sensor status is removed');
   assert.equal(await evaluate("document.querySelector('header #back').textContent"),'Go to list view');
@@ -281,6 +283,7 @@ try {
   assert.equal(await evaluate("import('/space/app.js').then(m=>m.fileVisuals().length)"),512,'file marker display limit renders alongside network snapshot');
   await delay(1500); console.log('1000 nodes / 6000 edges / 1000 destinations / 512 files:',await evaluate("document.getElementById('fps').textContent"));
   await cdp('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+  assert.deepEqual(await checkBuildHeader(evaluate), buildRevision);
   assert.equal(await evaluate('document.documentElement.scrollWidth <= 390'),true);
   assert.ok(await evaluate("(()=>{const r=document.querySelector('.tools').getBoundingClientRect();return r.left>=0&&r.right<=390&&r.top>=0&&r.bottom<=844})()"),'mobile tools remain in the viewport');
   await evaluate("window.dispatchEvent(new Event('pagehide'))");

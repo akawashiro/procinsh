@@ -26,6 +26,8 @@ cargo build --release --locked
 
 HTML/CSS、生成した JavaScript、Three.js（revision 180）はバイナリに埋め込みます。TypeScript を変更したら `npm run build:web` の後に Rust バイナリを再ビルドしてください。Cargo は TypeScript と生成物の鮮度を検証しません。HTML/CSS の変更にも Rust の再ビルドが必要です。実行時の Node.js・npm、外部 CDN は不要です。SPACE の描画には WebGL2 が必要です。
 
+各画面のヘッダーはビルド済みバイナリのバージョンと、判明している場合は7桁の Git SHA を表示します。SHA は GitHub の該当 commit への別リンクで、全桁を hover と accessible label で確認できます。`build.rs` は `PROCINSH_GIT_SHA` の40桁の16進 SHA を優先して埋め込みます。指定がなければ manifest ディレクトリ自身の Git checkout から取得し、追跡済みファイルに変更がある場合は `-dirty` を付けます。Git 情報のない配布ビルドや、`PROCINSH_GIT_SHA=""` を明示したビルドはバージョンだけを表示します。HTTP 要求時には Git や checkout を読みません。
+
 | CLI オプション | 動作 |
 |---|---|
 | `--listen ADDRESS` | 待受アドレス。既定は `127.0.0.1:8080` |

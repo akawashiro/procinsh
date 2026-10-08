@@ -9,6 +9,7 @@ import {checkProcessDetails} from './process-details.mjs';
 import {checkDescriptors} from './fds.mjs';
 import {checkProcessSessions} from './process-sessions.mjs';
 import {processEventRecording} from './process-events.mjs';
+import {checkBuildHeader} from './build-header.mjs';
 
 const children = [], errors = [];
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -79,6 +80,7 @@ try {
   assert.equal(await evaluate('window.targetSources.length'), 0, 'list opens no detail SSE');
   assert.equal(await evaluate('document.title'), 'procinsh');
   assert.equal(await evaluate("document.querySelector('header #back')"), null);
+  const buildRevision = await checkBuildHeader(evaluate);
   const listReads = await evaluate("window.pageRequests.filter(p=>p==='/api/processes').length");
   await evaluate("window.dispatchEvent(new Event('pagehide'))");
   await delay(1200);
@@ -98,6 +100,7 @@ try {
     await waitFor(`document.getElementById('inspector')?.hidden===false && document.getElementById('identity')?.textContent.includes('PID ${pid} /')`, 'process selection');
     await waitFor("document.getElementById('error')?.hidden===true", 'initial SSE recovers');
     assert.equal(await evaluate("document.getElementById('explorer')"), null, 'detail has no list DOM');
+    assert.deepEqual(await checkBuildHeader(evaluate), buildRevision);
     return href;
   }
   const recursiveHref = await choose(recursive.pid);
@@ -175,6 +178,7 @@ try {
   await writeFile('target/browser-inspector.png', Buffer.from(png.data, 'base64'));
   await cdp('Emulation.setDeviceMetricsOverride', {width: 390, height: 844, deviceScaleFactor: 1, mobile: true});
   assert.equal(await evaluate('document.documentElement.scrollWidth <= 390'), true, 'mobile layout must not overflow');
+  assert.deepEqual(await checkBuildHeader(evaluate), buildRevision);
   await evaluate("document.getElementById('back').click()");
   await waitFor("document.querySelectorAll('#process-list tr').length>2", 'return to explorer');
   assert.equal(await evaluate("document.getElementById('disassembly')"), null);

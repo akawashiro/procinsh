@@ -12,6 +12,7 @@ include = [
     "/LICENSE",
     "/README.md",
     "/build.rs",
+    "/build/**",
     "/rust-toolchain.toml",
     "/src/**",
     "/dist/web/**/*.js",

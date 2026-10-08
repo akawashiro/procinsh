@@ -9,7 +9,32 @@ use axum::{Router, http::header, response::Html, routing::get};
 use std::sync::Arc;
 
 fn versioned_html(template: &str) -> Html<String> {
-    Html(template.replace("{{PROCINSH_VERSION}}", env!("CARGO_PKG_VERSION")))
+    Html(build_html(
+        template,
+        env!("PROCINSH_BUILD_GIT_SHA"),
+        env!("PROCINSH_BUILD_GIT_DIRTY") == "true",
+    ))
+}
+
+fn build_html(template: &str, sha: &str, dirty: bool) -> String {
+    // The build script accepts only full hexadecimal SHAs before embedding them.
+    let revision = if sha.is_empty() {
+        String::new()
+    } else {
+        let suffix = if dirty { "-dirty" } else { "" };
+        let note = if dirty {
+            " (local changes to tracked files)"
+        } else {
+            ""
+        };
+        format!(
+            " · <a id=\"build-commit\" href=\"https://github.com/akawashiro/procinsh/commit/{sha}\" target=\"_blank\" rel=\"noopener noreferrer\" title=\"{sha}{note}\" aria-label=\"Build commit {sha}{note}\">{}{suffix}</a>",
+            &sha[..7],
+        )
+    };
+    template
+        .replace("{{PROCINSH_VERSION}}", env!("CARGO_PKG_VERSION"))
+        .replace("{{PROCINSH_BUILD_REVISION}}", &revision)
 }
 
 pub(super) fn router() -> Router<Arc<AppState>> {
@@ -171,4 +196,53 @@ pub(super) fn router() -> Router<Arc<AppState>> {
             );
     }
     router
+}
+
+#[cfg(test)]
+mod tests {
+    use super::build_html;
+
+    const SHA: &str = "0123456789abcdef0123456789abcdef01234567";
+    const TEMPLATES: [&str; 3] = [
+        include_str!("../web/list/index.html"),
+        include_str!("../web/process/index.html"),
+        include_str!("../web/space/index.html"),
+    ];
+
+    #[test]
+    fn known_revision_links_to_embedded_commit_on_every_page() {
+        for template in TEMPLATES {
+            let html = build_html(template, SHA, false);
+            assert!(html.contains(&format!("procinsh v{}", env!("CARGO_PKG_VERSION"))));
+            assert!(html.contains("href=\"/list\" id=\"brand\""));
+            assert!(html.contains(&format!(
+                "href=\"https://github.com/akawashiro/procinsh/commit/{SHA}\""
+            )));
+            assert!(html.contains(&format!("title=\"{SHA}\"")));
+            assert!(html.contains(&format!("aria-label=\"Build commit {SHA}\"")));
+            assert!(html.contains(">0123456</a>"));
+            assert!(html.contains("target=\"_blank\" rel=\"noopener noreferrer\""));
+            assert!(!html.contains("{{PROCINSH_"));
+            assert!(!html.contains("-dirty"));
+        }
+    }
+
+    #[test]
+    fn tracked_changes_are_visible_and_gitless_builds_keep_only_version() {
+        for template in TEMPLATES {
+            let dirty = build_html(template, SHA, true);
+            assert!(dirty.contains(">0123456-dirty</a>"));
+            assert!(dirty.contains(&format!("/commit/{SHA}")));
+            assert!(dirty.contains("local changes to tracked files"));
+            let gitless = build_html(template, "", false);
+            assert!(gitless.contains(&format!("procinsh v{}", env!("CARGO_PKG_VERSION"))));
+            assert!(!gitless.contains("id=\"build-commit\""));
+            assert!(!gitless.contains("/commit/"));
+            assert!(!gitless.contains("{{PROCINSH_"));
+            assert!(gitless.contains(&format!(
+                "<div class=\"brand\"><a href=\"/list\" id=\"brand\">procinsh v{}</a></div>",
+                env!("CARGO_PKG_VERSION")
+            )));
+        }
+    }
 }

@@ -105,7 +105,7 @@ capability 一覧を変更した場合は、sudoers の許可する引数も新�
 
 ### main の更新
 
-`origin/main` に相当する GitHub の main を専用 ref に取得し、`current.commit` と異なる場合だけ `npm ci`、`npm run build:web`、`cargo build --locked` を実行します。作業ブランチや未コミット変更は公開しません。timer の `OnUnitInactiveSec` は main が `10s`、公開版が `1min` で、両方とも `AccuracySec=1s` を使います。更新処理の終了を基準にするため、長いビルド中に次の更新は重なりません。スクリプトもファイルロックで多重実行を防ぎます。
+`origin/main` に相当する GitHub の main を専用 ref に取得し、`current.commit` と異なる場合だけ `npm ci`、`npm run build:web`、`PROCINSH_GIT_SHA="$commit" cargo build --locked` を実行します。作業ブランチや未コミット変更は公開しません。ビルド対象の SHA をバイナリに埋め込み、各画面のバージョンの隣に表示します。timer の `OnUnitInactiveSec` は main が `10s`、公開版が `1min` で、両方とも `AccuracySec=1s` を使います。更新処理の終了を基準にするため、長いビルド中に次の更新は重なりません。スクリプトもファイルロックで多重実行を防ぎます。
 
 ### 公開最新版の更新
 
