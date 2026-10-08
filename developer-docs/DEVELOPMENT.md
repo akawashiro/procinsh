@@ -97,7 +97,7 @@ Tokio/Axum が HTTP と SSE を処理し、ブロッキングする詳細 API �
 
 Web UI の API 型は `web/src/shared/api-types.ts` に定義し、Rust の JSON 応答と合わせて管理します。null の扱いや16進文字列のアドレスも契約に含まれます。これらはコンパイル時の型で、実行時の入力検証ではありません。Three.js は npm 依存として Vite が同梱し、TypeScript と型定義はビルド専用の npm 依存です。
 
-[API Documentation](https://akawashiro.github.io/procinsh/) から Rust API、[TypeScript API](https://akawashiro.github.io/procinsh/typescript/)、[Rust の依存関係グラフ](https://akawashiro.github.io/procinsh/architecture/) を参照できます。
+[API Documentation](https://akawashiro.github.io/procinsh/) から Rust API、[TypeScript API](https://akawashiro.github.io/procinsh/typescript/)、[Rust の依存関係グラフ](https://akawashiro.github.io/procinsh/architecture/)、[TypeScript の依存関係グラフ](https://akawashiro.github.io/procinsh/typescript-architecture/) を参照できます。
 各 module root の `//!` は責務と、そのモジュールの外から使う入口を説明します。crate 外部への公開に限らず、親・兄弟モジュール向けの I/F も対象です。
 `//! # Interface` には通常ビルドでその root が公開・再公開する型・関数の一覧、型、可視性、関数シグネチャ、定義リンクを記載し、入口の変更時に更新します。シグネチャに登場する補助型は必要な定義リンクで案内します。
 子モジュール内部の関数、フィールド、列挙値、テスト専用項目は網羅的に転記しません。公開型のメソッドの詳細、JSON の表現やフォールバックなどの契約、所有権・ロック・処理順序の注意点は定義側に記載し、変更履歴ではなく現在の振る舞いを説明します。
@@ -519,11 +519,19 @@ CLANG_FORMAT="$PWD/.venv-format/bin/clang-format" python3 scripts/format_c.py --
 
 CI は Rust・C・TypeScript のフォーマット確認、TypeScript の型チェックと Vite ビルド、Vitest、crate のアセット同梱と Node 不要のビルド、Rust の全ターゲットのビルド、Clippy、rustdoc のリンク検証、Rust テスト、ログ検証、一覧・詳細のデータと履歴グラフ、SPACE モデルとデータの検証を実行します。ブラウザと実機センサーのテストは別途実行します。
 
-[Publish API documentation](../.github/workflows/docs.yml) workflow は `main` への push と手動実行時に、rustdoc・TypeDoc・Rust のモジュール依存関係グラフを生成し、`target/doc/` を単一の GitHub Pages artifact として公開します。Rust は既存の `/procinsh/`、TypeScript は `/typescript/`、依存関係グラフは `/architecture/` に配置し、トップページから各ドキュメントへリンクします。PR の `CI` workflow は rustdoc のリンクと TypeDoc の生成を検証し、`cargo-modules` のインストールやグラフ生成は行いません。
+[Publish API documentation](../.github/workflows/docs.yml) workflow は `main` への push と手動実行時に、rustdoc・TypeDoc・Rust と TypeScript のモジュール依存関係グラフを生成し、`target/doc/` を単一の GitHub Pages artifact として公開します。Rust は既存の `/procinsh/`、TypeScript は `/typescript/`、Rust の依存関係グラフは `/architecture/`、TypeScript の依存関係グラフは `/typescript-architecture/` に配置し、トップページから各ドキュメントへリンクします。PR の `CI` workflow は rustdoc のリンク、TypeDoc と TypeScript の依存関係グラフの生成を検証します。Rust のグラフ生成と `cargo-modules` のインストールは公開 workflow で実行します。
 
 `web/tests/` の単体テストと `web/src/` の `if (import.meta.vitest)` 内の in-source test は Vitest で実行します。モジュール内部のヘルパーは in-source test から直接参照し、テストのためだけに export しません。`vitest.config.ts` の `includeSource` がソース内のテストを検出し、通常の Vite ビルドは `import.meta.vitest` を `undefined` に置換してテストとテスト用 import を除去します。通常は Node 環境を使い、DOM を操作する部品テストだけ jsdom を使います。単体・ブラウザ・開発サーバーのテストと共通ヘルパーはすべて `npm --prefix web run typecheck` の対象です。
 
 TypeScript のドキュメントは [typedoc.json](../web/typedoc.json) で `web/src/` を entry point として再帰的に展開します。外部ライブラリのドキュメントを除き、一覧・詳細・SPACE・共有モジュールの export された型・関数を対象にします。ローカルでは `npm --prefix web ci` 後に `npm --prefix web run docs` を実行すると、`target/doc/typescript/index.html` から参照できます。
+
+TypeScript の依存関係グラフは [module-dependencies.ts](../web/scripts/module-dependencies.ts) が TypeScript compiler API で `web/src/` の import と re-export を解析し、Graphviz で SVG に描画します。型だけの import、`import("...")` による型参照、文字列リテラルの動的 import も対象です。外部パッケージ、`web/tests/`、`if (import.meta.vitest)` のテスト用ブロックは除きます。矢印は利用側から依存先へ向かい、概要図はソース直下のディレクトリ単位、詳細図はファイル単位で表示します。
+
+ローカルでは Graphviz の `dot` をインストールして、次を実行します。生成物は `target/doc/typescript-architecture/index.html` から参照できます。
+
+```sh
+npm --prefix web run docs:architecture
+```
 
 `cargo build --locked --all-targets` と `cargo test --locked` は Ubuntu 24.04・Ubuntu 26.04・Fedora 44 のコンテナで実行します。matrix は `fail-fast: false` とし、各ディストリビューションの結果を個別に表示します。各コンテナで Node.js 22 と npm をインストールし、`npm --prefix web ci`、`npm --prefix web run build`（TypeScript 型チェックを含む）から実行します。フォーマット、Clippy、listen policy、SPACE モデルと明示的な bpftool・カーネル BTF 検査は単一環境に残します。各コンテナは Ubuntu 24.04 runner のカーネルと BTF を使うため、この matrix はディストリビューションのユーザー空間の差を検証します。各ディストリビューション固有のカーネルでの BPF センサー動作は検証しません。
 
@@ -607,5 +615,6 @@ tests/targets/bin/recursive --allow-inspector
 
 ## 関連リンク
 
-- [モジュール依存関係](https://akawashiro.github.io/procinsh/architecture/)
+- [Rust モジュール依存関係](https://akawashiro.github.io/procinsh/architecture/)
+- [TypeScript モジュール依存関係](https://akawashiro.github.io/procinsh/typescript-architecture/)
 - [Rust doc](https://akawashiro.github.io/procinsh/procinsh/index.html)

@@ -73,7 +73,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends \
             build-essential clang llvm pkg-config libelf-dev zlib1g-dev python3 \
-            linux-tools-common linux-tools-generic
+            linux-tools-common linux-tools-generic graphviz
+      - name: Check TypeScript module dependency graphs
+        run: npm --prefix web run docs:architecture
       - name: Configure bpftool and check kernel BTF
         shell: bash
         run: |

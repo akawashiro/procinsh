@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TypeScript module dependency graph — procinsh</title>
+<style>
+  body { font: 1rem/1.6 system-ui, sans-serif; color: #172033; margin: auto; padding: 1rem; max-width: 80rem; }
+  a { color: #164eaf; }
+  img { display: block; max-width: 100%; height: auto; }
+</style>
+<nav><a href="../index.html">Documentation home</a> · <a href="../typescript/index.html">TypeScript API docs</a> · <a href="../architecture/">Rust architecture</a></nav>
+<h1>TypeScript module dependency graph</h1>
+<p>Arrows mean <strong>user → dependency</strong>.
+Opposite arrows show mutual dependencies; longer cycles can be followed along the arrows.</p>
+<p>Graphs include value and type imports, re-exports, and imports with literal module names.
+Only modules under <code>web/src/</code> are included; external packages and
+<code>if (import.meta.vitest)</code> test blocks are excluded.</p>
+<h2>Overview</h2>
+<a href="module-dependencies.svg"><img src="module-dependencies.svg" alt="Dependencies between list, process, space and shared TypeScript modules"></a>
+<h2>Detail</h2>
+<a href="module-dependencies-detail.svg"><img src="module-dependencies-detail.svg" alt="Dependencies between TypeScript source files, grouped by source directory"></a>
+</html>

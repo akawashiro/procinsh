@@ -58,7 +58,10 @@ jobs:
       - name: Build TypeScript API documentation
         run: npm --prefix web run docs
 
-      - name: Build module dependency graphs
+      - name: Build TypeScript module dependency graphs
+        run: npm --prefix web run docs:architecture
+
+      - name: Build Rust module dependency graphs
         run: |
           mkdir -p target/doc/architecture
           # The item filters fold references into the containing modules.
@@ -80,13 +83,14 @@ jobs:
             [ -f "$file" ] || continue
             [ "$file" != target/doc/architecture/index.html ] || continue
             [ "$file" != target/doc/typescript/index.html ] || continue
+            [ "$file" != target/doc/typescript-architecture/index.html ] || continue
             crate=$(basename "$(dirname "$file")")
             echo "<li><a href=\"$crate/index.html\">$crate</a></li>" \
               >> target/doc/index.html
           done
 
           echo '</ul><h2>TypeScript API documentation</h2><ul><li><a href="typescript/">TypeScript API documentation</a></li></ul>' >> target/doc/index.html
-          echo '<h2>Architecture</h2><ul><li><a href="architecture/">Rust module dependency graph</a></li></ul></html>' >> target/doc/index.html
+          echo '<h2>Architecture</h2><ul><li><a href="architecture/">Rust module dependency graph</a></li><li><a href="typescript-architecture/">TypeScript module dependency graph</a></li></ul></html>' >> target/doc/index.html
           touch target/doc/.nojekyll
 
       - uses: actions/configure-pages@v5
