@@ -11,7 +11,7 @@
   - 公開型のメソッドの詳細、JSON の表現・フォールバックなどの契約、所有権・ロック・処理順序の注意点は定義側に記載すること
   - 理由: 固定ツールチェーン Rust 1.98.1 の rustdoc では、非公開の祖先モジュールを持つ `pub(super)` / `pub(in ...)` などの restricted re-export が、façade 側の I/F として表示されない。`--document-private-items` や `#[doc(inline)]` でもこの構成では期待する表示にならないため、入口の一覧と定義元への intra-doc link で補う。コメント内のシグネチャは自動同期されず、リンク検査でも不一致を検出できないため、対象の変更時に手動で更新する。
 - C ソース・ヘッダー（BPF を含む）を変更したら `python3 scripts/format_c.py` で整形し、`python3 scripts/format_c.py --check` を実行すること
-  - clang-format は `requirements-format.txt` の固定バージョンを使うこと。インストール手順は `docs/DEVELOPMENT.md` を参照。
+  - clang-format は `requirements-format.txt` の固定バージョンを使うこと。インストール手順は `developer-docs/DEVELOPMENT.md` を参照。
 - procinsh を起動するときは強めの権限が必要になるので、./scripts/dev_run.sh を利用すること
 - ptrace・perf・BPF など権限が必要な Rust 単体テストは `./scripts/dev_test.sh` で実行すること
   - perf の検証では `PROCINSH_REQUIRE_PERF=1 ./scripts/dev_test.sh` を使い、権限不足によるスキップを禁止すること

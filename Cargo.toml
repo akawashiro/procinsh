@@ -17,7 +17,7 @@ include = [
     "/dist/web/*.js",
     "/tests/**",
     "!/tests/targets/bin/**",
-    "/docs/**",
+    "/developer-docs/**",
     "/package.json",
     "/package-lock.json",
     "/tsconfig.json",
