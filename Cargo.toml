@@ -15,14 +15,9 @@ include = [
     "/build/**",
     "/rust-toolchain.toml",
     "/src/**",
-    "/dist/web/**/*.js",
+    "/web/dist/**",
     "/tests/**",
     "!/tests/targets/bin/**",
-    "/package.json",
-    "/package-lock.json",
-    "/.prettierrc.json",
-    "/.prettierignore",
-    "/tsconfig.json",
 ]
 
 [dependencies]
@@ -42,6 +37,8 @@ iced-x86 = { version = "1.21", default-features = false, features = ["std", "dec
 libbpf-rs = "0.26.2"
 tower-http = { version = "0.7", features = ["compression-gzip"] }
 framehop = { version = "0.16.0", default-features = false, features = ["std"] }
+rust-embed = { version = "8.13.0", features = ["debug-embed"] }
+mime_guess = "2.0.5"
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }

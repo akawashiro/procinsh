@@ -34,8 +34,8 @@ case "${1:-}" in
         nvm use default
       fi
     fi
-    npm ci
-    npm run build:web
+    npm --prefix web ci
+    npm --prefix web run build
     PROCINSH_GIT_SHA="$commit" cargo build --locked
     install -m 0755 target/debug/procinsh "$state/candidate"
     # Apply privileges before touching the running version; no password prompt.
