@@ -271,8 +271,18 @@ watch channelは接続ごとに独立し、遅い購読者へ古い状態を蓄�
 
 | 場所・ファイル | 役割 |
 |---|---|
-| [list/index.html](../src/web/list/index.html)、[list/style.css](../src/web/list/style.css)、[list/app.ts](../src/web/list/app.ts) | `/`・`/list` の一覧。API 取得、検索、並べ替え、DOM 更新。`/list/app.js` を読み込む |
-| [process/index.html](../src/web/process/index.html)、[process/style.css](../src/web/process/style.css)、[process/app.ts](../src/web/process/app.ts) | `/process/{pid}` の詳細。SSE 接続、DOM 更新、CPU/RSS 履歴の Canvas 描画、追加パネル。`/process/app.js` を読み込む |
+| [list/index.html](../src/web/list/index.html)、[list/style.css](../src/web/list/style.css)、[list/app.ts](../src/web/list/app.ts) | `/`・`/list` の HTML/CSS と起動処理。`app.ts` がデータ・検索・表示を接続し、`/list/app.js` を読み込む |
+| [list/data.ts](../src/web/list/data.ts) | 一覧と更新間隔の取得、観測状態、定期更新、ページ離脱時の要求キャンセル・古い応答の破棄 |
+| [list/search.ts](../src/web/list/search.ts) | PID・名前・コマンドラインの検索、CPU/RSS/PID の並べ替えと操作イベント |
+| [list/renderer.ts](../src/web/list/renderer.ts) | 一覧表、詳細への識別子付きリンク、件数、取得エラーの DOM 更新 |
+| [process/index.html](../src/web/process/index.html)、[process/style.css](../src/web/process/style.css)、[process/app.ts](../src/web/process/app.ts) | `/process/{pid}` の HTML/CSS と起動処理。`app.ts` が通信・表示・操作を接続し、`/process/app.js` を読み込む |
+| [process/data.ts](../src/web/process/data.ts) | URL の PID・開始時刻の検証、識別子の解決、詳細 SSE、観測・サンプル・追加 GET の状態、開いている追加パネルの定期取得と古い通知・応答の破棄 |
+| [process/renderer.ts](../src/web/process/renderer.ts) | プロセスの概要、メトリクス、終了・エラー状態、メモリマップの DOM 更新 |
+| [process/selection.ts](../src/web/process/selection.ts) | スレッド選択の保持・切り替え、スレッド表と選択スレッドの属性表示 |
+| [process/samples.ts](../src/web/process/samples.ts) | 選択スレッドのレジスタ・Call Stack・逆アセンブルの DOM 更新 |
+| [process/history.ts](../src/web/process/history.ts) | 履歴データから Canvas 2D に CPU/RSS のグラフと軸・凡例を描画 |
+| [process/details.ts](../src/web/process/details.ts) | Environment・Auxiliary Vector・Pipe / Socket の DOM 更新、パネルの開閉イベント |
+| [process/search.ts](../src/web/process/search.ts) | 保持済みの環境変数・FD の検索と入力イベント |
 | [space/index.html](../src/web/space/index.html)、[space/style.css](../src/web/space/style.css)、[space/app.ts](../src/web/space/app.ts) | `/space` の HTML/CSS と起動処理。`app.ts` がデータ・描画・操作の部品を接続し、`/space/app.js` を読み込む |
 | [space/data.ts](../src/web/space/data.ts) | SSE、観測・活動の状態管理、構造イベントのマージ、配置計算。Three.js・DOM に依存しない |
 | [space/scene.ts](../src/web/space/scene.ts) | 配置済みデータから Three.js オブジェクトを構築・更新し、不要な Geometry・Material を解放 |
@@ -286,7 +296,7 @@ watch channelは接続ごとに独立し、遅い購読者へ古い状態を蓄�
 | [shared/dom.ts](../src/web/shared/dom.ts)、[shared/style.css](../src/web/shared/style.css) | 一覧・詳細の要素生成と、ヘッダー・フォーム・テーブルなどの共通スタイル |
 | [shared/navigation.ts](../src/web/shared/navigation.ts) | プロセス識別子の照合、API クエリ、開始時刻を引き継ぐ詳細リンク |
 | [shared/api-types.ts](../src/web/shared/api-types.ts) | Rust の JSON/SSE 応答に対応する TypeScript 型。実行時の入力検証は行わない |
-| [list/dom-types.ts](../src/web/list/dom-types.ts)、[process/dom-types.ts](../src/web/process/dom-types.ts)、[space/dom-types.ts](../src/web/space/dom-types.ts) | 各 HTML の要素 ID と要素型の対応。`ListElements`・`ProcessElements`・`SpaceElements`。SPACE は `spaceElement` で型付きの要素取得も共有 |
+| [list/dom-types.ts](../src/web/list/dom-types.ts)、[process/dom-types.ts](../src/web/process/dom-types.ts)、[space/dom-types.ts](../src/web/space/dom-types.ts) | 各 HTML の要素 ID と要素型の対応。`ListElements`・`ProcessElements`・`SpaceElements`。`listElement`・`processElement`・`spaceElement` で画面内の型付き要素取得も共有 |
 | [vendor/](../src/web/vendor/) | 同梱の Three.js と、カメラ操作を担当する [OrbitControls.js](../src/web/vendor/OrbitControls.js) |
 | [web.rs](../src/http_server/web.rs) | HTML/CSS、生成済み JavaScript、vendor ファイルを Rust バイナリに埋め込み、各 URL で配信 |
 
@@ -294,7 +304,7 @@ TypeScript のビルド設定は [tsconfig.json](../tsconfig.json)、実行コ�
 
 ### プロセス一覧 `/list`（`/` も同じ一覧を表示）
 
-実装の入口は [list/app.ts の `start`](../src/web/list/app.ts#L99)、定期取得は [`refresh`](../src/web/list/app.ts#L25)、一覧の DOM 更新は [`renderProcesses`](../src/web/list/app.ts#L44) です。
+[list/app.ts](../src/web/list/app.ts) が `ListDataStore` と検索・表の表示を接続します。通信と状態は [`ListDataStore.start`](../src/web/list/data.ts#L49)・[`ListDataStore.refresh`](../src/web/list/data.ts#L23)、検索と並べ替えは [`matchingProcesses`](../src/web/list/search.ts#L3)、DOM 更新は [`renderProcesses`](../src/web/list/renderer.ts#L8) を参照してください。データの生成だけでは通信を開始せず、データ更新時・検索操作時に表示対象を計算して表へ反映します。
 
 一覧ページは一覧の DOM だけを持ち、詳細 SSE を開きません。
 
@@ -311,7 +321,9 @@ TypeScript のビルド設定は [tsconfig.json](../tsconfig.json)、実行コ�
 
 ### プロセス詳細 `/process/{pid}`
 
-SSE の接続は [process/app.ts の `connect`](../src/web/process/app.ts#L267)、受信状態の反映は [`acceptTarget`](../src/web/process/app.ts#L319) と [`renderTarget`](../src/web/process/app.ts#L337) が担当します。追加パネルの取得は [`loadProcessDetails`](../src/web/process/app.ts#L81)、履歴グラフは [`drawHistory`](../src/web/process/app.ts#L455)、選択スレッドのサンプル表示は [`renderLiveSample`](../src/web/process/app.ts#L570) を参照してください。
+[process/app.ts](../src/web/process/app.ts) がデータ・表示・選択を接続し、ページの起動・停止と識別子付き URL の保持を担当します。SSE の接続は [`ProcessDataStore.connect`](../src/web/process/data.ts#L156)、受信状態の反映は [`ProcessDataStore.acceptTarget`](../src/web/process/data.ts#L198) → [`renderTarget`](../src/web/process/renderer.ts#L22) が担当します。追加パネルの取得は [`ProcessDataStore.loadDetails`](../src/web/process/data.ts#L118)、履歴グラフは [`drawHistory`](../src/web/process/history.ts#L10)、選択スレッドのサンプル表示は [`renderLiveSample`](../src/web/process/samples.ts#L43) を参照してください。
+
+`ProcessDataStore` は DOM に依存せず、PID・開始時刻・接続の世代・追加 GET の世代を照合して観測状態を保持します。検索は取得済みの値を絞り込み、`ThreadSelection` は選択スレッドを保持します。状態の通知を受けて各表示部品を更新し、履歴グラフには履歴データと Canvas を渡します。
 
 | 利用API | 呼び出すタイミングと用途 |
 |---|---|
@@ -330,6 +342,14 @@ Environment・Auxiliary Vector・Pipe / Socket はパネルを開くたびに単
 一覧へのリンク、ヘッダーのアプリ名、FD の接続先リンクは通常のページ遷移です。FD のリンクにも観測した開始時刻を引き継ぎます。各詳細ページは独立した詳細情報とパネルの開閉・検索状態を持ちます。接続の世代と識別子を照合して古い SSE 通知を無視し、追加 GET は要求時の世代と識別子、応答の識別子を照合して古い応答を破棄します。プロセス終了・`pagehide` では追加パネルの定期更新を停止し、取得途中の応答も無効化します。
 
 通信切断ではエラーを表示し、EventSource が同じ識別子で自動再接続します。再接続後の観測を受信するとエラーを消し、履歴は新しい接続で再開始します。同じ PID の別プロセスへ自動で乗り換えません。`exited: true` を受信したら接続を閉じ、最終状態と終了表示を残します。`pagehide` で接続を閉じ、ページキャッシュからの `pageshow` では終了していない対象に同じ識別子で接続し直します。
+
+#### 一覧・プロセス詳細の検証入口
+
+| 対象 | テストソース | 実行手順 |
+|---|---|---|
+| 一覧の検索・並べ替え・更新キャンセル、詳細の識別子検証・SSE・追加 GET・選択 | [page-data.mjs](../tests/page-data.mjs) | `npm run build:web` 後に `node tests/page-data.mjs` |
+| CPU/RSS の軸・スケール、サンプル欠落、描画倍率 | [history-chart.mjs](../tests/history-chart.mjs) | `npm run build:web` 後に `node tests/history-chart.mjs` |
+| 一覧から詳細への遷移、追加パネル、サンプル表示、モバイル、ページキャッシュ・終了 | [browser.mjs](../tests/browser.mjs) | [ブラウザテスト](#ブラウザテスト)の準備後に `node tests/browser.mjs` |
 
 ### SPACE `/space`
 
@@ -443,6 +463,8 @@ cargo test --locked
 # ローカルの権限付き単体テスト（perf のスキップを禁止）
 PROCINSH_REQUIRE_PERF=1 ./scripts/dev_test.sh
 PROCINSH_BINARY=./scripts/dev_run.sh python3 tests/listen-policy.py
+node tests/page-data.mjs
+node tests/history-chart.mjs
 node tests/space-model.mjs
 node tests/space-data.mjs
 
@@ -472,7 +494,7 @@ CLANG_FORMAT="$PWD/.venv-format/bin/clang-format" python3 scripts/format_c.py --
 
 `--check` はファイルを書き換えず、整形差分があれば失敗します。Git 管理対象と未追跡の `.c` / `.h` を検査し、無視された生成物（`vmlinux.h` など）は対象にしません。C の変更時は整形してからコミットしてください。clang-format の更新は固定バージョンの変更と全 C ファイルの再整形を合わせて行います。
 
-CI は Rust・C・TypeScript のフォーマット確認、TypeScript の型チェックとビルド、Rust の全ターゲットのビルド、Clippy、rustdoc のリンク検証、Rust テスト、ログ検証、SPACE モデルとデータの検証を実行します。ブラウザと実機センサーのテストは別途実行します。
+CI は Rust・C・TypeScript のフォーマット確認、TypeScript の型チェックとビルド、Rust の全ターゲットのビルド、Clippy、rustdoc のリンク検証、Rust テスト、ログ検証、一覧・詳細のデータと履歴グラフ、SPACE モデルとデータの検証を実行します。ブラウザと実機センサーのテストは別途実行します。
 
 `Publish rustdoc` workflow は `main` への push と手動実行時だけ動き、rustdoc とモジュール依存関係グラフを生成して GitHub Pages に公開します。PR では通常の `CI` workflow で rustdoc のリンクを検証し、`cargo-modules` のインストールやグラフ生成は行いません。
 

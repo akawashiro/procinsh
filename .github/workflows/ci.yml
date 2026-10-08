@@ -94,6 +94,10 @@ jobs:
         run: python3 tests/listen-policy.py
       - name: Check space model
         run: node tests/space-model.mjs
+      - name: Check list and process data
+        run: node tests/page-data.mjs
+      - name: Check process history chart
+        run: node tests/history-chart.mjs
       - name: Check space data lifecycle
         run: node tests/space-data.mjs
 

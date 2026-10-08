@@ -8,3 +8,11 @@ export interface ListElements {
   "process-count": HTMLElement;
   "process-list": HTMLElement;
 }
+
+export function listElement<K extends keyof ListElements>(
+  id: K,
+): ListElements[K] {
+  const element = document.getElementById(id);
+  if (!element) throw new Error(`Missing element: ${id}`);
+  return element as ListElements[K];
+}
