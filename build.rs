@@ -23,6 +23,7 @@ fn main() {
         "process/dom-types.js",
         "space/app.js",
         "space/data.js",
+        "space/model.js",
         "space/scene.js",
         "space/renderer.js",
         "space/search.js",

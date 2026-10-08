@@ -286,6 +286,8 @@ watch channelは接続ごとに独立し、遅い購読者へ古い状態を蓄�
 | [process/details.ts](../src/web/process/details.ts) | Environment・Auxiliary Vector・Pipe / Socket の DOM 更新、パネルの開閉イベント |
 | [process/search.ts](../src/web/process/search.ts) | 保持済みの環境変数・FD の検索と入力イベント |
 | [space/index.html](../src/web/space/index.html)、[space/style.css](../src/web/space/style.css)、[space/app.ts](../src/web/space/app.ts) | `/space` の HTML/CSS と起動処理。`app.ts` がデータ・描画・操作の部品を接続し、`/space/app.js` を読み込む |
+| [space/types.ts](../src/web/space/types.ts)、[space/contracts.ts](../src/web/space/contracts.ts) | 配置・活動・選択・描画の共有データ型と、各部品に渡す入力・コールバックの契約 |
+| [space/model.ts](../src/web/space/model.ts) | プロセス・リソースの識別子、表示ラベル、UID の色を計算する純粋関数 |
 | [space/data.ts](../src/web/space/data.ts) | SSE、観測・活動の状態管理、構造イベントのマージ、配置計算。Three.js・DOM に依存しない |
 | [space/scene.ts](../src/web/space/scene.ts) | 配置済みデータから Three.js オブジェクトを構築・更新し、不要な Geometry・Material を解放 |
 | [space/renderer.ts](../src/web/space/renderer.ts) | 描画ループ、活動アニメーション、Canvas 2D の文字ラベル、FPS と描画解像度の調整 |
@@ -359,40 +361,44 @@ SPACE はシステム全体のプロセス、仮想アドレス空間、親子�
 
 `data.ts` の `SpaceDataStore` は SSE・観測状態・活動集計・配置を所有し、座標を `{x, y, z}` の数値データで提供します。`scene.ts` が描画の境界で Three.js の Vector3 や描画オブジェクトに変換します。データの部品を生成するだけでは通信を開始せず、配置や状態更新を Node.js 単体で検証できます。
 
+各部品は他の部品の具象型を import せず、[contracts.ts](../src/web/space/contracts.ts) と [types.ts](../src/web/space/types.ts) の共有契約を使います。`app.ts` はシーンに構造・配置・表示対象を渡し、選択状態を `updateSelection` に明示します。構造更新・ファイル更新では、選択の保持、シーンの更新、選択の強調、粒子の保持、カメラの範囲調整、詳細表示を順に実行します。
+
+当たり判定はイベントごとに最新の Three.js オブジェクトと表示用データを受け取り、選択・ホバーをコールバックで `app.ts` に通知します。描画はシーン・カメラ・描画用データ・選択状態を受け取り、描画前の通知を通じて `app.ts` が OrbitControls の更新と約1秒ごとのファイル削除を実行します。カメラは座標から範囲と fog density を算出し、`app.ts` がシーンへ fog density を渡します。詳細パネルは選択対象と表示用データを受け取り、接続選択の操作をコールバックで通知します。
+
 #### データの受信と構造の更新
 
-表示開始・再表示時に `app.ts` が [`SpaceDataStore.start`](../src/web/space/data.ts#L721) を呼び、`GET /api/system/events` に EventSource で接続します。初期構造も SSE から取得し、接続中だけバックエンドの閲覧者として登録されます。イベントの型は [api-types.ts の `SystemSnapshotUpdate`](../src/web/shared/api-types.ts#L319)・[`SpaceActivity`](../src/web/shared/api-types.ts#L352)、配信内容は [HTTP API の説明](#get-apisystemevents)を参照してください。
+表示開始・再表示時に `app.ts` が [`SpaceDataStore.start`](../src/web/space/data.ts#L649) を呼び、`GET /api/system/events` に EventSource で接続します。初期構造も SSE から取得し、接続中だけバックエンドの閲覧者として登録されます。イベントの型は [api-types.ts の `SystemSnapshotUpdate`](../src/web/shared/api-types.ts#L319)・[`SpaceActivity`](../src/web/shared/api-types.ts#L352)、配信内容は [HTTP API の説明](#get-apisystemevents)を参照してください。
 
 | イベント | 反映する内容 | 主な実装 |
 |---|---|---|
-| `snapshot` | `full` は構造を置き換え、`delta` は保持済みの構造へマージ。差分の `base_sequence` と保持済みの `sequence` を照合し、maps と FD 関係の差分を適用。省略された maps は同じプロセス識別子の前回値を保持 | [`mergeSnapshot`](../src/web/space/data.ts#L484) → [`SpaceDataStore.replaceSnapshot`](../src/web/space/data.ts#L593) → [`buildScene`](../src/web/space/scene.ts#L124) |
-| `activity` | CPU の発光、IPC・ネットワークの粒子、最近のファイル I/O の表示を更新 | [`SpaceDataStore.ingestActivity`](../src/web/space/data.ts#L654) → [`activity`](../src/web/space/renderer.ts#L292) |
-| `gap` | 描画中の粒子をクリアし、続く `full` snapshot を反映 | [`SpaceDataStore.connect` のイベントハンドラ](../src/web/space/data.ts#L725) |
+| `snapshot` | `full` は構造を置き換え、`delta` は保持済みの構造へマージ。差分の `base_sequence` と保持済みの `sequence` を照合し、maps と FD 関係の差分を適用。省略された maps は同じプロセス識別子の前回値を保持 | [`mergeSnapshot`](../src/web/space/data.ts#L440) → [`SpaceDataStore.replaceSnapshot`](../src/web/space/data.ts#L521) → [`buildScene`](../src/web/space/scene.ts#L99) |
+| `activity` | CPU の発光、IPC・ネットワークの粒子、最近のファイル I/O の表示を更新 | [`SpaceDataStore.ingestActivity`](../src/web/space/data.ts#L582) → [`activity`](../src/web/space/renderer.ts#L292) |
+| `gap` | 描画中の粒子をクリアし、続く `full` snapshot を反映 | [`SpaceDataStore.connect` のイベントハンドラ](../src/web/space/data.ts#L653) |
 
 #### プロセス・接続先・ファイルの配置
 
-[`SpaceDataStore.replaceSnapshot`](../src/web/space/data.ts#L593) が受信構造から配置済みの状態を作り、[`buildScene`](../src/web/space/scene.ts#L124) がプロセスの箱・メモリ領域・親子線・接続線を構築します。構造更新では既存のプロセスと接続先の位置を維持しながら、追加・削除を反映します。
+[`SpaceDataStore.replaceSnapshot`](../src/web/space/data.ts#L521) が受信構造から配置済みの状態を作り、[`buildScene`](../src/web/space/scene.ts#L99) がプロセスの箱・メモリ領域・親子線・接続線を構築します。構造更新では既存のプロセスと接続先の位置を維持しながら、追加・削除を反映します。
 
 | 対象 | 配置・表示の考え方 | 主な実装 |
 |---|---|---|
-| プロセスと親子関係 | 親子関係に沿って平面に配置。通常の更新は既存位置を保ち、新規プロセスを空き領域へ配置。Rearrange は全体を再配置 | [`treeLayout`](../src/web/space/data.ts#L179)、[`stableLayout`](../src/web/space/data.ts#L296) |
-| 仮想アドレス空間 | アドレス順にメモリ領域を積み上げ、アドレスの隙間を圧縮し、高さをプロセスごとに正規化。プロセス間の同じ高さは同じアドレスを意味しない | [`layoutMaps`](../src/web/space/data.ts#L145)、[`regionColor`](../src/web/space/scene.ts#L106) |
-| ユーザーの識別 | 箱の上下の枠は実 UID、縦の枠は実効 UID に応じて色分け | [`userColor`・`processColors`](../src/web/space/data.ts#L369) |
-| IPC・ネットワーク接続 | FD 関係を線で表示。接続候補・共有 FD は破線。ネットワーク接続先はプロセス・プロトコル・相手 IP/port ごとにまとめ、プロセスの上方に配置 | [`buildScene`](../src/web/space/scene.ts#L124)、[`networkGroups`](../src/web/space/data.ts#L66)、[`networkLayout`](../src/web/space/data.ts#L95) |
-| 最近アクセスしたファイル | プロセスの下方にファイルのマーカーと接続線を配置。構造とは別のグループで更新 | [`fileLayout`](../src/web/space/data.ts#L461)、[`refreshFileScene`](../src/web/space/scene.ts#L425) |
+| プロセスと親子関係 | 親子関係に沿って平面に配置。通常の更新は既存位置を保ち、新規プロセスを空き領域へ配置。Rearrange は全体を再配置 | [`treeLayout`](../src/web/space/data.ts#L155)、[`stableLayout`](../src/web/space/data.ts#L272) |
+| 仮想アドレス空間 | アドレス順にメモリ領域を積み上げ、アドレスの隙間を圧縮し、高さをプロセスごとに正規化。プロセス間の同じ高さは同じアドレスを意味しない | [`layoutMaps`](../src/web/space/data.ts#L121)、[`regionColor`](../src/web/space/scene.ts#L81) |
+| ユーザーの識別 | 箱の上下の枠は実 UID、縦の枠は実効 UID に応じて色分け | [`userColor`・`processColors`](../src/web/space/model.ts) |
+| IPC・ネットワーク接続 | FD 関係を線で表示。接続候補・共有 FD は破線。ネットワーク接続先はプロセス・プロトコル・相手 IP/port ごとにまとめ、プロセスの上方に配置 | [`buildScene`](../src/web/space/scene.ts#L99)、[`networkGroups`](../src/web/space/data.ts#L53)、[`networkLayout`](../src/web/space/data.ts#L82) |
+| 最近アクセスしたファイル | プロセスの下方にファイルのマーカーと接続線を配置。構造とは別のグループで更新 | [`fileLayout`](../src/web/space/data.ts#L417)、[`refreshFileScene`](../src/web/space/scene.ts#L400) |
 
 #### 活動の表示と描画ループ
 
-[`SpaceDataStore.ingestActivity`](../src/web/space/data.ts#L654) が活動データと描画経路を更新し、[`animate`](../src/web/space/renderer.ts#L336) が `requestAnimationFrame` ごとに粒子と CPU の発光を更新します。タブ非表示中は描画ループを停止します。
+[`SpaceDataStore.ingestActivity`](../src/web/space/data.ts#L582) が活動データと描画経路を更新し、[`animate`](../src/web/space/renderer.ts#L338) が `requestAnimationFrame` ごとに粒子と CPU の発光を更新します。タブ非表示中は描画ループを停止します。
 
 | 表示 | 振る舞い | 主な実装 |
 |---|---|---|
-| CPU の発光 | 実行中に強まり、活動が途絶えると約500msで減衰 | [`cpuGlowLevel`](../src/web/space/renderer.ts#L64) |
-| IPC・ネットワークの粒子 | 読み書きの向きと操作回数に応じて粒子を生成。接続先を一つに特定できない場合は操作元のポートだけを発光。`prefers-reduced-motion` に応じて粒子の表示時間と数を減らす | [`edgeDirection`](../src/web/space/data.ts#L164)、[`ipcParticlePlan`](../src/web/space/renderer.ts#L45)、[`SpaceDataStore.ingestActivity`](../src/web/space/data.ts#L654) |
-| ファイル I/O | 読み書きの粒子と、保持中のファイルのバイト数・操作回数を表示。最終アクセスから30秒、各プロセス32個・全体512個まで保持し、終了したプロセスのファイルは削除 | [`RecentFiles`](../src/web/space/data.ts#L398)、[`fileDetails`](../src/web/space/details.ts#L70) |
+| CPU の発光 | 実行中に強まり、活動が途絶えると約500msで減衰 | [`cpuGlowLevel`](../src/web/space/renderer.ts#L67) |
+| IPC・ネットワークの粒子 | 読み書きの向きと操作回数に応じて粒子を生成。接続先を一つに特定できない場合は操作元のポートだけを発光。`prefers-reduced-motion` に応じて粒子の表示時間と数を減らす | [`edgeDirection`](../src/web/space/data.ts#L140)、[`ipcParticlePlan`](../src/web/space/renderer.ts#L48)、[`SpaceDataStore.ingestActivity`](../src/web/space/data.ts#L582) |
+| ファイル I/O | 読み書きの粒子と、保持中のファイルのバイト数・操作回数を表示。最終アクセスから30秒、各プロセス32個・全体512個まで保持し、終了したプロセスのファイルは削除 | [`RecentFiles`](../src/web/space/data.ts#L354)、[`fileDetails`](../src/web/space/details.ts#L72) |
 | プロセス名・接続先ラベル | 3D 座標を画面座標へ投影し、WebGL とは別の Canvas 2D に描画 | [`drawLabels`](../src/web/space/renderer.ts#L191) |
 
-描画解像度は [`AdaptiveRenderScale`](../src/web/space/renderer.ts#L9) が約1秒ごとの FPS で調整します。24 FPS 未満が3回続いた場合は pixel ratio を10%下げ、45 FPS 以上が5回続いた場合は元の解像度に向けて回復します。上限は初期の device pixel ratio（最大1.5）、下限は0.5（初期値が0.5未満ならその値）です。FPS と解像度の割合はヘッダーに表示します。
+描画解像度は [`AdaptiveRenderScale`](../src/web/space/renderer.ts#L12) が約1秒ごとの FPS で調整します。24 FPS 未満が3回続いた場合は pixel ratio を10%下げ、45 FPS 以上が5回続いた場合は元の解像度に向けて回復します。上限は初期の device pixel ratio（最大1.5）、下限は0.5（初期値が0.5未満ならその値）です。FPS と解像度の割合はヘッダーに表示します。
 
 #### 検索・選択とカメラ操作
 
@@ -401,14 +407,14 @@ SPACE はシステム全体のプロセス、仮想アドレス空間、親子�
 | 操作 | 振る舞い | 主な実装 |
 |---|---|---|
 | PID・プロセス名の検索 | 描画対象を絞り込み、Enter で最初の候補を選択してカメラを寄せる | [`visibleIds`](../src/web/space/search.ts#L4)、[検索イベント](../src/web/space/search.ts#L19) |
-| クリック・ホバー | プロセス、接続線、ネットワーク接続先、ファイルを選択・説明表示。プロセスのダブルクリックでカメラを寄せる | [`hit`・`edgeHit`](../src/web/space/selection.ts#L81)、[pointer イベント](../src/web/space/selection.ts#L62)、[`details`](../src/web/space/details.ts#L136) |
-| ドラッグ・右ドラッグ・スクロール | カメラの回転・平行移動・ズーム | [OrbitControls の設定](../src/web/space/camera.ts#L5) |
-| Fit all | 検索と選択を解除し、全体が見えるようにカメラを調整 | [`fit`](../src/web/space/camera.ts#L58)、[ボタンイベント](../src/web/space/app.ts#L138) |
-| Rearrange | 粒子をクリアし、プロセス・ネットワーク接続先・ファイルを再配置して全体を表示 | [`SpaceDataStore.replaceSnapshot`](../src/web/space/data.ts#L593)、[ボタンイベント](../src/web/space/app.ts#L132) |
+| クリック・ホバー | プロセス、接続線、ネットワーク接続先、ファイルを選択・説明表示。プロセスのダブルクリックでカメラを寄せる | [`hit`・`edgeHit`](../src/web/space/selection.ts#L75)、[pointer イベント](../src/web/space/selection.ts#L60)、[`details`](../src/web/space/details.ts#L138) |
+| ドラッグ・右ドラッグ・スクロール | カメラの回転・平行移動・ズーム | [OrbitControls の設定](../src/web/space/camera.ts#L6) |
+| Fit all | 検索と選択を解除し、全体が見えるようにカメラを調整 | [`fit`](../src/web/space/camera.ts#L57)、[ボタンイベント](../src/web/space/app.ts#L214) |
+| Rearrange | 粒子をクリアし、プロセス・ネットワーク接続先・ファイルを再配置して全体を表示 | [`SpaceDataStore.replaceSnapshot`](../src/web/space/data.ts#L521)、[ボタンイベント](../src/web/space/app.ts#L208) |
 
 #### 接続とページのライフサイクル
 
-接続開始は [`SpaceDataStore.start`](../src/web/space/data.ts#L721)、接続停止は [`SpaceDataStore.stop`](../src/web/space/data.ts#L769)、ページの表示状態から接続と描画を起動・停止するイベントは [`visibilitychange`・`pagehide`・`pageshow` のハンドラ](../src/web/space/app.ts#L158) を参照してください。
+接続開始は [`SpaceDataStore.start`](../src/web/space/data.ts#L649)、接続停止は [`SpaceDataStore.stop`](../src/web/space/data.ts#L697)、ページの表示状態から接続と描画を起動・停止するイベントは [`visibilitychange`・`pagehide`・`pageshow` のハンドラ](../src/web/space/app.ts#L234) を参照してください。
 
 - タブ非表示・`pagehide` では SSE と再接続タイマーを止め、粒子・CPU の発光・ファイル表示をクリアします。タブの再表示やページキャッシュからの復帰時は接続し直します。
 - 接続エラーでは現在の EventSource を閉じ、エラーを表示して、表示中に限り3秒後に新しい接続を作ります。接続成功時にエラー表示を消し、古い接続からのイベントは無視します。
@@ -419,6 +425,7 @@ SPACE はシステム全体のプロセス、仮想アドレス空間、親子�
 
 | 対象 | テストソース | 実行手順 |
 |---|---|---|
+| 部品間の import 境界、シーンへの入力、当たり判定・選択、カメラ範囲、詳細表示のリンク・操作、描画の通知・停止復帰 | [space-components.mjs](../tests/space-components.mjs) | `npm run build:web` 後に `node tests/space-components.mjs` |
 | データのマージ、配置、活動モデル、解像度調整 | [space-model.mjs](../tests/space-model.mjs) | `npm run build:web` 後に `node tests/space-model.mjs` |
 | 観測状態・活動経路、SSE の停止・再同期・古い通知の破棄 | [space-data.mjs](../tests/space-data.mjs) | `npm run build:web` 後に `node tests/space-data.mjs` |
 | WebGL 描画、配置・選択・カメラ操作、接続管理 | [space-browser.mjs](../tests/space-browser.mjs)。ネットワークとファイルは [space-network.mjs](../tests/space-network.mjs)・[space-files.mjs](../tests/space-files.mjs) を呼び出して検証 | [ブラウザテスト](#ブラウザテスト)の準備後に `node tests/space-browser.mjs` |
@@ -469,6 +476,7 @@ node tests/page-data.mjs
 node tests/history-chart.mjs
 node tests/space-model.mjs
 node tests/space-data.mjs
+node tests/space-components.mjs
 
 # フォーマット・静的解析
 cargo fmt --all --check

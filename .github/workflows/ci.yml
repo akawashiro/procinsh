@@ -102,6 +102,8 @@ jobs:
         run: node tests/history-chart.mjs
       - name: Check space data lifecycle
         run: node tests/space-data.mjs
+      - name: Check space component boundaries
+        run: node tests/space-components.mjs
 
   distro-build:
     name: Build and test (${{ matrix.distro }})

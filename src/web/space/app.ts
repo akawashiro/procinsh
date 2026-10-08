@@ -1,14 +1,19 @@
 // Compose SPACE data, rendering, and user actions; own page lifecycle events.
 import * as T from "/vendor/three.module.js";
 import { SpaceDataStore } from "./data.js";
-import type { ActivityUpdate } from "./data.js";
+import type { ActivityUpdate } from "./types.js";
 import type { SystemSnapshot, SpaceActivity } from "../shared/api-types.js";
 import { createSpaceScene } from "./scene.js";
 import { createSpaceRenderer } from "./renderer.js";
 import { createSpaceCamera } from "./camera.js";
 import { createSpaceSearch } from "./search.js";
 import { SpaceSelection, bindSelection } from "./selection.js";
-import type { SelectionActions } from "./selection.js";
+import type {
+  SelectionActions,
+  SceneInput,
+  DetailsInput,
+  WorldPositions,
+} from "./contracts.js";
 import { createSpaceDetails } from "./details.js";
 import { spaceElement as $ } from "./dom-types.js";
 
@@ -36,24 +41,31 @@ const search = createSpaceSearch(
   () => data.snapshot,
   () => {
     renderer.clearParticles();
-    scene.rebuild();
-    renderer.retainParticles();
+    rebuildScene();
+    retainParticles();
   },
   (id) => selectProcess(id, true),
 );
-const scene = createSpaceScene(data, selection, search.visibleIds);
-const camera = createSpaceCamera($("world"), data);
+const scene = createSpaceScene();
+const camera = createSpaceCamera($("world"));
 const renderer = createSpaceRenderer({
   graphics: T,
   canvas: $("world"),
   labelCanvas: $("labels"),
   fpsLabel: $("fps"),
   failure: $("failure"),
-  data,
-  view: scene,
-  cameraController: camera,
-  selection,
-  pruneFiles,
+  scene: scene.root,
+  camera: camera.camera,
+  view: scene.renderView,
+  selection: () => selection,
+  cpuGlows: data.cpuGlows,
+  beforeFrame(now) {
+    camera.controls.update();
+    if (now - lastFilePrune >= 1000) {
+      lastFilePrune = now;
+      pruneFiles(now);
+    }
+  },
 });
 const actions: SelectionActions = {
   process: selectProcess,
@@ -62,13 +74,76 @@ const actions: SelectionActions = {
   file: selectFile,
   clear: clearSelection,
 };
-const details = createSpaceDetails(data, selection, actions);
-bindSelection($("world"), $("hover"), selection, data, scene, camera, actions);
+const details = createSpaceDetails(actions);
+bindSelection($("world"), $("hover"), {
+  camera: camera.camera,
+  read: () => ({
+    view: scene.pickingView(),
+    edgeStats: data.edgeStats,
+    files: data.recentFiles.entries,
+  }),
+  actions,
+  hover(state) {
+    Object.assign(selection, state);
+  },
+});
 let firstView = true;
+let lastFilePrune = 0;
+
+function sceneInput(): SceneInput {
+  return {
+    snapshot: data.snapshot,
+    nodes: data.nodes,
+    network: data.network,
+    networkPositions: data.networkPositions,
+    files: data.recentFiles.entries,
+    filePositions: data.filePositions,
+    visible: search.visibleIds(),
+  };
+}
+function detailsInput(): DetailsInput {
+  return {
+    nodes: data.nodes,
+    snapshot: data.snapshot,
+    network: data.network,
+    edgeStats: data.edgeStats,
+    files: data.recentFiles.entries,
+  };
+}
+function worldPositions(): WorldPositions {
+  return {
+    processes: [...data.nodes.values()].map((n) => n.pos),
+    networks: data.networkPositions.values(),
+    files: data.filePositions.values(),
+  };
+}
+function retainSelection() {
+  selection.retain({
+    processes: new Set(data.nodes.keys()),
+    connections: new Set(data.snapshot.fd_relations.map((e) => e.id)),
+    networks: new Set(data.network.keys()),
+    files: new Set(data.recentFiles.entries.keys()),
+  });
+}
+function retainParticles() {
+  renderer.retainParticles(new Set(data.network.keys()));
+}
+function rebuildScene() {
+  scene.rebuild(sceneInput(), selection.process);
+  scene.updateSelection(selection);
+}
+function adaptCamera() {
+  if (!data.nodes.size) return;
+  const density = camera.adaptWorld(worldPositions());
+  if (density !== undefined) scene.setFogDensity(density);
+}
+function updateDetails() {
+  details.update(detailsInput(), selection);
+}
 
 function updateSelection() {
-  scene.updateSelection();
-  details.update();
+  scene.updateSelection(selection);
+  updateDetails();
 }
 function clearSelection() {
   selection.clear();
@@ -93,31 +168,32 @@ function selectFile(id: string | null) {
   updateSelection();
 }
 function updateSnapshot() {
-  selection.retain(data);
-  scene.rebuild();
-  renderer.retainParticles();
-  camera.adaptWorld(scene.root);
+  retainSelection();
+  rebuildScene();
+  retainParticles();
+  adaptCamera();
   if (firstView && data.nodes.size) {
-    camera.fit();
+    fitScene();
     firstView = false;
   }
-  details.update();
+  updateDetails();
 }
 function renderSystemSnapshot(snapshot: SystemSnapshot, rearrange = false) {
   data.replaceSnapshot(snapshot, rearrange);
   updateSnapshot();
 }
 function refreshFiles() {
-  selection.retain(data);
-  scene.refreshFiles();
-  renderer.retainParticles();
-  camera.adaptWorld(scene.root);
-  details.update();
+  retainSelection();
+  scene.refreshFiles(sceneInput());
+  scene.updateSelection(selection);
+  retainParticles();
+  adaptCamera();
+  updateDetails();
 }
 function updateActivity(update: ActivityUpdate) {
   if (update.filesChanged) refreshFiles();
   renderer.activity(update);
-  details.update();
+  updateDetails();
 }
 function renderActivity(activity: SpaceActivity) {
   updateActivity(data.ingestActivity(activity, search.visibleIds()));
@@ -126,21 +202,21 @@ function pruneFiles(now = performance.now()) {
   if (data.pruneFiles(now)) refreshFiles();
 }
 function fitScene() {
-  camera.fit();
+  if (data.nodes.size) camera.fit(worldPositions());
 }
 
 $("rearrange").onclick = () => {
   renderer.clearParticles();
   renderSystemSnapshot(data.snapshot, true);
-  camera.fit();
+  fitScene();
 };
 $("close").onclick = clearSelection;
 $("reset").onclick = () => {
   search.clear();
-  camera.fit();
+  fitScene();
   clearSelection();
-  scene.rebuild();
-  renderer.retainParticles();
+  rebuildScene();
+  retainParticles();
 };
 addEventListener("resize", () => {
   renderer.resize();

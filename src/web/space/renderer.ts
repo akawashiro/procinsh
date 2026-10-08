@@ -1,9 +1,12 @@
 // Animate activity, draw the scene and labels, and adapt rendering resolution.
 import type * as T from "/vendor/three.module.js";
-import type { ActivityUpdate, CpuGlow, SpaceDataStore } from "./data.js";
-import type { SpaceScene } from "./scene.js";
-import type { SpaceCamera } from "./camera.js";
-import type { SpaceSelection } from "./selection.js";
+import type {
+  ActivityUpdate,
+  CpuGlow,
+  SelectionState,
+  HoverState,
+} from "./types.js";
+import type { RenderView } from "./contracts.js";
 // Each sample covers roughly one second of visible rendering. Separate thresholds
 // and consecutive windows keep transient scene rebuilds from changing resolution.
 export class AdaptiveRenderScale {
@@ -101,11 +104,12 @@ export interface SpaceRendererOptions {
   labelCanvas: HTMLCanvasElement;
   fpsLabel: HTMLElement;
   failure: HTMLElement;
-  data: SpaceDataStore;
-  view: SpaceScene;
-  cameraController: SpaceCamera;
-  selection: SpaceSelection;
-  pruneFiles(now: number): void;
+  scene: T.Scene;
+  camera: T.Camera;
+  view(): RenderView;
+  selection(): SelectionState & HoverState;
+  cpuGlows: ReadonlyMap<string, CpuGlow>;
+  beforeFrame(now: number): void;
 }
 
 export function createSpaceRenderer({
@@ -114,21 +118,17 @@ export function createSpaceRenderer({
   labelCanvas,
   fpsLabel,
   failure,
-  data,
-  view,
-  cameraController,
-  selection,
-  pruneFiles,
+  scene,
+  camera,
+  view: readView,
+  selection: readSelection,
+  cpuGlows,
+  beforeFrame,
 }: SpaceRendererOptions) {
   const labelContext = context2d(labelCanvas);
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const renderResolution = new AdaptiveRenderScale(devicePixelRatio);
-  const scene = view.root,
-    camera = cameraController.camera,
-    controls = cameraController.controls,
-    cpuGlows = data.cpuGlows;
   let particles: Particle[] = [],
-    lastFilePrune = 0,
     frames = 0,
     frameTime = performance.now(),
     running = false,
@@ -189,7 +189,7 @@ export function createSpaceRenderer({
     labelContext.setTransform(ratio, 0, 0, ratio, 0, 0);
   }
   function drawLabels() {
-    const { nodes, hullIds, networkViews, fileViews } = view;
+    const { nodes, hullIds, networkViews, fileViews } = readView();
     const {
       process: selected,
       connection: selectedEdge,
@@ -197,7 +197,7 @@ export function createSpaceRenderer({
       file: selectedFile,
       hoveredNetwork,
       hoveredFile,
-    } = selection;
+    } = readSelection();
     labelContext.clearRect(0, 0, innerWidth, innerHeight);
     labelContext.font =
       "10px ui-monospace, SFMono-Regular, Consolas, monospace";
@@ -290,7 +290,8 @@ export function createSpaceRenderer({
   resizeLabels();
 
   function activity(update: ActivityUpdate) {
-    const now = update.now;
+    const now = update.now,
+      view = readView();
     for (const route of update.routes) {
       const plan = ipcParticlePlan(route.count, reduced);
       if (route.kind === "port") {
@@ -326,22 +327,19 @@ export function createSpaceRenderer({
     }
     if (particles.length > CAP) particles = particles.slice(-CAP);
   }
-  function retainParticles() {
+  function retainParticles(networkIds: ReadonlySet<string>) {
+    const view = readView();
     particles = particles.filter(
       (p) =>
         (!p.fileId || view.fileViews.has(p.fileId)) &&
-        (!p.networkId || data.network.has(p.networkId)),
+        (!p.networkId || networkIds.has(p.networkId)),
     );
   }
   function animate(now: number) {
     if (!running) return;
     frame = requestAnimationFrame(animate);
     if (document.hidden) return;
-    controls.update();
-    if (now - lastFilePrune >= 1000) {
-      lastFilePrune = now;
-      pruneFiles(now);
-    }
+    beforeFrame(now);
     particles = particles.filter((p) => now - p.start < p.duration);
     let i = 0;
     for (const p of particles) {
@@ -358,7 +356,7 @@ export function createSpaceRenderer({
     pg.setDrawRange(0, i);
     pg.attributes.position.needsUpdate = true;
     pg.attributes.color.needsUpdate = true;
-    const { baseGlow, haloGlow, hullIds } = view;
+    const { baseGlow, haloGlow, hullIds } = readView();
     if (baseGlow && haloGlow) {
       for (let j = 0; j < hullIds.length; j++) {
         const level = cpuGlowLevel(cpuGlows.get(hullIds[j]), now);
@@ -388,7 +386,7 @@ export function createSpaceRenderer({
     }
   }
   function networkVisuals() {
-    return view.networkViews.map((v) => ({
+    return readView().networkViews.map((v) => ({
       id: v.group.id,
       label: v.group.label,
       position: v.pos.toArray(),
@@ -404,7 +402,7 @@ export function createSpaceRenderer({
   }
 
   function fileVisuals() {
-    return [...view.fileViews.values()].map((v) => ({
+    return [...readView().fileViews.values()].map((v) => ({
       id: v.file.id,
       label: v.file.label,
       position: v.pos.toArray(),
