@@ -36,6 +36,51 @@ pub(super) fn router() -> Router<Arc<AppState>> {
             "/process/app.js",
             include_str!("../../dist/web/process/app.js"),
         ),
+        ("/list/data.js", include_str!("../../dist/web/list/data.js")),
+        (
+            "/list/renderer.js",
+            include_str!("../../dist/web/list/renderer.js"),
+        ),
+        (
+            "/list/search.js",
+            include_str!("../../dist/web/list/search.js"),
+        ),
+        (
+            "/list/dom-types.js",
+            include_str!("../../dist/web/list/dom-types.js"),
+        ),
+        (
+            "/process/data.js",
+            include_str!("../../dist/web/process/data.js"),
+        ),
+        (
+            "/process/renderer.js",
+            include_str!("../../dist/web/process/renderer.js"),
+        ),
+        (
+            "/process/selection.js",
+            include_str!("../../dist/web/process/selection.js"),
+        ),
+        (
+            "/process/samples.js",
+            include_str!("../../dist/web/process/samples.js"),
+        ),
+        (
+            "/process/history.js",
+            include_str!("../../dist/web/process/history.js"),
+        ),
+        (
+            "/process/details.js",
+            include_str!("../../dist/web/process/details.js"),
+        ),
+        (
+            "/process/search.js",
+            include_str!("../../dist/web/process/search.js"),
+        ),
+        (
+            "/process/dom-types.js",
+            include_str!("../../dist/web/process/dom-types.js"),
+        ),
         ("/space/app.js", include_str!("../../dist/web/space/app.js")),
         (
             "/space/data.js",

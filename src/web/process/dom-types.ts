@@ -40,3 +40,11 @@ export interface ProcessElements {
   "auxv-entries": HTMLElement;
   loading: HTMLElement;
 }
+
+export function processElement<K extends keyof ProcessElements>(
+  id: K,
+): ProcessElements[K] {
+  const element = document.getElementById(id);
+  if (!element) throw new Error(`Missing element: ${id}`);
+  return element as ProcessElements[K];
+}
