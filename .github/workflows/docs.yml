@@ -1,4 +1,4 @@
-name: Publish rustdoc
+name: Publish API documentation
 
 on:
   push:
@@ -54,6 +54,9 @@ jobs:
           RUSTDOCFLAGS: "-D rustdoc::broken_intra_doc_links"
         run: cargo doc --locked --workspace --no-deps --document-private-items
 
+      - name: Build TypeScript API documentation
+        run: npm run docs:web
+
       - name: Build module dependency graphs
         run: |
           mkdir -p target/doc/architecture
@@ -68,20 +71,21 @@ jobs:
           echo '<!doctype html><html lang="ja">' \
             '<meta charset="utf-8">' \
             '<meta name="viewport" content="width=device-width,initial-scale=1">' \
-            '<title>Rust API Docs</title>' \
-            '<h1>Rust API Docs</h1><ul>' \
+            '<title>ProcInSh API Docs</title>' \
+            '<h1>ProcInSh API Docs</h1><h2>Rust API documentation</h2><ul>' \
             > target/doc/index.html
 
           for file in target/doc/*/index.html; do
             [ -f "$file" ] || continue
             [ "$file" != target/doc/architecture/index.html ] || continue
+            [ "$file" != target/doc/typescript/index.html ] || continue
             crate=$(basename "$(dirname "$file")")
             echo "<li><a href=\"$crate/index.html\">$crate</a></li>" \
               >> target/doc/index.html
           done
 
-          echo '<li><a href="architecture/">Module dependency graph</a></li>' >> target/doc/index.html
-          echo '</ul></html>' >> target/doc/index.html
+          echo '</ul><h2>TypeScript API documentation</h2><ul><li><a href="typescript/">TypeScript API documentation</a></li></ul>' >> target/doc/index.html
+          echo '<h2>Architecture</h2><ul><li><a href="architecture/">Rust module dependency graph</a></li></ul></html>' >> target/doc/index.html
           touch target/doc/.nojekyll
 
       - uses: actions/configure-pages@v5
