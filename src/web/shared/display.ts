@@ -1,5 +1,5 @@
 // Shared formatting. Values remain structured in models and API contracts.
-namespace Display {
+export namespace Display {
   export function permissions(m: import('./api-types.js').MappingPermissions): string {
     return `${m.readable?'r':'-'}${m.writable?'w':'-'}${m.executable?'x':'-'}${m.private?'p':'s'}`;
   }
@@ -31,5 +31,24 @@ namespace Display {
     return a === 'unknown' ? 'N/A' : a === 'read_write' ? 'read/write' : a;
   }
 }
-// app.ts is intentionally a classic script; the space model imports this file.
-(globalThis as unknown as {Display: typeof Display}).Display = Display;
+
+export const num = (v: number | null | undefined, digits = 1) =>
+  v == null
+    ? "N/A"
+    : v.toLocaleString("en-US", { maximumFractionDigits: digits });
+export const percent = (v: number | null | undefined) =>
+  v == null ? "N/A" : `${num(v)}%`;
+export function bytes(v: number | null | undefined) {
+  if (v == null) return "N/A";
+  const units = ["B", "KiB", "MiB", "GiB", "TiB"];
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i++;
+  }
+  return `${num(v)} ${units[i]}`;
+}
+export const rate = (v: number | null | undefined) =>
+  v == null ? "N/A" : `${num(v)}/s`;
+export const byteRate = (v: number | null | undefined) =>
+  v == null ? "N/A" : `${bytes(v)}/s`;

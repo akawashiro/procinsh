@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {writeFile} from 'node:fs/promises';
 export async function checkFileSpace(evaluate,delay,cdp){
   await evaluate(`(async()=>{
-    const m=await import('/space.js');
+    const m=await import('/space/app.js');
     const node={identity:{pid:910001,start_time_ticks:1},name:'file-browser',uid:1000,euid:1000,maps:[]};
     window.fileFixture={processes:[node],fd_relations:[]};m.renderSystemSnapshot(window.fileFixture);
     const e={process_id:node.identity,file:{device:{major:8,minor:1},inode:'42',generation:0},path:'/tmp/example.txt',bytes:100,count:1};
@@ -16,7 +16,7 @@ export async function checkFileSpace(evaluate,delay,cdp){
   assert.equal(await evaluate("document.querySelector('.file-monitor')"),null);
   await delay(150);
   const click=async field=>{
-    const [x,y]=await evaluate(`import('/space.js').then(m=>m.fileVisuals()[0].${field})`);
+    const [x,y]=await evaluate(`import('/space/app.js').then(m=>m.fileVisuals()[0].${field})`);
     await cdp('Input.dispatchMouseEvent',{type:'mousePressed',x:(x*.5+.5)*1440,y:(-y*.5+.5)*1100,button:'left',clickCount:1});
     await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',x:(x*.5+.5)*1440,y:(-y*.5+.5)*1100,button:'left',clickCount:1});
   };
@@ -27,7 +27,7 @@ export async function checkFileSpace(evaluate,delay,cdp){
   await evaluate("document.getElementById('close').click()");await click('pathScreen');
   assert.equal(await evaluate("document.getElementById('details').hidden"),false,'file path is selectable');
   const checks=await evaluate(`(async()=>{
-    const m=await import('/space.js');
+    const m=await import('/space/app.js');
     const before=m.fileVisuals()[0],camera=m.cameraView();
     m.renderActivity({files:[{...window.fileEvent,write:false,path:'/tmp/renamed.txt',bytes:50}]});
     m.renderSystemSnapshot(window.fileFixture);
@@ -43,11 +43,11 @@ export async function checkFileSpace(evaluate,delay,cdp){
     return {stable,cameraStable,processStable,renamed,fallback,expired};
   })()`);
   for(const [name,value] of Object.entries(checks))assert.equal(value,true,name);
-  await evaluate(`import('/space.js').then(m=>{m.renderActivity({files:[{...window.fileEvent,write:true}],status:{files:{state:'observing'},files_lost:0}});m.selectFile(m.fileVisuals()[0].id);m.fitScene();})`);
+  await evaluate(`import('/space/app.js').then(m=>{m.renderActivity({files:[{...window.fileEvent,write:true}],status:{files:{state:'observing'},files_lost:0}});m.selectFile(m.fileVisuals()[0].id);m.fitScene();})`);
   await delay(100);
   const png=await cdp('Page.captureScreenshot',{format:'png'});await writeFile('target/browser-space-files.png',Buffer.from(png.data,'base64'));
-  await evaluate("import('/space.js').then(m=>m.renderSystemSnapshot({processes:[],fd_relations:[]}))");
-  assert.equal(await evaluate("import('/space.js').then(m=>m.fileVisuals().length)"),0);
+  await evaluate("import('/space/app.js').then(m=>m.renderSystemSnapshot({processes:[],fd_relations:[]}))");
+  assert.equal(await evaluate("import('/space/app.js').then(m=>m.fileVisuals().length)"),0);
   assert.equal(await evaluate("document.getElementById('details').hidden"),true);
   console.log('File browser checks passed: picking, directions, totals, paths, stable positions/camera, expiry.');
 }

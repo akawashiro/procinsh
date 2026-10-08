@@ -8,6 +8,7 @@ import {checkLiveSamples} from './live-samples.mjs';
 import {checkProcessDetails} from './process-details.mjs';
 import {checkDescriptors} from './fds.mjs';
 import {checkProcessSessions} from './process-sessions.mjs';
+import {processEventRecording} from './process-events.mjs';
 
 const children = [], errors = [];
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -51,7 +52,13 @@ try {
     if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails));
     return result.result.value;
   };
-  const waitFor = (expression, label) => until(() => evaluate(expression), label);
+  const waitFor = (expression, label) => until(async () => {
+    try { return await evaluate(expression); }
+    catch (error) {
+      if (/Execution context was destroyed|Cannot find context|Inspected target navigated/.test(String(error?.message || error))) return false;
+      throw error;
+    }
+  }, label);
   await cdp('Runtime.enable'); await cdp('Log.enable'); await cdp('Page.enable');
   await cdp('Network.enable');
   const targetGets=[];
@@ -63,42 +70,79 @@ try {
     }
   };
   socket.addEventListener('message',onRequest);
-  await cdp('Page.addScriptToEvaluateOnNewDocument',{source:`
-    window.targetSources=[];
-    const Native=window.EventSource;
-    window.EventSource=class extends Native {
-      constructor(...args){super(...args);window.targetSources.push(this);
-        if(String(args[0]).startsWith('/api/processes/events?'))queueMicrotask(()=>this.dispatchEvent(new Event('error')));
-      }
-    };
-  `});
+  await cdp('Page.addScriptToEvaluateOnNewDocument',{source:processEventRecording});
   await cdp('Emulation.setDeviceMetricsOverride', {width: 1440, height: 1100, deviceScaleFactor: 1, mobile: false});
   await cdp('Page.navigate', {url});
   await waitFor("document.querySelectorAll('#process-list tr').length > 2", 'process explorer');
   await waitFor("document.getElementById('error').hidden", 'initial SSE recovers from connection error');
-  assert.equal(await evaluate("document.getElementById('inspector').hidden"), true);
+  assert.equal(await evaluate("document.getElementById('inspector')"), null);
+  assert.equal(await evaluate('window.targetSources.length'), 0, 'list opens no detail SSE');
   assert.equal(await evaluate('document.title'), 'procinsh');
-  assert.equal(await evaluate("document.querySelector('header #back').hidden"), true);
+  assert.equal(await evaluate("document.querySelector('header #back')"), null);
+  const listReads = await evaluate("window.pageRequests.filter(p=>p==='/api/processes').length");
+  await evaluate("window.dispatchEvent(new Event('pagehide'))");
+  await delay(1200);
+  assert.equal(await evaluate("window.pageRequests.filter(p=>p==='/api/processes').length"), listReads, 'pagehide stops list polling');
+  await evaluate("window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}))");
+  await waitFor(`window.pageRequests.filter(p=>p==='/api/processes').length>${listReads}`, 'list resumes after page cache');
+  await evaluate("document.getElementById('sort').value='pid';document.getElementById('sort').dispatchEvent(new Event('change'))");
+  assert.ok(await evaluate("(()=>{const pids=Array.from(document.querySelectorAll('#process-list tr'),r=>Number(r.cells[0].textContent));return pids.every((pid,i)=>!i||pids[i-1]<=pid)})()"), 'PID sort');
   async function choose(pid) {
+    await waitFor("document.querySelectorAll('#process-list tr').length > 2", 'list ready');
     await evaluate(`document.getElementById('search').value = '${pid}'; document.getElementById('search').dispatchEvent(new Event('input'));`);
     await waitFor(`Array.from(document.querySelectorAll('#process-list tr')).some(r => r.cells[0].textContent === '${pid}')`, 'process search');
-    await evaluate(`Array.from(document.querySelectorAll('#process-list tr')).find(r => r.cells[0].textContent === '${pid}').querySelector('button').click()`);
-    await waitFor(`!document.getElementById('inspector').hidden && document.getElementById('identity')?.textContent.includes('PID ${pid} /')`, 'process selection');
+    const link = `Array.from(document.querySelectorAll('#process-list tr')).find(r => r.cells[0].textContent === '${pid}').querySelector('a')`;
+    const href = await evaluate(`${link}.getAttribute('href')`);
+    assert.match(href, new RegExp('^/process/'+pid+'\\?start_time_ticks=\\d+$'));
+    await evaluate(`${link}.click()`);
+    await waitFor(`document.getElementById('inspector')?.hidden===false && document.getElementById('identity')?.textContent.includes('PID ${pid} /')`, 'process selection');
+    await waitFor("document.getElementById('error')?.hidden===true", 'initial SSE recovers');
+    assert.equal(await evaluate("document.getElementById('explorer')"), null, 'detail has no list DOM');
+    return href;
   }
-  await choose(recursive.pid);
-  await evaluate("window.currentIdentity=JSON.stringify(target.summary.identity);const reused=structuredClone(target);reused.summary.identity.start_time_ticks++;window.targetSources.at(-1).dispatchEvent(new MessageEvent('observation',{data:JSON.stringify(reused)}))");
-  assert.equal(await evaluate("JSON.stringify(target.summary.identity)"),await evaluate("window.currentIdentity"),'SSE cannot switch to a reused PID');
+  const recursiveHref = await choose(recursive.pid);
+  const processName = await evaluate("document.getElementById('target-name').textContent");
+  await evaluate("const reused=structuredClone(window.lastObservation);reused.summary.identity.start_time_ticks++;reused.summary.name='reused identity';window.targetSources.at(-1).dispatchEvent(new MessageEvent('observation',{data:JSON.stringify(reused)}))");
+  assert.equal(await evaluate("document.getElementById('target-name').textContent"), processName, 'SSE cannot switch to a reused PID');
+  const listLookups = await evaluate("window.pageRequests.filter(p=>p==='/api/processes').length");
+  await delay(2200);
+  assert.equal(await evaluate("window.pageRequests.filter(p=>p==='/api/processes').length"), listLookups, 'detail does not poll the list');
+  const mismatchedHref = recursiveHref.replace(/start_time_ticks=(\d+)/, (_,ticks)=>'start_time_ticks='+(Number(ticks)+1));
+  await cdp('Page.navigate',{url:url+mismatchedHref});
+  await waitFor("document.getElementById('error')?.textContent.includes('PID was reused')", 'pinned identity mismatch');
+  assert.equal(await evaluate('window.targetSources.length'), 0, 'mismatched identity opens no stream');
+  assert.equal(await evaluate("document.getElementById('explorer')"), null);
+  await cdp('Page.navigate',{url:url+'/process/'+recursive.pid+'?start_time_ticks=invalid'});
+  await waitFor("document.getElementById('error')?.textContent.includes('Invalid process start time')", 'invalid start time');
+  assert.equal(await evaluate('window.targetSources.length'), 0);
   await cdp('Page.navigate',{url:url+'/process/'+threads.pid});
   await waitFor(`document.getElementById('identity')?.textContent.includes('PID ${threads.pid} /')`,'direct URL selects requested target');
   await waitFor("window.targetSources.length===1",'direct URL opens one identified stream');
-  await evaluate("window.oldSource=window.targetSources[0];document.getElementById('back').click()");
+  await waitFor("document.getElementById('error')?.hidden===true", 'direct SSE connected');
+  await evaluate("window.oldSource=window.targetSources[0];window.dispatchEvent(new Event('pagehide'))");
   await evaluate("window.oldSource.dispatchEvent(new MessageEvent('observation',{data:'invalid stale data'}))");
-  assert.equal(await evaluate("document.getElementById('inspector').hidden"),true,'stale stream cannot reopen details');
+  assert.equal(await evaluate("document.getElementById('error').hidden"),true,'stopped stream events are ignored');
+  assert.equal(await evaluate('window.oldSource.readyState'),2,'pagehide closes SSE');
+  const pinnedIdentity = await evaluate('location.search');
+  await evaluate("window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}))");
+  await waitFor("window.targetSources.length===2 && document.getElementById('inspector')?.hidden===false && document.getElementById('error')?.hidden===true", 'page cache reconnect');
+  assert.equal(await evaluate('location.search'), pinnedIdentity, 'page cache retains identity');
+  const navigation = await cdp('Page.getNavigationHistory');
+  const detailEntry = navigation.entries[navigation.currentIndex];
+  await evaluate("window.oldSource.dispatchEvent(new MessageEvent('observation',{data:'invalid stale data'}));document.getElementById('back').click()");
+  await waitFor("document.querySelectorAll('#process-list tr').length>2", 'back opens list');
+  assert.equal(await evaluate('window.targetSources.length'),0);
+  await cdp('Page.navigateToHistoryEntry',{entryId:detailEntry.id});
+  await waitFor(`document.getElementById('identity')?.textContent.includes('PID ${threads.pid} /') && document.getElementById('error')?.hidden===true`, 'browser back restores details');
+  assert.equal(await evaluate('location.search'), pinnedIdentity, 'browser history retains the observed identity');
+  await evaluate("document.getElementById('back').click()");
   await choose(threads.pid);
   assert.ok(await evaluate(`document.getElementById('identity').textContent.includes('PID ${threads.pid} /')`),'stale initial stream is ignored');
   await cdp('Page.navigate',{url:url+'/process/2147483647'});
   await waitFor("document.getElementById('error')?.textContent.includes('Process exited')",'missing direct PID');
-  assert.equal(await evaluate("document.getElementById('inspector').hidden"),true,'missing PID leaves list visible');
+  assert.equal(await evaluate("document.getElementById('inspector').hidden"),true,'missing PID hides detail panels');
+  assert.equal(await evaluate("document.getElementById('explorer')"),null,'missing PID stays on detail page');
+  assert.equal(await evaluate("document.getElementById('back').getAttribute('href')"),'/list');
   await cdp('Page.navigate',{url:url+'/process/'+recursive.pid});
   await waitFor(`document.getElementById('identity')?.textContent.includes('PID ${recursive.pid} /')`,'direct URL original target');
   assert.equal(await evaluate("document.getElementById('target-status').hidden"), true);
@@ -132,8 +176,8 @@ try {
   await cdp('Emulation.setDeviceMetricsOverride', {width: 390, height: 844, deviceScaleFactor: 1, mobile: true});
   assert.equal(await evaluate('document.documentElement.scrollWidth <= 390'), true, 'mobile layout must not overflow');
   await evaluate("document.getElementById('back').click()");
-  await waitFor("document.getElementById('inspector').hidden", 'return to explorer');
-  assert.equal(await evaluate("document.querySelectorAll('#disassembly tr').length"), 0);
+  await waitFor("document.querySelectorAll('#process-list tr').length>2", 'return to explorer');
+  assert.equal(await evaluate("document.getElementById('disassembly')"), null);
   await choose(threads.pid);
   await waitFor("document.querySelectorAll('#threads tr').length >= 6", 'thread view');
 
@@ -146,7 +190,9 @@ try {
   await waitFor("document.getElementById('environment-info').textContent.includes('auto 5s')", 'environment before exit');
   threads.kill('SIGTERM');
   await waitFor("document.getElementById('target-status').textContent.includes('Process exited')", 'process exit');
-  assert.equal(await evaluate('detailTimer'), null, 'process exit stops detail timer');
+  const detailReads = await evaluate("window.pageRequests.filter(p=>p.startsWith('/api/processes/environment?')).length");
+  await delay(5500);
+  assert.equal(await evaluate("window.pageRequests.filter(p=>p.startsWith('/api/processes/environment?')).length"), detailReads, 'process exit stops detail timer');
   assert.equal(await evaluate("document.getElementById('target-status').hidden"), false);
   assert.ok(await evaluate("window.targetSources.at(-1).readyState===EventSource.CLOSED"),'process exit closes the stream');
   await evaluate("document.getElementById('back').click()");

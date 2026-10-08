@@ -1,3 +1,5 @@
+import { Display } from "../shared/display.js";
+import { processUrl } from "../shared/navigation.js";
 import * as T from "/vendor/three.module.js";
 import { OrbitControls } from "/vendor/OrbitControls.js";
 import {
@@ -20,7 +22,7 @@ import {
   networkLayout,
   connectionState,
   AdaptiveRenderScale,
-} from "/space-model.js";
+} from "./model.js";
 import type {
   Process,
   SystemSnapshot,
@@ -28,14 +30,14 @@ import type {
   FdEndpoint,
   SocketEndpoint,
   SpaceActivity,
-} from "./api-types.js";
+} from "../shared/api-types.js";
 import type {
   Position,
   Region,
   NetworkGroup,
   RecentFile,
   CpuGlow,
-} from "./space-model.js";
+} from "./model.js";
 import type { SpaceElements } from "./dom-types.js";
 interface RenderNode extends Process {
   pos: T.Vector3;
@@ -897,7 +899,7 @@ function fileDetails() {
   const identity = document.createElement("p");
   identity.textContent = `${nodes.get(key(f.process_id))?.name || "Unknown process"} · PID ${f.process_id.pid} · ${fileLabel(f.file)}`;
   const link = document.createElement("a");
-  link.href = `/process/${f.process_id.pid}`;
+  link.href = processUrl(f.process_id);
   link.textContent = "Open process details ↗";
   updateConnectionEndpoints([path, identity, link]);
 }
@@ -949,7 +951,7 @@ function endpoint(
   const resource = document.createElement("span");
   resource.textContent = ipcLabel(fdEndpoint.resource);
   const link = document.createElement("a");
-  link.href = `/process/${fdEndpoint.process_id.pid}`;
+  link.href = processUrl(fdEndpoint.process_id);
   link.textContent = "Open process details ↗";
   div.append(identity, fd, resource, link);
   return div;
@@ -999,7 +1001,7 @@ function details() {
       label.textContent = `${role}: ${name ?? uid ?? "unknown"}${name ? ` (${uid})` : ""} `;
       $("pid").append(label);
     }
-    $("inspect").href = `/process/${n.identity.pid}`;
+    $("inspect").href = processUrl(n.identity);
     return;
   }
   const e = snapshot.fd_relations.find((edge) => edge.id === selectedEdge);

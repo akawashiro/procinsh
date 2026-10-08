@@ -1,3 +1,9 @@
+//! Embedded list, process details, and SPACE pages and their static assets.
+//!
+//! # Interface
+//! - [`router`]: `pub(super) fn router() -> Router<Arc<AppState>>`; supplies the
+//!   page and asset routes for [`super::AppState`].
+
 use super::AppState;
 use axum::{Router, http::header, response::Html, routing::get};
 use std::sync::Arc;
@@ -7,102 +13,89 @@ fn versioned_html(template: &str) -> Html<String> {
 }
 
 pub(super) fn router() -> Router<Arc<AppState>> {
-    Router::new()
+    let mut router = Router::new()
         .route(
             "/",
-            get(|| async { versioned_html(include_str!("../web/index.html")) }),
+            get(|| async { versioned_html(include_str!("../web/list/index.html")) }),
         )
         .route(
             "/list",
-            get(|| async { versioned_html(include_str!("../web/index.html")) }),
+            get(|| async { versioned_html(include_str!("../web/list/index.html")) }),
         )
         .route(
             "/process/{pid}",
-            get(|| async { versioned_html(include_str!("../web/index.html")) }),
-        )
-        .route(
-            "/display.js",
-            get(|| async {
-                (
-                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
-                    include_str!("../../dist/web/display.js"),
-                )
-            }),
-        )
-        .route(
-            "/app.js",
-            get(|| async {
-                (
-                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
-                    include_str!("../../dist/web/app.js"),
-                )
-            }),
-        )
-        .route(
-            "/style.css",
-            get(|| async {
-                (
-                    [(header::CONTENT_TYPE, "text/css; charset=utf-8")],
-                    include_str!("../web/style.css"),
-                )
-            }),
+            get(|| async { versioned_html(include_str!("../web/process/index.html")) }),
         )
         .route(
             "/space",
-            get(|| async { versioned_html(include_str!("../web/space.html")) }),
-        )
-        .route(
-            "/space.js",
-            get(|| async {
-                (
-                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
-                    include_str!("../../dist/web/space.js"),
-                )
-            }),
-        )
-        .route(
-            "/space-model.js",
-            get(|| async {
-                (
-                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
-                    include_str!("../../dist/web/space-model.js"),
-                )
-            }),
-        )
-        .route(
-            "/space.css",
-            get(|| async {
-                (
-                    [(header::CONTENT_TYPE, "text/css; charset=utf-8")],
-                    include_str!("../web/space.css"),
-                )
-            }),
-        )
-        .route(
+            get(|| async { versioned_html(include_str!("../web/space/index.html")) }),
+        );
+    for (path, source) in [
+        ("/list/app.js", include_str!("../../dist/web/list/app.js")),
+        (
+            "/process/app.js",
+            include_str!("../../dist/web/process/app.js"),
+        ),
+        ("/space/app.js", include_str!("../../dist/web/space/app.js")),
+        (
+            "/space/model.js",
+            include_str!("../../dist/web/space/model.js"),
+        ),
+        (
+            "/shared/api.js",
+            include_str!("../../dist/web/shared/api.js"),
+        ),
+        (
+            "/shared/display.js",
+            include_str!("../../dist/web/shared/display.js"),
+        ),
+        (
+            "/shared/dom.js",
+            include_str!("../../dist/web/shared/dom.js"),
+        ),
+        (
+            "/shared/navigation.js",
+            include_str!("../../dist/web/shared/navigation.js"),
+        ),
+        (
             "/vendor/three.module.js",
-            get(|| async {
-                (
-                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
-                    include_str!("../web/vendor/three.module.js"),
-                )
-            }),
-        )
-        .route(
+            include_str!("../web/vendor/three.module.js"),
+        ),
+        (
             "/vendor/three.core.js",
-            get(|| async {
-                (
-                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
-                    include_str!("../web/vendor/three.core.js"),
-                )
-            }),
-        )
-        .route(
+            include_str!("../web/vendor/three.core.js"),
+        ),
+        (
             "/vendor/OrbitControls.js",
-            get(|| async {
+            include_str!("../web/vendor/OrbitControls.js"),
+        ),
+    ] {
+        router = router.route(
+            path,
+            get(move || async move {
                 (
                     [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
-                    include_str!("../web/vendor/OrbitControls.js"),
+                    source,
                 )
             }),
-        )
+        );
+    }
+    for (path, source) in [
+        ("/list/style.css", include_str!("../web/list/style.css")),
+        (
+            "/process/style.css",
+            include_str!("../web/process/style.css"),
+        ),
+        ("/space/style.css", include_str!("../web/space/style.css")),
+        ("/shared/style.css", include_str!("../web/shared/style.css")),
+    ] {
+        router =
+            router.route(
+                path,
+                get(move || async move {
+                    ([(header::CONTENT_TYPE, "text/css; charset=utf-8")], source)
+                }),
+            );
+    }
+    router
 }

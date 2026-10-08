@@ -1,0 +1,3 @@
+#search{width:min(480px,60%)}
+.command-small{color:var(--muted);max-width:580px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:5px}
+@media(max-width:600px){#search{width:100%}}

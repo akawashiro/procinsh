@@ -24,7 +24,7 @@ async fn security_and_embedded_resources() {
         ),
         ("127.0.0.1:8080", None, "/", 200),
         ("127.0.0.1:8080", None, "/list", 200),
-        ("localhost:8080", None, "/app.js", 200),
+        ("localhost:8080", None, "/list/app.js", 200),
     ] {
         let mut req = Request::builder().uri(path).header("host", host);
         if let Some(origin) = origin {
@@ -44,9 +44,10 @@ async fn gzip_negotiation_and_resources() {
     for path in [
         "/",
         "/space",
-        "/style.css",
-        "/app.js",
-        "/space.js",
+        "/shared/style.css",
+        "/list/app.js",
+        "/process/app.js",
+        "/space/app.js",
         "/api/processes",
     ] {
         let request = |encoding: &str| {

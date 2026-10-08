@@ -14,8 +14,7 @@
       "/vendor/three.module.js": ["./node_modules/@types/three/index.d.ts"],
       "/vendor/OrbitControls.js": [
         "./node_modules/@types/three/examples/jsm/controls/OrbitControls.d.ts"
-      ],
-      "/space-model.js": ["./src/web/space-model.ts"]
+      ]
     }
   },
   "include": ["src/web/**/*.ts"],

@@ -1,13 +1,8 @@
-// Element IDs in index.html and space.html. Keep these maps aligned with the templates.
-export interface AppElements {
+// Element IDs in the process details template.
+export interface ProcessElements {
   brand: HTMLAnchorElement;
   back: HTMLAnchorElement;
   error: HTMLElement;
-  explorer: HTMLElement;
-  search: HTMLInputElement;
-  sort: HTMLSelectElement;
-  "process-count": HTMLElement;
-  "process-list": HTMLElement;
   inspector: HTMLElement;
   identity: HTMLElement;
   "target-name": HTMLElement;
@@ -43,28 +38,5 @@ export interface AppElements {
   "auxv-info": HTMLElement;
   "auxv-error": HTMLElement;
   "auxv-entries": HTMLElement;
-}
-export interface SpaceElements {
-  world: HTMLCanvasElement;
-  labels: HTMLCanvasElement;
-  brand: HTMLAnchorElement;
-  back: HTMLAnchorElement;
-  fps: HTMLElement;
-  search: HTMLInputElement;
-  reset: HTMLButtonElement;
-  rearrange: HTMLButtonElement;
-  details: HTMLElement;
-  close: HTMLButtonElement;
-  "process-details": HTMLElement;
-  name: HTMLElement;
-  pid: HTMLElement;
-  inspect: HTMLAnchorElement;
-  "connection-details": HTMLElement;
-  "connection-kind": HTMLElement;
-  "connection-label": HTMLElement;
-  "connection-state": HTMLElement;
-  "connection-facts": HTMLElement;
-  "connection-endpoints": HTMLElement;
-  hover: HTMLElement;
-  failure: HTMLElement;
+  loading: HTMLElement;
 }

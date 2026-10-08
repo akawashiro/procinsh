@@ -3,7 +3,7 @@ import {writeFile} from 'node:fs/promises';
 
 export async function checkNetworkSpace(evaluate, delay, cdp) {
   await evaluate(`(async()=>{
-    const m=await import('/space.js');
+    const m=await import('/space/app.js');
     const node={identity:{pid:900001,start_time_ticks:1},name:'network-browser',uid:1000,euid:0,maps:[]};
     const edge=(id,remote,fd)=>({id,endpoint:{process_id:node.identity,fd,fd_count:1,resource:{kind:'socket',device:{major:0,minor:0},inode:String(fd)},access:'read_write'},peer:null,label:'TCP '+remote,shared:false,candidate:false,socket:{protocol:{kind:'tcp',family:'ipv4'},state:{kind:'established'},local:{ip:'127.0.0.1',port:fd},remote:(()=>{const i=remote.lastIndexOf(':');return {ip:remote.startsWith('[')?remote.slice(1,i-1):remote.slice(0,i),port:Number(remote.slice(i+1))}})(),remote_hostname:remote.startsWith('203.')?'example.test':null,network_peer:true}});
     const edges=[edge('net-a','203.0.113.10:443',40),edge('net-b','203.0.113.10:443',41),edge('net-v6','[2001:db8::1]:443',42)];
@@ -11,13 +11,13 @@ export async function checkNetworkSpace(evaluate, delay, cdp) {
     window.networkFixture={processes:[node],fd_relations:edges};m.renderSystemSnapshot(window.networkFixture,true);m.fitScene();
   })()`);
   await delay(100);
-  const groups=await evaluate("import('/space.js').then(m=>m.networkVisuals())");
+  const groups=await evaluate("import('/space/app.js').then(m=>m.networkVisuals())");
   assert.equal(groups.length,2,'only connected network destinations have markers');
   assert.ok(groups.some(g=>g.label.includes('example.test:443')),'resolved name is used in the label');
   assert.ok(groups.some(g=>g.label.includes('×2')),'same destination is aggregated');
-  assert.deepEqual(await evaluate("import('/space.js').then(m=>m.networkParticles())"),[],'idle connections have no particles');
+  assert.deepEqual(await evaluate("import('/space/app.js').then(m=>m.networkParticles())"),[],'idle connections have no particles');
   const clickProjected=async field=>{
-    const [x,y]=await evaluate(`import('/space.js').then(m=>m.networkVisuals().find(g=>g.members.includes('net-a')).${field})`);
+    const [x,y]=await evaluate(`import('/space/app.js').then(m=>m.networkVisuals().find(g=>g.members.includes('net-a')).${field})`);
     await cdp('Input.dispatchMouseEvent',{type:'mousePressed',x:(x*.5+.5)*1440,y:(-y*.5+.5)*1100,button:'left',clickCount:1});
     await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',x:(x*.5+.5)*1440,y:(-y*.5+.5)*1100,button:'left',clickCount:1});
   };
@@ -30,20 +30,20 @@ export async function checkNetworkSpace(evaluate, delay, cdp) {
   assert.equal(await heading(),'network-browser · PID 900001 → example.test:443 (203.0.113.10:443) · 2 connections');
   for (const hostname of [null, '']) {
     await evaluate(`(async()=>{
-      const m=await import('/space.js'),f=window.networkFixture;
+      const m=await import('/space/app.js'),f=window.networkFixture;
       for(const e of f.fd_relations)if(e.id==='net-a'||e.id==='net-b')e.socket.remote_hostname=${JSON.stringify(hostname)};
       m.renderSystemSnapshot(f);
     })()`);
     assert.equal(await heading(),'network-browser · PID 900001 → 203.0.113.10:443 · 2 connections','unresolved IPv4 address is shown once');
   }
   await evaluate(`(async()=>{
-    const m=await import('/space.js'),f=window.networkFixture;
+    const m=await import('/space/app.js'),f=window.networkFixture;
     for(const e of f.fd_relations)if(e.id==='net-a'||e.id==='net-b')e.socket.remote_hostname='example.test';
     m.renderSystemSnapshot(f);
     m.selectNetwork(m.networkVisuals().find(g=>g.members.includes('net-v6')).id);
   })()`);
   assert.equal(await heading(),'network-browser · PID 900001 → [2001:db8::1]:443 · 1 connections','unresolved IPv6 address is shown once with one pair of brackets');
-  await evaluate("import('/space.js').then(m=>m.selectNetwork(m.networkVisuals().find(g=>g.members.includes('net-a')).id))");
+  await evaluate("import('/space/app.js').then(m=>m.selectNetwork(m.networkVisuals().find(g=>g.members.includes('net-a')).id))");
   await evaluate("document.querySelector('#connection-endpoints button').click()");
   assert.match(await evaluate("document.getElementById('connection-endpoints').textContent"),/FD 40/);
   await evaluate("Array.from(document.querySelectorAll('#connection-endpoints button')).find(b=>b.textContent==='Show all connections to this destination').click()");
@@ -51,14 +51,14 @@ export async function checkNetworkSpace(evaluate, delay, cdp) {
   await clickProjected('pathScreen');
   assert.equal(await evaluate("document.getElementById('details').hidden"),false,'path selects group');
   const animated=await evaluate(`(async()=>{
-    const m=await import('/space.js'),f=window.networkFixture;
+    const m=await import('/space/app.js'),f=window.networkFixture;
     m.renderActivity({window_ms:100,ipc:[{process_id:f.processes[0].identity,resource:f.fd_relations.find(e=>e.id==='net-a').endpoint.resource,write:true,bytes:100,count:1},{process_id:f.processes[0].identity,resource:f.fd_relations.find(e=>e.id==='net-b').endpoint.resource,write:false,bytes:200,count:1}]});
     return {particles:m.networkParticles(),facts:document.getElementById('connection-facts').textContent};
   })()`);
   assert.deepEqual([...new Set(animated.particles.map(p=>p.direction))].sort(),[-1,1]);
   assert.match(animated.facts,/300 bytes \/ 2 operations/);
   const checks=await evaluate(`(async()=>{
-    const m=await import('/space.js'),f=window.networkFixture;
+    const m=await import('/space/app.js'),f=window.networkFixture;
     const before=m.networkVisuals().map(g=>[g.id,g.position]);
     for(const e of f.fd_relations)if(e.socket.remote_hostname)e.socket.remote_hostname='renamed.example.test';
     m.renderSystemSnapshot({...f,fd_relations:[...f.fd_relations].reverse()});
@@ -76,7 +76,7 @@ export async function checkNetworkSpace(evaluate, delay, cdp) {
     return {renamed,stable,rearranged,kept,removed,listening};
   })()`);
   for(const [name,passed] of Object.entries(checks))assert.equal(passed,true,name);
-  await evaluate("import('/space.js').then(m=>{m.selectNetwork(m.networkVisuals()[0].id);m.fitScene();})");
+  await evaluate("import('/space/app.js').then(m=>{m.selectNetwork(m.networkVisuals()[0].id);m.fitScene();})");
   await delay(100);
   const screenshot=await cdp('Page.captureScreenshot',{format:'png'});
   await writeFile('target/browser-space-network.png',Buffer.from(screenshot.data,'base64'));

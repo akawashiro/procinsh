@@ -122,11 +122,18 @@ fn binary_serves_assets_process_api_and_sse_and_shuts_down() {
         "/list",
         "/process/1",
         "/space",
-        "/app.js",
-        "/space.js",
-        "/space-model.js",
-        "/style.css",
-        "/space.css",
+        "/list/app.js",
+        "/process/app.js",
+        "/space/app.js",
+        "/space/model.js",
+        "/shared/api.js",
+        "/shared/display.js",
+        "/shared/dom.js",
+        "/shared/navigation.js",
+        "/list/style.css",
+        "/process/style.css",
+        "/space/style.css",
+        "/shared/style.css",
         "/vendor/three.module.js",
         "/api/config",
     ] {
@@ -134,6 +141,28 @@ fn binary_serves_assets_process_api_and_sse_and_shuts_down() {
         assert_eq!(status, 200, "{path}");
         assert!(headers.contains("cache-control: no-store"));
         assert!(!body.is_empty());
+        if path.ends_with(".js") {
+            assert!(headers.contains("text/javascript; charset=utf-8"));
+        } else if path.ends_with(".css") {
+            assert!(headers.contains("text/css; charset=utf-8"));
+        }
+    }
+    let list = server.get("/list").2;
+    let process = server.get("/process/1").2;
+    assert!(list.contains("id=\"explorer\""));
+    assert!(!list.contains("id=\"inspector\""));
+    assert!(process.contains("id=\"inspector\""));
+    assert!(!process.contains("id=\"explorer\""));
+    assert_eq!(server.get("/").2, list);
+    for path in [
+        "/app.js",
+        "/display.js",
+        "/style.css",
+        "/space.js",
+        "/space-model.js",
+        "/space.css",
+    ] {
+        assert_eq!(server.get(path).0, 404, "{path}");
     }
     let mut denied = String::new();
     server
