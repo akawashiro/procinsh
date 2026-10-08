@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 
 export async function checkProcessSessions({cdp, evaluate, choose, until, delay, url, debugPort, originalPid, otherPid}) {
+  const pinnedUrl = await evaluate('location.href');
   const {targetId} = await cdp('Target.createTarget', {url});
   let socket;
   try {
@@ -27,17 +28,19 @@ export async function checkProcessSessions({cdp, evaluate, choose, until, delay,
       return result.result.value;
     };
     await until(() => second("document.querySelectorAll('#process-list tr').length>2"), 'independent list');
-    assert.equal(await second("document.getElementById('inspector').hidden"), true, 'root always shows list');
-    await call('Page.navigate', {url: url+'/process/'+originalPid});
+    assert.equal(await second("document.getElementById('inspector')"), null, 'root always shows list');
+    await call('Page.navigate', {url: pinnedUrl});
     await until(() => second(`document.getElementById('identity')?.textContent.includes('PID ${originalPid} /')`), 'second tab process');
+    assert.equal(await second('location.href'), pinnedUrl, 'new tab retains the observed process identity');
     await evaluate("document.getElementById('back').click()");
     await choose(otherPid);
     await delay(300);
     assert.ok(await second(`document.getElementById('identity').textContent.includes('PID ${originalPid} /')`), 'other tab keeps its own process');
     await evaluate("document.getElementById('back').click()");
-    const before = await second('target.observation.timestamp');
-    await until(async () => (await second('target.observation.timestamp')) > before, 'other tab keeps observing after back');
-    assert.equal(await evaluate("document.getElementById('inspector').hidden"), true);
+    const before = await second("document.getElementById('metrics').textContent");
+    await until(async () => (await second("document.getElementById('metrics').textContent")) !== before, 'other tab keeps observing after back');
+    await until(() => evaluate("document.querySelectorAll('#process-list tr').length>2"), 'main tab list');
+    assert.equal(await evaluate("document.getElementById('inspector')"), null);
     await choose(originalPid);
     console.log('Process sessions passed: independent tabs, root list, independent selection and disconnect.');
   } finally {

@@ -14,7 +14,7 @@ include = [
     "/build.rs",
     "/rust-toolchain.toml",
     "/src/**",
-    "/dist/web/*.js",
+    "/dist/web/**/*.js",
     "/tests/**",
     "!/tests/targets/bin/**",
     "/package.json",

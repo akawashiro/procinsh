@@ -8,6 +8,7 @@ import {checkProcessDetails} from './process-details.mjs';
 import {checkDescriptors} from './fds.mjs';
 import {checkFileSpace} from './space-files.mjs';
 import {checkNetworkSpace} from './space-network.mjs';
+import {processEventRecording} from './process-events.mjs';
 
 const children = [], errors = [];
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -50,6 +51,7 @@ try {
   };
   const waitFor = (expression, label) => until(() => evaluate(expression), label);
   await cdp('Runtime.enable'); await cdp('Log.enable'); await cdp('Page.enable');
+  await cdp('Page.addScriptToEvaluateOnNewDocument',{source:processEventRecording});
   await cdp('Emulation.setDeviceMetricsOverride', {width: 1440, height: 1100, deviceScaleFactor: 1, mobile: false});
   await cdp('Page.addScriptToEvaluateOnNewDocument', {source: `
     window.spaceTestSources=[];
@@ -61,11 +63,11 @@ try {
   await cdp('Page.navigate', {url: url+'/space'});
   const snapshot=await until(()=>evaluate('window.spaceTestSystemSnapshot?.processes.length>2 ? window.spaceTestSystemSnapshot : null'),'space snapshot');
   const first=snapshot.processes[0].identity;
-  await waitFor(`import('/space.js').then(m=>Boolean(m.processPosition('${first.pid}:${first.start_time_ticks}')))`, 'rendered space snapshot');
+  await waitFor(`import('/space/app.js').then(m=>Boolean(m.processPosition('${first.pid}:${first.start_time_ticks}')))`, 'rendered space snapshot');
   // Feed deterministic FPS samples through the live animation loop, then verify
   // that both the WebGL drawing buffer and the render indicator recover.
   const resolutionFrames=await evaluate(`(async()=>{
-    const {AdaptiveRenderScale}=await import('/space-model.js');
+    const {AdaptiveRenderScale}=await import('/space/model.js');
     const original=AdaptiveRenderScale.prototype.sample;
     const captures=[];
     let index=0;
@@ -114,7 +116,7 @@ try {
   const n=snapshot.processes.find(n=>n.identity.pid===app.pid);
   await evaluate(`document.getElementById('search').value='${app.pid}'; document.getElementById('search').dispatchEvent(new Event('input')); document.getElementById('search').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter'}));`);
   assert.match(await evaluate("document.getElementById('pid').textContent"),new RegExp(String(app.pid)));
-  assert.equal(await evaluate("document.getElementById('inspect').getAttribute('href')"), `/process/${app.pid}`);
+  assert.equal(await evaluate("document.getElementById('inspect').getAttribute('href')"), `/process/${app.pid}?start_time_ticks=${n.identity.start_time_ticks}`);
   await evaluate("document.getElementById('reset').click()");
   assert.equal(await evaluate("document.getElementById('search').value"),'','Fit all clears search');
   assert.equal(await evaluate("document.getElementById('regions')"),null,'address-space list is removed from process details');
@@ -137,7 +139,7 @@ try {
   await waitFor("window.spaceTestSystemSnapshot?.kind==='full' && window.spaceTestSystemSnapshot?.sequence===1", 'baseline mismatch full reset');
   await evaluate(`(async()=>{
     window.spaceTestSources.forEach(source=>source.close());
-    const m=await import('/space.js'), id={pid:424242,start_time_ticks:7}, peerId={pid:434343,start_time_ticks:8};
+    const m=await import('/space/app.js'), id={pid:424242,start_time_ticks:7}, peerId={pid:434343,start_time_ticks:8};
     const node={identity:id,name:'cpu-glow-test',uid:1000,username:'test',maps_epoch:1,maps:[{start:'0x1000',end:'0x2000',readable:true,private:true,writable:true,executable:false,pathname:'[heap]'}]};
     const peer={...node,identity:peerId,parent_id:id,name:'connection-peer',username:'peer'};
     const a={process_id:id,fd:4,fd_count:1,resource:{kind:'socket',device:{major:0,minor:1},inode:'10'},kind:'socket',access:'read_write'};
@@ -153,13 +155,13 @@ try {
     m.renderActivity({window_ms:100,cpu:[{process_id:id,runtime_ns:40000000,switches:2,running_threads:1,cpus:[3]}],ipc:[{process_id:id,resource:{kind:'socket',device:{major:0,minor:1},inode:'10'},write:true,bytes:4096,count:16}],status:{cpu:{state:'observing'},ipc:{state:'observing'}}});
   })()`);
   await delay(50);
-  assert.ok(await evaluate("import('/space.js').then(m=>m.processPosition('434343:8').y>m.processPosition('424242:7').y)"),'child is placed in a deeper generation');
-  assert.ok(await evaluate("import('/space.js').then(m=>m.parentLineVisual('424242:7','434343:8').g<0.5)"),'unselected parent line is muted');
-  await evaluate("import('/space.js').then(m=>m.selectProcess('434343:8'))");
-  assert.ok(await evaluate("import('/space.js').then(m=>m.parentLineVisual('424242:7','434343:8').g>0.9)"),'selected ancestry is highlighted');
-  await evaluate("import('/space.js').then(m=>m.selectProcess('424242:7'))");
-  assert.ok(await evaluate("import('/space.js').then(m=>m.parentLineVisual('424242:7','434343:8').g>0.9)"),'selected direct child is highlighted');
-  await evaluate("import('/space.js').then(m=>m.selectProcess('424242:7',true))");
+  assert.ok(await evaluate("import('/space/app.js').then(m=>m.processPosition('434343:8').y>m.processPosition('424242:7').y)"),'child is placed in a deeper generation');
+  assert.ok(await evaluate("import('/space/app.js').then(m=>m.parentLineVisual('424242:7','434343:8').g<0.5)"),'unselected parent line is muted');
+  await evaluate("import('/space/app.js').then(m=>m.selectProcess('434343:8'))");
+  assert.ok(await evaluate("import('/space/app.js').then(m=>m.parentLineVisual('424242:7','434343:8').g>0.9)"),'selected ancestry is highlighted');
+  await evaluate("import('/space/app.js').then(m=>m.selectProcess('424242:7'))");
+  assert.ok(await evaluate("import('/space/app.js').then(m=>m.parentLineVisual('424242:7','434343:8').g>0.9)"),'selected direct child is highlighted');
+  await evaluate("import('/space/app.js').then(m=>m.selectProcess('424242:7',true))");
   await delay(100);
   const hoverText=await evaluate(`(()=>{
     const canvas=document.getElementById('world'),hover=document.getElementById('hover');
@@ -172,30 +174,30 @@ try {
   assert.ok(hoverText,'process hover retains name and PID');
   assert.match(hoverText,/424242/);
   assert.doesNotMatch(hoverText,/Observed CPU|Off CPU|CPU 3|threads|RSS|MiB|%/);
-  await evaluate("import('/space.js').then(m=>m.selectConnection('unix-exact'))");
+  await evaluate("import('/space/app.js').then(m=>m.selectConnection('unix-exact'))");
   assert.equal(await evaluate("document.getElementById('connection-label').textContent"),'UNIX STREAM');
   assert.match(await evaluate("document.getElementById('connection-facts').textContent"),/4096 bytes \/ 16 operations/);
   assert.match(await evaluate("document.getElementById('connection-endpoints').textContent"),/cpu-glow-test[\s\S]*PID 424242[\s\S]*FD 4[\s\S]*connection-peer[\s\S]*PID 434343[\s\S]*FD 9/);
-  assert.deepEqual(await evaluate("Array.from(document.querySelectorAll('#connection-endpoints a'),a=>a.getAttribute('href'))"),['/process/424242','/process/434343']);
-  await evaluate("import('/space.js').then(m=>m.selectConnection('tcp-candidate'))");
+  assert.deepEqual(await evaluate("Array.from(document.querySelectorAll('#connection-endpoints a'),a=>a.getAttribute('href'))"),['/process/424242?start_time_ticks=7','/process/434343?start_time_ticks=8']);
+  await evaluate("import('/space/app.js').then(m=>m.selectConnection('tcp-candidate'))");
   assert.equal(await evaluate("document.getElementById('connection-state').textContent"),'Candidate peer');
-  await evaluate("import('/space.js').then(m=>m.selectConnection('pipe-shared'))");
+  await evaluate("import('/space/app.js').then(m=>m.selectConnection('pipe-shared'))");
   assert.equal(await evaluate("document.getElementById('connection-state').textContent"),'Shared FD');
-  await evaluate("import('/space.js').then(m=>m.selectConnection('external'))");
+  await evaluate("import('/space/app.js').then(m=>m.selectConnection('external'))");
   assert.match(await evaluate("document.getElementById('connection-endpoints').textContent"),/External \/ unknown/);
-  await evaluate("import('/space.js').then(m=>m.renderSystemSnapshot({processes:[{identity:{pid:424242,start_time_ticks:7},name:'cpu-glow-test',uid:1000,username:'test',maps_epoch:1,maps:[]}],fd_relations:[],captured_at:Date.now(),inspected_processes:1,inspected_fds:0,warnings:[]}))");
+  await evaluate("import('/space/app.js').then(m=>m.renderSystemSnapshot({processes:[{identity:{pid:424242,start_time_ticks:7},name:'cpu-glow-test',uid:1000,username:'test',maps_epoch:1,maps:[]}],fd_relations:[],captured_at:Date.now(),inspected_processes:1,inspected_fds:0,warnings:[]}))");
   assert.equal(await evaluate("document.getElementById('details').hidden"),true,'removed connection clears selection');
-  await evaluate("import('/space.js').then(m=>m.renderActivity({window_ms:100,cpu:[{process_id:{pid:424242,start_time_ticks:7},runtime_ns:40000000,switches:2,running_threads:1,cpus:[3]}],ipc:[],status:{cpu:{state:'observing'}}}))");
-  await until(()=>evaluate("import('/space.js').then(m=>m.cpuGlowVisual('424242:7').g)"),'CPU activity lights the base',400);
-  await evaluate("import('/space.js').then(m=>m.selectProcess('424242:7'))");
+  await evaluate("import('/space/app.js').then(m=>m.renderActivity({window_ms:100,cpu:[{process_id:{pid:424242,start_time_ticks:7},runtime_ns:40000000,switches:2,running_threads:1,cpus:[3]}],ipc:[],status:{cpu:{state:'observing'}}}))");
+  await until(()=>evaluate("import('/space/app.js').then(m=>m.cpuGlowVisual('424242:7').g)"),'CPU activity lights the base',400);
+  await evaluate("import('/space/app.js').then(m=>m.selectProcess('424242:7'))");
   assert.equal(await evaluate("document.getElementById('facts')"),null);
   assert.doesNotMatch(await evaluate("document.getElementById('process-details').textContent"),/Observed CPU|Off CPU|CPU 3|threads|RSS|MiB|%/);
-  await evaluate("import('/space.js').then(m=>m.renderActivity({window_ms:100,cpu:[{process_id:{pid:424242,start_time_ticks:999},runtime_ns:100000000,switches:1,running_threads:1,cpus:[2]}],ipc:[],status:{cpu:{state:'observing'}}}))");
-  assert.equal(await evaluate("import('/space.js').then(m=>m.cpuGlowStates.has('424242:999'))"),false,'stale identity is ignored');
+  await evaluate("import('/space/app.js').then(m=>m.renderActivity({window_ms:100,cpu:[{process_id:{pid:424242,start_time_ticks:999},runtime_ns:100000000,switches:1,running_threads:1,cpus:[2]}],ipc:[],status:{cpu:{state:'observing'}}}))");
+  assert.equal(await evaluate("import('/space/app.js').then(m=>m.cpuGlowStates.has('424242:999'))"),false,'stale identity is ignored');
   await delay(550);
-  assert.ok(await evaluate("import('/space.js').then(m=>m.cpuGlowVisual('424242:7').g)")<0.01,'CPU afterglow ends');
+  assert.ok(await evaluate("import('/space/app.js').then(m=>m.cpuGlowVisual('424242:7').g)")<0.01,'CPU afterglow ends');
   const stableChecks=await evaluate(`(async()=>{
-    const m=await import('/space.js'), model=await import('/space-model.js');
+    const m=await import('/space/app.js'), model=await import('/space/model.js');
     const make=(pid,parent=null)=>({identity:{pid,start_time_ticks:1},parent_id:parent&&{pid:parent,start_time_ticks:1},name:'stable-'+pid,uid:1000,maps_epoch:1,maps:[]});
     const root=make(800001),child=make(800002,800001),sibling=make(800003,800001);
     const edge={id:'stable-edge',endpoint:{process_id:root.identity,fd:1,resource:{kind:'pipe',device:{major:0,minor:0},inode:'2176'}},peer:{process_id:child.identity,fd:2,resource:{kind:'pipe',device:{major:0,minor:0},inode:'2176'}},label:'stable pipe',shared:false,candidate:false};
@@ -243,31 +245,31 @@ try {
   await checkFileSpace(evaluate,delay,cdp);
   await checkNetworkSpace(evaluate,delay,cdp);
   // A close-up right drag should travel as far in world space as a focused drag.
-  await evaluate("import('/space.js').then(m=>m.selectProcess('900001:1',true))");
+  await evaluate("import('/space/app.js').then(m=>m.selectProcess('900001:1',true))");
   await delay(150);
   const panDistance=async()=>{
-    const before=await evaluate("import('/space.js').then(m=>m.cameraView())");
+    const before=await evaluate("import('/space/app.js').then(m=>m.cameraView())");
     await cdp('Input.dispatchMouseEvent',{type:'mousePressed',x:700,y:600,button:'right',buttons:2,clickCount:1});
     await cdp('Input.dispatchMouseEvent',{type:'mouseMoved',x:800,y:600,button:'right',buttons:2});
     await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',x:800,y:600,button:'right',buttons:0,clickCount:1});
     await delay(1200);
-    const after=await evaluate("import('/space.js').then(m=>m.cameraView())");
+    const after=await evaluate("import('/space/app.js').then(m=>m.cameraView())");
     return Math.hypot(...after.target.map((v,i)=>v-before.target[i]));
   };
   const focusedPan=await panDistance();
   for(let i=0;i<12;i++)await cdp('Input.dispatchMouseEvent',{type:'mouseWheel',x:700,y:600,deltaX:0,deltaY:-200});
   await delay(300);
-  const closeView=await evaluate("import('/space.js').then(m=>m.cameraView())");
+  const closeView=await evaluate("import('/space/app.js').then(m=>m.cameraView())");
   assert.ok(Math.hypot(...closeView.position.map((v,i)=>v-closeView.target[i]))<10,'wheel zoom reaches close-up');
   const closePan=await panDistance();
   assert.ok(focusedPan>1&&closePan/focusedPan>.75&&closePan/focusedPan<1.25,'close-up panning preserves usable world-space speed');
 
-  await evaluate(`import('/space.js').then(m=>m.renderSystemSnapshot(${JSON.stringify(snapshot)}))`);
+  await evaluate(`import('/space/app.js').then(m=>m.renderSystemSnapshot(${JSON.stringify(snapshot)}))`);
   await evaluate("document.getElementById('reset').click()");
   await delay(800);
   const png=await cdp('Page.captureScreenshot',{format:'png'});await writeFile('target/browser-space.png',Buffer.from(png.data,'base64'));
   await evaluate(`(async()=>{
-    const {renderSystemSnapshot,renderActivity,fitScene}=await import('/space.js');
+    const {renderSystemSnapshot,renderActivity,fitScene}=await import('/space/app.js');
     const nodes=Array.from({length:1000},(_,i)=>({identity:{pid:100000+i,start_time_ticks:1},name:'load-'+i,uid:99999,username:'fixture',maps_epoch:1,maps:Array.from({length:16},(_,j)=>({start:'0x'+(4096+j*8192).toString(16),end:'0x'+(8192+j*8192).toString(16),readable:true,private:true,writable:true,executable:false,pathname:j===0?'[heap]':null}))}));
     for(let i=1;i<nodes.length;i++)nodes[i].parent_id=nodes[Math.floor((i-1)/4)].identity;
     const edges=Array.from({length:5000},(_,i)=>({id:'load-'+i,endpoint:{process_id:nodes[i%1000].identity,fd:i,resource:{kind:'pipe',device:{major:0,minor:0},inode:String(i)}},peer:{process_id:nodes[(i*7+1)%1000].identity,fd:i,resource:{kind:'pipe',device:{major:0,minor:0},inode:String(i)}},label:'PIPE',shared:false,candidate:false}));
@@ -275,8 +277,8 @@ try {
     renderSystemSnapshot({processes:nodes,fd_relations:edges,captured_at:Date.now(),inspected_processes:1000,inspected_fds:10000,warnings:[]});
     renderActivity({files:Array.from({length:512},(_,i)=>({process_id:nodes[i%100].identity,file:{device:{major:0,minor:0},inode:String(i),generation:0},path:'/tmp/load-'+i,write:i%2===0,bytes:4096,count:1}))});fitScene();
   })()`);
-  assert.equal(await evaluate("import('/space.js').then(m=>m.networkVisuals().length)"),1000,'large network snapshot renders all destination markers');
-  assert.equal(await evaluate("import('/space.js').then(m=>m.fileVisuals().length)"),512,'file marker display limit renders alongside network snapshot');
+  assert.equal(await evaluate("import('/space/app.js').then(m=>m.networkVisuals().length)"),1000,'large network snapshot renders all destination markers');
+  assert.equal(await evaluate("import('/space/app.js').then(m=>m.fileVisuals().length)"),512,'file marker display limit renders alongside network snapshot');
   await delay(1500); console.log('1000 nodes / 6000 edges / 1000 destinations / 512 files:',await evaluate("document.getElementById('fps').textContent"));
   await cdp('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
   assert.equal(await evaluate('document.documentElement.scrollWidth <= 390'),true);
@@ -286,7 +288,7 @@ try {
   // A live update between mouse down/up must not detach the detail link.
   await cdp('Emulation.setDeviceMetricsOverride',{width:1440,height:1100,deviceScaleFactor:1,mobile:false});
   await evaluate(`(async()=>{
-    const m=await import('/space.js');
+    const m=await import('/space/app.js');
     window.linkSnapshot={processes:[${JSON.stringify(n)}],fd_relations:[{
       id:'click-link',endpoint:{process_id:${JSON.stringify(n.identity)},fd:4,fd_count:1,resource:{kind:'pipe',device:{major:0,minor:0},inode:'1561'},kind:'pipe',access:'read_write'},
       peer:null,label:'click regression',shared:false,candidate:false
@@ -298,7 +300,7 @@ try {
   })()`);
   const linkPoint=await evaluate("(()=>{const r=window.detailLink.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()");
   await cdp('Input.dispatchMouseEvent',{type:'mousePressed',...linkPoint,button:'left',buttons:1,clickCount:1});
-  await evaluate("import('/space.js').then(m=>{m.renderActivity({window_ms:100,cpu:[],ipc:[]});m.renderSystemSnapshot(window.linkSnapshot)})");
+  await evaluate("import('/space/app.js').then(m=>{m.renderActivity({window_ms:100,cpu:[],ipc:[]});m.renderSystemSnapshot(window.linkSnapshot)})");
   assert.ok(await evaluate("window.detailLink.isConnected && document.activeElement===window.detailLink"),'live activity and snapshots preserve the focused link');
   await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',...linkPoint,button:'left',buttons:0,clickCount:1});
   await waitFor(`location.pathname==='/process/${app.pid}' && document.getElementById('inspector')?.hidden===false`, 'connection link opens process inspector');

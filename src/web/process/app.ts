@@ -1,69 +1,27 @@
-"use strict";
-// Type-only import expressions preserve the classic script and its test-visible state.
-type ProcessId = import("./api-types.js").ProcessId;
-type ProcessSummary = import("./api-types.js").ProcessSummary;
-type Target = import("./api-types.js").Target;
-type ThreadSample = import("./api-types.js").ThreadSample;
-type DetailData = import("./api-types.js").DetailData;
-type FileDescriptors = import("./api-types.js").FileDescriptors;
-type DescriptorEndpoint = import("./api-types.js").DescriptorEndpoint;
-type DetailKind = keyof DetailData;
-type DisplayText = string | number | null | undefined;
+import { api, errorMessage } from "../shared/api.js";
+import { Display, num, percent, bytes, rate, byteRate } from "../shared/display.js";
+import { node, cell, button } from "../shared/dom.js";
+import { same, query, processUrl } from "../shared/navigation.js";
+import type { ProcessId, ProcessSummary, Target, ThreadSample, DetailData, FileDescriptors, DescriptorEndpoint } from "../shared/api-types.js";
+import type { ProcessElements } from "./dom-types.js";
 
-function $<K extends keyof import("./dom-types.js").AppElements>(
-  id: K,
-): import("./dom-types.js").AppElements[K] {
+type DetailKind = keyof DetailData;
+
+function $<K extends keyof ProcessElements>(id: K): ProcessElements[K] {
   const element = document.getElementById(id);
   if (!element) throw new Error(`Missing element: ${id}`);
-  return element as import("./dom-types.js").AppElements[K];
+  return element as ProcessElements[K];
 }
-const node = <K extends keyof HTMLElementTagNameMap>(
-  tag: K,
-  text?: DisplayText,
-  className?: string,
-) => {
-  const e = document.createElement(tag);
-  if (text != null) e.textContent = String(text);
-  if (className) e.className = className;
-  return e;
-};
-const same = (
-  a: ProcessId | null | undefined,
-  b: ProcessId | null | undefined,
-) => a && b && a.pid === b.pid && a.start_time_ticks === b.start_time_ticks;
-const identity = () => target?.summary.identity;
-const query = (id: ProcessId) =>
-  new URLSearchParams({
-    pid: String(id.pid),
-    start_time_ticks: String(id.start_time_ticks),
-  }).toString();
-const num = (v: number | null | undefined, digits = 1) =>
-  v == null
-    ? "N/A"
-    : v.toLocaleString("en-US", { maximumFractionDigits: digits });
-const percent = (v: number | null | undefined) =>
-  v == null ? "N/A" : `${num(v)}%`;
-function bytes(v: number | null | undefined) {
-  if (v == null) return "N/A";
-  const units = ["B", "KiB", "MiB", "GiB", "TiB"];
-  let i = 0;
-  while (v >= 1024 && i < units.length - 1) {
-    v /= 1024;
-    i++;
-  }
-  return `${num(v)} ${units[i]}`;
-}
-const rate = (v: number | null | undefined) =>
-  v == null ? "N/A" : `${num(v)}/s`;
-const byteRate = (v: number | null | undefined) =>
-  v == null ? "N/A" : `${bytes(v)}/s`;
-let processes: ProcessSummary[] = [],
-  target: Target | null = null,
-  selectedTid: number | null | undefined = null,
-  liveSamples: ThreadSample[] = [];
+
+let target: Target | null = null;
+let selectedTid: number | null | undefined = null;
+let liveSamples: ThreadSample[] = [];
 let samplesReceivedAt = performance.now();
-let listBusy = false,
-  mapsTimestamp: number | null = null;
+let mapsTimestamp: number | null = null;
+const identity = () => target?.summary.identity;
+let requestedId: ProcessId | null = null;
+let active = true;
+let startupGeneration = 0;
 let detailEpoch = 0;
 const detailRefreshMs = 5000;
 let detailTimer: ReturnType<typeof setInterval> | null = null;
@@ -220,9 +178,8 @@ function renderDescriptors(data: FileDescriptors, time: string) {
       const endpoint = (p: DescriptorEndpoint, group: string) => {
         const div = node("div", null, "fd-endpoint");
         div.dataset.relation = group;
-        const link = button(`PID ${p.process_id.pid} · ${p.name}`, () =>
-          select(p.process_id),
-        );
+        const link = node("a", `PID ${p.process_id.pid} · ${p.name}`, "pointer");
+        link.href = processUrl(p.process_id);
         link.dataset.pid = String(p.process_id.pid);
         div.append(
           link,
@@ -259,107 +216,12 @@ function renderDescriptors(data: FileDescriptors, time: string) {
   }
 }
 
-function errorMessage(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
-}
 function error(e: unknown) {
   $("error").textContent = errorMessage(e);
   $("error").hidden = false;
 }
 function clearError() {
   $("error").hidden = true;
-}
-async function api<T = unknown>(
-  path: string,
-  options: RequestInit = {},
-): Promise<T> {
-  const response = await fetch(path, {
-    cache: "no-store",
-    ...options,
-    headers: { "Content-Type": "application/json", ...options.headers },
-  });
-  const body: unknown = await response
-    .json()
-    .catch(() => ({ error: `HTTP ${response.status}` }));
-  if (!response.ok)
-    throw new Error(
-      body && typeof body === "object" && "error" in body
-        ? String(body.error)
-        : `HTTP ${response.status}`,
-    );
-  // The server owns this JSON contract; this assertion is not runtime validation.
-  return body as T;
-}
-const cell = (
-  row: HTMLTableRowElement,
-  text?: DisplayText,
-  className?: string,
-) => {
-  const td = node("td", text, className);
-  row.append(td);
-  return td;
-};
-function button(text: string, action: () => void, className = "pointer") {
-  const b = node("button", text, className);
-  b.addEventListener("click", action);
-  return b;
-}
-
-async function refresh() {
-  if (listBusy || targetSource || !$("inspector").hidden) return;
-  listBusy = true;
-  try {
-    processes = await api<ProcessSummary[]>("/api/processes");
-    renderProcesses();
-  } catch (e) {
-    error(e);
-  } finally {
-    listBusy = false;
-  }
-}
-function renderProcesses() {
-  const search = $("search").value.trim().toLowerCase();
-  const rows = processes.filter((p) =>
-    `${p.identity.pid} ${p.name} ${(p.command_line || []).join(" ")}`
-      .toLowerCase()
-      .includes(search),
-  );
-  rows.sort((a, b) =>
-    $("sort").value === "pid"
-      ? a.identity.pid - b.identity.pid
-      : $("sort").value === "rss"
-        ? b.rss_bytes - a.rss_bytes
-        : (b.cpu_percent ?? -1) - (a.cpu_percent ?? -1),
-  );
-  const fragment = document.createDocumentFragment();
-  for (const p of rows) {
-    const row = node("tr");
-    cell(row, p.identity.pid, "mono");
-    cell(row, p.username ?? p.uid ?? "N/A");
-    cell(row, percent(p.cpu_percent));
-    cell(row, bytes(p.rss_bytes));
-    cell(row, p.thread_count);
-    cell(row, p.state);
-    const detail = cell(row);
-    detail.append(button(p.name, () => select(p.identity), "process-link"));
-    const command = node(
-      "div",
-      p.command_line?.join(" ") || p.executable || "N/A",
-      "command-small",
-    );
-    command.title = command.textContent ?? "";
-    detail.append(command);
-    fragment.append(row);
-  }
-  if (!rows.length) {
-    const row = node("tr");
-    const td = cell(row, "No matching processes.", "muted");
-    td.colSpan = 7;
-    fragment.append(row);
-  }
-  $("process-list").replaceChildren(fragment);
-  $("process-count").textContent =
-    `${rows.length} / ${processes.length} processes`;
 }
 let targetSource: EventSource | null = null;
 let targetGeneration = 0;
@@ -369,15 +231,17 @@ function closeTarget() {
   targetSource?.close();
   targetSource = null;
 }
-async function select(id: ProcessId) {
+function connect(id: ProcessId) {
   closeTarget();
-  acceptTarget(null);
+  target = null;
+  resetSamples();
+  $("inspector").hidden = true;
+  $("loading").hidden = false;
   clearError();
   const generation = targetGeneration;
   const events = new EventSource(`/api/processes/events?${query(id)}`);
   targetSource = events;
   let disconnected = false;
-  history.replaceState(null, "", `/process/${id.pid}`);
   events.addEventListener("observation", (event) => {
     if (targetSource !== events || generation !== targetGeneration) return;
     try {
@@ -400,6 +264,7 @@ async function select(id: ProcessId) {
   events.onerror = () => {
     if (targetSource !== events || generation !== targetGeneration) return;
     disconnected = true;
+    $("loading").hidden = true;
     error(new Error("Process observation disconnected. Retrying the same process identity…"));
   };
 }
@@ -416,34 +281,18 @@ function resetSamples() {
   $("disasm-error").hidden = true;
   $("disasm-time").textContent = "Live best-effort · x86-64 / Intel";
 }
-function acceptTarget(next: Target | null) {
-  $("back").hidden = !next;
-  if (!next) {
-    target = null;
-    resetSamples();
-    $("explorer").hidden = false;
-    $("inspector").hidden = true;
-    history.replaceState(null, "", "/list");
-    refresh();
-    return;
-  }
+function acceptTarget(next: Target) {
   const changed = !same(identity(), next.summary.identity);
   if (changed) resetSamples();
   target = next;
   liveSamples = next.live_samples;
   samplesReceivedAt = performance.now();
-  $("explorer").hidden = true;
+  $("loading").hidden = true;
   $("inspector").hidden = false;
-  history.replaceState(null, "", `/process/${next.summary.identity.pid}`);
   renderTarget();
   renderLiveSample();
 }
-async function back(event?: Event) {
-  event?.preventDefault();
-  closeTarget();
-  clearError();
-  acceptTarget(null);
-}
+
 function formatStartTime(timestamp: number | null): string {
   if (timestamp === null) return "N/A";
   const date = new Date(timestamp);
@@ -721,8 +570,6 @@ function renderLiveSample() {
     node("p", thread.error || thread.unwind_stop, "muted"),
   );
 }
-$("search").addEventListener("input", renderProcesses);
-$("sort").addEventListener("change", renderProcesses);
 for (const kind of detailKinds) {
   $(`${kind}-panel`).addEventListener("toggle", () => {
     if ($(`${kind}-panel`).open) loadProcessDetails(kind);
@@ -733,31 +580,43 @@ $("environment-search").addEventListener("input", () =>
   renderProcessDetails("environment"),
 );
 $("fds-search").addEventListener("input", () => renderProcessDetails("fds"));
-$("back").addEventListener("click", back);
-$("brand").addEventListener("click", back);
-window.addEventListener("pagehide", closeTarget);
-window.addEventListener("pageshow", (event) => {
-  if (event.persisted && target && !target.exited) select(target.summary.identity);
+addEventListener("pagehide", () => {
+  active = false;
+  startupGeneration++;
+  closeTarget();
 });
-window.addEventListener("resize", drawHistory);
+addEventListener("pageshow", (event) => {
+  if (!event.persisted) return;
+  active = true;
+  if (target?.exited) return;
+  if (requestedId) connect(requestedId);
+  else start();
+});
+addEventListener("resize", drawHistory);
+
 async function start() {
+  const generation = ++startupGeneration;
   try {
-    const config = await api<{ interval_ms: number }>("/api/config");
-    const direct = /^\/process\/(\d+)$/.exec(location.pathname);
-    if (direct) {
-      const all = await api<ProcessSummary[]>("/api/processes");
-      const p = all.find((p) => p.identity.pid === Number(direct[1]));
-      if (p) await select(p.identity);
-      else {
-        acceptTarget(null);
-        error(new Error("Process exited"));
-      }
-    } else {
-      acceptTarget(null);
-    }
-    setInterval(refresh, Math.max(1000, config.interval_ms));
+    const match = /^\/process\/(\d+)$/.exec(location.pathname);
+    const pid = Number(match?.[1]);
+    if (!Number.isSafeInteger(pid) || pid <= 0) throw new Error("Invalid process PID");
+    const ticks = new URLSearchParams(location.search).getAll("start_time_ticks");
+    if (ticks.length > 1 || (ticks.length &&
+        (!/^\d+$/.test(ticks[0]) || !Number.isSafeInteger(Number(ticks[0])))))
+      throw new Error("Invalid process start time");
+    const all = await api<ProcessSummary[]>("/api/processes");
+    if (!active || generation !== startupGeneration) return;
+    const process = all.find((p) => p.identity.pid === pid);
+    if (!process || (ticks.length && process.identity.start_time_ticks !== Number(ticks[0])))
+      throw new Error("Process exited or PID was reused");
+    requestedId = process.identity;
+    history.replaceState(null, "", processUrl(requestedId));
+    connect(requestedId);
   } catch (e) {
-    error(e);
+    if (active && generation === startupGeneration) {
+      $("loading").hidden = true;
+      error(e);
+    }
   }
 }
 start();

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
-import {layoutMaps,edgeDirection,ipcParticlePlan,cpuGlowLevel,treeLayout,stableLayout} from '../dist/web/space-model.js';
-const {AdaptiveRenderScale}=await import('../dist/web/space-model.js');
+import {Display} from '../dist/web/shared/display.js';
+import {layoutMaps,edgeDirection,ipcParticlePlan,cpuGlowLevel,treeLayout,stableLayout} from '../dist/web/space/model.js';
+const {AdaptiveRenderScale}=await import('../dist/web/space/model.js');
 {
   const resolution=new AdaptiveRenderScale(1);
   const sample=(fps,count)=>{for(let i=0;i<count;i++)resolution.sample(fps);};
@@ -112,7 +113,7 @@ assert.equal(stableCycle.size,3);
 assert.ok([...stableCycle.values()].every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)));
 console.log('Stable layout checks passed: additions, exits, reparenting, PID reuse, vacant slots, cycles, and 1000 newcomers.');
 
-const {networkGroups,networkLayout,connectionState}=await import('../dist/web/space-model.js');
+const {networkGroups,networkLayout,connectionState}=await import('../dist/web/space/model.js');
 const netEdge=(id,remote='203.0.113.1:443',pid=1,protocol='TCP')=>({id,endpoint:{process_id:{pid,start_time_ticks:1},resource:{kind:'socket',device:{major:0,minor:0},inode:String(Number(id)||1)},fd:Number(id)||1},peer:null,shared:false,socket:{protocol:{kind:protocol.startsWith('UDP')?'udp':'tcp',family:protocol.endsWith('6')?'ipv6':'ipv4'},state:{kind:'established'},remote:(()=>{const i=remote.lastIndexOf(':');return {ip:remote.slice(0,i).replace(/^\[|\]$/g,''),port:Number(remote.slice(i+1))}})(),local:{ip:'127.0.0.1',port:5000},network_peer:true}});
 const connections=[netEdge('1'),netEdge('2'),netEdge('3','[2001:db8::1]:443'),netEdge('4','203.0.113.1:443',2),netEdge('5','203.0.113.1:443',1,'UDP')];
 const groups=networkGroups(connections);
@@ -135,16 +136,16 @@ assert.equal(edgeDirection(connections[0],{...connections[0].endpoint,write:true
 assert.equal(edgeDirection(connections[0],{...connections[0].endpoint,write:false}),-1);
 console.log('Network model checks passed: grouping, IPv6, classification, stable placement, and direction.');
 
-const {remoteLabel}=await import('../dist/web/space-model.js');
+const {remoteLabel}=await import('../dist/web/space/model.js');
 assert.equal(remoteLabel({remote:{ip:'2001:db8::1',port:443},remote_hostname:'example.test'}),'example.test:443');
 assert.equal(remoteLabel({remote:{ip:'192.0.2.1',port:80}}),'192.0.2.1:80');
 
-const {processColors}=await import('../dist/web/space-model.js');
+const {processColors}=await import('../dist/web/space/model.js');
 assert.equal(processColors({uid:1000,euid:1000}).real,processColors({uid:1000,euid:1000}).effective);
 assert.notEqual(processColors({uid:1000,euid:0}).real,processColors({uid:1000,euid:0}).effective);
 assert.equal(processColors({}).real,'#889299');
 
-const {RecentFiles,fileKey,fileLayout}=await import('../dist/web/space-model.js');
+const {RecentFiles,fileKey,fileLayout}=await import('../dist/web/space/model.js');
 {
   const files=new RecentFiles(),owner={pid:1,start_time_ticks:1},live=new Set(['1:1']);
   const event={process_id:owner,file:{device:{major:8,minor:1},inode:'42',generation:0},path:'/tmp/example',write:false,bytes:7,count:1};
@@ -194,7 +195,7 @@ assert.equal(Display.scheduler({kind:'unknown',code:99}),'UNKNOWN (99)');
 assert.equal(Display.mapping({pathname:'/tmp/a [b]',readable:true,writable:true,executable:false,private:true}),'/tmp/a [b] [rw-p]');
 assert.equal(Display.mapping({pathname:null,readable:true,writable:false,executable:false,private:false}),'[anonymous] [r--s]');
 
-const {mergeSnapshot}=await import('../dist/web/space-model.js');
+const {mergeSnapshot}=await import('../dist/web/space/model.js');
 const original={identity:{pid:1,start_time_ticks:10},maps:[{start:'0x1000',end:'0x2000'}],maps_epoch:10,maps_error:null};
 const base={processes:[original],fd_relations:[],sequence:1};
 const delta=extra=>({kind:"delta",sequence:2,base_sequence:1,fd_relations:[],...extra});

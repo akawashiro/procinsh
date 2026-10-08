@@ -59,21 +59,20 @@ export async function checkProcessDetails({evaluate, waitFor, delay, choose, ori
   await delay(5500);
   assert.equal(await evaluate('window.detailTest.calls.environment'), hiddenCalls, 'pagehide stops updates');
   assert.match(await evaluate("document.getElementById('environment-entries').textContent"), /The environment is empty/, 'pagehide invalidates pending response');
-  await evaluate("window.detailTest.mode = 'hold'; document.getElementById('back').click()");
-  await waitFor("document.getElementById('inspector').hidden", 'return during details read');
-  await choose(originalPid);
+  await evaluate("window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}))");
+  await waitFor("document.getElementById('inspector')?.hidden===false && document.getElementById('error')?.hidden===true", 'resume after pagehide');
+  await evaluate("window.detailTest.mode = 'hold'");
   await load('environment');
   await waitFor('window.detailTest.release !== null', 'delayed response before target switch');
-  await evaluate("document.getElementById('back').click()");
-  await waitFor("document.getElementById('inspector').hidden", 'return before target switch');
+  await evaluate("addEventListener('pagehide',()=>{window.detailTest.release?.();window.fetch=window.detailFetch},{once:true});document.getElementById('back').click()");
+  await waitFor("document.querySelectorAll('#process-list tr').length>2", 'return before target switch');
   await choose(otherPid);
-  await evaluate('window.detailTest.release(); window.detailTest.release = null');
   await delay(200);
   assert.equal(await evaluate("document.querySelectorAll('#environment-entries tr').length"), 0, 'old target data must not appear');
   assert.equal(await evaluate("document.getElementById('auxv-panel').open"), false);
   assert.equal(await evaluate("document.querySelectorAll('#auxv-entries tr').length"), 0);
-  await evaluate("window.fetch = window.detailFetch; document.getElementById('back').click()");
-  await waitFor("document.getElementById('inspector').hidden", 'return after details tests');
+  await evaluate("document.getElementById('back').click()");
+  await waitFor("document.querySelectorAll('#process-list tr').length>2", 'return after details tests');
   await choose(originalPid);
   console.log('Process details checks passed: automatic environment/auxv, search, literal values, address display, errors, empty environment, stale response.');
 }

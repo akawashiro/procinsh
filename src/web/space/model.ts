@@ -1,4 +1,4 @@
-import "./display.js";
+import { Display } from "../shared/display.js";
 import type {
   ProcessId,
   SocketEndpoint,
@@ -12,7 +12,7 @@ import type {
   SystemSnapshot,
   SystemSnapshotUpdate,
   CpuActivity,
-} from "./api-types.js";
+} from "../shared/api-types.js";
 // Each sample covers roughly one second of visible rendering. Separate thresholds
 // and consecutive windows keep transient scene rebuilds from changing resolution.
 export class AdaptiveRenderScale {

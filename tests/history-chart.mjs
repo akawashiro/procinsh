@@ -2,10 +2,10 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
+import {num, bytes} from '../dist/web/shared/display.js';
 
-const source = readFileSync('dist/web/app.js', 'utf8');
+const source = readFileSync('dist/web/process/app.js', 'utf8');
 const chart = source.slice(source.indexOf('function historyMemoryLimit('), source.indexOf('function sampleAge('));
-const formatting = source.slice(source.indexOf('const num ='), source.indexOf('const rate ='));
 const labels = [], paths = [];
 const ctx = new Proxy({}, {
   get: (_, name) => (...args) => {
@@ -16,6 +16,7 @@ const ctx = new Proxy({}, {
 const canvas = {clientWidth: 600, getContext: () => ctx};
 const legend = {};
 const scope = vm.createContext({
+  num, bytes,
   window: {devicePixelRatio: 2},
   $: id => id === 'history' ? canvas : legend,
   target: {history: [
@@ -24,7 +25,7 @@ const scope = vm.createContext({
     {timestamp: 61000, cpu_percent: 250, rss_bytes: 1024 ** 2},
   ]},
 });
-vm.runInContext(formatting + chart, scope);
+vm.runInContext(chart, scope);
 for (const limit of [1024, 1024 ** 2, 1024 ** 3, 1024 ** 4]) {
   scope.peak = limit;
   assert.equal(vm.runInContext('historyMemoryLimit(peak)', scope), limit);

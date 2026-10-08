@@ -3,16 +3,13 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>procinsh</title>
-  <link rel="stylesheet" href="/style.css"><script src="/display.js" defer></script><script src="/app.js" defer></script>
+  <link rel="stylesheet" href="/shared/style.css"><link rel="stylesheet" href="/process/style.css"><script type="module" src="/process/app.js"></script>
 </head>
 <body>
-  <header><a href="/list" id="brand">procinsh v{{PROCINSH_VERSION}}</a><a href="/list" id="back" class="view-link" hidden>Go to list view</a><a href="/space" class="view-link">Go to space view</a><a href="https://github.com/akawashiro/procinsh" class="github-link" target="_blank" rel="noopener noreferrer">GitHub</a></header>
+  <header><a href="/list" id="brand">procinsh v{{PROCINSH_VERSION}}</a><a href="/list" id="back" class="view-link">Go to list view</a><a href="/space" class="view-link">Go to space view</a><a href="https://github.com/akawashiro/procinsh" class="github-link" target="_blank" rel="noopener noreferrer">GitHub</a></header>
   <main>
     <div id="error" role="alert" hidden></div>
-    <section id="explorer">
-      <div class="toolbar"><input type="search" id="search" placeholder="Search name, PID, or command…" aria-label="Search processes"><label>Sort <select id="sort"><option value="cpu">CPU ↓</option><option value="rss">RSS ↓</option><option value="pid">PID ↑</option></select></label><span id="process-count" class="muted"></span></div>
-      <div class="panel scroll"><table><thead><tr><th>PID</th><th>USER</th><th>CPU</th><th>RSS</th><th>THREADS</th><th>STATE</th><th>NAME / COMMAND</th></tr></thead><tbody id="process-list"></tbody></table></div>
-    </section>
+    <p id="loading" class="muted" role="status">Connecting to process…</p>
     <section id="inspector" hidden>
       <div class="heading inspector-heading"><div class="target-heading"><p class="eyebrow" id="identity"></p><h1 id="target-name"></h1><p class="muted command" id="command"></p></div><div class="capture-heading"><span class="badge" id="target-status"></span></div></div>
       <p id="target-error" class="notice" hidden></p>
