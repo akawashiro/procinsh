@@ -1,24 +1,55 @@
-import { test } from "vitest";
+// @vitest-environment jsdom
+import { test, vi, afterEach } from "vitest";
 import assert from "node:assert/strict";
+import { resolve } from "node:path";
 import { readFile, readdir } from "node:fs/promises";
 import ts from "typescript";
 import * as T from "three";
 
+import type {
+  SceneInput,
+  PickingInput,
+  DetailsInput,
+  RenderView,
+} from "../src/space/contracts.js";
+import type {
+  PlacedProcess,
+  RecentFile,
+  SelectionState,
+} from "../src/space/types.js";
+import { spaceElement } from "../src/space/dom-types.js";
+import {
+  processInfo,
+  fdEndpoint,
+  fdRelation,
+  socketEndpoint,
+} from "./support/fixtures.js";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+
 test("space-components regression", async () => {
   // Exercise SPACE components with plain inputs, Three.js objects, and callbacks.
-  const { createSpaceScene } = await import("../src/space/scene.ts");
+  const { createSpaceScene } = await import("../src/space/scene.js");
   const { SpaceSelection, bindSelection } =
-    await import("../src/space/selection.ts");
-  const { createSpaceCamera } = await import("../src/space/camera.ts");
-  const { createSpaceDetails } = await import("../src/space/details.ts");
-  const { createSpaceRenderer } = await import("../src/space/renderer.ts");
+    await import("../src/space/selection.js");
+  const { createSpaceCamera } = await import("../src/space/camera.js");
+  const { createSpaceDetails } = await import("../src/space/details.js");
+  const { createSpaceRenderer } = await import("../src/space/renderer.js");
 
   // Check erased type imports as well as runtime imports to keep the boundary intact.
-  for (const name of await readdir(new URL("../src/space/", import.meta.url))) {
+  for (const name of await readdir(
+    resolve(import.meta.dirname, "../src/space/"),
+  )) {
     if (!name.endsWith(".ts") || name === "app.ts") continue;
     const source = ts.createSourceFile(
       name,
-      await readFile(new URL(`../src/space/${name}`, import.meta.url), "utf8"),
+      await readFile(
+        resolve(import.meta.dirname, `../src/space/${name}`),
+        "utf8",
+      ),
       ts.ScriptTarget.Latest,
     );
     for (const statement of source.statements) {
@@ -27,7 +58,9 @@ test("space-components regression", async () => {
         !ts.isExportDeclaration(statement)
       )
         continue;
-      const path = statement.moduleSpecifier?.text;
+      const specifier = statement.moduleSpecifier;
+      const path =
+        specifier && ts.isStringLiteral(specifier) ? specifier.text : undefined;
       if (path?.startsWith("./"))
         assert.ok(
           [
@@ -41,21 +74,23 @@ test("space-components regression", async () => {
     }
   }
 
-  const emptySelection = () => ({
+  const emptySelection = (): SelectionState => ({
     process: null,
     connection: null,
     network: null,
     file: null,
   });
   const identity = { pid: 101, start_time_ticks: 1 };
-  const node = {
+  const node: PlacedProcess = {
+    ...processInfo({ identity }),
     identity,
     parent_id: null,
     name: "writer",
     pos: { x: 0, y: 0, z: 0 },
     regions: [],
   };
-  const file = {
+  const file: RecentFile = {
+    last: 0,
     id: "file",
     process_id: identity,
     label: "data.txt",
@@ -70,7 +105,7 @@ test("space-components regression", async () => {
 
   {
     const scene = createSpaceScene();
-    const input = {
+    const input: SceneInput = {
       nodes,
       snapshot: { processes: [node], fd_relations: [] },
       network: new Map(),
@@ -81,7 +116,7 @@ test("space-components regression", async () => {
     };
     scene.rebuild(input, null);
     assert.deepEqual(scene.renderView().hullIds, ["101:1"]);
-    assert.equal(scene.renderView().fileViews.get("file").pos.z, -3);
+    assert.equal(scene.renderView().fileViews.get("file")!.pos.z, -3);
     assert.deepEqual(
       node.pos,
       { x: 0, y: 0, z: 0 },
@@ -89,7 +124,7 @@ test("space-components regression", async () => {
     );
     const picked = scene.pickingView();
     let disposed = false;
-    picked.hull.geometry.addEventListener("dispose", () => (disposed = true));
+    picked.hull!.geometry.addEventListener("dispose", () => (disposed = true));
     scene.rebuild({ ...input, visible: new Set() }, null);
     assert.equal(disposed, true, "rebuild disposes old picking geometry");
     assert.notEqual(
@@ -125,12 +160,12 @@ test("space-components regression", async () => {
       ["connection", "connections"],
       ["network", "networks"],
       ["file", "files"],
-    ]) {
+    ] as const) {
       const targets = {
-        processes: new Set(),
-        connections: new Set(),
-        networks: new Set(),
-        files: new Set(),
+        processes: new Set<string>(),
+        connections: new Set<string>(),
+        networks: new Set<string>(),
+        files: new Set<string>(),
       };
       selection.choose(kind, "id");
       targets[target].add("id");
@@ -150,15 +185,20 @@ test("space-components regression", async () => {
     innerHeight: 600,
     devicePixelRatio: 1,
   });
-  const pointer = (canvas, type, x = 400, y = 300) => {
+  const pointer = (
+    canvas: HTMLCanvasElement,
+    type: string,
+    x = 400,
+    y = 300,
+  ) => {
     const event = new Event(type);
     Object.assign(event, { clientX: x, clientY: y });
     canvas.dispatchEvent(event);
   };
   {
     // Picking has no scene, store, or camera controller; only current Three.js objects.
-    const canvas = new EventTarget(),
-      hover = { style: {} };
+    const canvas = document.createElement("canvas"),
+      hover = document.createElement("div");
     const camera = new T.PerspectiveCamera(45, 800 / 600, 0.1, 100);
     camera.position.set(0, 0, 10);
     camera.lookAt(0, 0, 0);
@@ -170,7 +210,7 @@ test("space-components regression", async () => {
     );
     hull.setMatrixAt(0, new T.Matrix4());
     hull.updateMatrixWorld();
-    let input = {
+    let input: PickingInput = {
       view: {
         hull,
         hullIds: ["101:1"],
@@ -180,7 +220,7 @@ test("space-components regression", async () => {
       files: new Map(),
       edgeStats: new Map(),
     };
-    const events = [];
+    const events: [string, ...unknown[]][] = [];
     const unbind = bindSelection(canvas, hover, {
       camera,
       read: () => input,
@@ -201,7 +241,7 @@ test("space-components regression", async () => {
       ["process", "101:1", true],
     ]);
     pointer(canvas, "pointermove");
-    assert.match(hover.textContent, /writer \/ 101/);
+    assert.match(hover.textContent!, /writer \/ 101/);
     assert.equal(hover.hidden, false);
     const marker = new T.InstancedMesh(
       new T.BoxGeometry(2, 2, 2),
@@ -227,7 +267,7 @@ test("space-components regression", async () => {
       "hover",
       { hoveredNetwork: null, hoveredFile: "file" },
     ]);
-    assert.match(hover.textContent, /READ 8 bytes · WRITE 12 bytes/);
+    assert.match(hover.textContent!, /READ 8 bytes · WRITE 12 bytes/);
     input = { ...input, view: { ...input.view, objects: [] } };
     pointer(canvas, "pointermove");
     assert.equal(hover.hidden, true);
@@ -247,9 +287,7 @@ test("space-components regression", async () => {
     }
   }
   {
-    const canvas = new EventTarget();
-    canvas.style = {};
-    canvas.getRootNode = () => new EventTarget();
+    const canvas = document.createElement("canvas");
     const camera = createSpaceCamera(canvas);
     const positions = {
       processes: [{ x: 0, y: 0, z: 0 }],
@@ -278,43 +316,7 @@ test("space-components regression", async () => {
     camera.dispose();
   }
 
-  // A minimal DOM and WebGL boundary lets UI/animation run without other components.
-  class Element {
-    children = [];
-    style = {};
-    dataset = {};
-    hidden = false;
-    textContent = "";
-    append(...children) {
-      for (const child of children) {
-        child.parent = this;
-        this.children.push(child);
-      }
-    }
-    replaceChildren(...children) {
-      this.children = [];
-      this.append(...children);
-    }
-    isEqualNode(other) {
-      return (
-        this.tag === other.tag &&
-        this.textContent === other.textContent &&
-        this.href === other.href &&
-        this.children.length === other.children.length &&
-        this.children.every((c, i) => c.isEqualNode(other.children[i]))
-      );
-    }
-    replaceWith(other) {
-      this.parent.children[this.parent.children.indexOf(this)] = other;
-      other.parent = this.parent;
-    }
-    remove() {
-      this.parent.children.splice(this.parent.children.indexOf(this), 1);
-    }
-    get lastElementChild() {
-      return this.children.at(-1);
-    }
-  }
+  // Record canvas drawing and substitute the GPU resource at the browser boundary.
   const context = {
     setTransform() {},
     clearRect() {},
@@ -327,28 +329,16 @@ test("space-components regression", async () => {
       return { width: 20 };
     },
   };
-  globalThis.document = {
-    hidden: false,
-    createElement(tag) {
-      const element = new Element();
-      element.tag = tag;
-      element.getContext = () => context;
-      return element;
-    },
-    createTextNode(text) {
-      const element = new Element();
-      element.textContent = text;
-      return element;
-    },
-    createDocumentFragment: () => new Element(),
-  };
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
+    (() => context) as unknown as typeof HTMLCanvasElement.prototype.getContext,
+  );
   {
-    const elements = new Map();
-    const get = (id) => {
-      if (!elements.has(id)) elements.set(id, new Element());
-      return elements.get(id);
-    };
-    const actions = [];
+    document.body.innerHTML = await readFile(
+      resolve(import.meta.dirname, "../space/index.html"),
+      "utf8",
+    );
+    const get = spaceElement;
+    const actions: [string, string | null][] = [];
     const details = createSpaceDetails(
       {
         connection: (id) => actions.push(["connection", id]),
@@ -356,45 +346,50 @@ test("space-components regression", async () => {
       },
       get,
     );
-    const data = {
+    const data: DetailsInput = {
       nodes,
-      snapshot: { fd_relations: [] },
+      snapshot: { processes: [], fd_relations: [] },
       network: new Map(),
       edgeStats: new Map(),
       files: new Map([["file", file]]),
     };
     details.update(data, { ...emptySelection(), process: "101:1" });
     assert.equal(get("name").textContent, "writer");
-    assert.equal(get("inspect").href, "/process/101?start_time_ticks=1");
+    assert.equal(
+      get("inspect").getAttribute("href"),
+      "/process/101?start_time_ticks=1",
+    );
     details.update(data, { ...emptySelection(), file: "file" });
     assert.match(
-      get("connection-facts").textContent,
+      get("connection-facts").textContent!,
       /READ: 8 bytes.*WRITE: 12 bytes/,
     );
     const link = get("connection-endpoints").children[2];
+    assert.ok(link instanceof HTMLAnchorElement);
     details.update(data, { ...emptySelection(), file: "file" });
     assert.equal(
       get("connection-endpoints").children[2],
       link,
       "live details retain the attached process link",
     );
-    const edge = {
+    const edge = fdRelation({
       id: "connection",
-      endpoint: { process_id: identity, fd: 3, fd_count: 1 },
-      socket: { protocol: { kind: "tcp" }, state: { kind: "established" } },
+      endpoint: fdEndpoint({ process_id: identity, fd: 3, fd_count: 1 }),
+      socket: socketEndpoint(),
       label: "destination",
-    };
+    });
     const group = {
       id: "network",
       endpoint: edge.endpoint,
-      socket: edge.socket,
+      socket: edge.socket!,
       members: [edge],
       label: "destination",
     };
     const withNetwork = { ...data, network: new Map([["network", group]]) };
     details.update(withNetwork, { ...emptySelection(), network: "network" });
-    const row = get("connection-endpoints").children[0].children[1];
-    row.children[0].onclick();
+    const button = get("connection-endpoints").querySelector("button");
+    assert.ok(button);
+    button.click();
     assert.deepEqual(
       actions,
       [["connection", "connection"]],
@@ -404,19 +399,19 @@ test("space-components regression", async () => {
     assert.equal(get("details").hidden, true);
   }
   {
-    let pendingFrame,
-      frameCount = 0,
+    let pendingFrame: FrameRequestCallback | undefined;
+    let frameCount = 0,
       cancelled = 0,
       renders = 0;
-    globalThis.requestAnimationFrame = (fn) => {
+    vi.stubGlobal("requestAnimationFrame", (fn: FrameRequestCallback) => {
       pendingFrame = fn;
       return ++frameCount;
-    };
-    globalThis.cancelAnimationFrame = () => {
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => {
       pendingFrame = undefined;
       cancelled++;
-    };
-    globalThis.matchMedia = () => ({ matches: false });
+    });
+    vi.stubGlobal("matchMedia", () => ({ matches: false }));
     class WebGLRenderer {
       setPixelRatio() {}
       setSize() {}
@@ -426,7 +421,7 @@ test("space-components regression", async () => {
         renders++;
       }
     }
-    let view = {
+    let view: RenderView = {
       nodes: new Map(),
       hullIds: [],
       networkViews: [],
@@ -442,13 +437,16 @@ test("space-components regression", async () => {
     );
     const root = new T.Scene(),
       camera = new T.PerspectiveCamera();
-    const beforeFrames = [];
+    const beforeFrames: number[] = [];
     const renderer = createSpaceRenderer({
-      graphics: { ...T, WebGLRenderer },
-      canvas: {},
-      labelCanvas: { getContext: () => context },
-      fpsLabel: {},
-      failure: {},
+      graphics: {
+        ...T,
+        WebGLRenderer: WebGLRenderer as unknown as typeof T.WebGLRenderer,
+      },
+      canvas: document.createElement("canvas"),
+      labelCanvas: document.createElement("canvas"),
+      fpsLabel: document.createElement("div"),
+      failure: document.createElement("div"),
       scene: root,
       camera,
       view: () => view,
@@ -465,10 +463,13 @@ test("space-components regression", async () => {
     view = {
       ...view,
       fileViews: new Map([["file", { file, pos: new T.Vector3(), curve }]]),
-      edgeViews: [{ e: { id: "connection" }, networkId: "network", curve }],
+      edgeViews: [
+        { e: fdRelation({ id: "connection" }), networkId: "network", curve },
+      ],
     };
     renderer.activity({
       now: 1000,
+      filesChanged: false,
       routes: [
         { kind: "file", id: "file", direction: 1, count: 1 },
         { kind: "connection", id: "connection", direction: -1, count: 1 },
@@ -489,25 +490,26 @@ test("space-components regression", async () => {
       0,
       "retention reads replaced geometry",
     );
+    vi.spyOn(document, "hidden", "get").mockReturnValue(false);
     renderer.resume();
     renderer.resume();
     assert.equal(frameCount, 1, "resume creates only one loop");
-    pendingFrame(2000);
+    pendingFrame!(2000);
     assert.deepEqual(beforeFrames, [2000]);
     assert.equal(renders, 1);
-    document.hidden = true;
-    pendingFrame(3000);
+    vi.spyOn(document, "hidden", "get").mockReturnValue(true);
+    pendingFrame!(3000);
     assert.deepEqual(
       beforeFrames,
       [2000],
       "hidden rendering skips app updates",
     );
-    document.hidden = false;
+    vi.spyOn(document, "hidden", "get").mockReturnValue(false);
     renderer.pause();
     assert.equal(cancelled, 1);
     assert.equal(pendingFrame, undefined);
     renderer.resume();
-    pendingFrame(4000);
+    pendingFrame!(4000);
     assert.deepEqual(beforeFrames, [2000, 4000]);
     renderer.dispose();
     assert.equal(root.children.length, 0);

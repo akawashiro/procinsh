@@ -1,19 +1,32 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
-import { Display } from "../src/shared/display.ts";
+import { Display } from "../src/shared/display.js";
 import {
   layoutMaps,
   edgeDirection,
   treeLayout,
   stableLayout,
-} from "../src/space/data.ts";
+} from "../src/space/data.js";
+
+import type {
+  IpcIdentity,
+  SystemSnapshotUpdate,
+} from "../src/shared/api-types.js";
+import type { TreePosition } from "../src/space/types.js";
+import {
+  processInfo,
+  memoryMap,
+  fdEndpoint,
+  fdRelation,
+  socketEndpoint,
+} from "./support/fixtures.js";
 
 test("space-model regression", async () => {
   const { AdaptiveRenderScale, ipcParticlePlan, cpuGlowLevel } =
-    await import("../src/space/renderer.ts");
+    await import("../src/space/renderer.js");
   {
     const resolution = new AdaptiveRenderScale(1);
-    const sample = (fps, count) => {
+    const sample = (fps: number, count: number) => {
       for (let i = 0; i < count; i++) resolution.sample(fps);
     };
     for (let i = 0; i < 20; i++) {
@@ -99,22 +112,22 @@ test("space-model regression", async () => {
     "Adaptive resolution checks passed: transient dips, sustained load, recovery, hysteresis, visibility reset, and DPR bounds.",
   );
   const regions = layoutMaps([
-    { start: "0xffffffffff600000", end: "0xffffffffff601000" },
-    { start: "0x1000", end: "0x3000" },
-    { start: "0x7fff00000000", end: "0x7fff00001000" },
+    memoryMap({ start: "0xffffffffff600000", end: "0xffffffffff601000" }),
+    memoryMap({ start: "0x1000", end: "0x3000" }),
+    memoryMap({ start: "0x7fff00000000", end: "0x7fff00001000" }),
   ]);
   assert.equal(regions[0].start, "0x1000");
   assert.ok(regions[2].z > regions[1].z);
   assert.ok(regions.every((region) => region.h > 0));
   assert.deepEqual(layoutMaps([]), []);
-  const a = {
+  const a = fdEndpoint({
       process_id: { pid: 1, start_time_ticks: 2 },
       resource: { kind: "pipe", device: { major: 0, minor: 1 }, inode: "2" },
-    },
-    b = {
+    }),
+    b = fdEndpoint({
       process_id: { pid: 2, start_time_ticks: 3 },
       resource: { kind: "pipe", device: { major: 0, minor: 1 }, inode: "2" },
-    };
+    });
   const edge = { endpoint: a, peer: b, shared: false };
   assert.equal(edgeDirection(edge, { ...a, write: true }), 1);
   assert.equal(edgeDirection(edge, { ...b, write: false }), 1);
@@ -142,6 +155,8 @@ test("space-model regression", async () => {
     window_ms: 100,
     runtime_ns: 20_000_000,
     running_threads: 1,
+    switches: 0,
+    cpus: [],
   };
   assert.ok(cpuGlowLevel(active, 1000) > 0.9, "running process is bright");
   assert.ok(
@@ -154,10 +169,11 @@ test("space-model regression", async () => {
   );
   assert.equal(cpuGlowLevel(active, 1500), 0, "afterglow ends after 500ms");
   assert.equal(cpuGlowLevel(active, 999), 0, "future timestamps are rejected");
-  assert.equal(cpuGlowLevel(null, 1000), 0);
-  const processNode = (pid, parent = null) => ({
+  assert.equal(cpuGlowLevel(undefined, 1000), 0);
+  const processNode = (pid: number, parent: number | null = null) => ({
     identity: { pid, start_time_ticks: pid * 10 },
-    parent_id: parent && { pid: parent, start_time_ticks: parent * 10 },
+    parent_id:
+      parent !== null ? { pid: parent, start_time_ticks: parent * 10 } : null,
   });
   const tree = treeLayout([
     processNode(1),
@@ -166,14 +182,14 @@ test("space-model regression", async () => {
     processNode(4, 2),
     processNode(8, 99),
   ]);
-  assert.equal(tree.get("1:10").y, 0);
-  assert.ok(tree.get("2:20").y > tree.get("1:10").y);
-  assert.ok(tree.get("4:40").y > tree.get("2:20").y);
+  assert.equal(tree.get("1:10")!.y, 0);
+  assert.ok(tree.get("2:20")!.y > tree.get("1:10")!.y);
+  assert.ok(tree.get("4:40")!.y > tree.get("2:20")!.y);
   assert.equal(
-    tree.get("1:10").x,
-    (tree.get("2:20").x + tree.get("3:30").x) / 2,
+    tree.get("1:10")!.x,
+    (tree.get("2:20")!.x + tree.get("3:30")!.x) / 2,
   );
-  assert.equal(tree.get("8:80").y, 0, "missing parent becomes a root");
+  assert.equal(tree.get("8:80")!.y, 0, "missing parent becomes a root");
   const cyclic = treeLayout([
     {
       identity: { pid: 10, start_time_ticks: 1 },
@@ -220,7 +236,7 @@ test("space-model regression", async () => {
   const originalNodes = [processNode(1), processNode(2, 1), processNode(3, 1)];
   const anchored = stableLayout(originalNodes);
   assert.deepEqual(anchored, treeLayout(originalNodes));
-  const coordinates = (layout) =>
+  const coordinates = (layout: ReadonlyMap<string, TreePosition>) =>
     [...layout].map(([id, p]) => [id, { x: p.x, y: p.y }]).sort();
   assert.deepEqual(
     coordinates(stableLayout([...originalNodes].reverse(), anchored)),
@@ -246,7 +262,7 @@ test("space-model regression", async () => {
   for (const [id, p] of changed)
     assert.deepEqual(
       { x: p.x, y: p.y },
-      { x: grown.get(id).x, y: grown.get(id).y },
+      { x: grown.get(id)!.x, y: grown.get(id)!.y },
     );
   assert.equal(changed.has("1:10"), false, "removed identities are released");
   const reused = stableLayout(
@@ -268,8 +284,8 @@ test("space-model regression", async () => {
   );
   const refilled = stableLayout([...originalNodes, processNode(7, 1)], vacant);
   assert.deepEqual(
-    { x: refilled.get("7:70").x, y: refilled.get("7:70").y },
-    { x: grown.get("5:50").x, y: grown.get("5:50").y },
+    { x: refilled.get("7:70")!.x, y: refilled.get("7:70")!.y },
+    { x: grown.get("5:50")!.x, y: grown.get("5:50")!.y },
     "vacated child position is reusable",
   );
   const large = stableLayout(
@@ -304,18 +320,20 @@ test("space-model regression", async () => {
   );
 
   const { networkGroups, networkLayout, connectionState } =
-    await import("../src/space/data.ts");
+    await import("../src/space/data.js");
   const netEdge = (
-    id,
+    id: string,
     remote = "203.0.113.1:443",
     pid = 1,
     protocol = "TCP",
   ) => ({
+    ...fdRelation(),
     id,
     endpoint: {
+      ...fdEndpoint(),
       process_id: { pid, start_time_ticks: 1 },
       resource: {
-        kind: "socket",
+        kind: "socket" as const,
         device: { major: 0, minor: 0 },
         inode: String(Number(id) || 1),
       },
@@ -324,11 +342,12 @@ test("space-model regression", async () => {
     peer: null,
     shared: false,
     socket: {
+      ...socketEndpoint(),
       protocol: {
-        kind: protocol.startsWith("UDP") ? "udp" : "tcp",
-        family: protocol.endsWith("6") ? "ipv6" : "ipv4",
+        kind: protocol.startsWith("UDP") ? ("udp" as const) : ("tcp" as const),
+        family: protocol.endsWith("6") ? ("ipv6" as const) : ("ipv4" as const),
       },
-      state: { kind: "established" },
+      state: { kind: "established" as const },
       remote: (() => {
         const i = remote.lastIndexOf(":");
         return {
@@ -387,6 +406,7 @@ test("space-model regression", async () => {
     connectionState({
       ...connections[0],
       socket: {
+        ...socketEndpoint(),
         protocol: { kind: "tcp", family: "ipv4" },
         state: { kind: "listen" },
         network_peer: false,
@@ -398,6 +418,7 @@ test("space-model regression", async () => {
     connectionState({
       ...connections[0],
       socket: {
+        ...socketEndpoint(),
         protocol: { kind: "udp", family: "ipv4" },
         state: { kind: "unconnected" },
         network_peer: false,
@@ -418,20 +439,22 @@ test("space-model regression", async () => {
     "Network model checks passed: grouping, IPv6, classification, stable placement, and direction.",
   );
 
-  const { remoteLabel } = await import("../src/space/data.ts");
+  const { remoteLabel } = await import("../src/space/data.js");
   assert.equal(
-    remoteLabel({
-      remote: { ip: "2001:db8::1", port: 443 },
-      remote_hostname: "example.test",
-    }),
+    remoteLabel(
+      socketEndpoint({
+        remote: { ip: "2001:db8::1", port: 443 },
+        remote_hostname: "example.test",
+      }),
+    ),
     "example.test:443",
   );
   assert.equal(
-    remoteLabel({ remote: { ip: "192.0.2.1", port: 80 } }),
+    remoteLabel(socketEndpoint({ remote: { ip: "192.0.2.1", port: 80 } })),
     "192.0.2.1:80",
   );
 
-  const { processColors } = await import("../src/space/data.ts");
+  const { processColors } = await import("../src/space/data.js");
   assert.equal(
     processColors({ uid: 1000, euid: 1000 }).real,
     processColors({ uid: 1000, euid: 1000 }).effective,
@@ -440,10 +463,10 @@ test("space-model regression", async () => {
     processColors({ uid: 1000, euid: 0 }).real,
     processColors({ uid: 1000, euid: 0 }).effective,
   );
-  assert.equal(processColors({}).real, "#889299");
+  assert.equal(processColors({ uid: null, euid: null }).real, "#889299");
 
   const { RecentFiles, fileKey, fileLayout } =
-    await import("../src/space/data.ts");
+    await import("../src/space/data.js");
   {
     const files = new RecentFiles(),
       owner = { pid: 1, start_time_ticks: 1 },
@@ -461,7 +484,7 @@ test("space-model regression", async () => {
       true,
     );
     const id = fileKey(event),
-      file = files.entries.get(id);
+      file = files.entries.get(id)!;
     assert.equal(file.readBytes, 7);
     assert.equal(file.writeBytes, 11);
     assert.equal(file.label, "example");
@@ -550,12 +573,15 @@ test("space-model regression", async () => {
   );
   // Identity equality is field based and large inode strings remain distinct.
   {
-    const resource = {
+    const resource: IpcIdentity = {
       kind: "pipe",
       device: { major: 8, minor: 1 },
       inode: "18446744073709551615",
     };
-    const endpoint = { process_id: { pid: 1, start_time_ticks: 2 }, resource };
+    const endpoint = fdEndpoint({
+      process_id: { pid: 1, start_time_ticks: 2 },
+      resource,
+    });
     assert.equal(
       edgeDirection(
         { endpoint, peer: null, shared: false },
@@ -636,22 +662,26 @@ test("space-model regression", async () => {
     "[anonymous] [r--s]",
   );
 
-  const { mergeSnapshot } = await import("../src/space/data.ts");
-  const original = {
+  const { mergeSnapshot } = await import("../src/space/data.js");
+  const original = processInfo({
     identity: { pid: 1, start_time_ticks: 10 },
-    maps: [{ start: "0x1000", end: "0x2000" }],
+    maps: [memoryMap({ start: "0x1000", end: "0x2000" })],
     maps_epoch: 10,
     maps_error: null,
-  };
+  });
   const base = { processes: [original], fd_relations: [], sequence: 1 };
-  const delta = (extra) => ({
+  const delta = (
+    extra: Pick<SystemSnapshotUpdate, "processes">,
+  ): SystemSnapshotUpdate => ({
     kind: "delta",
     sequence: 2,
     base_sequence: 1,
     fd_relations: [],
     ...extra,
   });
+  const { maps: _maps, ...originalWithoutMaps } = original;
   const omitted = {
+    ...originalWithoutMaps,
     identity: original.identity,
     maps_epoch: 20,
     maps_error: "read failed",
@@ -680,8 +710,12 @@ test("space-model regression", async () => {
     10,
   );
 
-  const changedMap = { start: "0x1000", end: "0x1800", writable: true };
-  const added = { start: "0x1800", end: "0x2000" };
+  const changedMap = memoryMap({
+    start: "0x1000",
+    end: "0x1800",
+    writable: true,
+  });
+  const added = memoryMap({ start: "0x1800", end: "0x2000" });
   const split = mergeSnapshot(
     base,
     delta({
@@ -702,10 +736,15 @@ test("space-model regression", async () => {
         maps_delta: { upsert: [original.maps[0]], remove: ["0x1800"] },
       },
     ],
-    fd_relations_delta: { upsert: [{ id: "new", label: "pipe" }], remove: [] },
+    fd_relations_delta: {
+      upsert: [fdRelation({ id: "new", label: "pipe" })],
+      remove: [],
+    },
   });
   assert.deepEqual(joined.processes[0].maps, original.maps);
-  assert.deepEqual(joined.fd_relations, [{ id: "new", label: "pipe" }]);
+  assert.deepEqual(joined.fd_relations, [
+    fdRelation({ id: "new", label: "pipe" }),
+  ]);
   const removed = mergeSnapshot(joined, {
     kind: "delta",
     sequence: 4,
