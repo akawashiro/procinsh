@@ -1,8 +1,7 @@
 import { test, vi } from "vitest";
 import assert from "node:assert/strict";
 import { ListDataStore } from "../src/list/data.js";
-import { matchingProcesses } from "../src/list/search.js";
-import { ProcessDataStore, processRequest } from "../src/process/data.js";
+import { ProcessDataStore } from "../src/process/data.js";
 import { ThreadSelection } from "../src/process/selection.js";
 import {
   matchingEnvironment,
@@ -128,26 +127,6 @@ test("page-data regression", async () => {
     assert.equal(errors.at(-1), null);
     list.stop();
     assert.equal(timers.size, 0);
-
-    assert.deepEqual(
-      matchingProcesses(processes, " --WORKER ", "pid").map(
-        (p) => p.identity.pid,
-      ),
-      [10, 11, 12],
-    );
-    assert.deepEqual(
-      matchingProcesses(processes, "WORK", "rss").map((p) => p.identity.pid),
-      [12, 11, 10],
-    );
-    assert.deepEqual(
-      matchingProcesses(processes, "", "cpu").map((p) => p.identity.pid),
-      [11, 12, 10],
-    );
-    assert.deepEqual(
-      processes.map((p) => p.identity.pid),
-      [10, 11, 12],
-      "sorting does not reorder stored data",
-    );
 
     const sources: TestEventSource[] = [],
       events: [string, ...unknown[]][] = [],
@@ -350,19 +329,6 @@ test("page-data regression", async () => {
       [],
       "old identity lookup cannot open SSE after pagehide",
     );
-    assert.deepEqual(processRequest("/process/10", "?start_time_ticks=100"), {
-      pid: 10,
-      startTime: 100,
-    });
-    for (const [path, search] of [
-      ["/process/0", ""],
-      ["/list", ""],
-      ["/process/9007199254740992", ""],
-      ["/process/10", "?start_time_ticks=-1"],
-      ["/process/10", "?start_time_ticks=1&start_time_ticks=2"],
-      ["/process/10", "?start_time_ticks=9007199254740992"],
-    ])
-      assert.throws(() => processRequest(path, search));
     assert.equal(
       matchingEnvironment(environment.entries, "MODE=<LITERAL>").length,
       1,

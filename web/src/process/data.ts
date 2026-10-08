@@ -36,7 +36,7 @@ const quietEvents: ProcessDataEvents = {
   error() {},
 };
 
-export function processRequest(pathname: string, search: string) {
+function processRequest(pathname: string, search: string) {
   const match = /^\/process\/(\d+)$/.exec(pathname);
   const pid = Number(match?.[1]);
   if (!Number.isSafeInteger(pid) || pid <= 0)
@@ -238,4 +238,26 @@ export class ProcessDataStore {
       }
     }
   }
+}
+
+if (import.meta.vitest) {
+  const { test } = import.meta.vitest;
+  test("process URL validation", async () => {
+    const assert: typeof import("node:assert/strict") = (
+      await import("node:assert/strict")
+    ).default;
+    assert.deepEqual(processRequest("/process/10", "?start_time_ticks=100"), {
+      pid: 10,
+      startTime: 100,
+    });
+    for (const [path, search] of [
+      ["/process/0", ""],
+      ["/list", ""],
+      ["/process/9007199254740992", ""],
+      ["/process/10", "?start_time_ticks=-1"],
+      ["/process/10", "?start_time_ticks=1&start_time_ticks=2"],
+      ["/process/10", "?start_time_ticks=9007199254740992"],
+    ])
+      assert.throws(() => processRequest(path, search));
+  });
 }

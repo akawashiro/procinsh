@@ -16,7 +16,8 @@
     "docs": "typedoc",
     "test:browser": "npm run test:browser:list && npm run test:browser:space",
     "test:browser:list": "tsx tests/browser/browser.ts",
-    "test:browser:space": "tsx tests/browser/space-browser.ts",
+    "build:browser-test": "npm run typecheck && vite build --config vite.browser-test.config.ts",
+    "test:browser:space": "npm run build:browser-test && cargo build --locked --manifest-path ../Cargo.toml && tsx tests/browser/space-browser.ts",
     "test:dev": "tsx tests/integration/dev-server.ts"
   },
   "devDependencies": {

@@ -91,4 +91,3 @@ export function createSpaceCamera(canvas: HTMLCanvasElement) {
     },
   };
 }
-export type SpaceCamera = ReturnType<typeof createSpaceCamera>;
