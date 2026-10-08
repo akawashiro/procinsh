@@ -63,12 +63,12 @@ jobs:
 
       - name: Build Rust module dependency graphs
         run: |
-          mkdir -p target/doc/architecture
+          mkdir -p target/doc/rust-architecture
           # The item filters fold references into the containing modules.
           # Keep uses edges; --no-uses would produce only an ownership tree.
           cargo modules dependencies --bin procinsh --no-externs --no-sysroot \
-            --no-fns --no-traits --no-types > target/doc/architecture/modules-raw.dot
-          python3 scripts/module_dependencies.py target/doc/architecture/modules-raw.dot
+            --no-fns --no-traits --no-types > target/doc/rust-architecture/modules-raw.dot
+          python3 scripts/module_dependencies.py target/doc/rust-architecture/modules-raw.dot
 
       - name: Create index page
         run: |
@@ -81,7 +81,7 @@ jobs:
 
           for file in target/doc/*/index.html; do
             [ -f "$file" ] || continue
-            [ "$file" != target/doc/architecture/index.html ] || continue
+            [ "$file" != target/doc/rust-architecture/index.html ] || continue
             [ "$file" != target/doc/typescript/index.html ] || continue
             [ "$file" != target/doc/typescript-architecture/index.html ] || continue
             crate=$(basename "$(dirname "$file")")
@@ -90,7 +90,7 @@ jobs:
           done
 
           echo '</ul><h2>TypeScript API documentation</h2><ul><li><a href="typescript/">TypeScript API documentation</a></li></ul>' >> target/doc/index.html
-          echo '<h2>Architecture</h2><ul><li><a href="architecture/">Rust module dependency graph</a></li><li><a href="typescript-architecture/">TypeScript module dependency graph</a></li></ul></html>' >> target/doc/index.html
+          echo '<h2>Architecture</h2><ul><li><a href="rust-architecture/">Rust module dependency graph</a></li><li><a href="typescript-architecture/">TypeScript module dependency graph</a></li></ul></html>' >> target/doc/index.html
           touch target/doc/.nojekyll
 
       - uses: actions/configure-pages@v5
