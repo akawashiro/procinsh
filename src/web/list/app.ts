@@ -27,7 +27,9 @@ async function refresh() {
   const current = new AbortController();
   request = current;
   try {
-    const next = await api<ProcessSummary[]>("/api/processes", { signal: current.signal });
+    const next = await api<ProcessSummary[]>("/api/processes", {
+      signal: current.signal,
+    });
     if (!active || request !== current) return;
     processes = next;
     renderProcesses();

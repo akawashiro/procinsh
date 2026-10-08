@@ -19,7 +19,11 @@ export const cell = (
   row.append(td);
   return td;
 };
-export function button(text: string, action: () => void, className = "pointer") {
+export function button(
+  text: string,
+  action: () => void,
+  className = "pointer",
+) {
   const b = node("button", text, className);
   b.addEventListener("click", action);
   return b;

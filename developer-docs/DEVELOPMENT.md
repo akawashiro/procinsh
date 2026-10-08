@@ -288,7 +288,7 @@ TypeScript のビルド設定は [tsconfig.json](../tsconfig.json)、実行コ�
 
 ### プロセス一覧 `/list`（`/` も同じ一覧を表示）
 
-実装の入口は [list/app.ts の `start`](../src/web/list/app.ts#L97)、定期取得は [`refresh`](../src/web/list/app.ts#L25)、一覧の DOM 更新は [`renderProcesses`](../src/web/list/app.ts#L42) です。
+実装の入口は [list/app.ts の `start`](../src/web/list/app.ts#L99)、定期取得は [`refresh`](../src/web/list/app.ts#L25)、一覧の DOM 更新は [`renderProcesses`](../src/web/list/app.ts#L44) です。
 
 一覧ページは一覧の DOM だけを持ち、詳細 SSE を開きません。
 
@@ -305,7 +305,7 @@ TypeScript のビルド設定は [tsconfig.json](../tsconfig.json)、実行コ�
 
 ### プロセス詳細 `/process/{pid}`
 
-SSE の接続は [process/app.ts の `connect`](../src/web/process/app.ts#L234)、受信状態の反映は [`acceptTarget`](../src/web/process/app.ts#L284) と [`renderTarget`](../src/web/process/app.ts#L302) が担当します。追加パネルの取得は [`loadProcessDetails`](../src/web/process/app.ts#L66)、履歴グラフは [`drawHistory`](../src/web/process/app.ts#L415)、選択スレッドのサンプル表示は [`renderLiveSample`](../src/web/process/app.ts#L523) を参照してください。
+SSE の接続は [process/app.ts の `connect`](../src/web/process/app.ts#L267)、受信状態の反映は [`acceptTarget`](../src/web/process/app.ts#L319) と [`renderTarget`](../src/web/process/app.ts#L337) が担当します。追加パネルの取得は [`loadProcessDetails`](../src/web/process/app.ts#L81)、履歴グラフは [`drawHistory`](../src/web/process/app.ts#L455)、選択スレッドのサンプル表示は [`renderLiveSample`](../src/web/process/app.ts#L570) を参照してください。
 
 | 利用API | 呼び出すタイミングと用途 |
 |---|---|
@@ -331,13 +331,13 @@ SPACE はシステム全体のプロセス、仮想アドレス空間、親子�
 
 #### データの受信と構造の更新
 
-表示開始・再表示時に [`start`](../src/web/space/app.ts#L1391) が `GET /api/system/events` に EventSource で接続します。初期構造も SSE から取得し、接続中だけバックエンドの閲覧者として登録されます。イベントの型は [api-types.ts の `SystemSnapshotUpdate`](../src/web/shared/api-types.ts#L253)・[`SpaceActivity`](../src/web/shared/api-types.ts#L279)、配信内容は [HTTP API の説明](#get-apisystemevents)を参照してください。
+表示開始・再表示時に [`start`](../src/web/space/app.ts#L1393) が `GET /api/system/events` に EventSource で接続します。初期構造も SSE から取得し、接続中だけバックエンドの閲覧者として登録されます。イベントの型は [api-types.ts の `SystemSnapshotUpdate`](../src/web/shared/api-types.ts#L319)・[`SpaceActivity`](../src/web/shared/api-types.ts#L352)、配信内容は [HTTP API の説明](#get-apisystemevents)を参照してください。
 
 | イベント | 反映する内容 | 主な実装 |
 |---|---|---|
-| `snapshot` | `full` は構造を置き換え、`delta` は保持済みの構造へマージ。差分の `base_sequence` と保持済みの `sequence` を照合し、maps と FD 関係の差分を適用。省略された maps は同じプロセス識別子の前回値を保持 | [`mergeSnapshot`](../src/web/space/model.ts#L532) → [`rebuild`](../src/web/space/app.ts#L404) → [`buildScene`](../src/web/space/app.ts#L450) |
-| `activity` | CPU の発光、IPC・ネットワークの粒子、最近のファイル I/O の表示を更新 | [`activity`](../src/web/space/app.ts#L1115) |
-| `gap` | 描画中の粒子をクリアし、続く `full` snapshot を反映 | [`start` のイベントハンドラ](../src/web/space/app.ts#L1391) |
+| `snapshot` | `full` は構造を置き換え、`delta` は保持済みの構造へマージ。差分の `base_sequence` と保持済みの `sequence` を照合し、maps と FD 関係の差分を適用。省略された maps は同じプロセス識別子の前回値を保持 | [`mergeSnapshot`](../src/web/space/model.ts#L555) → [`rebuild`](../src/web/space/app.ts#L404) → [`buildScene`](../src/web/space/app.ts#L450) |
+| `activity` | CPU の発光、IPC・ネットワークの粒子、最近のファイル I/O の表示を更新 | [`activity`](../src/web/space/app.ts#L1117) |
+| `gap` | 描画中の粒子をクリアし、続く `full` snapshot を反映 | [`start` のイベントハンドラ](../src/web/space/app.ts#L1393) |
 
 #### プロセス・接続先・ファイルの配置
 
@@ -345,21 +345,21 @@ SPACE はシステム全体のプロセス、仮想アドレス空間、親子�
 
 | 対象 | 配置・表示の考え方 | 主な実装 |
 |---|---|---|
-| プロセスと親子関係 | 親子関係に沿って平面に配置。通常の更新は既存位置を保ち、新規プロセスを空き領域へ配置。Rearrange は全体を再配置 | [`treeLayout`](../src/web/space/model.ts#L239)、[`stableLayout`](../src/web/space/model.ts#L356) |
-| 仮想アドレス空間 | アドレス順にメモリ領域を積み上げ、アドレスの隙間を圧縮し、高さをプロセスごとに正規化。プロセス間の同じ高さは同じアドレスを意味しない | [`layoutMaps`](../src/web/space/model.ts#L164)、[`regionColor`](../src/web/space/app.ts#L343) |
-| ユーザーの識別 | 箱の上下の枠は実 UID、縦の枠は実効 UID に応じて色分け | [`userColor`・`processColors`](../src/web/space/model.ts#L429) |
-| IPC・ネットワーク接続 | FD 関係を線で表示。接続候補・共有 FD は破線。ネットワーク接続先はプロセス・プロトコル・相手 IP/port ごとにまとめ、プロセスの上方に配置 | [`buildScene`](../src/web/space/app.ts#L450)、[`networkGroups`](../src/web/space/model.ts#L94)、[`networkLayout`](../src/web/space/model.ts#L114) |
-| 最近アクセスしたファイル | プロセスの下方にファイルのマーカーと接続線を配置。構造とは別のグループで更新 | [`fileLayout`](../src/web/space/model.ts#L512)、[`refreshFileScene`](../src/web/space/app.ts#L812) |
+| プロセスと親子関係 | 親子関係に沿って平面に配置。通常の更新は既存位置を保ち、新規プロセスを空き領域へ配置。Rearrange は全体を再配置 | [`treeLayout`](../src/web/space/model.ts#L250)、[`stableLayout`](../src/web/space/model.ts#L367) |
+| 仮想アドレス空間 | アドレス順にメモリ領域を積み上げ、アドレスの隙間を圧縮し、高さをプロセスごとに正規化。プロセス間の同じ高さは同じアドレスを意味しない | [`layoutMaps`](../src/web/space/model.ts#L175)、[`regionColor`](../src/web/space/app.ts#L343) |
+| ユーザーの識別 | 箱の上下の枠は実 UID、縦の枠は実効 UID に応じて色分け | [`userColor`・`processColors`](../src/web/space/model.ts#L440) |
+| IPC・ネットワーク接続 | FD 関係を線で表示。接続候補・共有 FD は破線。ネットワーク接続先はプロセス・プロトコル・相手 IP/port ごとにまとめ、プロセスの上方に配置 | [`buildScene`](../src/web/space/app.ts#L450)、[`networkGroups`](../src/web/space/model.ts#L96)、[`networkLayout`](../src/web/space/model.ts#L125) |
+| 最近アクセスしたファイル | プロセスの下方にファイルのマーカーと接続線を配置。構造とは別のグループで更新 | [`fileLayout`](../src/web/space/model.ts#L532)、[`refreshFileScene`](../src/web/space/app.ts#L814) |
 
 #### 活動の表示と描画ループ
 
-[`activity`](../src/web/space/app.ts#L1115) が活動データを保持し、[`animate`](../src/web/space/app.ts#L1308) が `requestAnimationFrame` ごとに粒子と CPU の発光を更新します。タブ非表示中は描画処理をスキップします。
+[`activity`](../src/web/space/app.ts#L1117) が活動データを保持し、[`animate`](../src/web/space/app.ts#L1310) が `requestAnimationFrame` ごとに粒子と CPU の発光を更新します。タブ非表示中は描画処理をスキップします。
 
 | 表示 | 振る舞い | 主な実装 |
 |---|---|---|
-| CPU の発光 | 実行中に強まり、活動が途絶えると約500msで減衰 | [`cpuGlowLevel`](../src/web/space/model.ts#L221) |
-| IPC・ネットワークの粒子 | 読み書きの向きと操作回数に応じて粒子を生成。接続先を一つに特定できない場合は操作元のポートだけを発光。`prefers-reduced-motion` に応じて粒子の表示時間と数を減らす | [`edgeDirection`](../src/web/space/model.ts#L183)、[`ipcParticlePlan`](../src/web/space/model.ts#L202)、[`activity`](../src/web/space/app.ts#L1115) |
-| ファイル I/O | 読み書きの粒子と、保持中のファイルのバイト数・操作回数を表示。最終アクセスから30秒、各プロセス32個・全体512個まで保持し、終了したプロセスのファイルは削除 | [`RecentFiles`](../src/web/space/model.ts#L449)、[`fileDetails`](../src/web/space/app.ts#L888) |
+| CPU の発光 | 実行中に強まり、活動が途絶えると約500msで減衰 | [`cpuGlowLevel`](../src/web/space/model.ts#L232) |
+| IPC・ネットワークの粒子 | 読み書きの向きと操作回数に応じて粒子を生成。接続先を一つに特定できない場合は操作元のポートだけを発光。`prefers-reduced-motion` に応じて粒子の表示時間と数を減らす | [`edgeDirection`](../src/web/space/model.ts#L194)、[`ipcParticlePlan`](../src/web/space/model.ts#L213)、[`activity`](../src/web/space/app.ts#L1117) |
+| ファイル I/O | 読み書きの粒子と、保持中のファイルのバイト数・操作回数を表示。最終アクセスから30秒、各プロセス32個・全体512個まで保持し、終了したプロセスのファイルは削除 | [`RecentFiles`](../src/web/space/model.ts#L469)、[`fileDetails`](../src/web/space/app.ts#L890) |
 | プロセス名・接続先ラベル | 3D 座標を画面座標へ投影し、WebGL とは別の Canvas 2D に描画 | [`drawLabels`](../src/web/space/app.ts#L253) |
 
 描画解像度は [`AdaptiveRenderScale`](../src/web/space/model.ts#L18) が約1秒ごとの FPS で調整します。24 FPS 未満が3回続いた場合は pixel ratio を10%下げ、45 FPS 以上が5回続いた場合は元の解像度に向けて回復します。上限は初期の device pixel ratio（最大1.5）、下限は0.5（初期値が0.5未満ならその値）です。FPS と解像度の割合はヘッダーに表示します。
@@ -370,15 +370,15 @@ SPACE はシステム全体のプロセス、仮想アドレス空間、親子�
 
 | 操作 | 振る舞い | 主な実装 |
 |---|---|---|
-| PID・プロセス名の検索 | 描画対象を絞り込み、Enter で最初の候補を選択してカメラを寄せる | [`visibleIds`](../src/web/space/app.ts#L387)、[検索イベント](../src/web/space/app.ts#L1292) |
-| クリック・ホバー | プロセス、接続線、ネットワーク接続先、ファイルを選択・説明表示。プロセスのダブルクリックでカメラを寄せる | [`hit`・`edgeHit`](../src/web/space/app.ts#L1187)、[pointer イベント](../src/web/space/app.ts#L1229)、[`details`](../src/web/space/app.ts#L972) |
+| PID・プロセス名の検索 | 描画対象を絞り込み、Enter で最初の候補を選択してカメラを寄せる | [`visibleIds`](../src/web/space/app.ts#L387)、[検索イベント](../src/web/space/app.ts#L1294) |
+| クリック・ホバー | プロセス、接続線、ネットワーク接続先、ファイルを選択・説明表示。プロセスのダブルクリックでカメラを寄せる | [`hit`・`edgeHit`](../src/web/space/app.ts#L1189)、[pointer イベント](../src/web/space/app.ts#L1231)、[`details`](../src/web/space/app.ts#L974) |
 | ドラッグ・右ドラッグ・スクロール | カメラの回転・平行移動・ズーム | [OrbitControls の設定](../src/web/space/app.ts#L135) |
-| Fit all | 検索と選択を解除し、全体が見えるようにカメラを調整 | [`fit`](../src/web/space/app.ts#L376)、[ボタンイベント](../src/web/space/app.ts#L1286) |
-| Rearrange | 粒子をクリアし、プロセス・ネットワーク接続先・ファイルを再配置して全体を表示 | [`rebuild`](../src/web/space/app.ts#L404)、[ボタンイベント](../src/web/space/app.ts#L1280) |
+| Fit all | 検索と選択を解除し、全体が見えるようにカメラを調整 | [`fit`](../src/web/space/app.ts#L376)、[ボタンイベント](../src/web/space/app.ts#L1288) |
+| Rearrange | 粒子をクリアし、プロセス・ネットワーク接続先・ファイルを再配置して全体を表示 | [`rebuild`](../src/web/space/app.ts#L404)、[ボタンイベント](../src/web/space/app.ts#L1282) |
 
 #### 接続とページのライフサイクル
 
-接続管理は [`start`・`stop`](../src/web/space/app.ts#L1391)、ページイベントは [`visibilitychange`・`pagehide`・`pageshow` のハンドラ](../src/web/space/app.ts#L1440) を参照してください。
+接続管理は [`start`・`stop`](../src/web/space/app.ts#L1393)、ページイベントは [`visibilitychange`・`pagehide`・`pageshow` のハンドラ](../src/web/space/app.ts#L1442) を参照してください。
 
 - タブ非表示・`pagehide` では SSE と再接続タイマーを止め、粒子・CPU の発光・ファイル表示をクリアします。タブの再表示やページキャッシュからの復帰時は接続し直します。
 - 接続エラーでは現在の EventSource を閉じ、エラーを表示して、表示中に限り3秒後に新しい接続を作ります。接続成功時にエラー表示を消し、古い接続からのイベントは無視します。
@@ -425,6 +425,7 @@ HTTP アクセスログだけを絞り込む例は `RUST_LOG=info,procinsh::http
 
 ```sh
 npm ci
+npm run format:web:check
 npm run typecheck
 npm run build:web
 cargo build --locked
@@ -441,6 +442,15 @@ cargo clippy --all-targets --locked -- -D warnings
 RUSTDOCFLAGS="-D rustdoc::broken_intra_doc_links" cargo doc --locked --workspace --no-deps --document-private-items
 ```
 
+TypeScript の `src/web/**/*.ts` は [Prettier](https://prettier.io/docs/install) で整形します。バージョンは [package.json](../package.json) で固定し、[.prettierrc.json](../.prettierrc.json) に従って標準の書式と LF 改行を使います。[.prettierignore](../.prettierignore) は生成物と同梱の vendor を除外します。ローカルと CI は同じチェックコマンドを使います。
+
+```sh
+npm run format:web
+npm run format:web:check
+```
+
+`format:web` はファイルを書き換え、`format:web:check` は書き換えずに整形差分があれば失敗します。TypeScript の変更時は整形してからコミットしてください。
+
 C ソース・ヘッダー（BPF とテスト用プログラムを含む）は `.clang-format` に従って整形します。clang-format は `requirements-format.txt` の **21.1.8** に固定し、ローカルと CI で同じ `scripts/format_c.py` を使います。スクリプトは実行バイナリのバージョンも検査し、不一致なら失敗します。
 
 ```sh
@@ -452,7 +462,7 @@ CLANG_FORMAT="$PWD/.venv-format/bin/clang-format" python3 scripts/format_c.py --
 
 `--check` はファイルを書き換えず、整形差分があれば失敗します。Git 管理対象と未追跡の `.c` / `.h` を検査し、無視された生成物（`vmlinux.h` など）は対象にしません。C の変更時は整形してからコミットしてください。clang-format の更新は固定バージョンの変更と全 C ファイルの再整形を合わせて行います。
 
-CI は Rust と C のフォーマット確認、TypeScript の型チェックとビルド、Rust の全ターゲットのビルド、Clippy、rustdoc のリンク検証、Rust テスト、ログ検証、SPACE モデル検証を実行します。ブラウザと実機センサーのテストは別途実行します。
+CI は Rust・C・TypeScript のフォーマット確認、TypeScript の型チェックとビルド、Rust の全ターゲットのビルド、Clippy、rustdoc のリンク検証、Rust テスト、ログ検証、SPACE モデル検証を実行します。ブラウザと実機センサーのテストは別途実行します。
 
 `Publish rustdoc` workflow は `main` への push と手動実行時だけ動き、rustdoc とモジュール依存関係グラフを生成して GitHub Pages に公開します。PR では通常の `CI` workflow で rustdoc のリンクを検証し、`cargo-modules` のインストールやグラフ生成は行いません。
 

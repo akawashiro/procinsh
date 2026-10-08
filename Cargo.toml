@@ -19,6 +19,8 @@ include = [
     "!/tests/targets/bin/**",
     "/package.json",
     "/package-lock.json",
+    "/.prettierrc.json",
+    "/.prettierignore",
     "/tsconfig.json",
 ]
 
