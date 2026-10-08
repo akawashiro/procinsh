@@ -17,7 +17,7 @@
 
 main 用 unit はログインユーザーのホームを基準に、開発用 checkout `~/ghq/github.com/akawashiro/procinsh`、専用領域 `~/procinsh-main-preview` を使用します。専用領域内の worktree は更新処理が管理するため、手作業で編集しないでください。開発用 checkout のブランチとファイルは変更しませんが、専用 Git ref と worktree 登録を追加します。
 
-[開発環境](DEVELOPMENT.md)のビルド依存に加え、`gh`、`curl`、`flock` が必要です。利用するユーザーとして `gh auth login` を済ませてください。更新処理は HTTPS と `gh auth git-credential` を使います。Cargo は `~/.cargo/bin`、Node.js 22 以降と npm は `/usr/local/bin` または `/usr/bin` から利用できる必要があります。npm が PATH にない場合は `${NVM_DIR:-$HOME/.nvm}/nvm.sh` を読み込み、nvm の `default` alias を選択します。nvm を使う場合は `nvm alias default` が Node.js 22 以降を指すよう設定してください。それ以外の場所にある場合は更新 unit の `PATH` を調整してください。systemd は `.zshrc` などのシェル初期化ファイルを読み込みません。
+[開発環境](DEVELOPMENT.md)のビルド依存に加え、`gh`、`curl`、`flock` が必要です。利用するユーザーとして `gh auth login` を済ませてください。更新処理は HTTPS と `gh auth git-credential` を使います。Cargo は `~/.cargo/bin`、Node.js 22.12 以降と npm は `/usr/local/bin` または `/usr/bin` から利用できる必要があります。npm が PATH にない場合は `${NVM_DIR:-$HOME/.nvm}/nvm.sh` を読み込み、nvm の `default` alias を選択します。nvm を使う場合は `nvm alias default` が Node.js 22.12 以降を指すよう設定してください。それ以外の場所にある場合は更新 unit の `PATH` を調整してください。systemd は `.zshrc` などのシェル初期化ファイルを読み込みません。
 
 公開版は `~/procinsh-release-preview/install` を Cargo の専用インストール先として使用します。通常の `~/.cargo/bin/procinsh` は変更しません。Rust とネイティブ・BPF のビルド依存、`curl`、`flock`、`cmp` が必要ですが、公開パッケージには生成済み JavaScript が含まれるため、Node.js・npm・GitHub 認証・開発用 checkout は不要です。Cargo は `~/.cargo/bin` から利用できる必要があります。公開版の更新は専用領域で実行するため、開発用 checkout の `rust-toolchain.toml` は適用されません。rustup の default toolchain は公開版をビルドできるバージョンに設定してください。
 
@@ -105,7 +105,7 @@ capability 一覧を変更した場合は、sudoers の許可する引数も新�
 
 ### main の更新
 
-`origin/main` に相当する GitHub の main を専用 ref に取得し、`current.commit` と異なる場合だけ `npm ci`、`npm run build:web`、`PROCINSH_GIT_SHA="$commit" cargo build --locked` を実行します。作業ブランチや未コミット変更は公開しません。ビルド対象の SHA をバイナリに埋め込み、各画面のバージョンの隣に表示します。timer の `OnUnitInactiveSec` は main が `10s`、公開版が `1min` で、両方とも `AccuracySec=1s` を使います。更新処理の終了を基準にするため、長いビルド中に次の更新は重なりません。スクリプトもファイルロックで多重実行を防ぎます。
+`origin/main` に相当する GitHub の main を専用 ref に取得し、`current.commit` と異なる場合だけ `npm --prefix web ci`、`npm --prefix web run build`、`PROCINSH_GIT_SHA="$commit" cargo build --locked` を実行します。作業ブランチや未コミット変更は公開しません。ビルド対象の SHA をバイナリに埋め込み、各画面のバージョンの隣に表示します。timer の `OnUnitInactiveSec` は main が `10s`、公開版が `1min` で、両方とも `AccuracySec=1s` を使います。更新処理の終了を基準にするため、長いビルド中に次の更新は重なりません。スクリプトもファイルロックで多重実行を防ぎます。
 
 ### 公開最新版の更新
 

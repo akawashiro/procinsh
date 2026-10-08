@@ -54,7 +54,8 @@ async fn security_and_embedded_resources() {
         ),
         ("127.0.0.1:8080", None, "/", 200),
         ("127.0.0.1:8080", None, "/list", 200),
-        ("localhost:8080", None, "/list/app.js", 200),
+        ("localhost:8080", None, "/THREE-LICENSE.txt", 200),
+        ("localhost:8080", None, "/assets/missing.js", 404),
     ] {
         let mut req = Request::builder().uri(path).header("host", host);
         if let Some(origin) = origin {
@@ -69,20 +70,74 @@ async fn security_and_embedded_resources() {
 }
 
 #[tokio::test]
+async fn static_assets_support_head_and_preserve_unknown_method_responses() {
+    for (method, path, status) in [
+        ("HEAD", "/THREE-LICENSE.txt", 200),
+        ("POST", "/THREE-LICENSE.txt", 405),
+        ("POST", "/api/missing", 404),
+        ("GET", "/assets/missing.js", 404),
+    ] {
+        let response = app()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(path)
+                    .header("host", "localhost:8080")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status().as_u16(), status, "{method} {path}");
+        if method == "HEAD" {
+            assert_eq!(
+                response.headers()["content-type"],
+                "text/plain; charset=utf-8"
+            );
+            let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+                .await
+                .unwrap();
+            assert!(body.is_empty());
+        }
+    }
+}
+
+#[tokio::test]
 async fn gzip_negotiation_and_resources() {
     use std::io::Read;
-    for path in [
-        "/",
-        "/space",
-        "/shared/style.css",
-        "/list/app.js",
-        "/process/app.js",
-        "/space/app.js",
-        "/api/processes",
-    ] {
+    let mut paths = std::collections::BTreeSet::from([
+        "/".to_owned(),
+        "/space".to_owned(),
+        "/api/processes".to_owned(),
+    ]);
+    for page in ["/list", "/process/1", "/space"] {
+        let response = app()
+            .oneshot(
+                Request::builder()
+                    .uri(page)
+                    .header("host", "localhost:8080")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let html = std::str::from_utf8(&body).unwrap();
+        for attribute in ["src=\"", "href=\""] {
+            for value in html.split(attribute).skip(1) {
+                let path = value.split('"').next().unwrap();
+                if path.starts_with("/assets/") {
+                    paths.insert(path.to_owned());
+                }
+            }
+        }
+    }
+    for path in paths {
         let request = |encoding: &str| {
             Request::builder()
-                .uri(path)
+                .uri(&path)
                 .header("host", "localhost:8080")
                 .header("accept-encoding", encoding)
                 .body(Body::empty())
@@ -95,6 +150,14 @@ async fn gzip_negotiation_and_resources() {
             .await
             .unwrap();
         let gzip = app().oneshot(request("gzip")).await.unwrap();
+        if plain.len() <= 256 {
+            assert!(!gzip.headers().contains_key("content-encoding"));
+            let body = axum::body::to_bytes(gzip.into_body(), usize::MAX)
+                .await
+                .unwrap();
+            assert_eq!(body, plain);
+            continue;
+        }
         assert_eq!(gzip.headers()["content-encoding"], "gzip");
         assert!(
             gzip.headers()["vary"]

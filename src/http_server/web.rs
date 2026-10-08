@@ -5,7 +5,13 @@
 //!   page and asset routes for [`super::AppState`].
 
 use super::AppState;
-use axum::{Router, http::header, response::Html, routing::get};
+use axum::{
+    Router,
+    body::Body,
+    http::{Method, StatusCode, Uri, header},
+    response::{Html, IntoResponse, Response},
+    routing::get,
+};
 use std::sync::Arc;
 
 fn versioned_html(template: &str) -> Html<String> {
@@ -37,186 +43,109 @@ fn build_html(template: &str, sha: &str, dirty: bool) -> String {
         .replace("{{PROCINSH_BUILD_REVISION}}", &revision)
 }
 
+/// Assets are embedded in debug builds too; execution never reads `web/dist`.
+#[derive(rust_embed::Embed)]
+#[folder = "web/dist/"]
+struct WebAssets;
+
+fn embedded_asset(path: &str) -> Response {
+    let Some(asset) = WebAssets::get(path) else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    if path.ends_with(".html") {
+        let template = std::str::from_utf8(asset.data.as_ref()).expect("Vite HTML is UTF-8");
+        return versioned_html(template).into_response();
+    }
+    let mime = mime_guess::from_path(path).first_or_octet_stream();
+    let content_type = if mime.type_() == "text" || mime.essence_str() == "application/javascript" {
+        format!("{mime}; charset=utf-8")
+    } else {
+        mime.to_string()
+    };
+    (
+        [(header::CONTENT_TYPE, content_type)],
+        Body::from(asset.data.into_owned()),
+    )
+        .into_response()
+}
+
 pub(super) fn router() -> Router<Arc<AppState>> {
-    let mut router = Router::new()
-        .route(
-            "/",
-            get(|| async { versioned_html(include_str!("../web/list/index.html")) }),
-        )
-        .route(
-            "/list",
-            get(|| async { versioned_html(include_str!("../web/list/index.html")) }),
-        )
+    Router::new()
+        .route("/", get(|| async { embedded_asset("list/index.html") }))
+        .route("/list", get(|| async { embedded_asset("list/index.html") }))
         .route(
             "/process/{pid}",
-            get(|| async { versioned_html(include_str!("../web/process/index.html")) }),
+            get(|| async { embedded_asset("process/index.html") }),
         )
         .route(
             "/space",
-            get(|| async { versioned_html(include_str!("../web/space/index.html")) }),
-        );
-    for (path, source) in [
-        ("/list/app.js", include_str!("../../dist/web/list/app.js")),
-        (
-            "/process/app.js",
-            include_str!("../../dist/web/process/app.js"),
-        ),
-        ("/list/data.js", include_str!("../../dist/web/list/data.js")),
-        (
-            "/list/renderer.js",
-            include_str!("../../dist/web/list/renderer.js"),
-        ),
-        (
-            "/list/search.js",
-            include_str!("../../dist/web/list/search.js"),
-        ),
-        (
-            "/list/dom-types.js",
-            include_str!("../../dist/web/list/dom-types.js"),
-        ),
-        (
-            "/process/data.js",
-            include_str!("../../dist/web/process/data.js"),
-        ),
-        (
-            "/process/renderer.js",
-            include_str!("../../dist/web/process/renderer.js"),
-        ),
-        (
-            "/process/selection.js",
-            include_str!("../../dist/web/process/selection.js"),
-        ),
-        (
-            "/process/samples.js",
-            include_str!("../../dist/web/process/samples.js"),
-        ),
-        (
-            "/process/history.js",
-            include_str!("../../dist/web/process/history.js"),
-        ),
-        (
-            "/process/details.js",
-            include_str!("../../dist/web/process/details.js"),
-        ),
-        (
-            "/process/search.js",
-            include_str!("../../dist/web/process/search.js"),
-        ),
-        (
-            "/process/dom-types.js",
-            include_str!("../../dist/web/process/dom-types.js"),
-        ),
-        ("/space/app.js", include_str!("../../dist/web/space/app.js")),
-        (
-            "/space/model.js",
-            include_str!("../../dist/web/space/model.js"),
-        ),
-        (
-            "/space/data.js",
-            include_str!("../../dist/web/space/data.js"),
-        ),
-        (
-            "/space/scene.js",
-            include_str!("../../dist/web/space/scene.js"),
-        ),
-        (
-            "/space/renderer.js",
-            include_str!("../../dist/web/space/renderer.js"),
-        ),
-        (
-            "/space/search.js",
-            include_str!("../../dist/web/space/search.js"),
-        ),
-        (
-            "/space/selection.js",
-            include_str!("../../dist/web/space/selection.js"),
-        ),
-        (
-            "/space/camera.js",
-            include_str!("../../dist/web/space/camera.js"),
-        ),
-        (
-            "/space/details.js",
-            include_str!("../../dist/web/space/details.js"),
-        ),
-        (
-            "/space/dom-types.js",
-            include_str!("../../dist/web/space/dom-types.js"),
-        ),
-        (
-            "/shared/api.js",
-            include_str!("../../dist/web/shared/api.js"),
-        ),
-        (
-            "/shared/display.js",
-            include_str!("../../dist/web/shared/display.js"),
-        ),
-        (
-            "/shared/dom.js",
-            include_str!("../../dist/web/shared/dom.js"),
-        ),
-        (
-            "/shared/navigation.js",
-            include_str!("../../dist/web/shared/navigation.js"),
-        ),
-        (
-            "/vendor/three.module.js",
-            include_str!("../web/vendor/three.module.js"),
-        ),
-        (
-            "/vendor/three.core.js",
-            include_str!("../web/vendor/three.core.js"),
-        ),
-        (
-            "/vendor/OrbitControls.js",
-            include_str!("../web/vendor/OrbitControls.js"),
-        ),
-    ] {
-        router = router.route(
-            path,
-            get(move || async move {
-                (
-                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
-                    source,
-                )
-            }),
-        );
-    }
-    for (path, source) in [
-        ("/list/style.css", include_str!("../web/list/style.css")),
-        (
-            "/process/style.css",
-            include_str!("../web/process/style.css"),
-        ),
-        ("/space/style.css", include_str!("../web/space/style.css")),
-        ("/shared/style.css", include_str!("../web/shared/style.css")),
-    ] {
-        router =
-            router.route(
-                path,
-                get(move || async move {
-                    ([(header::CONTENT_TYPE, "text/css; charset=utf-8")], source)
-                }),
-            );
-    }
-    router
+            get(|| async { embedded_asset("space/index.html") }),
+        )
+        .fallback(|method: Method, uri: Uri| async move {
+            let path = uri.path().trim_start_matches('/');
+            if method == Method::GET || method == Method::HEAD {
+                embedded_asset(path)
+            } else if WebAssets::get(path).is_some() {
+                StatusCode::METHOD_NOT_ALLOWED.into_response()
+            } else {
+                StatusCode::NOT_FOUND.into_response()
+            }
+        })
 }
 
 #[cfg(test)]
 mod tests {
-    use super::build_html;
+    use super::{WebAssets, build_html, embedded_asset};
+    use axum::{body::to_bytes, http::StatusCode};
 
     const SHA: &str = "0123456789abcdef0123456789abcdef01234567";
-    const TEMPLATES: [&str; 3] = [
-        include_str!("../web/list/index.html"),
-        include_str!("../web/process/index.html"),
-        include_str!("../web/space/index.html"),
-    ];
+    fn templates() -> Vec<String> {
+        ["list", "process", "space"]
+            .into_iter()
+            .map(|page| {
+                String::from_utf8(
+                    WebAssets::get(&format!("{page}/index.html"))
+                        .unwrap()
+                        .data
+                        .into_owned(),
+                )
+                .unwrap()
+            })
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn every_bundled_asset_is_served_with_its_content_type_and_bytes() {
+        let mut scripts = 0;
+        let mut styles = 0;
+        for path in WebAssets::iter() {
+            let response = embedded_asset(&path);
+            assert_eq!(response.status(), StatusCode::OK, "{path}");
+            let content_type = response.headers()["content-type"].to_str().unwrap();
+            if path.ends_with(".html") {
+                assert_eq!(content_type, "text/html; charset=utf-8");
+            } else {
+                if path.ends_with(".js") {
+                    assert!(content_type.contains("javascript"));
+                    scripts += 1;
+                } else if path.ends_with(".css") {
+                    assert_eq!(content_type, "text/css; charset=utf-8");
+                    styles += 1;
+                }
+                let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+                assert_eq!(body.as_ref(), WebAssets::get(&path).unwrap().data.as_ref());
+            }
+        }
+        assert!(scripts > 0 && styles > 0);
+        for path in ["assets/missing.js", "../Cargo.toml", "src/list/app.ts"] {
+            assert_eq!(embedded_asset(path).status(), StatusCode::NOT_FOUND);
+        }
+    }
 
     #[test]
     fn known_revision_links_to_embedded_commit_on_every_page() {
-        for template in TEMPLATES {
-            let html = build_html(template, SHA, false);
+        for template in templates() {
+            let html = build_html(&template, SHA, false);
             assert!(html.contains(&format!("procinsh v{}", env!("CARGO_PKG_VERSION"))));
             assert!(html.contains("href=\"/list\" id=\"brand\""));
             assert!(html.contains(&format!(
@@ -233,12 +162,12 @@ mod tests {
 
     #[test]
     fn tracked_changes_are_visible_and_gitless_builds_keep_only_version() {
-        for template in TEMPLATES {
-            let dirty = build_html(template, SHA, true);
+        for template in templates() {
+            let dirty = build_html(&template, SHA, true);
             assert!(dirty.contains(">0123456-dirty</a>"));
             assert!(dirty.contains(&format!("/commit/{SHA}")));
             assert!(dirty.contains("local changes to tracked files"));
-            let gitless = build_html(template, "", false);
+            let gitless = build_html(&template, "", false);
             assert!(gitless.contains(&format!("procinsh v{}", env!("CARGO_PKG_VERSION"))));
             assert!(!gitless.contains("id=\"build-commit\""));
             assert!(!gitless.contains("/commit/"));

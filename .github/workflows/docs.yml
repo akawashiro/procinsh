@@ -21,10 +21,11 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+          cache-dependency-path: web/package-lock.json
       - name: Install web dependencies
-        run: npm ci
+        run: npm --prefix web ci
       - name: Build web assets
-        run: npm run build:web
+        run: npm --prefix web run build
       - name: Install native dependencies
         run: |
           sudo apt-get update
@@ -55,7 +56,7 @@ jobs:
         run: cargo doc --locked --workspace --no-deps --document-private-items
 
       - name: Build TypeScript API documentation
-        run: npm run docs:web
+        run: npm --prefix web run docs
 
       - name: Build module dependency graphs
         run: |

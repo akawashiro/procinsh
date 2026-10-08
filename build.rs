@@ -6,44 +6,20 @@ mod git;
 fn main() {
     let root = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap());
     git::emit(&root);
-    for asset in [
-        "list/app.js",
-        "process/app.js",
-        "list/data.js",
-        "list/renderer.js",
-        "list/search.js",
-        "list/dom-types.js",
-        "process/data.js",
-        "process/renderer.js",
-        "process/selection.js",
-        "process/samples.js",
-        "process/history.js",
-        "process/details.js",
-        "process/search.js",
-        "process/dom-types.js",
-        "space/app.js",
-        "space/data.js",
-        "space/model.js",
-        "space/scene.js",
-        "space/renderer.js",
-        "space/search.js",
-        "space/selection.js",
-        "space/camera.js",
-        "space/details.js",
-        "space/dom-types.js",
-        "shared/api.js",
-        "shared/display.js",
-        "shared/dom.js",
-        "shared/navigation.js",
-    ] {
-        let path = root.join("dist/web").join(asset);
-        println!("cargo:rerun-if-changed={}", path.display());
+    let dist = root.join("web/dist");
+    println!("cargo:rerun-if-changed={}", dist.display());
+    for page in ["list", "process", "space"] {
+        let path = dist.join(page).join("index.html");
         assert!(
             path.is_file(),
-            "Missing web asset {}. Run `npm ci && npm run build:web` before building with Cargo.",
+            "Missing frontend output {}. Run `npm --prefix web ci && npm --prefix web run build` before building with Cargo.",
             path.display()
         );
     }
+    assert!(
+        dist.join("assets").is_dir(),
+        "Missing frontend assets. Run `npm --prefix web ci && npm --prefix web run build` before building with Cargo."
+    );
     println!("cargo:rerun-if-changed=src/http_server/system/sched.bpf.c");
     println!("cargo:rerun-if-changed=src/http_server/system/ipc.bpf.c");
     println!("cargo:rerun-if-changed=src/http_server/system/files.bpf.c");

@@ -59,7 +59,7 @@ sudo setcap \
 
 ### Self build
 
-Also requires Node.js 22 or newer with npm and Rust via rustup. The Rust version
+Also requires Node.js 22.12 or newer with npm and Rust via rustup. The Rust version
 and components are pinned in `rust-toolchain.toml`; rustup installs them
 automatically when needed.
 
@@ -69,8 +69,8 @@ Clone this repository and run the following from its root:
 sudo apt-get install --yes --no-install-recommends \
          build-essential clang llvm pkg-config libelf-dev zlib1g-dev python3 \
          linux-tools-common linux-tools-generic
-npm ci
-npm run build:web
+npm --prefix web ci
+npm --prefix web run build
 cargo build --release --locked
 ```
 
@@ -79,6 +79,20 @@ Then run:
 ```sh
 sudo ./target/release/procinsh --listen 127.0.0.1:9090
 ```
+
+### Frontend development
+
+The vanilla TypeScript UI lives in `web/`. After the initial web and Rust build,
+run the backend with `./scripts/dev_run.sh --listen 127.0.0.1:9090`, then run
+`npm --prefix web run dev` in another terminal. Open Vite's URL for frontend
+HMR; `/api` requests, including SSE, proxy to the backend. Set
+`PROCINSH_BACKEND_URL` to use another backend address.
+
+Run `npm --prefix web test` for Vitest and `npm --prefix web run format:check`
+for formatting. Production builds embed the entire `web/dist/` output, including
+npm-managed Three.js, into the executable. Published crates ship those prebuilt
+assets, so `cargo install procinsh --locked` requires no Node.js or npm.
+See [development documentation](developer-docs/DEVELOPMENT.md) for details.
 
 ### Building on WSL2 (Ubuntu)
 
@@ -99,8 +113,8 @@ for tool in /usr/lib/linux-tools/*/bpftool; do
 done
 "${BPFTOOL:?No packaged bpftool found; install linux-tools-generic}" version
 "$BPFTOOL" btf dump file /sys/kernel/btf/vmlinux format c >/tmp/procinsh-vmlinux.h
-npm ci
-npm run build:web
+npm --prefix web ci
+npm --prefix web run build
 cargo build --release --locked
 ```
 

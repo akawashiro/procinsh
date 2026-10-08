@@ -117,52 +117,33 @@ impl Drop for Server {
 #[test]
 fn binary_serves_assets_process_api_and_sse_and_shuts_down() {
     let mut server = Server::start();
-    for path in [
-        "/",
-        "/list",
-        "/process/1",
-        "/space",
-        "/list/app.js",
-        "/process/app.js",
-        "/list/data.js",
-        "/list/renderer.js",
-        "/list/search.js",
-        "/list/dom-types.js",
-        "/process/data.js",
-        "/process/renderer.js",
-        "/process/selection.js",
-        "/process/samples.js",
-        "/process/history.js",
-        "/process/details.js",
-        "/process/search.js",
-        "/process/dom-types.js",
-        "/space/app.js",
-        "/space/data.js",
-        "/space/model.js",
-        "/space/scene.js",
-        "/space/renderer.js",
-        "/space/search.js",
-        "/space/selection.js",
-        "/space/camera.js",
-        "/space/details.js",
-        "/space/dom-types.js",
-        "/shared/api.js",
-        "/shared/display.js",
-        "/shared/dom.js",
-        "/shared/navigation.js",
-        "/list/style.css",
-        "/process/style.css",
-        "/space/style.css",
-        "/shared/style.css",
-        "/vendor/three.module.js",
-        "/api/config",
-    ] {
+    let mut assets = std::collections::BTreeSet::new();
+    for path in ["/", "/list", "/process/1", "/space", "/api/config"] {
         let (status, headers, body) = server.get(path);
         assert_eq!(status, 200, "{path}");
         assert!(headers.contains("cache-control: no-store"));
         assert!(!body.is_empty());
+        if path != "/api/config" {
+            assert!(headers.contains("text/html; charset=utf-8"));
+            assert!(!body.contains("{{PROCINSH_"));
+            for attribute in ["src=\"", "href=\""] {
+                for value in body.split(attribute).skip(1) {
+                    let url = value.split('"').next().unwrap();
+                    if url.starts_with("/assets/") {
+                        assets.insert(url.to_owned());
+                    }
+                }
+            }
+        }
+    }
+    assert!(assets.iter().any(|path| path.ends_with(".js")));
+    assert!(assets.iter().any(|path| path.ends_with(".css")));
+    for path in assets {
+        let (status, headers, body) = server.get(&path);
+        assert_eq!(status, 200, "{path}");
+        assert!(!body.is_empty());
         if path.ends_with(".js") {
-            assert!(headers.contains("text/javascript; charset=utf-8"));
+            assert!(headers.contains("javascript"), "{headers}");
         } else if path.ends_with(".css") {
             assert!(headers.contains("text/css; charset=utf-8"));
         }

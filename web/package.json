@@ -1,0 +1,31 @@
+{
+  "name": "procinsh-web",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "npm run typecheck && vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.{ts,mjs}\" \"*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.{ts,mjs}\" \"*.ts\"",
+    "typecheck": "tsc --noEmit",
+    "docs": "typedoc"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.4",
+    "@types/three": "0.180.0",
+    "@webgpu/types": "0.1.74",
+    "prettier": "3.9.9",
+    "typedoc": "0.28.20",
+    "typescript": "5.9.3",
+    "vite": "8.3.4",
+    "vitest": "5.0.3"
+  },
+  "dependencies": {
+    "three": "0.180.0"
+  }
+}

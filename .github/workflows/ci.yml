@@ -23,10 +23,11 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+          cache-dependency-path: web/package-lock.json
       - name: Install web dependencies
-        run: npm ci
+        run: npm --prefix web ci
       - name: Check TypeScript formatting
-        run: npm run format:web:check
+        run: npm --prefix web run format:check
       - name: Install Rust
         # rustup reads the version and components from rust-toolchain.toml.
         run: rustup show active-toolchain
@@ -56,14 +57,17 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+          cache-dependency-path: web/package-lock.json
       - name: Install web dependencies
-        run: npm ci
+        run: npm --prefix web ci
       - name: Check TypeScript
-        run: npm run typecheck
+        run: npm --prefix web run typecheck
       - name: Build web assets
-        run: npm run build:web
+        run: npm --prefix web run build
+      - name: Run frontend unit tests
+        run: npm --prefix web test
       - name: Check TypeScript API documentation
-        run: npm run docs:web
+        run: npm --prefix web run docs
       - name: Install native dependencies
         run: |
           sudo apt-get update
@@ -94,16 +98,8 @@ jobs:
         run: cargo clippy --all-targets --locked -- -D warnings
       - name: Check listen policy
         run: python3 tests/listen-policy.py
-      - name: Check space model
-        run: node tests/space-model.mjs
-      - name: Check list and process data
-        run: node tests/page-data.mjs
-      - name: Check process history chart
-        run: node tests/history-chart.mjs
-      - name: Check space data lifecycle
-        run: node tests/space-data.mjs
-      - name: Check space component boundaries
-        run: node tests/space-components.mjs
+      - name: Check crate packaging and embedded assets
+        run: python3 scripts/check_web_package.py
 
   distro-build:
     name: Build and test (${{ matrix.distro }})
@@ -168,10 +164,11 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+          cache-dependency-path: web/package-lock.json
       - name: Install web dependencies
-        run: npm ci
+        run: npm --prefix web ci
       - name: Build web assets
-        run: npm run build:web
+        run: npm --prefix web run build
       - name: Install Rust
         run: |
           curl --proto '=https' --tlsv1.2 --fail --silent --show-error \
