@@ -5,6 +5,8 @@ Like [Ghost in the Shell](https://en.wikipedia.org/wiki/Ghost_in_the_Shell), you
 
 See also [a blog post](https://akawashiro.com/articles/procinsh-en).
 
+Join our [Discord server](https://discord.gg/aQuNSczpw) for questions and discussion.
+
 ## Screenshot
 
 <img src="./images/procinsh_movie.gif" alt="Demo of procinsh" width="800">
