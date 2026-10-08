@@ -59,7 +59,9 @@ case "${1:-}" in
     if systemctl --user restart "$service"; then
       for _ in {1..20}; do
         if systemctl --user is-active --quiet "$service" && \
-          curl --noproxy '*' --fail --silent --max-time 1 "http://$address:9090/" >/dev/null; then
+          curl --noproxy '*' --fail --silent --max-time 1 "http://$address:9090/" >/dev/null && \
+          curl --noproxy '*' --fail --silent --max-time 1 "http://127.0.0.1:9090/" >/dev/null && \
+          curl --noproxy '*' --fail --silent --max-time 1 "http://[::1]:9090/" >/dev/null; then
           echo "Activated main $(cat "$state/current.commit")"
           exit 0
         fi

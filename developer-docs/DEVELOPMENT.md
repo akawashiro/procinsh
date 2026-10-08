@@ -37,7 +37,7 @@ npm run dev
 
 Vite が表示する URL（通常 http://127.0.0.1:5173）を開きます。既存の画面 URL とプロセスの識別子クエリはそのまま利用できます。フロントエンドの変更は HMR・ページの再読み込みで反映し、Rust の再ビルドは不要です。`/api` 全体をバックエンドへ中継するため、JSON と process/system の SSE が同じオリジンから使えます。バックエンドの接続先は `PROCINSH_BACKEND_URL=http://127.0.0.1:8080 npm run dev` または `web/.env.local` で変更できます。開発画面のヘッダーは Cargo.toml のバージョンと development 表示です。本番の Git SHA は Rust が HTML のプレースホルダーを置換して挿入します。
 
-最新 main（9090）と crates.io の公開最新版（9091）を Tailscale 経由で常時見る場合は、[main・公開最新版の常設プレビュー](PREVIEW.md)を参照してください。systemd サービスと、main は約10秒間隔・公開版は約1分間隔の自動更新を利用できます。
+最新 main（9090）と crates.io の公開最新版（9091）を Tailscale または localhost 経由で常時見る場合は、[main・公開最新版の常設プレビュー](PREVIEW.md)を参照してください。systemd サービスと、main は約10秒間隔・公開版は約1分間隔の自動更新を利用できます。
 
 本番では `rust-embed` が `web/dist/` 全体をバイナリに埋め込み、拡張子に応じた MIME 型で配信します。debug ビルドも埋め込みを使います。TypeScript・HTML・CSS を変更したら `npm --prefix web run build` の後に Rust バイナリを再ビルドしてください。Cargo は生成物の変更を監視しますが、ソースと生成物の鮮度は検証しません。実行時の Node.js・npm、外部 CDN は不要です。SPACE の描画には WebGL2 が必要です。
 
@@ -45,7 +45,7 @@ Vite が表示する URL（通常 http://127.0.0.1:5173）を開きます。既�
 
 | CLI オプション | 動作 |
 |---|---|
-| `--listen ADDRESS` | 待受アドレス。既定は `127.0.0.1:8080` |
+| `--listen ADDRESS` | 待受アドレス。複数回指定すると各アドレスで待受。既定は `127.0.0.1:8080` |
 | `--allow-non-loopback` | 非 loopback での待受を明示的に許可。認証・TLS なしでプロセスメモリや環境変数を公開するため注意 |
 | `--help` / `--version` | ヘルプ / バージョン表示 |
 
@@ -452,6 +452,13 @@ SPACE はシステム全体のプロセス、仮想アドレス空間、親子�
 `process_vm_readv` は所有者、dumpable 属性、Yama、`CAP_SYS_PTRACE`、seccomp などの制約を受けます。BPF はカーネル側の対応と観測権限も必要です。権限やカーネル設定の自動変更、sudo の自動実行はしません。
 
 待受の既定値は `127.0.0.1:8080` です。IPv4/IPv6 の loopback（`127.0.0.1`、`::1` など）は追加フラグなしで利用できます。LAN アドレスや wildcard（`0.0.0.0`、`::`）など非 loopback の指定は、`--allow-non-loopback` がなければ bind 前に非ゼロ終了します。明示的に許可する例は `procinsh --listen 0.0.0.0:9090 --allow-non-loopback` です。許可した場合も警告を出します。
+
+`--listen` を複数回指定すると、一つのプロセスが各アドレスで待ち受け、収集処理を共有します。明示指定時は既定の待受アドレスを追加しません。すべてのアドレスを検証・bind してから配信を開始し、一つでも失敗すれば非ゼロ終了します。各リスナーは自分のアドレスに対して Host を検証します。SIGINT・SIGTERM はすべてのリスナーと収集処理を停止します。たとえば Tailscale と localhost で同じポートを使う場合は次を実行します。
+
+```sh
+./scripts/dev_run.sh --listen "$(tailscale ip -4):9090" \
+  --listen 127.0.0.1:9090 --listen '[::1]:9090' --allow-non-loopback
+```
 
 認証・TLS はありません。接続できる利用者はプロセスメモリや環境変数にアクセスできるため、非 loopback での待受はアクセス範囲を管理した信頼できるネットワーク内に限定してください。Host/Origin/Fetch Metadata の検証と API レスポンスの `Cache-Control: no-store` は維持しますが、これらは認証の代わりにはなりません。
 

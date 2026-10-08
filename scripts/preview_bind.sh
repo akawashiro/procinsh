@@ -15,5 +15,6 @@ address=$(tailscale ip -4)
 if [[ $1 == address ]]; then
   printf '%s\n' "$address"
 else
-  exec "$2" --listen "$address:$3" --allow-non-loopback
+  exec "$2" --listen "$address:$3" \
+    --listen "127.0.0.1:$3" --listen "[::1]:$3" --allow-non-loopback
 fi
