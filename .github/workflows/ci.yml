@@ -62,6 +62,8 @@ jobs:
         run: npm run typecheck
       - name: Build web assets
         run: npm run build:web
+      - name: Check TypeScript API documentation
+        run: npm run docs:web
       - name: Install native dependencies
         run: |
           sudo apt-get update

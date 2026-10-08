@@ -79,7 +79,7 @@ Tokio/Axum が HTTP と SSE を処理し、ブロッキングする詳細 API �
 
 Web UI の API 型は `src/web/shared/api-types.ts` に定義し、Rust の JSON 応答と合わせて管理します。null の扱いや16進文字列のアドレスも契約に含まれます。これらはコンパイル時の型で、実行時の入力検証ではありません。TypeScript と Three.js の型定義はビルド専用の npm 依存です。
 
-[API Documentation](https://akawashiro.github.io/procinsh/) に Rust 側のドキュメントがあります。
+[API Documentation](https://akawashiro.github.io/procinsh/) から Rust API、[TypeScript API](https://akawashiro.github.io/procinsh/typescript/)、[Rust の依存関係グラフ](https://akawashiro.github.io/procinsh/architecture/) を参照できます。
 各 module root の `//!` は責務と、そのモジュールの外から使う入口を説明します。crate 外部への公開に限らず、親・兄弟モジュール向けの I/F も対象です。
 `//! # Interface` には通常ビルドでその root が公開・再公開する型・関数の一覧、型、可視性、関数シグネチャ、定義リンクを記載し、入口の変更時に更新します。シグネチャに登場する補助型は必要な定義リンクで案内します。
 子モジュール内部の関数、フィールド、列挙値、テスト専用項目は網羅的に転記しません。公開型のメソッドの詳細、JSON の表現やフォールバックなどの契約、所有権・ロック・処理順序の注意点は定義側に記載し、変更履歴ではなく現在の振る舞いを説明します。
@@ -321,7 +321,7 @@ TypeScript のビルド設定は [tsconfig.json](../tsconfig.json)、実行コ�
 
 ### プロセス詳細 `/process/{pid}`
 
-[process/app.ts](../src/web/process/app.ts) がデータ・表示・選択を接続し、ページの起動・停止と識別子付き URL の保持を担当します。SSE の接続は [`ProcessDataStore.connect`](../src/web/process/data.ts#L156)、受信状態の反映は [`ProcessDataStore.acceptTarget`](../src/web/process/data.ts#L198) → [`renderTarget`](../src/web/process/renderer.ts#L22) が担当します。追加パネルの取得は [`ProcessDataStore.loadDetails`](../src/web/process/data.ts#L118)、履歴グラフは [`drawHistory`](../src/web/process/history.ts#L10)、選択スレッドのサンプル表示は [`renderLiveSample`](../src/web/process/samples.ts#L43) を参照してください。
+[process/app.ts](../src/web/process/app.ts) がデータ・表示・選択を接続し、ページの起動・停止と識別子付き URL の保持を担当します。SSE の接続は [`ProcessDataStore.connect`](../src/web/process/data.ts#L158)、受信状態の反映は [`ProcessDataStore.acceptTarget`](../src/web/process/data.ts#L200) → [`renderTarget`](../src/web/process/renderer.ts#L22) が担当します。追加パネルの取得は [`ProcessDataStore.loadDetails`](../src/web/process/data.ts#L120)、履歴グラフは [`drawHistory`](../src/web/process/history.ts#L10)、選択スレッドのサンプル表示は [`renderLiveSample`](../src/web/process/samples.ts#L43) を参照してください。
 
 `ProcessDataStore` は DOM に依存せず、PID・開始時刻・接続の世代・追加 GET の世代を照合して観測状態を保持します。検索は取得済みの値を絞り込み、`ThreadSelection` は選択スレッドを保持します。状態の通知を受けて各表示部品を更新し、履歴グラフには履歴データと Canvas を渡します。
 
@@ -359,35 +359,35 @@ SPACE はシステム全体のプロセス、仮想アドレス空間、親子�
 
 #### データの受信と構造の更新
 
-表示開始・再表示時に `app.ts` が [`SpaceDataStore.start`](../src/web/space/data.ts#L720) を呼び、`GET /api/system/events` に EventSource で接続します。初期構造も SSE から取得し、接続中だけバックエンドの閲覧者として登録されます。イベントの型は [api-types.ts の `SystemSnapshotUpdate`](../src/web/shared/api-types.ts#L319)・[`SpaceActivity`](../src/web/shared/api-types.ts#L352)、配信内容は [HTTP API の説明](#get-apisystemevents)を参照してください。
+表示開始・再表示時に `app.ts` が [`SpaceDataStore.start`](../src/web/space/data.ts#L721) を呼び、`GET /api/system/events` に EventSource で接続します。初期構造も SSE から取得し、接続中だけバックエンドの閲覧者として登録されます。イベントの型は [api-types.ts の `SystemSnapshotUpdate`](../src/web/shared/api-types.ts#L319)・[`SpaceActivity`](../src/web/shared/api-types.ts#L352)、配信内容は [HTTP API の説明](#get-apisystemevents)を参照してください。
 
 | イベント | 反映する内容 | 主な実装 |
 |---|---|---|
-| `snapshot` | `full` は構造を置き換え、`delta` は保持済みの構造へマージ。差分の `base_sequence` と保持済みの `sequence` を照合し、maps と FD 関係の差分を適用。省略された maps は同じプロセス識別子の前回値を保持 | [`mergeSnapshot`](../src/web/space/data.ts#L483) → [`SpaceDataStore.replaceSnapshot`](../src/web/space/data.ts#L592) → [`buildScene`](../src/web/space/scene.ts#L124) |
-| `activity` | CPU の発光、IPC・ネットワークの粒子、最近のファイル I/O の表示を更新 | [`SpaceDataStore.ingestActivity`](../src/web/space/data.ts#L653) → [`activity`](../src/web/space/renderer.ts#L292) |
-| `gap` | 描画中の粒子をクリアし、続く `full` snapshot を反映 | [`SpaceDataStore.connect` のイベントハンドラ](../src/web/space/data.ts#L724) |
+| `snapshot` | `full` は構造を置き換え、`delta` は保持済みの構造へマージ。差分の `base_sequence` と保持済みの `sequence` を照合し、maps と FD 関係の差分を適用。省略された maps は同じプロセス識別子の前回値を保持 | [`mergeSnapshot`](../src/web/space/data.ts#L484) → [`SpaceDataStore.replaceSnapshot`](../src/web/space/data.ts#L593) → [`buildScene`](../src/web/space/scene.ts#L124) |
+| `activity` | CPU の発光、IPC・ネットワークの粒子、最近のファイル I/O の表示を更新 | [`SpaceDataStore.ingestActivity`](../src/web/space/data.ts#L654) → [`activity`](../src/web/space/renderer.ts#L292) |
+| `gap` | 描画中の粒子をクリアし、続く `full` snapshot を反映 | [`SpaceDataStore.connect` のイベントハンドラ](../src/web/space/data.ts#L725) |
 
 #### プロセス・接続先・ファイルの配置
 
-[`SpaceDataStore.replaceSnapshot`](../src/web/space/data.ts#L592) が受信構造から配置済みの状態を作り、[`buildScene`](../src/web/space/scene.ts#L124) がプロセスの箱・メモリ領域・親子線・接続線を構築します。構造更新では既存のプロセスと接続先の位置を維持しながら、追加・削除を反映します。
+[`SpaceDataStore.replaceSnapshot`](../src/web/space/data.ts#L593) が受信構造から配置済みの状態を作り、[`buildScene`](../src/web/space/scene.ts#L124) がプロセスの箱・メモリ領域・親子線・接続線を構築します。構造更新では既存のプロセスと接続先の位置を維持しながら、追加・削除を反映します。
 
 | 対象 | 配置・表示の考え方 | 主な実装 |
 |---|---|---|
-| プロセスと親子関係 | 親子関係に沿って平面に配置。通常の更新は既存位置を保ち、新規プロセスを空き領域へ配置。Rearrange は全体を再配置 | [`treeLayout`](../src/web/space/data.ts#L178)、[`stableLayout`](../src/web/space/data.ts#L295) |
-| 仮想アドレス空間 | アドレス順にメモリ領域を積み上げ、アドレスの隙間を圧縮し、高さをプロセスごとに正規化。プロセス間の同じ高さは同じアドレスを意味しない | [`layoutMaps`](../src/web/space/data.ts#L144)、[`regionColor`](../src/web/space/scene.ts#L106) |
-| ユーザーの識別 | 箱の上下の枠は実 UID、縦の枠は実効 UID に応じて色分け | [`userColor`・`processColors`](../src/web/space/data.ts#L368) |
-| IPC・ネットワーク接続 | FD 関係を線で表示。接続候補・共有 FD は破線。ネットワーク接続先はプロセス・プロトコル・相手 IP/port ごとにまとめ、プロセスの上方に配置 | [`buildScene`](../src/web/space/scene.ts#L124)、[`networkGroups`](../src/web/space/data.ts#L65)、[`networkLayout`](../src/web/space/data.ts#L94) |
-| 最近アクセスしたファイル | プロセスの下方にファイルのマーカーと接続線を配置。構造とは別のグループで更新 | [`fileLayout`](../src/web/space/data.ts#L460)、[`refreshFileScene`](../src/web/space/scene.ts#L425) |
+| プロセスと親子関係 | 親子関係に沿って平面に配置。通常の更新は既存位置を保ち、新規プロセスを空き領域へ配置。Rearrange は全体を再配置 | [`treeLayout`](../src/web/space/data.ts#L179)、[`stableLayout`](../src/web/space/data.ts#L296) |
+| 仮想アドレス空間 | アドレス順にメモリ領域を積み上げ、アドレスの隙間を圧縮し、高さをプロセスごとに正規化。プロセス間の同じ高さは同じアドレスを意味しない | [`layoutMaps`](../src/web/space/data.ts#L145)、[`regionColor`](../src/web/space/scene.ts#L106) |
+| ユーザーの識別 | 箱の上下の枠は実 UID、縦の枠は実効 UID に応じて色分け | [`userColor`・`processColors`](../src/web/space/data.ts#L369) |
+| IPC・ネットワーク接続 | FD 関係を線で表示。接続候補・共有 FD は破線。ネットワーク接続先はプロセス・プロトコル・相手 IP/port ごとにまとめ、プロセスの上方に配置 | [`buildScene`](../src/web/space/scene.ts#L124)、[`networkGroups`](../src/web/space/data.ts#L66)、[`networkLayout`](../src/web/space/data.ts#L95) |
+| 最近アクセスしたファイル | プロセスの下方にファイルのマーカーと接続線を配置。構造とは別のグループで更新 | [`fileLayout`](../src/web/space/data.ts#L461)、[`refreshFileScene`](../src/web/space/scene.ts#L425) |
 
 #### 活動の表示と描画ループ
 
-[`SpaceDataStore.ingestActivity`](../src/web/space/data.ts#L653) が活動データと描画経路を更新し、[`animate`](../src/web/space/renderer.ts#L336) が `requestAnimationFrame` ごとに粒子と CPU の発光を更新します。タブ非表示中は描画ループを停止します。
+[`SpaceDataStore.ingestActivity`](../src/web/space/data.ts#L654) が活動データと描画経路を更新し、[`animate`](../src/web/space/renderer.ts#L336) が `requestAnimationFrame` ごとに粒子と CPU の発光を更新します。タブ非表示中は描画ループを停止します。
 
 | 表示 | 振る舞い | 主な実装 |
 |---|---|---|
 | CPU の発光 | 実行中に強まり、活動が途絶えると約500msで減衰 | [`cpuGlowLevel`](../src/web/space/renderer.ts#L64) |
-| IPC・ネットワークの粒子 | 読み書きの向きと操作回数に応じて粒子を生成。接続先を一つに特定できない場合は操作元のポートだけを発光。`prefers-reduced-motion` に応じて粒子の表示時間と数を減らす | [`edgeDirection`](../src/web/space/data.ts#L163)、[`ipcParticlePlan`](../src/web/space/renderer.ts#L45)、[`SpaceDataStore.ingestActivity`](../src/web/space/data.ts#L653) |
-| ファイル I/O | 読み書きの粒子と、保持中のファイルのバイト数・操作回数を表示。最終アクセスから30秒、各プロセス32個・全体512個まで保持し、終了したプロセスのファイルは削除 | [`RecentFiles`](../src/web/space/data.ts#L397)、[`fileDetails`](../src/web/space/details.ts#L70) |
+| IPC・ネットワークの粒子 | 読み書きの向きと操作回数に応じて粒子を生成。接続先を一つに特定できない場合は操作元のポートだけを発光。`prefers-reduced-motion` に応じて粒子の表示時間と数を減らす | [`edgeDirection`](../src/web/space/data.ts#L164)、[`ipcParticlePlan`](../src/web/space/renderer.ts#L45)、[`SpaceDataStore.ingestActivity`](../src/web/space/data.ts#L654) |
+| ファイル I/O | 読み書きの粒子と、保持中のファイルのバイト数・操作回数を表示。最終アクセスから30秒、各プロセス32個・全体512個まで保持し、終了したプロセスのファイルは削除 | [`RecentFiles`](../src/web/space/data.ts#L398)、[`fileDetails`](../src/web/space/details.ts#L70) |
 | プロセス名・接続先ラベル | 3D 座標を画面座標へ投影し、WebGL とは別の Canvas 2D に描画 | [`drawLabels`](../src/web/space/renderer.ts#L191) |
 
 描画解像度は [`AdaptiveRenderScale`](../src/web/space/renderer.ts#L9) が約1秒ごとの FPS で調整します。24 FPS 未満が3回続いた場合は pixel ratio を10%下げ、45 FPS 以上が5回続いた場合は元の解像度に向けて回復します。上限は初期の device pixel ratio（最大1.5）、下限は0.5（初期値が0.5未満ならその値）です。FPS と解像度の割合はヘッダーに表示します。
@@ -402,11 +402,11 @@ SPACE はシステム全体のプロセス、仮想アドレス空間、親子�
 | クリック・ホバー | プロセス、接続線、ネットワーク接続先、ファイルを選択・説明表示。プロセスのダブルクリックでカメラを寄せる | [`hit`・`edgeHit`](../src/web/space/selection.ts#L81)、[pointer イベント](../src/web/space/selection.ts#L62)、[`details`](../src/web/space/details.ts#L136) |
 | ドラッグ・右ドラッグ・スクロール | カメラの回転・平行移動・ズーム | [OrbitControls の設定](../src/web/space/camera.ts#L5) |
 | Fit all | 検索と選択を解除し、全体が見えるようにカメラを調整 | [`fit`](../src/web/space/camera.ts#L58)、[ボタンイベント](../src/web/space/app.ts#L138) |
-| Rearrange | 粒子をクリアし、プロセス・ネットワーク接続先・ファイルを再配置して全体を表示 | [`SpaceDataStore.replaceSnapshot`](../src/web/space/data.ts#L592)、[ボタンイベント](../src/web/space/app.ts#L132) |
+| Rearrange | 粒子をクリアし、プロセス・ネットワーク接続先・ファイルを再配置して全体を表示 | [`SpaceDataStore.replaceSnapshot`](../src/web/space/data.ts#L593)、[ボタンイベント](../src/web/space/app.ts#L132) |
 
 #### 接続とページのライフサイクル
 
-接続開始は [`SpaceDataStore.start`](../src/web/space/data.ts#L720)、接続停止は [`SpaceDataStore.stop`](../src/web/space/data.ts#L768)、ページの表示状態から接続と描画を起動・停止するイベントは [`visibilitychange`・`pagehide`・`pageshow` のハンドラ](../src/web/space/app.ts#L158) を参照してください。
+接続開始は [`SpaceDataStore.start`](../src/web/space/data.ts#L721)、接続停止は [`SpaceDataStore.stop`](../src/web/space/data.ts#L769)、ページの表示状態から接続と描画を起動・停止するイベントは [`visibilitychange`・`pagehide`・`pageshow` のハンドラ](../src/web/space/app.ts#L158) を参照してください。
 
 - タブ非表示・`pagehide` では SSE と再接続タイマーを止め、粒子・CPU の発光・ファイル表示をクリアします。タブの再表示やページキャッシュからの復帰時は接続し直します。
 - 接続エラーでは現在の EventSource を閉じ、エラーを表示して、表示中に限り3秒後に新しい接続を作ります。接続成功時にエラー表示を消し、古い接続からのイベントは無視します。
@@ -496,7 +496,9 @@ CLANG_FORMAT="$PWD/.venv-format/bin/clang-format" python3 scripts/format_c.py --
 
 CI は Rust・C・TypeScript のフォーマット確認、TypeScript の型チェックとビルド、Rust の全ターゲットのビルド、Clippy、rustdoc のリンク検証、Rust テスト、ログ検証、一覧・詳細のデータと履歴グラフ、SPACE モデルとデータの検証を実行します。ブラウザと実機センサーのテストは別途実行します。
 
-`Publish rustdoc` workflow は `main` への push と手動実行時だけ動き、rustdoc とモジュール依存関係グラフを生成して GitHub Pages に公開します。PR では通常の `CI` workflow で rustdoc のリンクを検証し、`cargo-modules` のインストールやグラフ生成は行いません。
+[Publish API documentation](../.github/workflows/docs.yml) workflow は `main` への push と手動実行時に、rustdoc・TypeDoc・Rust のモジュール依存関係グラフを生成し、`target/doc/` を単一の GitHub Pages artifact として公開します。Rust は既存の `/procinsh/`、TypeScript は `/typescript/`、依存関係グラフは `/architecture/` に配置し、トップページから各ドキュメントへリンクします。PR の `CI` workflow は rustdoc のリンクと TypeDoc の生成を検証し、`cargo-modules` のインストールやグラフ生成は行いません。
+
+TypeScript のドキュメントは [typedoc.json](../typedoc.json) で `src/web/` を entry point として再帰的に展開します。vendor と外部ライブラリのドキュメントを除き、一覧・詳細・SPACE・共有モジュールの export された型・関数を対象にします。ローカルでは `npm ci` 後に `npm run docs:web` を実行すると、`target/doc/typescript/index.html` から参照できます。
 
 `cargo build --locked --all-targets` と `cargo test --locked` は Ubuntu 24.04・Ubuntu 26.04・Fedora 44 のコンテナで実行します。matrix は `fail-fast: false` とし、各ディストリビューションの結果を個別に表示します。各コンテナで Node.js 22 と npm をインストールし、`npm ci`、`npm run build:web`（TypeScript 型チェックを含む）から実行します。フォーマット、Clippy、listen policy、SPACE モデルと明示的な bpftool・カーネル BTF 検査は単一環境に残します。各コンテナは Ubuntu 24.04 runner のカーネルと BTF を使うため、この matrix はディストリビューションのユーザー空間の差を検証します。各ディストリビューション固有のカーネルでの BPF センサー動作は検証しません。
 

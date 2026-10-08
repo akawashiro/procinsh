@@ -1,0 +1,20 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "name": "ProcInSh TypeScript API",
+  "entryPoints": [
+    "src/web"
+  ],
+  "entryPointStrategy": "expand",
+  "exclude": [
+    "src/web/vendor/**"
+  ],
+  "excludeExternals": true,
+  "tsconfig": "tsconfig.json",
+  "out": "target/doc/typescript",
+  "readme": "none",
+  "navigationLinks": {
+    "All API documentation": "https://akawashiro.github.io/procinsh/",
+    "Rust architecture": "https://akawashiro.github.io/procinsh/architecture/"
+  },
+  "treatWarningsAsErrors": true
+}

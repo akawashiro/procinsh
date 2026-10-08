@@ -11,11 +11,13 @@ import type {
 
 export type DetailKind = keyof DetailData;
 export const detailKinds = ["environment", "auxv", "fds"] as const;
+/** @inline */
 interface DetailView<D> {
   data: D | null;
   busy: boolean;
   error: string | null;
 }
+/** @inline */
 type DetailViews = { [K in DetailKind]: DetailView<DetailData[K]> };
 export interface ProcessDataEvents {
   identity(id: ProcessId): void;

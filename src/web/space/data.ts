@@ -27,6 +27,7 @@ export interface TreePosition {
   depth: number;
   parent: string | null;
 }
+/** @inline */
 interface TreeNode {
   identity: ProcessId;
   parent_id?: ProcessId | null;
