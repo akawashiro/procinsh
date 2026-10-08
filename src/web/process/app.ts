@@ -1,8 +1,23 @@
 import { api, errorMessage } from "../shared/api.js";
-import { Display, num, percent, bytes, rate, byteRate } from "../shared/display.js";
+import {
+  Display,
+  num,
+  percent,
+  bytes,
+  rate,
+  byteRate,
+} from "../shared/display.js";
 import { node, cell, button } from "../shared/dom.js";
 import { same, query, processUrl } from "../shared/navigation.js";
-import type { ProcessId, ProcessSummary, Target, ThreadSample, DetailData, FileDescriptors, DescriptorEndpoint } from "../shared/api-types.js";
+import type {
+  ProcessId,
+  ProcessSummary,
+  Target,
+  ThreadSample,
+  DetailData,
+  FileDescriptors,
+  DescriptorEndpoint,
+} from "../shared/api-types.js";
 import type { ProcessElements } from "./dom-types.js";
 
 type DetailKind = keyof DetailData;
@@ -72,7 +87,9 @@ async function loadProcessDetails<K extends DetailKind>(kind: K) {
   $(`${kind}-error`).hidden = true;
   $(`${kind}-info`).textContent = "Reading…";
   try {
-    const data = await api<DetailData[K]>(`/api/processes/${kind}?${query(id)}`);
+    const data = await api<DetailData[K]>(
+      `/api/processes/${kind}?${query(id)}`,
+    );
     if (
       epoch !== detailEpoch ||
       !same(id, identity()) ||
@@ -98,7 +115,9 @@ function renderProcessDetails(kind: DetailKind) {
     $(`${kind}-info`).textContent = "Not captured";
     return;
   }
-  const time = new Date(data.captured_at).toLocaleTimeString("en-GB", { hour12: false });
+  const time = new Date(data.captured_at).toLocaleTimeString("en-GB", {
+    hour12: false,
+  });
   if ("warnings" in data) {
     renderDescriptors(data, time);
     return;
@@ -166,24 +185,38 @@ function renderDescriptors(data: FileDescriptors, time: string) {
       const row = node("tr");
       row.dataset.fd = String(e.fd);
       cell(row, e.fd, "mono");
-      cell(row, `${Display.protocol(e.protocol) || e.kind}\n${Display.access(e.access)}`, "mono");
+      cell(
+        row,
+        `${Display.protocol(e.protocol) || e.kind}\n${Display.access(e.access)}`,
+        "mono",
+      );
       const resource = cell(row, e.target, "mono muted");
       if (e.state) resource.append(node("div", Display.state(e.state)));
       if (e.path) resource.append(node("div", `Path: ${e.path}`));
-      if (e.local) resource.append(node("div", `Local: ${Display.address(e.local)}`));
-      if (e.remote) resource.append(node("div", `Remote: ${Display.address(e.remote)}`));
+      if (e.local)
+        resource.append(node("div", `Local: ${Display.address(e.local)}`));
+      if (e.remote)
+        resource.append(node("div", `Remote: ${Display.address(e.remote)}`));
       if (e.peer_inode)
         resource.append(node("div", `Peer inode: ${e.peer_inode}`));
       const peers = cell(row);
       const endpoint = (p: DescriptorEndpoint, group: string) => {
         const div = node("div", null, "fd-endpoint");
         div.dataset.relation = group;
-        const link = node("a", `PID ${p.process_id.pid} · ${p.name}`, "pointer");
+        const link = node(
+          "a",
+          `PID ${p.process_id.pid} · ${p.name}`,
+          "pointer",
+        );
         link.href = processUrl(p.process_id);
         link.dataset.pid = String(p.process_id.pid);
         div.append(
           link,
-          node("div", `FD ${p.fd} · ${Display.access(p.access)} · ${p.relation}`, "muted"),
+          node(
+            "div",
+            `FD ${p.fd} · ${Display.access(p.access)} · ${p.relation}`,
+            "muted",
+          ),
         );
         return div;
       };
@@ -265,7 +298,11 @@ function connect(id: ProcessId) {
     if (targetSource !== events || generation !== targetGeneration) return;
     disconnected = true;
     $("loading").hidden = true;
-    error(new Error("Process observation disconnected. Retrying the same process identity…"));
+    error(
+      new Error(
+        "Process observation disconnected. Retrying the same process identity…",
+      ),
+    );
   };
 }
 function resetSamples() {
@@ -274,9 +311,7 @@ function resetSamples() {
   selectedTid = null;
   mapsTimestamp = null;
   $("registers").replaceChildren();
-  $("call-stack").replaceChildren(
-    node("p", "Waiting for sample", "muted"),
-  );
+  $("call-stack").replaceChildren(node("p", "Waiting for sample", "muted"));
   $("disassembly").replaceChildren();
   $("disasm-error").hidden = true;
   $("disasm-time").textContent = "Live best-effort · x86-64 / Intel";
@@ -375,9 +410,14 @@ function renderTarget() {
       cell(row, percent(t.cpu_percent));
       cell(row, t.cpu);
       cell(row, t.state);
-      const live = liveSamples.find(sample => sample.tid === t.tid);
+      const live = liveSamples.find((sample) => sample.tid === t.tid);
       const age = sampleAge(live);
-      cell(row, live?.error || (age == null ? "Waiting for sample" : `${(age / 1000).toFixed(1)}s`), "muted");
+      cell(
+        row,
+        live?.error ||
+          (age == null ? "Waiting for sample" : `${(age / 1000).toFixed(1)}s`),
+        "muted",
+      );
       return row;
     }),
   );
@@ -394,10 +434,7 @@ function renderTarget() {
       ...target.maps.map((m) => {
         const row = node("tr");
         const start = cell(row, null, "mono");
-        start.append(
-          node("span", m.start),
-          node("div", m.end, "muted"),
-        );
+        start.append(node("span", m.start), node("div", m.end, "muted"));
         cell(row, Display.permissions(m), "mono");
         cell(row, bytes(m.rss_bytes));
         cell(row, bytes(m.pss_bytes));
@@ -410,7 +447,10 @@ function renderTarget() {
   drawHistory();
 }
 function historyMemoryLimit(peak: number): number {
-  return [1024, 1024 ** 2, 1024 ** 3, 1024 ** 4].find(limit => peak <= limit) ?? 1024 ** 4;
+  return (
+    [1024, 1024 ** 2, 1024 ** 3, 1024 ** 4].find((limit) => peak <= limit) ??
+    1024 ** 4
+  );
 }
 function drawHistory() {
   const canvas = $("history"),
@@ -424,9 +464,13 @@ function drawHistory() {
   ctx.scale(scale, scale);
   const points = target.history,
     end = points.at(-1)!.timestamp,
-    rssMax = historyMemoryLimit(Math.max(...points.map(p => p.rss_bytes))),
-    left = 48, right = width - 76, top = 24, bottom = 148,
-    plotWidth = right - left, plotHeight = bottom - top;
+    rssMax = historyMemoryLimit(Math.max(...points.map((p) => p.rss_bytes))),
+    left = 48,
+    right = width - 76,
+    top = 24,
+    bottom = 148,
+    plotWidth = right - left,
+    plotHeight = bottom - top;
   ctx.font = "11px system-ui";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#66dfc5";
@@ -437,7 +481,8 @@ function drawHistory() {
   ctx.fillText("RSS", right + 8, 9);
   ctx.lineWidth = 1;
   for (let i = 0; i <= 4; i++) {
-    const fraction = i / 4, y = bottom - fraction * plotHeight;
+    const fraction = i / 4,
+      y = bottom - fraction * plotHeight;
     ctx.strokeStyle = "#263246";
     ctx.beginPath();
     ctx.moveTo(left, y);
@@ -489,7 +534,9 @@ function drawHistory() {
 }
 
 function sampleAge(thread: ThreadSample | undefined): number | null {
-  return thread?.sample_age_ms == null ? null : thread.sample_age_ms + Math.max(0, performance.now() - samplesReceivedAt);
+  return thread?.sample_age_ms == null
+    ? null
+    : thread.sample_age_ms + Math.max(0, performance.now() - samplesReceivedAt);
 }
 function renderDisassembly(thread: ThreadSample | undefined) {
   $("disassembly").replaceChildren();
@@ -522,16 +569,15 @@ function renderDisassembly(thread: ThreadSample | undefined) {
 }
 function renderLiveSample() {
   if (!target) return;
-  $("disasm-time").textContent = `TID ${selectedTid} · Live best-effort · x86-64 / Intel`;
+  $("disasm-time").textContent =
+    `TID ${selectedTid} · Live best-effort · x86-64 / Intel`;
   const thread = liveSamples.find((t) => t.tid === selectedTid);
   renderDisassembly(thread);
   $("registers").replaceChildren();
   $("call-stack").replaceChildren();
   $("stack-tid").textContent = `TID ${selectedTid} · Frame pointer`;
   if (!thread) {
-    $("call-stack").append(
-      node("p", "Waiting for sample", "muted"),
-    );
+    $("call-stack").append(node("p", "Waiting for sample", "muted"));
     return;
   }
   for (const r of thread.registers) {
@@ -540,7 +586,9 @@ function renderLiveSample() {
     cell(row, r.value, "mono");
     cell(
       row,
-      r.mapping ? `→ ${Display.mapping(r.mapping)} +${r.offset} (${r.kind.replaceAll("_", " ")})` : `→ ${r.decimal}`,
+      r.mapping
+        ? `→ ${Display.mapping(r.mapping)} +${r.offset} (${r.kind.replaceAll("_", " ")})`
+        : `→ ${r.decimal}`,
       "muted",
     );
     $("registers").append(row);
@@ -599,15 +647,24 @@ async function start() {
   try {
     const match = /^\/process\/(\d+)$/.exec(location.pathname);
     const pid = Number(match?.[1]);
-    if (!Number.isSafeInteger(pid) || pid <= 0) throw new Error("Invalid process PID");
-    const ticks = new URLSearchParams(location.search).getAll("start_time_ticks");
-    if (ticks.length > 1 || (ticks.length &&
-        (!/^\d+$/.test(ticks[0]) || !Number.isSafeInteger(Number(ticks[0])))))
+    if (!Number.isSafeInteger(pid) || pid <= 0)
+      throw new Error("Invalid process PID");
+    const ticks = new URLSearchParams(location.search).getAll(
+      "start_time_ticks",
+    );
+    if (
+      ticks.length > 1 ||
+      (ticks.length &&
+        (!/^\d+$/.test(ticks[0]) || !Number.isSafeInteger(Number(ticks[0]))))
+    )
       throw new Error("Invalid process start time");
     const all = await api<ProcessSummary[]>("/api/processes");
     if (!active || generation !== startupGeneration) return;
     const process = all.find((p) => p.identity.pid === pid);
-    if (!process || (ticks.length && process.identity.start_time_ticks !== Number(ticks[0])))
+    if (
+      !process ||
+      (ticks.length && process.identity.start_time_ticks !== Number(ticks[0]))
+    )
       throw new Error("Process exited or PID was reused");
     requestedId = process.identity;
     history.replaceState(null, "", processUrl(requestedId));

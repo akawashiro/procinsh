@@ -621,7 +621,8 @@ function buildScene() {
     [...network.values()].flatMap((g) => g.members.map((e) => e.id)),
   );
   const visibleGroups = [...network.values()].filter(
-    (g) => visible.has(key(g.endpoint.process_id)) && networkPositions.has(g.id),
+    (g) =>
+      visible.has(key(g.endpoint.process_id)) && networkPositions.has(g.id),
   );
   const markers = new T.InstancedMesh(
     new T.OctahedronGeometry(0.75),
@@ -770,9 +771,10 @@ function networkDetails() {
     : "Recent traffic —";
   const content = document.createDocumentFragment(),
     heading = document.createElement("p");
-  const remoteAddress = group.socket.remote_hostname && group.socket.remote
-    ? ` (${Display.address(group.socket.remote)})`
-    : "";
+  const remoteAddress =
+    group.socket.remote_hostname && group.socket.remote
+      ? ` (${Display.address(group.socket.remote)})`
+      : "";
   heading.textContent = `${nodes.get(key(group.endpoint.process_id))?.name || ""} · PID ${group.endpoint.process_id.pid} → ${remoteLabel(group.socket)}${remoteAddress} · ${group.members.length} connections`;
   content.append(heading);
   for (const e of group.members) {

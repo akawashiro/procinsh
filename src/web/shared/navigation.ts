@@ -2,7 +2,9 @@ import type { ProcessId } from "./api-types.js";
 
 /** Link to the observed identity so navigation cannot select a reused PID. */
 export function processUrl(id: ProcessId): string {
-  const params = new URLSearchParams({ start_time_ticks: String(id.start_time_ticks) });
+  const params = new URLSearchParams({
+    start_time_ticks: String(id.start_time_ticks),
+  });
   return `/process/${id.pid}?${params}`;
 }
 

@@ -7,11 +7,14 @@
   },
   "scripts": {
     "build:web": "tsc -p tsconfig.json",
+    "format:web": "prettier --write \"src/web/**/*.ts\"",
+    "format:web:check": "prettier --check \"src/web/**/*.ts\"",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
     "@types/three": "0.180.0",
     "@webgpu/types": "0.1.74",
+    "prettier": "3.9.9",
     "typescript": "5.9.3"
   }
 }

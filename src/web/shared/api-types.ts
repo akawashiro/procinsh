@@ -1,22 +1,88 @@
-export type SensorState = {state:"idle" | "starting" | "observing"} | {state:"unavailable" | "error";message:string};
+export type SensorState =
+  | { state: "idle" | "starting" | "observing" }
+  | { state: "unavailable" | "error"; message: string };
 export interface SystemMonitorStatus {
-  active:boolean; ipc:SensorState; cpu:SensorState; files:SensorState;
-  coverage?:string; files_coverage?:string; lost?:number; unresolved?:number; files_lost?:number;
+  active: boolean;
+  ipc: SensorState;
+  cpu: SensorState;
+  files: SensorState;
+  coverage?: string;
+  files_coverage?: string;
+  lost?: number;
+  unresolved?: number;
+  files_lost?: number;
 }
-export interface MappingPermissions { readable: boolean; writable: boolean; executable: boolean; private: boolean }
-export interface RegisterMapping extends MappingPermissions { pathname: string | null }
-export type MemoryKind = "integer" | "stack" | "heap" | "shared_library" | "executable" | "file" | "anonymous";
-export interface CpuRange { start: number; end: number }
-export type SchedulerPolicy = {kind:"other" | "fifo" | "rr" | "batch" | "idle" | "deadline" | "ext"} | {kind:"unknown";code:number};
+export interface MappingPermissions {
+  readable: boolean;
+  writable: boolean;
+  executable: boolean;
+  private: boolean;
+}
+export interface RegisterMapping extends MappingPermissions {
+  pathname: string | null;
+}
+export type MemoryKind =
+  | "integer"
+  | "stack"
+  | "heap"
+  | "shared_library"
+  | "executable"
+  | "file"
+  | "anonymous";
+export interface CpuRange {
+  start: number;
+  end: number;
+}
+export type SchedulerPolicy =
+  | { kind: "other" | "fifo" | "rr" | "batch" | "idle" | "deadline" | "ext" }
+  | { kind: "unknown"; code: number };
 export type FdAccess = "read" | "write" | "read_write" | "unknown";
 export type FdKind = "pipe" | "socket" | "fifo";
-export interface InetAddress { ip: string; port: number }
-export type SocketType = {kind: "stream" | "dgram" | "seqpacket"} | {kind:"unknown";code:number};
-export type SocketProtocol = {kind:"tcp" | "udp";family:"ipv4" | "ipv6"} | {kind:"unix";socket_type:SocketType};
-export type SocketState = {kind:"established" | "syn_sent" | "syn_recv" | "fin_wait1" | "fin_wait2" | "time_wait" | "close" | "close_wait" | "last_ack" | "listen" | "closing" | "new_syn_recv" | "unconnected" | "connecting" | "connected" | "disconnecting"} | {kind:"unknown_inet" | "unknown_unix";code:number};
-export interface DeviceId { major: number; minor: number }
-export interface FileIdentity { device: DeviceId; inode: string; generation: number }
-export interface IpcIdentity { kind: "pipe" | "socket"; device: DeviceId; inode: string }
+export interface InetAddress {
+  ip: string;
+  port: number;
+}
+export type SocketType =
+  | { kind: "stream" | "dgram" | "seqpacket" }
+  | { kind: "unknown"; code: number };
+export type SocketProtocol =
+  | { kind: "tcp" | "udp"; family: "ipv4" | "ipv6" }
+  | { kind: "unix"; socket_type: SocketType };
+export type SocketState =
+  | {
+      kind:
+        | "established"
+        | "syn_sent"
+        | "syn_recv"
+        | "fin_wait1"
+        | "fin_wait2"
+        | "time_wait"
+        | "close"
+        | "close_wait"
+        | "last_ack"
+        | "listen"
+        | "closing"
+        | "new_syn_recv"
+        | "unconnected"
+        | "connecting"
+        | "connected"
+        | "disconnecting";
+    }
+  | { kind: "unknown_inet" | "unknown_unix"; code: number };
+export interface DeviceId {
+  major: number;
+  minor: number;
+}
+export interface FileIdentity {
+  device: DeviceId;
+  inode: string;
+  generation: number;
+}
+export interface IpcIdentity {
+  kind: "pipe" | "socket";
+  device: DeviceId;
+  inode: string;
+}
 // JSON contracts consumed by the UI. Keep these aligned with the Rust Serialize
 // structs in process/, state/, snapshot/ and space/. Addresses stay hex strings.
 export interface ProcessId {
@@ -254,7 +320,10 @@ export interface SystemSnapshotUpdate {
   kind: "full" | "delta";
   sequence: number;
   base_sequence?: number;
-  processes: (Omit<Process, "maps"> & { maps?: MemoryMap[]; maps_delta?: EntryDelta<MemoryMap> })[];
+  processes: (Omit<Process, "maps"> & {
+    maps?: MemoryMap[];
+    maps_delta?: EntryDelta<MemoryMap>;
+  })[];
   fd_relations?: FdRelation[];
   fd_relations_delta?: EntryDelta<FdRelation>;
 }
@@ -266,8 +335,12 @@ export interface IoActivity {
   count: number;
 }
 export interface FileActivity {
-  process_id: ProcessId; file: FileIdentity; path: string | null;
-  write: boolean; bytes: number; count: number;
+  process_id: ProcessId;
+  file: FileIdentity;
+  path: string | null;
+  write: boolean;
+  bytes: number;
+  count: number;
 }
 export interface CpuActivity {
   process_id: ProcessId;

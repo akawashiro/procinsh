@@ -89,7 +89,9 @@ export interface RecentFile {
 export type CpuGlow = CpuActivity & { last: number; window_ms: number };
 export type Region = MemoryMap & { z: number; h: number };
 export const remoteLabel = (socket: SocketEndpoint | null | undefined) =>
-  socket?.remote_hostname && socket.remote ? `${socket.remote_hostname}:${socket.remote.port}` : Display.address(socket?.remote);
+  socket?.remote_hostname && socket.remote
+    ? `${socket.remote_hostname}:${socket.remote.port}`
+    : Display.address(socket?.remote);
 export const key = (id: ProcessId) => `${id.pid}:${id.start_time_ticks}`;
 export function networkGroups(fd_relations: FdRelation[]) {
   const groups = new Map<string, NetworkGroup>();
@@ -98,14 +100,23 @@ export function networkGroups(fd_relations: FdRelation[]) {
     const id = JSON.stringify([
       key(e.endpoint.process_id),
       Display.protocol(e.socket.protocol),
-      e.socket.remote?.ip, e.socket.remote?.port,
+      e.socket.remote?.ip,
+      e.socket.remote?.port,
     ]);
     if (!groups.has(id))
-      groups.set(id, { id, endpoint: e.endpoint, socket: e.socket, members: [], label: "" });
+      groups.set(id, {
+        id,
+        endpoint: e.endpoint,
+        socket: e.socket,
+        members: [],
+        label: "",
+      });
     groups.get(id)!.members.push(e);
   }
   for (const group of groups.values()) {
-    group.members.sort((a, b) => a.endpoint.fd - b.endpoint.fd || a.id.localeCompare(b.id));
+    group.members.sort(
+      (a, b) => a.endpoint.fd - b.endpoint.fd || a.id.localeCompare(b.id),
+    );
     group.label = `${Display.protocol(group.socket.protocol)} ${remoteLabel(group.socket)} ×${group.members.length}`;
   }
   return groups;
@@ -439,13 +450,22 @@ export const processColors = (n: {
   euid?: number | null;
 }) => ({ real: userColor(n.uid), effective: userColor(n.euid) });
 
-export const ipcKey = (r: IpcIdentity) => JSON.stringify([r.kind, r.device.major, r.device.minor, r.inode]);
-export const ipcLabel = (r: IpcIdentity) => `${r.kind}:${r.device.major}:${r.device.minor}:${r.inode}`;
-export const fileLabel = (r: FileIdentity) => `file:${r.device.major}:${r.device.minor}:${r.inode}:${r.generation}`;
+export const ipcKey = (r: IpcIdentity) =>
+  JSON.stringify([r.kind, r.device.major, r.device.minor, r.inode]);
+export const ipcLabel = (r: IpcIdentity) =>
+  `${r.kind}:${r.device.major}:${r.device.minor}:${r.inode}`;
+export const fileLabel = (r: FileIdentity) =>
+  `file:${r.device.major}:${r.device.minor}:${r.inode}:${r.generation}`;
 
 // Recent file activity is retained across structural snapshot updates.
 export const fileKey = (event: Pick<FileActivity, "process_id" | "file">) =>
-  JSON.stringify([key(event.process_id), event.file.device.major, event.file.device.minor, event.file.inode, event.file.generation]);
+  JSON.stringify([
+    key(event.process_id),
+    event.file.device.major,
+    event.file.device.minor,
+    event.file.inode,
+    event.file.generation,
+  ]);
 export class RecentFiles {
   entries = new Map<string, RecentFile>();
   evicted = 0;
@@ -515,7 +535,10 @@ export function fileLayout(
   previous: ReadonlyMap<string, Position> = new Map(),
 ) {
   const groups = new Map(
-    [...files].map(([id, f]) => [id, { endpoint: { process_id: f.process_id } }]),
+    [...files].map(([id, f]) => [
+      id,
+      { endpoint: { process_id: f.process_id } },
+    ]),
   );
   const prior = new Map(
     [...previous].map(([id, p]) => [id, { ...p, z: 9 - p.z }]),
@@ -535,8 +558,11 @@ export function mergeSnapshot(
 ): SystemSnapshot {
   if (update.kind !== "full" && update.kind !== "delta")
     throw new Error("Unknown snapshot kind");
-  if (update.kind === "delta" &&
-      (previous.sequence === undefined || update.base_sequence !== previous.sequence))
+  if (
+    update.kind === "delta" &&
+    (previous.sequence === undefined ||
+      update.base_sequence !== previous.sequence)
+  )
     throw new Error("Snapshot baseline mismatch");
   const known = new Map(previous.processes.map((p) => [key(p.identity), p]));
   const relations = new Map(
@@ -550,7 +576,8 @@ export function mergeSnapshot(
     ...update,
     fd_relations: update.fd_relations ?? [...relations.values()],
     processes: update.processes.map((p) => {
-      const old = update.kind === "full" ? undefined : known.get(key(p.identity));
+      const old =
+        update.kind === "full" ? undefined : known.get(key(p.identity));
       let maps = p.maps ?? old?.maps ?? [];
       if (p.maps_delta) {
         if (!old) throw new Error("Missing process maps baseline");
@@ -558,7 +585,8 @@ export function mergeSnapshot(
         for (const address of p.maps_delta.remove) entries.delete(address);
         for (const m of p.maps_delta.upsert) entries.set(m.start, m);
         maps = [...entries.values()].sort((a, b) => {
-          const startA = BigInt(a.start), startB = BigInt(b.start);
+          const startA = BigInt(a.start),
+            startB = BigInt(b.start);
           return startA < startB ? -1 : startA > startB ? 1 : 0;
         });
       }
@@ -568,7 +596,7 @@ export function mergeSnapshot(
         maps,
         maps_epoch:
           p.maps === undefined && p.maps_delta === undefined
-            ? old?.maps_epoch ?? 0
+            ? (old?.maps_epoch ?? 0)
             : p.maps_epoch,
       };
     }),
