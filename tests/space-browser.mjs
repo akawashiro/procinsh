@@ -57,7 +57,7 @@ try {
     window.spaceTestSources=[];
     const NativeEventSource=window.EventSource;
     window.EventSource=class extends NativeEventSource {
-      constructor(...args){super(...args);window.spaceTestSources.push(this);this.addEventListener('snapshot',event=>{try{window.spaceTestSystemSnapshot=JSON.parse(event.data);}catch{}});}
+      constructor(...args){super(...args);this.snapshots=[];window.spaceTestSources.push(this);this.addEventListener('snapshot',event=>{try{const snapshot=JSON.parse(event.data);this.snapshots.push(snapshot);window.spaceTestSystemSnapshot=snapshot;}catch{}});}
     };
   `});
   await cdp('Page.navigate', {url: url+'/space'});
@@ -67,7 +67,7 @@ try {
   // Feed deterministic FPS samples through the live animation loop, then verify
   // that both the WebGL drawing buffer and the render indicator recover.
   const resolutionFrames=await evaluate(`(async()=>{
-    const {AdaptiveRenderScale}=await import('/space/model.js');
+    const {AdaptiveRenderScale}=await import('/space/renderer.js');
     const original=AdaptiveRenderScale.prototype.sample;
     const captures=[];
     let index=0;
@@ -136,7 +136,7 @@ try {
   assert.ok(await evaluate("document.getElementById('failure').hidden"),'reconnection clears error');
   await evaluate("window.mismatchedSource=window.spaceTestSources.at(-1);window.mismatchedSource.dispatchEvent(new MessageEvent('snapshot',{data:JSON.stringify({kind:'delta',sequence:999,base_sequence:-1,processes:[],fd_relations:[]})}))");
   await waitFor("window.spaceTestSources.at(-1)!==window.mismatchedSource && window.spaceTestSources.at(-1).readyState===EventSource.OPEN", 'baseline mismatch reconnect');
-  await waitFor("window.spaceTestSystemSnapshot?.kind==='full' && window.spaceTestSystemSnapshot?.sequence===1", 'baseline mismatch full reset');
+  await waitFor("window.spaceTestSources.at(-1).snapshots[0]?.kind==='full' && window.spaceTestSources.at(-1).snapshots[0]?.sequence===1", 'baseline mismatch full reset');
   await evaluate(`(async()=>{
     window.spaceTestSources.forEach(source=>source.close());
     const m=await import('/space/app.js'), id={pid:424242,start_time_ticks:7}, peerId={pid:434343,start_time_ticks:8};
@@ -197,7 +197,7 @@ try {
   await delay(550);
   assert.ok(await evaluate("import('/space/app.js').then(m=>m.cpuGlowVisual('424242:7').g)")<0.01,'CPU afterglow ends');
   const stableChecks=await evaluate(`(async()=>{
-    const m=await import('/space/app.js'), model=await import('/space/model.js');
+    const m=await import('/space/app.js'), model=await import('/space/data.js');
     const make=(pid,parent=null)=>({identity:{pid,start_time_ticks:1},parent_id:parent&&{pid:parent,start_time_ticks:1},name:'stable-'+pid,uid:1000,maps_epoch:1,maps:[]});
     const root=make(800001),child=make(800002,800001),sibling=make(800003,800001);
     const edge={id:'stable-edge',endpoint:{process_id:root.identity,fd:1,resource:{kind:'pipe',device:{major:0,minor:0},inode:'2176'}},peer:{process_id:child.identity,fd:2,resource:{kind:'pipe',device:{major:0,minor:0},inode:'2176'}},label:'stable pipe',shared:false,candidate:false};

@@ -38,8 +38,36 @@ pub(super) fn router() -> Router<Arc<AppState>> {
         ),
         ("/space/app.js", include_str!("../../dist/web/space/app.js")),
         (
-            "/space/model.js",
-            include_str!("../../dist/web/space/model.js"),
+            "/space/data.js",
+            include_str!("../../dist/web/space/data.js"),
+        ),
+        (
+            "/space/scene.js",
+            include_str!("../../dist/web/space/scene.js"),
+        ),
+        (
+            "/space/renderer.js",
+            include_str!("../../dist/web/space/renderer.js"),
+        ),
+        (
+            "/space/search.js",
+            include_str!("../../dist/web/space/search.js"),
+        ),
+        (
+            "/space/selection.js",
+            include_str!("../../dist/web/space/selection.js"),
+        ),
+        (
+            "/space/camera.js",
+            include_str!("../../dist/web/space/camera.js"),
+        ),
+        (
+            "/space/details.js",
+            include_str!("../../dist/web/space/details.js"),
+        ),
+        (
+            "/space/dom-types.js",
+            include_str!("../../dist/web/space/dom-types.js"),
         ),
         (
             "/shared/api.js",

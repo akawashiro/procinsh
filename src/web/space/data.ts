@@ -1,6 +1,9 @@
+// System SSE, observed state, retained activity, and plain layout coordinates.
 import { Display } from "../shared/display.js";
 import type {
   ProcessId,
+  Process,
+  SpaceActivity,
   SocketEndpoint,
   FdRelation,
   FdEndpoint,
@@ -13,40 +16,6 @@ import type {
   SystemSnapshotUpdate,
   CpuActivity,
 } from "../shared/api-types.js";
-// Each sample covers roughly one second of visible rendering. Separate thresholds
-// and consecutive windows keep transient scene rebuilds from changing resolution.
-export class AdaptiveRenderScale {
-  readonly max: number;
-  readonly min: number;
-  scale: number;
-  private slowWindows = 0;
-  private healthyWindows = 0;
-
-  constructor(devicePixelRatio: number) {
-    this.max = Math.min(devicePixelRatio, 1.5);
-    this.min = Math.min(this.max, 0.5);
-    this.scale = this.max;
-  }
-
-  resetSampling() {
-    this.slowWindows = 0;
-    this.healthyWindows = 0;
-  }
-
-  sample(fps: number): number {
-    this.slowWindows = fps < 24 ? this.slowWindows + 1 : 0;
-    this.healthyWindows = fps >= 45 ? this.healthyWindows + 1 : 0;
-    if (this.slowWindows >= 3) {
-      this.scale = Math.max(this.min, this.scale * 0.9);
-      this.resetSampling();
-    } else if (this.healthyWindows >= 5) {
-      this.scale = Math.min(this.max, this.scale / 0.9);
-      this.resetSampling();
-    }
-    return this.scale;
-  }
-}
-
 export interface Position {
   x: number;
   y: number;
@@ -204,47 +173,6 @@ export function edgeDirection(
     ipcKey(edge.peer.resource) === ipcKey(event.resource);
   if (edge.shared || (!a && !b) || (a && b)) return null;
   return a ? (event.write ? 1 : -1) : event.write ? -1 : 1;
-}
-
-export const IPC_PARTICLE_DURATION_MS = 2000;
-export const IPC_PARTICLE_STAGGER_MS = 100;
-export const REDUCED_MOTION_PARTICLE_DURATION_MS = 150;
-
-export function ipcParticlePlan(operationCount: number, reducedMotion = false) {
-  if (reducedMotion)
-    return { duration: REDUCED_MOTION_PARTICLE_DURATION_MS, offsets: [0] };
-  const count = Number.isFinite(operationCount)
-    ? Math.max(1, operationCount)
-    : 1;
-  const particles = Math.min(
-    6,
-    Math.max(2, 1 + Math.ceil(Math.log2(count + 1))),
-  );
-  return {
-    duration: IPC_PARTICLE_DURATION_MS,
-    offsets: Array.from(
-      { length: particles },
-      (_, index) => index * IPC_PARTICLE_STAGGER_MS,
-    ),
-  };
-}
-
-export function cpuGlowLevel(
-  state:
-    | Pick<CpuGlow, "last" | "window_ms" | "runtime_ns" | "running_threads">
-    | undefined,
-  now: number,
-  afterglowMs = 500,
-) {
-  if (!state || now < state.last || now - state.last >= afterglowMs) return 0;
-  const windowNs = Math.max(1, state.window_ms * 1e6);
-  const utilization = Math.min(1, state.runtime_ns / windowNs);
-  const activity = Math.min(1, 0.2 + Math.sqrt(utilization) * 0.8);
-  const peak =
-    state.running_threads > 0
-      ? Math.min(1, 0.82 + Math.log2(state.running_threads + 1) * 0.12)
-      : activity;
-  return peak * (1 - (now - state.last) / afterglowMs);
 }
 
 export function treeLayout(processes: TreeNode[], xGap = 4.8, yGap = 6.5) {
@@ -601,4 +529,244 @@ export function mergeSnapshot(
       };
     }),
   };
+}
+
+/** A process with layout coordinates, independent of Three.js objects. */
+export interface PlacedProcess extends Process {
+  pos: Position;
+  regions: Region[];
+}
+export interface EdgeStat {
+  bytes: number;
+  count: number;
+  time: number;
+}
+export type ActivityRoute = {
+  kind: "file" | "connection" | "port";
+  id: string;
+  direction?: number | null;
+  count: number;
+};
+export interface ActivityUpdate {
+  now: number;
+  filesChanged: boolean;
+  routes: ActivityRoute[];
+}
+export interface DataEvents {
+  snapshot(): void;
+  activity(update: ActivityUpdate): void;
+  reset(): void;
+  gap(): void;
+  status(message: string | null): void;
+}
+const quietEvents: DataEvents = {
+  snapshot() {},
+  activity() {},
+  reset() {},
+  gap() {},
+  status() {},
+};
+
+/** Owns the system subscription, observations, retained activity, and layout. */
+export class SpaceDataStore {
+  snapshot: SystemSnapshot = { processes: [], fd_relations: [] };
+  readonly nodes = new Map<string, PlacedProcess>();
+  readonly cpuGlows = new Map<string, CpuGlow>();
+  readonly edgeStats = new Map<string, EdgeStat>();
+  readonly recentFiles = new RecentFiles();
+  network = new Map<string, NetworkGroup>();
+  networkPositions = new Map<string, Position>();
+  filePositions = new Map<string, Position>();
+  private source: EventSource | null = null;
+  private retry: ReturnType<typeof setTimeout> | undefined;
+  private running = false;
+
+  constructor(
+    private readonly events: DataEvents = quietEvents,
+    private readonly visibleIds: () => ReadonlySet<string> = () =>
+      new Set(this.nodes.keys()),
+    private readonly openEvents: (url: string) => EventSource = (url) =>
+      new EventSource(url),
+  ) {}
+
+  replaceSnapshot(
+    snapshot: SystemSnapshot,
+    rearrange = false,
+    now = performance.now(),
+  ) {
+    this.snapshot = snapshot;
+    const live = new Set(snapshot.processes.map((p) => key(p.identity)));
+    for (const id of this.nodes.keys())
+      if (!live.has(id)) this.cpuGlows.delete(id);
+    const edges = new Set(snapshot.fd_relations.map((e) => e.id));
+    for (const id of this.edgeStats.keys())
+      if (!edges.has(id)) this.edgeStats.delete(id);
+    const layout = rearrange
+      ? treeLayout(snapshot.processes)
+      : stableLayout(snapshot.processes, this.positions());
+    this.nodes.clear();
+    for (const p of snapshot.processes) {
+      const place = layout.get(key(p.identity));
+      this.nodes.set(key(p.identity), {
+        ...p,
+        pos: { x: place?.x ?? 0, y: place?.y ?? 0, z: 0 },
+        regions: layoutMaps(p.maps),
+      });
+    }
+    this.recentFiles.prune(now, live);
+    this.network = networkGroups(snapshot.fd_relations);
+    this.networkPositions = networkLayout(
+      this.network,
+      this.positions(),
+      rearrange ? new Map() : this.networkPositions,
+    );
+    if (rearrange) this.filePositions.clear();
+    this.layoutFiles();
+  }
+  private positions() {
+    return new Map([...this.nodes].map(([id, n]) => [id, n.pos]));
+  }
+  private layoutFiles() {
+    this.filePositions = fileLayout(
+      this.recentFiles.entries,
+      this.positions(),
+      this.filePositions,
+    );
+  }
+
+  /** Matches the relations included in the scene for the current search. */
+  private visibleRelations(visible: ReadonlySet<string>) {
+    const grouped = new Set(
+      [...this.network.values()].flatMap((g) => g.members.map((e) => e.id)),
+    );
+    return this.snapshot.fd_relations.filter((e) => {
+      if (
+        !visible.has(key(e.endpoint.process_id)) ||
+        !this.nodes.has(key(e.endpoint.process_id))
+      )
+        return false;
+      if (grouped.has(e.id)) return true;
+      const peer = e.peer && key(e.peer.process_id);
+      return !peer || !this.nodes.has(peer) || visible.has(peer);
+    });
+  }
+  ingestActivity(
+    activity: SpaceActivity,
+    visible: ReadonlySet<string> = this.visibleIds(),
+    now = performance.now(),
+  ): ActivityUpdate {
+    const filesChanged = this.recentFiles.ingest(
+      activity.files || [],
+      now,
+      new Set(this.nodes.keys()),
+    );
+    if (filesChanged) this.layoutFiles();
+    const routes: ActivityRoute[] = [];
+    for (const e of activity.files || []) {
+      const id = fileKey(e);
+      if (
+        visible.has(key(e.process_id)) &&
+        this.recentFiles.entries.has(id) &&
+        e.bytes > 0 &&
+        e.count > 0
+      )
+        routes.push({
+          kind: "file",
+          id,
+          direction: e.write ? 1 : -1,
+          count: e.count,
+        });
+    }
+    for (const e of activity.cpu || []) {
+      const id = key(e.process_id);
+      if (this.nodes.has(id))
+        this.cpuGlows.set(id, {
+          ...e,
+          window_ms: activity.window_ms || 100,
+          last: now,
+        });
+    }
+    const relations = this.visibleRelations(visible);
+    for (const e of activity.ipc || []) {
+      const links = relations.filter((r) => edgeDirection(r, e) !== null);
+      const exact = links.filter((r) => !r.candidate);
+      const candidates = exact.length ? exact : links;
+      if (candidates.length !== 1) {
+        if (this.nodes.has(key(e.process_id)))
+          routes.push({ kind: "port", id: key(e.process_id), count: e.count });
+        continue;
+      }
+      const relation = candidates[0],
+        prior = this.edgeStats.get(relation.id);
+      this.edgeStats.set(relation.id, {
+        bytes: e.bytes + (prior?.time === now ? prior.bytes : 0),
+        count: e.count + (prior?.time === now ? prior.count : 0),
+        time: now,
+      });
+      routes.push({
+        kind: "connection",
+        id: relation.id,
+        direction: edgeDirection(relation, e),
+        count: e.count,
+      });
+    }
+    return { now, filesChanged, routes };
+  }
+  pruneFiles(now = performance.now()) {
+    const changed = this.recentFiles.prune(now, new Set(this.nodes.keys()));
+    if (changed) this.layoutFiles();
+    return changed;
+  }
+  start() {
+    this.running = true;
+    this.connect();
+  }
+  private connect() {
+    if (!this.running || this.source) return;
+    clearTimeout(this.retry);
+    const current = this.openEvents("/api/system/events");
+    this.source = current;
+    current.onopen = () => {
+      if (this.source === current) this.events.status(null);
+    };
+    current.onerror = () => {
+      if (this.source !== current) return;
+      this.close();
+      this.events.status("Connection lost. Retrying…");
+      if (this.running) this.retry = setTimeout(() => this.connect(), 3000);
+    };
+    current.addEventListener("snapshot", (event) => {
+      if (this.source !== current) return;
+      let merged: SystemSnapshot;
+      try {
+        merged = mergeSnapshot(this.snapshot, JSON.parse(event.data));
+      } catch {
+        this.close();
+        this.connect();
+        return;
+      }
+      this.replaceSnapshot(merged);
+      this.events.snapshot();
+    });
+    current.addEventListener("activity", (event) => {
+      if (this.source === current)
+        this.events.activity(this.ingestActivity(JSON.parse(event.data)));
+    });
+    current.addEventListener("gap", () => {
+      if (this.source === current) this.events.gap();
+    });
+  }
+  private close() {
+    clearTimeout(this.retry);
+    this.source?.close();
+    this.source = null;
+    this.cpuGlows.clear();
+    this.recentFiles.clear();
+    this.layoutFiles();
+    this.events.reset();
+  }
+  stop() {
+    this.running = false;
+    this.close();
+  }
 }
