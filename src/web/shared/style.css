@@ -45,3 +45,6 @@ header a.github-link{margin-left:auto;white-space:nowrap;text-decoration:underli
 header a.github-link{order:1}
 header a.view-link{order:2}}
 .process-link,.pointer{text-decoration:none}
+
+header .brand{display:flex;align-items:center;gap:6px;flex:none;white-space:nowrap;letter-spacing:0}
+header #build-commit{text-decoration:underline;text-underline-offset:3px;font-size:10px;letter-spacing:0}

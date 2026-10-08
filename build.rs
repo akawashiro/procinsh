@@ -1,7 +1,11 @@
 use std::{env, path::PathBuf, process::Command};
 
+#[path = "build/git.rs"]
+mod git;
+
 fn main() {
     let root = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap());
+    git::emit(&root);
     for asset in [
         "list/app.js",
         "process/app.js",

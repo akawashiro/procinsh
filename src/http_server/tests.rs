@@ -13,6 +13,36 @@ fn app() -> Router {
 }
 
 #[tokio::test]
+async fn headers_report_the_binary_revision_on_all_pages() {
+    let sha = env!("PROCINSH_BUILD_GIT_SHA");
+    let dirty = env!("PROCINSH_BUILD_GIT_DIRTY") == "true";
+    for path in ["/list", "/process/1", "/space"] {
+        let response = app()
+            .oneshot(
+                Request::builder()
+                    .uri(path)
+                    .header("host", "localhost:8080")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let html = std::str::from_utf8(&body).unwrap();
+        assert!(html.contains(&format!("procinsh v{}", env!("CARGO_PKG_VERSION"))));
+        if sha.is_empty() {
+            assert!(!html.contains("id=\"build-commit\""));
+        } else {
+            assert!(html.contains(&format!("/commit/{sha}")));
+            let suffix = if dirty { "-dirty" } else { "" };
+            assert!(html.contains(&format!(">{}{suffix}</a>", &sha[..7])));
+        }
+    }
+}
+
+#[tokio::test]
 async fn security_and_embedded_resources() {
     for (host, origin, path, status) in [
         ("evil.test:8080", None, "/api/processes", 403),
