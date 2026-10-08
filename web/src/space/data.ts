@@ -1,26 +1,12 @@
 // System SSE, observed state, retained activity, and plain layout coordinates.
 import { Display } from "../shared/display.js";
 import { key, remoteLabel, ipcKey, fileLabel } from "./model.js";
-export * from "./model.js";
 import type {
   Position,
   TreePosition,
   NetworkGroup,
   RecentFile,
   CpuGlow,
-  PlacedProcess,
-  EdgeStat,
-  ActivityRoute,
-  ActivityUpdate,
-  DataEvents,
-} from "./types.js";
-export type {
-  Position,
-  TreePosition,
-  NetworkGroup,
-  RecentFile,
-  CpuGlow,
-  Region,
   PlacedProcess,
   EdgeStat,
   ActivityRoute,
@@ -50,7 +36,7 @@ interface PackedTree {
   height: number;
 }
 
-export function networkGroups(fd_relations: FdRelation[]) {
+function networkGroups(fd_relations: FdRelation[]) {
   const groups = new Map<string, NetworkGroup>();
   for (const e of fd_relations) {
     if (e.peer || e.shared || !e.socket?.network_peer) continue;
@@ -79,7 +65,7 @@ export function networkGroups(fd_relations: FdRelation[]) {
   return groups;
 }
 
-export function networkLayout(
+function networkLayout(
   groups: ReadonlyMap<string, { endpoint: { process_id: ProcessId } }>,
   positions: ReadonlyMap<string, Pick<Position, "x" | "y">>,
   previous: ReadonlyMap<string, Position> = new Map(),
@@ -118,9 +104,7 @@ export function networkLayout(
   return result;
 }
 
-export function layoutMaps<M extends Pick<MemoryMap, "start" | "end">>(
-  maps: M[],
-) {
+function layoutMaps<M extends Pick<MemoryMap, "start" | "end">>(maps: M[]) {
   const sorted = [...maps].sort((a, b) =>
     BigInt(a.start) < BigInt(b.start) ? -1 : 1,
   );
@@ -137,7 +121,7 @@ export function layoutMaps<M extends Pick<MemoryMap, "start" | "end">>(
     })
     .map((m, _, all) => ({ ...m, z: (m.z / z) * 8, h: (m.h / z) * 8 }));
 }
-export function edgeDirection(
+function edgeDirection(
   edge: Pick<FdRelation, "endpoint" | "peer" | "shared">,
   event: Pick<IoActivity, "process_id" | "resource" | "write">,
 ) {
@@ -152,7 +136,7 @@ export function edgeDirection(
   return a ? (event.write ? 1 : -1) : event.write ? -1 : 1;
 }
 
-export function treeLayout(processes: TreeNode[], xGap = 4.8, yGap = 6.5) {
+function treeLayout(processes: TreeNode[], xGap = 4.8, yGap = 6.5) {
   const ordered = [...processes].sort(
     (a, b) =>
       a.identity.pid - b.identity.pid ||
@@ -269,7 +253,7 @@ export function treeLayout(processes: TreeNode[], xGap = 4.8, yGap = 6.5) {
 }
 
 // Keep live identities anchored; only newcomers consume vacant space.
-export function stableLayout(
+function stableLayout(
   processes: TreeNode[],
   previous: ReadonlyMap<string, Pick<Position, "x" | "y">> = new Map(),
   xGap = 4.8,
@@ -343,7 +327,7 @@ export function stableLayout(
 }
 
 // Recent file activity is retained across structural snapshot updates.
-export const fileKey = (event: Pick<FileActivity, "process_id" | "file">) =>
+const fileKey = (event: Pick<FileActivity, "process_id" | "file">) =>
   JSON.stringify([
     key(event.process_id),
     event.file.device.major,
@@ -351,7 +335,8 @@ export const fileKey = (event: Pick<FileActivity, "process_id" | "file">) =>
     event.file.inode,
     event.file.generation,
   ]);
-export class RecentFiles {
+/** @inline */
+class RecentFiles {
   entries = new Map<string, RecentFile>();
   evicted = 0;
   clear() {
@@ -414,7 +399,7 @@ export class RecentFiles {
     return changed;
   }
 }
-export function fileLayout(
+function fileLayout(
   files: ReadonlyMap<string, RecentFile>,
   positions: ReadonlyMap<string, Pick<Position, "x" | "y">>,
   previous: ReadonlyMap<string, Position> = new Map(),
@@ -437,7 +422,7 @@ export function fileLayout(
 }
 
 /** Omitted maps retain the previous mapping for this exact process identity. */
-export function mergeSnapshot(
+function mergeSnapshot(
   previous: SystemSnapshot,
   update: SystemSnapshotUpdate,
 ): SystemSnapshot {
@@ -698,4 +683,905 @@ export class SpaceDataStore {
     this.running = false;
     this.close();
   }
+}
+
+if (import.meta.vitest) {
+  const { test } = import.meta.vitest;
+  test("memory layout and edge direction", async () => {
+    const assert: typeof import("node:assert/strict") = (
+      await import("node:assert/strict")
+    ).default;
+    const { processInfo, memoryMap, fdEndpoint, fdRelation, socketEndpoint } =
+      await import("../../tests/support/fixtures.js");
+    const regions = layoutMaps([
+      memoryMap({ start: "0xffffffffff600000", end: "0xffffffffff601000" }),
+      memoryMap({ start: "0x1000", end: "0x3000" }),
+      memoryMap({ start: "0x7fff00000000", end: "0x7fff00001000" }),
+    ]);
+    assert.equal(regions[0].start, "0x1000");
+    assert.ok(regions[2].z > regions[1].z);
+    assert.ok(regions.every((region) => region.h > 0));
+    assert.deepEqual(layoutMaps([]), []);
+    const a = fdEndpoint({
+        process_id: { pid: 1, start_time_ticks: 2 },
+        resource: { kind: "pipe", device: { major: 0, minor: 1 }, inode: "2" },
+      }),
+      b = fdEndpoint({
+        process_id: { pid: 2, start_time_ticks: 3 },
+        resource: { kind: "pipe", device: { major: 0, minor: 1 }, inode: "2" },
+      });
+    const edge = { endpoint: a, peer: b, shared: false };
+    assert.equal(edgeDirection(edge, { ...a, write: true }), 1);
+    assert.equal(edgeDirection(edge, { ...b, write: false }), 1);
+    assert.equal(
+      edgeDirection({ ...edge, shared: true }, { ...a, write: true }),
+      null,
+    );
+    assert.equal(
+      edgeDirection(edge, {
+        ...a,
+        process_id: { pid: 1, start_time_ticks: 999 },
+        write: true,
+      }),
+      null,
+    );
+    {
+      const resource: IpcIdentity = {
+        kind: "pipe",
+        device: { major: 8, minor: 1 },
+        inode: "18446744073709551615",
+      };
+      const endpoint = fdEndpoint({
+        process_id: { pid: 1, start_time_ticks: 2 },
+        resource,
+      });
+      assert.equal(
+        edgeDirection(
+          { endpoint, peer: null, shared: false },
+          {
+            ...endpoint,
+            resource: {
+              inode: resource.inode,
+              device: { minor: 1, major: 8 },
+              kind: "pipe",
+            },
+            write: true,
+          },
+        ),
+        1,
+      );
+      assert.equal(
+        edgeDirection(
+          { endpoint, peer: null, shared: false },
+          {
+            ...endpoint,
+            resource: { ...resource, inode: "18446744073709551614" },
+            write: true,
+          },
+        ),
+        null,
+      );
+      const base = {
+        process_id: endpoint.process_id,
+        file: { device: resource.device, inode: resource.inode, generation: 0 },
+      };
+      for (const file of [
+        { ...base.file, inode: "18446744073709551614" },
+        { ...base.file, generation: 1 },
+        { ...base.file, device: { major: 9, minor: 1 } },
+        { ...base.file, device: { major: 8, minor: 2 } },
+      ])
+        assert.notEqual(fileKey({ ...base, file }), fileKey(base));
+    }
+  });
+  test("process tree and stable layout", async () => {
+    const assert: typeof import("node:assert/strict") = (
+      await import("node:assert/strict")
+    ).default;
+    const processNode = (pid: number, parent: number | null = null) => ({
+      identity: { pid, start_time_ticks: pid * 10 },
+      parent_id:
+        parent !== null ? { pid: parent, start_time_ticks: parent * 10 } : null,
+    });
+    const tree = treeLayout([
+      processNode(1),
+      processNode(2, 1),
+      processNode(3, 1),
+      processNode(4, 2),
+      processNode(8, 99),
+    ]);
+    assert.equal(tree.get("1:10")!.y, 0);
+    assert.ok(tree.get("2:20")!.y > tree.get("1:10")!.y);
+    assert.ok(tree.get("4:40")!.y > tree.get("2:20")!.y);
+    assert.equal(
+      tree.get("1:10")!.x,
+      (tree.get("2:20")!.x + tree.get("3:30")!.x) / 2,
+    );
+    assert.equal(tree.get("8:80")!.y, 0, "missing parent becomes a root");
+    const cyclic = treeLayout([
+      {
+        identity: { pid: 10, start_time_ticks: 1 },
+        parent_id: { pid: 11, start_time_ticks: 1 },
+      },
+      {
+        identity: { pid: 11, start_time_ticks: 1 },
+        parent_id: { pid: 10, start_time_ticks: 1 },
+      },
+    ]);
+    assert.equal(cyclic.size, 2);
+    assert.ok([...cyclic.values()].some((v) => v.parent === null));
+    assert.deepEqual(
+      [
+        ...treeLayout([
+          processNode(3, 1),
+          processNode(1),
+          processNode(2, 1),
+        ]).entries(),
+      ],
+      [
+        ...treeLayout([
+          processNode(1),
+          processNode(2, 1),
+          processNode(3, 1),
+        ]).entries(),
+      ],
+    );
+    const fanout = treeLayout([
+      processNode(1),
+      ...Array.from({ length: 400 }, (_, i) => processNode(i + 2, 1)),
+    ]);
+    const fanoutX = [...fanout.values()].map((v) => v.x),
+      fanoutY = [...fanout.values()].map((v) => v.y);
+    assert.ok(
+      Math.max(...fanoutX) - Math.min(...fanoutX) < 400,
+      "large sibling groups wrap instead of becoming one long row",
+    );
+    assert.ok(
+      Math.max(...fanoutY) > 20,
+      "wrapped sibling groups use the plane",
+    );
+    const originalNodes = [
+      processNode(1),
+      processNode(2, 1),
+      processNode(3, 1),
+    ];
+    const anchored = stableLayout(originalNodes);
+    assert.deepEqual(anchored, treeLayout(originalNodes));
+    const coordinates = (layout: ReadonlyMap<string, TreePosition>) =>
+      [...layout].map(([id, p]) => [id, { x: p.x, y: p.y }]).sort();
+    assert.deepEqual(
+      coordinates(stableLayout([...originalNodes].reverse(), anchored)),
+      coordinates(anchored),
+    );
+    const grownNodes = [
+      ...originalNodes,
+      processNode(4, 2),
+      processNode(5, 1),
+      processNode(6),
+    ];
+    const grown = stableLayout(grownNodes, anchored);
+    for (const [id, p] of anchored)
+      assert.deepEqual(grown.get(id), p, "existing nodes stay anchored");
+    assert.deepEqual(
+      coordinates(stableLayout([...grownNodes].reverse(), anchored)),
+      coordinates(grown),
+    );
+    const changed = stableLayout(
+      [processNode(2, 99), processNode(3, 2), processNode(4, 2)],
+      grown,
+    );
+    for (const [id, p] of changed)
+      assert.deepEqual(
+        { x: p.x, y: p.y },
+        { x: grown.get(id)!.x, y: grown.get(id)!.y },
+      );
+    assert.equal(changed.has("1:10"), false, "removed identities are released");
+    const reused = stableLayout(
+      [
+        processNode(1),
+        processNode(2, 1),
+        {
+          identity: { pid: 3, start_time_ticks: 999 },
+          parent_id: processNode(1).identity,
+        },
+      ],
+      anchored,
+    );
+    assert.equal(reused.has("3:30"), false);
+    assert.ok(reused.has("3:999"), "PID reuse is a new identity");
+    const vacant = stableLayout(
+      originalNodes.filter((n) => n.identity.pid !== 5),
+      grown,
+    );
+    const refilled = stableLayout(
+      [...originalNodes, processNode(7, 1)],
+      vacant,
+    );
+    assert.deepEqual(
+      { x: refilled.get("7:70")!.x, y: refilled.get("7:70")!.y },
+      { x: grown.get("5:50")!.x, y: grown.get("5:50")!.y },
+      "vacated child position is reusable",
+    );
+    const large = stableLayout(
+      [
+        processNode(1),
+        ...Array.from({ length: 1000 }, (_, i) => processNode(i + 2, 1)),
+      ],
+      stableLayout([processNode(1)]),
+    );
+    const places = [...large.values()];
+    for (let i = 0; i < places.length; i++)
+      for (let j = i + 1; j < places.length; j++) {
+        assert.ok(
+          Math.abs(places[i].x - places[j].x) >= 4.8 - 1e-9 ||
+            Math.abs(places[i].y - places[j].y) >= 6.5 - 1e-9,
+          "new placements do not overlap",
+        );
+      }
+    assert.deepEqual(stableLayout([], grown), new Map());
+    const stableCycle = stableLayout(
+      [processNode(1, 2), processNode(2, 1), processNode(9)],
+      anchored,
+    );
+    assert.equal(stableCycle.size, 3);
+    assert.ok(
+      [...stableCycle.values()].every(
+        (p) => Number.isFinite(p.x) && Number.isFinite(p.y),
+      ),
+    );
+  });
+  test("network grouping and layout", async () => {
+    const assert: typeof import("node:assert/strict") = (
+      await import("node:assert/strict")
+    ).default;
+    const { processInfo, memoryMap, fdEndpoint, fdRelation, socketEndpoint } =
+      await import("../../tests/support/fixtures.js");
+    const { connectionState } = await import("./model.js");
+    const netEdge = (
+      id: string,
+      remote = "203.0.113.1:443",
+      pid = 1,
+      protocol = "TCP",
+    ) => ({
+      ...fdRelation(),
+      id,
+      endpoint: {
+        ...fdEndpoint(),
+        process_id: { pid, start_time_ticks: 1 },
+        resource: {
+          kind: "socket" as const,
+          device: { major: 0, minor: 0 },
+          inode: String(Number(id) || 1),
+        },
+        fd: Number(id) || 1,
+      },
+      peer: null,
+      shared: false,
+      socket: {
+        ...socketEndpoint(),
+        protocol: {
+          kind: protocol.startsWith("UDP")
+            ? ("udp" as const)
+            : ("tcp" as const),
+          family: protocol.endsWith("6")
+            ? ("ipv6" as const)
+            : ("ipv4" as const),
+        },
+        state: { kind: "established" as const },
+        remote: (() => {
+          const i = remote.lastIndexOf(":");
+          return {
+            ip: remote.slice(0, i).replace(/^\[|\]$/g, ""),
+            port: Number(remote.slice(i + 1)),
+          };
+        })(),
+        local: { ip: "127.0.0.1", port: 5000 },
+        network_peer: true,
+      },
+    });
+    const connections = [
+      netEdge("1"),
+      netEdge("2"),
+      netEdge("3", "[2001:db8::1]:443"),
+      netEdge("4", "203.0.113.1:443", 2),
+      netEdge("5", "203.0.113.1:443", 1, "UDP"),
+    ];
+    const groups = networkGroups(connections);
+    assert.equal(groups.size, 4);
+    assert.equal([...groups.values()][0].members.length, 2);
+    assert.match([...groups.values()][1].label, /\[2001:db8::1\]:443/);
+    assert.equal(
+      networkGroups([
+        { ...connections[0], shared: true },
+        { ...connections[0], peer: connections[1].endpoint },
+        { ...connections[0], socket: null },
+        {
+          ...connections[0],
+          socket: { ...connections[0].socket, network_peer: false },
+        },
+      ]).size,
+      0,
+    );
+    const owners = new Map([
+      ["1:1", { x: 0, y: 0 }],
+      ["2:1", { x: 0, y: 0 }],
+    ]);
+    const netLayout = networkLayout(groups, owners);
+    assert.equal(
+      new Set([...netLayout.values()].map((p) => JSON.stringify(p))).size,
+      4,
+    );
+    const grownGroups = networkGroups([
+      ...connections,
+      netEdge("6", "203.0.113.2:443"),
+    ]);
+    const netGrown = networkLayout(grownGroups, owners, netLayout);
+    for (const [id, p] of netLayout) assert.deepEqual(netGrown.get(id), p);
+    assert.deepEqual(networkLayout(new Map(), owners, netGrown), new Map());
+    assert.deepEqual(
+      networkLayout(networkGroups([...connections].reverse()), owners),
+      netLayout,
+    );
+    assert.equal(
+      connectionState({
+        ...connections[0],
+        socket: {
+          ...socketEndpoint(),
+          protocol: { kind: "tcp", family: "ipv4" },
+          state: { kind: "listen" },
+          network_peer: false,
+        },
+      }),
+      "Listening",
+    );
+    assert.equal(
+      connectionState({
+        ...connections[0],
+        socket: {
+          ...socketEndpoint(),
+          protocol: { kind: "udp", family: "ipv4" },
+          state: { kind: "unconnected" },
+          network_peer: false,
+        },
+      }),
+      "No destination set",
+    );
+    assert.equal(connectionState(connections[0]), "Network destination");
+    assert.equal(
+      edgeDirection(connections[0], {
+        ...connections[0].endpoint,
+        write: true,
+      }),
+      1,
+    );
+    assert.equal(
+      edgeDirection(connections[0], {
+        ...connections[0].endpoint,
+        write: false,
+      }),
+      -1,
+    );
+  });
+  test("recent files and placement", async () => {
+    const assert: typeof import("node:assert/strict") = (
+      await import("node:assert/strict")
+    ).default;
+    {
+      const files = new RecentFiles(),
+        owner = { pid: 1, start_time_ticks: 1 },
+        live = new Set(["1:1"]);
+      const event = {
+        process_id: owner,
+        file: { device: { major: 8, minor: 1 }, inode: "42", generation: 0 },
+        path: "/tmp/example",
+        write: false,
+        bytes: 7,
+        count: 1,
+      };
+      assert.equal(
+        files.ingest([event, { ...event, write: true, bytes: 11 }], 100, live),
+        true,
+      );
+      const id = fileKey(event),
+        file = files.entries.get(id)!;
+      assert.equal(file.readBytes, 7);
+      assert.equal(file.writeBytes, 11);
+      assert.equal(file.label, "example");
+      const positions = new Map([["1:1", { x: 0, y: 0 }]]),
+        before = fileLayout(files.entries, positions);
+      files.ingest([{ ...event, path: "/tmp/renamed" }], 200, live);
+      assert.deepEqual(
+        fileLayout(files.entries, positions, before),
+        before,
+        "rename preserves placement",
+      );
+      assert.equal(file.label, "renamed");
+      files.ingest(
+        [
+          { ...event, process_id: { pid: 1, start_time_ticks: 2 } },
+          { ...event, bytes: 0 },
+        ],
+        300,
+        live,
+      );
+      assert.equal(
+        files.entries.size,
+        1,
+        "stale process and empty events ignored",
+      );
+      for (let i = 0; i < 35; i++)
+        files.ingest(
+          [
+            {
+              ...event,
+              file: {
+                device: { major: 8, minor: 1 },
+                inode: String(i + 1000),
+                generation: 0,
+              },
+              path: null,
+            },
+          ],
+          400 + i,
+          live,
+        );
+      assert.equal(files.entries.size, 32);
+      assert.equal(files.evicted, 4);
+      const stable = fileLayout(files.entries, positions, before);
+      assert.equal(
+        new Set([...stable.values()].map((p) => JSON.stringify(p))).size,
+        32,
+        "markers never overlap",
+      );
+      assert.ok(
+        [...stable.values()].every((p) => p.z < 0),
+        "files occupy separate space below the process",
+      );
+      assert.equal(files.prune(30433, live), true);
+      assert.equal(files.entries.size, 1);
+      assert.equal(files.prune(30434, live), true);
+      assert.equal(files.entries.size, 0);
+      for (let p = 1; p <= 20; p++) {
+        live.add(`${p}:1`);
+        for (let i = 0; i < 32; i++)
+          files.ingest(
+            [
+              {
+                ...event,
+                process_id: { pid: p, start_time_ticks: 1 },
+                file: {
+                  device: { major: 8, minor: 1 },
+                  inode: String(i + 1000),
+                  generation: 0,
+                },
+              },
+            ],
+            40000,
+            live,
+          );
+      }
+      assert.equal(files.entries.size, 512, "global display limit enforced");
+      files.prune(40001, new Set(["20:1"]));
+      assert.equal(
+        files.entries.size,
+        32,
+        "removed processes lose file markers",
+      );
+      files.clear();
+      assert.equal(files.entries.size, 0);
+      assert.equal(files.evicted, 0);
+    }
+  });
+  test("snapshot merging", async () => {
+    const assert: typeof import("node:assert/strict") = (
+      await import("node:assert/strict")
+    ).default;
+    const { processInfo, memoryMap, fdEndpoint, fdRelation, socketEndpoint } =
+      await import("../../tests/support/fixtures.js");
+    const original = processInfo({
+      identity: { pid: 1, start_time_ticks: 10 },
+      maps: [memoryMap({ start: "0x1000", end: "0x2000" })],
+      maps_epoch: 10,
+      maps_error: null,
+    });
+    const base = { processes: [original], fd_relations: [], sequence: 1 };
+    const delta = (
+      extra: Pick<SystemSnapshotUpdate, "processes">,
+    ): SystemSnapshotUpdate => ({
+      kind: "delta",
+      sequence: 2,
+      base_sequence: 1,
+      fd_relations: [],
+      ...extra,
+    });
+    const { maps: _maps, ...originalWithoutMaps } = original;
+    const omitted = {
+      ...originalWithoutMaps,
+      identity: original.identity,
+      maps_epoch: 20,
+      maps_error: "read failed",
+    };
+    const retained = mergeSnapshot(base, delta({ processes: [omitted] }));
+    assert.deepEqual(retained.processes[0].maps, original.maps);
+    assert.equal(retained.processes[0].maps_epoch, 10);
+    assert.equal(retained.processes[0].maps_error, "read failed");
+    assert.deepEqual(
+      mergeSnapshot(base, delta({ processes: [{ ...omitted, maps: [] }] }))
+        .processes[0].maps,
+      [],
+    );
+    assert.deepEqual(
+      mergeSnapshot(base, delta({ processes: [] })).processes,
+      [],
+    );
+    assert.deepEqual(
+      mergeSnapshot(
+        base,
+        delta({
+          processes: [
+            { ...omitted, identity: { pid: 1, start_time_ticks: 11 } },
+          ],
+        }),
+      ).processes[0].maps,
+      [],
+    );
+    assert.equal(
+      mergeSnapshot(retained, { ...base, kind: "full" }).processes[0]
+        .maps_epoch,
+      10,
+    );
+
+    const changedMap = memoryMap({
+      start: "0x1000",
+      end: "0x1800",
+      writable: true,
+    });
+    const added = memoryMap({ start: "0x1800", end: "0x2000" });
+    const split = mergeSnapshot(
+      base,
+      delta({
+        processes: [
+          {
+            ...omitted,
+            maps_delta: { upsert: [added, changedMap], remove: [] },
+          },
+        ],
+      }),
+    );
+    assert.deepEqual(split.processes[0].maps, [changedMap, added]);
+    assert.equal(split.processes[0].maps_epoch, 20);
+    const joined = mergeSnapshot(split, {
+      kind: "delta",
+      sequence: 3,
+      base_sequence: 2,
+      processes: [
+        {
+          ...omitted,
+          maps_delta: { upsert: [original.maps[0]], remove: ["0x1800"] },
+        },
+      ],
+      fd_relations_delta: {
+        upsert: [fdRelation({ id: "new", label: "pipe" })],
+        remove: [],
+      },
+    });
+    assert.deepEqual(joined.processes[0].maps, original.maps);
+    assert.deepEqual(joined.fd_relations, [
+      fdRelation({ id: "new", label: "pipe" }),
+    ]);
+    const removed = mergeSnapshot(joined, {
+      kind: "delta",
+      sequence: 4,
+      base_sequence: 3,
+      processes: [],
+      fd_relations_delta: { upsert: [], remove: ["new"] },
+    });
+    assert.deepEqual(removed.fd_relations, []);
+    assert.throws(
+      () =>
+        mergeSnapshot(base, {
+          kind: "delta",
+          sequence: 9,
+          base_sequence: 8,
+          processes: [],
+        }),
+      /baseline mismatch/,
+    );
+    assert.throws(
+      () =>
+        mergeSnapshot(
+          base,
+          delta({
+            processes: [
+              {
+                ...omitted,
+                identity: { pid: 1, start_time_ticks: 99 },
+                maps_delta: { upsert: [], remove: [] },
+              },
+            ],
+          }),
+        ),
+      /Missing process maps baseline/,
+    );
+    assert.deepEqual(
+      mergeSnapshot(joined, {
+        kind: "full",
+        sequence: 10,
+        processes: [],
+        fd_relations: [],
+      }).fd_relations,
+      [],
+    );
+  });
+  test("space-data regression", async () => {
+    const assert: typeof import("node:assert/strict") = (
+      await import("node:assert/strict")
+    ).default;
+    const { processInfo, fdEndpoint, fdRelation, spaceActivity, cpuActivity } =
+      await import("../../tests/support/fixtures.js");
+    type TestEventSource =
+      import("../../tests/support/mocks.js").TestEventSource;
+    const { TestEventSource } = await import("../../tests/support/mocks.js");
+    const a = { pid: 101, start_time_ticks: 1 },
+      b = { pid: 102, start_time_ticks: 2 };
+    const process = (
+      identity: ProcessId,
+      name: string,
+      parent_id: ProcessId | null = null,
+    ) =>
+      processInfo({
+        identity,
+        name,
+        parent_id,
+        maps: [],
+      });
+    const resource: IpcIdentity = {
+      kind: "pipe",
+      device: { major: 0, minor: 1 },
+      inode: "7",
+    };
+    const endpoint = (process_id: ProcessId) =>
+      fdEndpoint({ process_id, fd: 3, resource });
+    const relation = fdRelation({
+      id: "pipe",
+      endpoint: endpoint(a),
+      peer: endpoint(b),
+      candidate: false,
+      shared: false,
+    });
+    const initial = {
+      processes: [process(a, "writer"), process(b, "reader", a)],
+      fd_relations: [relation],
+    };
+    const store = new SpaceDataStore();
+    store.replaceSnapshot(initial, false, 1000);
+    assert.deepEqual(Object.keys(store.nodes.get(key(a))!.pos).sort(), [
+      "x",
+      "y",
+      "z",
+    ]);
+    const positions = [...store.nodes].map(
+      ([id, p]) => [id, { ...p.pos }] as const,
+    );
+    store.replaceSnapshot(
+      {
+        ...initial,
+        processes: [
+          ...initial.processes,
+          process({ pid: 103, start_time_ticks: 3 }, "new"),
+        ],
+      },
+      false,
+      1000,
+    );
+    for (const [id, pos] of positions)
+      assert.deepEqual(
+        store.nodes.get(id)!.pos,
+        pos,
+        "structural additions preserve positions",
+      );
+
+    const file = {
+      process_id: a,
+      file: { device: { major: 8, minor: 1 }, inode: "9", generation: 0 },
+      path: "/tmp/data.txt",
+      bytes: 10,
+      count: 1,
+      write: true,
+    };
+    const update = store.ingestActivity(
+      spaceActivity({
+        window_ms: 100,
+        cpu: [
+          cpuActivity({ process_id: a, runtime_ns: 100, running_threads: 1 }),
+        ],
+        files: [file],
+        ipc: [
+          { ...endpoint(a), write: true, bytes: 4, count: 1 },
+          { ...endpoint(b), write: false, bytes: 4, count: 1 },
+        ],
+      }),
+      new Set(store.nodes.keys()),
+      1000,
+    );
+    assert.equal(update.filesChanged, true);
+    assert.equal(
+      update.routes.filter((r) => r.kind === "connection").length,
+      2,
+    );
+    assert.ok(
+      update.routes
+        .filter((r) => r.kind === "connection")
+        .every((r) => r.direction === 1),
+    );
+    assert.deepEqual(store.edgeStats.get("pipe"), {
+      bytes: 8,
+      count: 2,
+      time: 1000,
+    });
+    assert.equal(store.cpuGlows.get(key(a))!.last, 1000);
+    assert.ok(store.filePositions.has(fileKey(file)));
+    const filtered = store.ingestActivity(
+      spaceActivity({
+        ipc: [{ ...endpoint(a), write: true, bytes: 2, count: 1 }],
+      }),
+      new Set([key(a)]),
+      1100,
+    );
+    assert.deepEqual(
+      filtered.routes.map((r) => r.kind),
+      ["port"],
+      "a hidden peer cannot be used as an exact visible route",
+    );
+    assert.equal(
+      store.edgeStats.get("pipe")!.time,
+      1000,
+      "filtered activity does not replace visible relation totals",
+    );
+    const ambiguous = {
+      ...relation,
+      id: "other",
+      peer: endpoint({ pid: 103, start_time_ticks: 3 }),
+    };
+    store.replaceSnapshot(
+      { ...store.snapshot, fd_relations: [relation, ambiguous] },
+      false,
+      1200,
+    );
+    assert.deepEqual(
+      store
+        .ingestActivity(
+          spaceActivity({
+            ipc: [{ ...endpoint(a), write: true, bytes: 1, count: 1 }],
+          }),
+          new Set(store.nodes.keys()),
+          1200,
+        )
+        .routes.map((r) => r.kind),
+      ["port"],
+      "multiple peers retain actor-only activity",
+    );
+    assert.equal(
+      store.pruneFiles(31000),
+      true,
+      "retained files expire at 30 seconds",
+    );
+    assert.equal(store.filePositions.size, 0);
+    store.replaceSnapshot(
+      {
+        processes: [process({ ...a, start_time_ticks: 99 }, "reused")],
+        fd_relations: [],
+      },
+      false,
+      32000,
+    );
+    assert.equal(store.cpuGlows.has(key(a)), false);
+    assert.equal(store.edgeStats.size, 0);
+    store.ingestActivity(
+      spaceActivity({
+        files: [file],
+        cpu: [cpuActivity({ process_id: a, runtime_ns: 10 })],
+      }),
+      new Set(store.nodes.keys()),
+      32000,
+    );
+    assert.equal(
+      store.recentFiles.entries.size,
+      0,
+      "old process identities cannot create activity",
+    );
+    assert.equal(store.cpuGlows.has(key(a)), false);
+
+    const sources: TestEventSource[] = [],
+      seen: [string, ...unknown[]][] = [];
+    const live = new SpaceDataStore(
+      {
+        snapshot() {
+          seen.push(["snapshot", live.snapshot.sequence]);
+        },
+        activity(update) {
+          seen.push(["activity", update.routes.length]);
+        },
+        reset() {
+          seen.push(["reset"]);
+        },
+        gap() {
+          seen.push(["gap"]);
+        },
+        status(message) {
+          seen.push(["status", message]);
+        },
+      },
+      undefined,
+      (url) => {
+        const source = new TestEventSource(url);
+        sources.push(source);
+        return source.asEventSource();
+      },
+    );
+    assert.equal(
+      sources.length,
+      0,
+      "importing and constructing the data store starts no browser resources",
+    );
+    live.start();
+    live.start();
+    assert.equal(sources.length, 1, "start is idempotent");
+    assert.equal(sources[0].url, "/api/system/events");
+    sources[0].open();
+    sources[0].emit("snapshot", { ...initial, kind: "full", sequence: 1 });
+    assert.equal(live.snapshot.sequence, 1);
+    sources[0].emit("activity", { files: [file] });
+    assert.equal(live.recentFiles.entries.size, 1);
+    sources[0].emit("gap", {});
+    assert.equal(
+      live.snapshot.sequence,
+      1,
+      "gap retains the structural baseline until the next full snapshot",
+    );
+    assert.ok(seen.some(([type]) => type === "gap"));
+    sources[0].emit("snapshot", {
+      kind: "delta",
+      sequence: 2,
+      base_sequence: -1,
+      processes: [],
+      fd_relations: [],
+    });
+    assert.equal(sources[0].readyState, 2);
+    assert.equal(
+      sources.length,
+      2,
+      "invalid baseline reconnects for a full snapshot",
+    );
+    assert.equal(
+      live.recentFiles.entries.size,
+      0,
+      "reconnect clears transient activity",
+    );
+    sources[1].emit("snapshot", { ...initial, kind: "full", sequence: 1 });
+    live.stop();
+    const afterStop = seen.length;
+    sources[1].emit("snapshot", {
+      kind: "full",
+      sequence: 99,
+      processes: [],
+      fd_relations: [],
+    });
+    sources[1].error();
+    assert.equal(
+      seen.length,
+      afterStop,
+      "closed sources cannot update state or schedule retries",
+    );
+    live.start();
+    assert.equal(sources.length, 3);
+    sources[2].error();
+    assert.equal(sources[2].readyState, 2);
+    live.stop();
+    await new Promise((resolve) => setTimeout(resolve, 3100));
+    assert.equal(sources.length, 3, "stop cancels an error retry");
+    console.log(
+      "SPACE data passed: plain coordinates, stable layout, filtering, activity routes, identity reuse, expiry, lazy SSE, resynchronization, stale sources, retry cancellation.",
+    );
+  });
 }

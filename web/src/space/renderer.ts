@@ -9,7 +9,7 @@ import type {
 import type { RenderView } from "./contracts.js";
 // Each sample covers roughly one second of visible rendering. Separate thresholds
 // and consecutive windows keep transient scene rebuilds from changing resolution.
-export class AdaptiveRenderScale {
+class AdaptiveRenderScale {
   readonly max: number;
   readonly min: number;
   scale: number;
@@ -41,11 +41,11 @@ export class AdaptiveRenderScale {
   }
 }
 
-export const IPC_PARTICLE_DURATION_MS = 2000;
-export const IPC_PARTICLE_STAGGER_MS = 100;
-export const REDUCED_MOTION_PARTICLE_DURATION_MS = 150;
+const IPC_PARTICLE_DURATION_MS = 2000;
+const IPC_PARTICLE_STAGGER_MS = 100;
+const REDUCED_MOTION_PARTICLE_DURATION_MS = 150;
 
-export function ipcParticlePlan(operationCount: number, reducedMotion = false) {
+function ipcParticlePlan(operationCount: number, reducedMotion = false) {
   if (reducedMotion)
     return { duration: REDUCED_MOTION_PARTICLE_DURATION_MS, offsets: [0] };
   const count = Number.isFinite(operationCount)
@@ -64,7 +64,7 @@ export function ipcParticlePlan(operationCount: number, reducedMotion = false) {
   };
 }
 
-export function cpuGlowLevel(
+function cpuGlowLevel(
   state:
     | Pick<CpuGlow, "last" | "window_ms" | "runtime_ns" | "running_threads">
     | undefined,
@@ -460,3 +460,139 @@ export function createSpaceRenderer({
   };
 }
 export type SpaceRenderer = ReturnType<typeof createSpaceRenderer>;
+
+if (import.meta.vitest) {
+  const { test } = import.meta.vitest;
+  test("adaptive render scale", async () => {
+    const assert: typeof import("node:assert/strict") = (
+      await import("node:assert/strict")
+    ).default;
+    {
+      const resolution = new AdaptiveRenderScale(1);
+      const sample = (fps: number, count: number) => {
+        for (let i = 0; i < count; i++) resolution.sample(fps);
+      };
+      for (let i = 0; i < 20; i++) {
+        sample(15, 2);
+        sample(60, 1);
+      }
+      assert.equal(
+        resolution.scale,
+        1,
+        "transient low FPS never accumulates into a permanent quality drop",
+      );
+      sample(15, 3);
+      assert.equal(
+        resolution.scale,
+        0.9,
+        "sustained low FPS reduces resolution gently",
+      );
+      sample(24, 10);
+      assert.equal(
+        resolution.scale,
+        0.9,
+        "24 FPS is outside the low-FPS range",
+      );
+      sample(60, 4);
+      assert.equal(
+        resolution.scale,
+        0.9,
+        "recovery waits for sustained healthy FPS",
+      );
+      sample(45, 1);
+      assert.equal(
+        resolution.scale,
+        1,
+        "healthy FPS restores initial sharpness without reloading",
+      );
+      sample(15, 100);
+      assert.equal(
+        resolution.scale,
+        0.5,
+        "sustained load respects the lower bound",
+      );
+      sample(60, 100);
+      assert.equal(
+        resolution.scale,
+        1,
+        "resolution recovers fully even after reaching the floor",
+      );
+      sample(15, 3);
+      for (let i = 0; i < 10; i++) {
+        sample(60, 4);
+        sample(35, 1);
+      }
+      assert.equal(
+        resolution.scale,
+        0.9,
+        "middle FPS holds resolution and interrupts recovery",
+      );
+      sample(15, 2);
+      resolution.resetSampling();
+      sample(15, 1);
+      assert.equal(
+        resolution.scale,
+        0.9,
+        "hidden tabs discard pending slow windows",
+      );
+      sample(60, 4);
+      resolution.resetSampling();
+      sample(60, 1);
+      assert.equal(
+        resolution.scale,
+        0.9,
+        "hidden tabs discard pending healthy windows",
+      );
+      for (const dpr of [0.4, 0.75, 1, 2, 3]) {
+        const bounded = new AdaptiveRenderScale(dpr);
+        for (let i = 0; i < 100; i++) bounded.sample(10);
+        assert.equal(bounded.scale, Math.min(dpr, 0.5));
+        for (let i = 0; i < 100; i++) bounded.sample(60);
+        assert.equal(
+          bounded.scale,
+          Math.min(dpr, 1.5),
+          "recovery respects the initial DPR cap",
+        );
+      }
+    }
+  });
+  test("IPC particle plan and CPU glow", async () => {
+    const assert: typeof import("node:assert/strict") = (
+      await import("node:assert/strict")
+    ).default;
+    assert.deepEqual(ipcParticlePlan(1), { duration: 2000, offsets: [0, 100] });
+    assert.deepEqual(ipcParticlePlan(2).offsets, [0, 100, 200]);
+    assert.equal(ipcParticlePlan(4).offsets.length, 4);
+    assert.equal(ipcParticlePlan(8).offsets.length, 5);
+    assert.equal(ipcParticlePlan(16).offsets.length, 6);
+    assert.equal(ipcParticlePlan(1_000_000).offsets.length, 6);
+    assert.deepEqual(ipcParticlePlan(16, true), {
+      duration: 150,
+      offsets: [0],
+    });
+    const active = {
+      last: 1000,
+      window_ms: 100,
+      runtime_ns: 20_000_000,
+      running_threads: 1,
+      switches: 0,
+      cpus: [],
+    };
+    assert.ok(cpuGlowLevel(active, 1000) > 0.9, "running process is bright");
+    assert.ok(
+      cpuGlowLevel({ ...active, running_threads: 0 }, 1000) > 0.5,
+      "recent runtime is visible",
+    );
+    assert.ok(
+      cpuGlowLevel(active, 1250) < cpuGlowLevel(active, 1000),
+      "afterglow fades",
+    );
+    assert.equal(cpuGlowLevel(active, 1500), 0, "afterglow ends after 500ms");
+    assert.equal(
+      cpuGlowLevel(active, 999),
+      0,
+      "future timestamps are rejected",
+    );
+    assert.equal(cpuGlowLevel(undefined, 1000), 0);
+  });
+}

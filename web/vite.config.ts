@@ -42,6 +42,7 @@ export default defineConfig(({ mode }) => {
   const backend = env.PROCINSH_BACKEND_URL || "http://127.0.0.1:9090";
   return {
     appType: "mpa",
+    define: { "import.meta.vitest": "undefined" },
     plugins: [applicationPages()],
     build: {
       manifest: true,
@@ -53,10 +54,7 @@ export default defineConfig(({ mode }) => {
               resolve(import.meta.dirname, page, "index.html"),
             ]),
           ),
-          spaceApp: resolve(import.meta.dirname, "src/space/app.ts"),
         },
-        // SPACE exposes inspection helpers used by the browser regression suite.
-        preserveEntrySignatures: "exports-only",
       },
     },
     server: {

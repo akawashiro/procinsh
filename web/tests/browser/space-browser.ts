@@ -1,6 +1,6 @@
 import type { SystemSnapshot } from "../../src/shared/api-types.js";
-import type { SpaceCamera } from "../../src/space/camera.js";
-type CameraView = ReturnType<SpaceCamera["view"]>;
+import type { createSpaceCamera } from "../../src/space/camera.js";
+type CameraView = ReturnType<ReturnType<typeof createSpaceCamera>["view"]>;
 // Browser integration via tsx and DevTools Protocol. Requires Chrome or Chromium.
 import {
   launch as spawnCaptured,
@@ -21,7 +21,7 @@ import { checkNetworkSpace } from "./space-network.js";
 import { processEventRecording } from "./process-events.js";
 import { checkBuildHeader } from "./build-header.js";
 
-// The manifest locates the public SPACE module independently of hashed names.
+// The test build manifest locates the SPACE inspection module.
 const manifest = JSON.parse(
   await readFile(
     new URL("../../dist/.vite/manifest.json", import.meta.url),

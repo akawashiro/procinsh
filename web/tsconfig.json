@@ -11,7 +11,8 @@
     "types": [
       "@webgpu/types",
       "node",
-      "vite/client"
+      "vite/client",
+      "vitest/importMeta"
     ],
     "strict": true,
     "noEmit": true,

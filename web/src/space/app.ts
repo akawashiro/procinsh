@@ -240,39 +240,3 @@ addEventListener("pageshow", (event) => {
   if (event.persisted) start();
 });
 start();
-
-const cpuGlowStates = data.cpuGlows;
-const cpuGlowVisual = scene.cpuGlowVisual,
-  parentLineVisual = scene.parentLineVisual;
-const networkVisuals = renderer.networkVisuals,
-  networkParticles = renderer.networkParticles,
-  fileVisuals = renderer.fileVisuals,
-  fileParticles = renderer.fileParticles;
-const cameraView = camera.view;
-function processPosition(id: string) {
-  const pos = data.nodes.get(id)?.pos;
-  return pos && { x: pos.x, y: pos.y, z: pos.z };
-}
-export {
-  selectFile,
-  fileVisuals,
-  fileParticles,
-  pruneFiles,
-  renderSystemSnapshot,
-  renderActivity,
-  fitScene,
-  selectProcess,
-  selectConnection,
-  selectNetwork,
-  networkVisuals,
-  networkParticles,
-  cameraView,
-  processPosition,
-  parentLineVisual,
-  cpuGlowStates,
-  cpuGlowVisual,
-};
-
-// Expose the same model and render-scale helpers to bundled browser inspections.
-export { key, treeLayout } from "./data.js";
-export { AdaptiveRenderScale } from "./renderer.js";
