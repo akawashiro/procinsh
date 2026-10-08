@@ -44,7 +44,7 @@ export async function checkBuildHeader(evaluate: Evaluate) {
     build.commit.text,
     new RegExp(`^${sha.slice(0, 7)}(?:-dirty)?$`),
   );
-  assert.ok(build.commit.title.includes(sha));
+  assert.equal(build.commit.title, "", "commit link has no hover tooltip");
   assert.ok(build.commit.label.includes(sha));
   assert.equal(build.commit.target, "_blank");
   assert.ok(

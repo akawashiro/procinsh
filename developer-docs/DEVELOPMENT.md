@@ -41,7 +41,7 @@ Vite が表示する URL（通常 http://127.0.0.1:5173）を開きます。既�
 
 本番では `rust-embed` が `web/dist/` 全体をバイナリに埋め込み、拡張子に応じた MIME 型で配信します。debug ビルドも埋め込みを使います。TypeScript・HTML・CSS を変更したら `npm --prefix web run build` の後に Rust バイナリを再ビルドしてください。Cargo は生成物の変更を監視しますが、ソースと生成物の鮮度は検証しません。実行時の Node.js・npm、外部 CDN は不要です。SPACE の描画には WebGL2 が必要です。
 
-各画面のヘッダーはビルド済みバイナリのバージョンと、判明している場合は7桁の Git SHA を表示します。SHA は GitHub の該当 commit への別リンクで、全桁を hover と accessible label で確認できます。`build.rs` は `PROCINSH_GIT_SHA` の40桁の16進 SHA を優先して埋め込みます。指定がなければ manifest ディレクトリ自身の Git checkout から取得し、追跡済みファイルに変更がある場合は `-dirty` を付けます。Git 情報のない配布ビルドや、`PROCINSH_GIT_SHA=""` を明示したビルドはバージョンだけを表示します。HTTP 要求時には Git や checkout を読みません。
+各画面のヘッダーはビルド済みバイナリのバージョンと、判明している場合は7桁の Git SHA を表示します。SHA は GitHub の該当 commit への別リンクで、全桁を accessible label で確認できます。`build.rs` は `PROCINSH_GIT_SHA` の40桁の16進 SHA を優先して埋め込みます。指定がなければ manifest ディレクトリ自身の Git checkout から取得し、追跡済みファイルに変更がある場合は `-dirty` を付けます。Git 情報のない配布ビルドや、`PROCINSH_GIT_SHA=""` を明示したビルドはバージョンだけを表示します。HTTP 要求時には Git や checkout を読みません。
 
 | CLI オプション | 動作 |
 |---|---|
