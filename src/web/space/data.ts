@@ -1,32 +1,44 @@
 // System SSE, observed state, retained activity, and plain layout coordinates.
 import { Display } from "../shared/display.js";
+import { key, remoteLabel, ipcKey, fileLabel } from "./model.js";
+export * from "./model.js";
+import type {
+  Position,
+  TreePosition,
+  NetworkGroup,
+  RecentFile,
+  CpuGlow,
+  PlacedProcess,
+  EdgeStat,
+  ActivityRoute,
+  ActivityUpdate,
+  DataEvents,
+} from "./types.js";
+export type {
+  Position,
+  TreePosition,
+  NetworkGroup,
+  RecentFile,
+  CpuGlow,
+  Region,
+  PlacedProcess,
+  EdgeStat,
+  ActivityRoute,
+  ActivityUpdate,
+  DataEvents,
+} from "./types.js";
 import type {
   ProcessId,
-  Process,
   SpaceActivity,
-  SocketEndpoint,
   FdRelation,
-  FdEndpoint,
   IoActivity,
   FileActivity,
-  FileIdentity,
   IpcIdentity,
   MemoryMap,
   SystemSnapshot,
   SystemSnapshotUpdate,
-  CpuActivity,
 } from "../shared/api-types.js";
-export interface Position {
-  x: number;
-  y: number;
-  z: number;
-}
-export interface TreePosition {
-  x: number;
-  y: number;
-  depth: number;
-  parent: string | null;
-}
+
 /** @inline */
 interface TreeNode {
   identity: ProcessId;
@@ -37,32 +49,7 @@ interface PackedTree {
   width: number;
   height: number;
 }
-export interface NetworkGroup {
-  id: string;
-  endpoint: FdEndpoint;
-  socket: SocketEndpoint;
-  members: FdRelation[];
-  label: string;
-}
-export interface RecentFile {
-  id: string;
-  process_id: ProcessId;
-  file: FileIdentity;
-  path: string | null;
-  readBytes: number;
-  writeBytes: number;
-  readCount: number;
-  writeCount: number;
-  label: string;
-  last: number;
-}
-export type CpuGlow = CpuActivity & { last: number; window_ms: number };
-export type Region = MemoryMap & { z: number; h: number };
-export const remoteLabel = (socket: SocketEndpoint | null | undefined) =>
-  socket?.remote_hostname && socket.remote
-    ? `${socket.remote_hostname}:${socket.remote.port}`
-    : Display.address(socket?.remote);
-export const key = (id: ProcessId) => `${id.pid}:${id.start_time_ticks}`;
+
 export function networkGroups(fd_relations: FdRelation[]) {
   const groups = new Map<string, NetworkGroup>();
   for (const e of fd_relations) {
@@ -131,17 +118,6 @@ export function networkLayout(
   return result;
 }
 
-export function connectionState(
-  e: Pick<FdRelation, "shared" | "candidate" | "peer" | "socket">,
-) {
-  if (e.shared) return "Shared FD";
-  if (e.candidate) return "Candidate peer";
-  if (e.peer) return "Confirmed process connection";
-  if (e.socket?.network_peer) return "Network destination";
-  if (e.socket?.state.kind === "listen") return "Listening";
-  if (e.socket?.protocol.kind === "udp") return "No destination set";
-  return "Unknown destination";
-}
 export function layoutMaps<M extends Pick<MemoryMap, "start" | "end">>(
   maps: M[],
 ) {
@@ -366,26 +342,6 @@ export function stableLayout(
   return result;
 }
 
-export function userColor(uid: number | null | undefined) {
-  if (uid === null || uid === undefined) return "#889299";
-  let hash = Number(uid) >>> 0;
-  hash = Math.imul(hash ^ (hash >>> 16), 0x45d9f3b);
-  hash = Math.imul(hash ^ (hash >>> 16), 0x45d9f3b);
-  const hue = ((hash ^ (hash >>> 16)) >>> 0) % 360;
-  return `hsl(${hue}, 65%, 65%)`;
-}
-export const processColors = (n: {
-  uid?: number | null;
-  euid?: number | null;
-}) => ({ real: userColor(n.uid), effective: userColor(n.euid) });
-
-export const ipcKey = (r: IpcIdentity) =>
-  JSON.stringify([r.kind, r.device.major, r.device.minor, r.inode]);
-export const ipcLabel = (r: IpcIdentity) =>
-  `${r.kind}:${r.device.major}:${r.device.minor}:${r.inode}`;
-export const fileLabel = (r: FileIdentity) =>
-  `file:${r.device.major}:${r.device.minor}:${r.inode}:${r.generation}`;
-
 // Recent file activity is retained across structural snapshot updates.
 export const fileKey = (event: Pick<FileActivity, "process_id" | "file">) =>
   JSON.stringify([
@@ -532,34 +488,6 @@ export function mergeSnapshot(
   };
 }
 
-/** A process with layout coordinates, independent of Three.js objects. */
-export interface PlacedProcess extends Process {
-  pos: Position;
-  regions: Region[];
-}
-export interface EdgeStat {
-  bytes: number;
-  count: number;
-  time: number;
-}
-export type ActivityRoute = {
-  kind: "file" | "connection" | "port";
-  id: string;
-  direction?: number | null;
-  count: number;
-};
-export interface ActivityUpdate {
-  now: number;
-  filesChanged: boolean;
-  routes: ActivityRoute[];
-}
-export interface DataEvents {
-  snapshot(): void;
-  activity(update: ActivityUpdate): void;
-  reset(): void;
-  gap(): void;
-  status(message: string | null): void;
-}
 const quietEvents: DataEvents = {
   snapshot() {},
   activity() {},

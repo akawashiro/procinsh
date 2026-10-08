@@ -108,6 +108,10 @@ pub(super) fn router() -> Router<Arc<AppState>> {
         ),
         ("/space/app.js", include_str!("../../dist/web/space/app.js")),
         (
+            "/space/model.js",
+            include_str!("../../dist/web/space/model.js"),
+        ),
+        (
             "/space/data.js",
             include_str!("../../dist/web/space/data.js"),
         ),

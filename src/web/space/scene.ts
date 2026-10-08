@@ -1,33 +1,21 @@
 // Build and update Three.js geometry from data and selection state.
 import * as T from "/vendor/three.module.js";
-import { key, processColors } from "./data.js";
+import { key, processColors } from "./model.js";
 import type {
-  SpaceDataStore,
   Region,
-  NetworkGroup,
-  RecentFile,
-} from "./data.js";
-import type { Process, FdRelation } from "../shared/api-types.js";
-import type { SpaceSelection, ConnectionPick } from "./selection.js";
-export interface RenderNode extends Process {
-  pos: T.Vector3;
-  regions: Region[];
-}
-export interface EdgeView {
-  e: FdRelation;
-  curve: T.QuadraticBezierCurve3;
-  networkId?: string;
-}
-export interface NetworkView {
-  group: NetworkGroup;
-  pos: T.Vector3;
-  curve: T.QuadraticBezierCurve3;
-}
-export interface FileView {
-  file: RecentFile;
-  pos: T.Vector3;
-  curve: T.QuadraticBezierCurve3;
-}
+  RenderNode,
+  EdgeView,
+  NetworkView,
+  FileView,
+  ConnectionPick,
+  SelectionState,
+} from "./types.js";
+import type {
+  SceneInput,
+  FileSceneInput,
+  RenderView,
+  PickingView,
+} from "./contracts.js";
 function disposeObject(object: T.Object3D) {
   if (
     object instanceof T.Mesh ||
@@ -42,19 +30,10 @@ function disposeObject(object: T.Object3D) {
   }
 }
 
-export function createSpaceScene(
-  data: SpaceDataStore,
-  selectionState: SpaceSelection,
-  visibleIds: () => Set<string>,
-) {
+export function createSpaceScene() {
   const scene = new T.Scene();
   scene.fog = new T.FogExp2(0x03090e, 0.0015);
   let nodes = new Map<string, RenderNode>();
-  let snapshot = data.snapshot,
-    network = data.network,
-    networkPositions = data.networkPositions,
-    filePositions = data.filePositions;
-  const recentFiles = data.recentFiles;
   let edgeViews: EdgeView[] = [],
     networkViews: NetworkView[] = [],
     fileViews = new Map<string, FileView>();
@@ -69,13 +48,9 @@ export function createSpaceScene(
     haloGlow: T.InstancedMesh | null = null,
     hullIds: string[] = [];
   const dummy = new T.Object3D();
-  function syncData() {
-    snapshot = data.snapshot;
-    network = data.network;
-    networkPositions = data.networkPositions;
-    filePositions = data.filePositions;
+  function syncNodes(input: FileSceneInput) {
     nodes = new Map(
-      [...data.nodes].map(([id, n]) => [
+      [...input.nodes].map(([id, n]) => [
         id,
         { ...n, pos: new T.Vector3(n.pos.x, n.pos.y, n.pos.z) },
       ]),
@@ -121,10 +96,11 @@ export function createSpaceScene(
     geometryGroup = new T.Group();
     scene.add(geometryGroup);
   }
-  function buildScene() {
-    syncData();
+  function buildScene(input: SceneInput, selectedProcess: string | null) {
+    syncNodes(input);
+    const { snapshot, network, networkPositions } = input;
     disposeGroup();
-    const visible = visibleIds();
+    const visible = input.visible;
     hullIds = [...visible];
     hull = new T.InstancedMesh(
       new T.BoxGeometry(2.2, 2.2, 8),
@@ -261,7 +237,7 @@ export function createSpaceScene(
             userColors.effective,
           );
       const stride =
-        n.regions.length > 64 && hullIds[i] !== selectionState.process
+        n.regions.length > 64 && hullIds[i] !== selectedProcess
           ? Math.ceil(n.regions.length / 64)
           : 1;
       for (let ri = 0; ri < n.regions.length; ri += stride) {
@@ -419,17 +395,17 @@ export function createSpaceScene(
     );
     dashedLines.userData.fd_relations = dashedEdges;
     geometryGroup.add(dashedLines);
-    refreshFileScene();
-    updateSelection();
+    refreshFileScene(input);
   }
-  function refreshFileScene() {
-    syncData();
+  function refreshFileScene(input: FileSceneInput) {
+    syncNodes(input);
+    const { files: recentFiles, filePositions } = input;
     fileGroup.traverse(disposeObject);
     scene.remove(fileGroup);
     fileGroup = new T.Group();
     scene.add(fileGroup);
-    const visible = visibleIds(),
-      files = [...recentFiles.entries.values()].filter((f) =>
+    const visible = input.visible,
+      files = [...recentFiles.values()].filter((f) =>
         visible.has(key(f.process_id)),
       );
     const markers = new T.InstancedMesh(
@@ -483,9 +459,8 @@ export function createSpaceScene(
     );
     lines.userData.filePaths = paths;
     fileGroup.add(lines);
-    updateSelection();
   }
-  function updateParentSelection() {
+  function updateParentSelection(selectionState: SelectionState) {
     if (!parentLines?.geometry.attributes.color) return;
     const active = new Set();
     if (selectionState.process) {
@@ -517,7 +492,7 @@ export function createSpaceScene(
     }
     colors.needsUpdate = true;
   }
-  function updateSelection() {
+  function updateSelection(selectionState: SelectionState) {
     const n = nodes.get(selectionState.process ?? "");
     selection.visible = !!n;
     if (n) selection.position.set(n.pos.x, n.pos.y, 4);
@@ -528,7 +503,7 @@ export function createSpaceScene(
         : edgeViews.find((v) => v.e.id === selectionState.connection);
     edgeSelection.visible = !!view;
     if (view) edgeSelection.geometry.setFromPoints(view.curve.getPoints(32));
-    updateParentSelection();
+    updateParentSelection(selectionState);
   }
   function cpuGlowVisual(id: string) {
     const index = hullIds.indexOf(id);
@@ -557,35 +532,27 @@ export function createSpaceScene(
     updateSelection,
     cpuGlowVisual,
     parentLineVisual,
-    get nodes() {
-      return nodes;
+    setFogDensity(density: number) {
+      (scene.fog as T.FogExp2).density = density;
     },
-    get hullIds() {
-      return hullIds;
+    renderView(): RenderView {
+      return {
+        nodes,
+        hullIds,
+        networkViews,
+        fileViews,
+        edgeViews,
+        baseGlow,
+        haloGlow,
+      };
     },
-    get hull() {
-      return hull;
-    },
-    get baseGlow() {
-      return baseGlow;
-    },
-    get haloGlow() {
-      return haloGlow;
-    },
-    get edgeViews() {
-      return edgeViews;
-    },
-    get networkViews() {
-      return networkViews;
-    },
-    get fileViews() {
-      return fileViews;
-    },
-    get geometryGroup() {
-      return geometryGroup;
-    },
-    get fileGroup() {
-      return fileGroup;
+    pickingView(): PickingView {
+      return {
+        nodes,
+        hullIds,
+        hull,
+        objects: [...geometryGroup.children, ...fileGroup.children],
+      };
     },
     dispose() {
       scene.traverse(disposeObject);

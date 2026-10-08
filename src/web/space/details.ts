@@ -8,18 +8,20 @@ import {
   key,
   processColors,
   remoteLabel,
-} from "./data.js";
-import type { SpaceDataStore, EdgeStat } from "./data.js";
+} from "./model.js";
+import type { EdgeStat, SelectionState } from "./types.js";
+import type { DetailsInput, SelectionActions } from "./contracts.js";
 import type { FdEndpoint, SocketEndpoint } from "../shared/api-types.js";
-import type { SpaceSelection, SelectionActions } from "./selection.js";
-import { spaceElement as $ } from "./dom-types.js";
+import { spaceElement } from "./dom-types.js";
 export function createSpaceDetails(
-  data: SpaceDataStore,
-  selection: SpaceSelection,
-  actions: SelectionActions,
+  actions: Pick<SelectionActions, "connection" | "network">,
+  $ = spaceElement,
 ) {
-  let { nodes, snapshot, network, edgeStats } = data;
-  const recentFiles = data.recentFiles;
+  let nodes: DetailsInput["nodes"],
+    snapshot: DetailsInput["snapshot"],
+    network: DetailsInput["network"],
+    edgeStats: DetailsInput["edgeStats"],
+    recentFiles: DetailsInput["files"];
   let selected: string | null = null,
     selectedEdge: string | null = null,
     selectedNetwork: string | null = null,
@@ -68,7 +70,7 @@ export function createSpaceDetails(
     $("connection-endpoints").replaceChildren(content);
   }
   function fileDetails() {
-    const f = recentFiles.entries.get(selectedFile ?? "");
+    const f = recentFiles.get(selectedFile ?? "");
     if (!f) return;
     $("process-details").hidden = true;
     $("connection-details").hidden = false;
@@ -133,14 +135,20 @@ export function createSpaceDetails(
       container.lastElementChild!.remove();
     }
   }
-  function details() {
-    ({ nodes, snapshot, network, edgeStats } = data);
+  function details(data: DetailsInput, selection: SelectionState) {
+    ({ nodes, snapshot, network, edgeStats, files: recentFiles } = data);
     selected = selection.process;
     selectedEdge = selection.connection;
     selectedNetwork = selection.network;
     selectedFile = selection.file;
-    $("details").hidden = !selection.active;
-    if (!selection.active) return;
+    const active = !!(
+      selected ||
+      selectedEdge ||
+      selectedNetwork ||
+      selectedFile
+    );
+    $("details").hidden = !active;
+    if (!active) return;
     $("connection-kind").textContent = selectedFile
       ? "SELECTED FILE"
       : "SELECTED CONNECTION";

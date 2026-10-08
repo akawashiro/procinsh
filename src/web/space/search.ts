@@ -1,5 +1,5 @@
 // Filter visible process identities and handle search input.
-import { key } from "./data.js";
+import { key } from "./model.js";
 import type { SystemSnapshot } from "../shared/api-types.js";
 export function visibleIds(
   snapshot: SystemSnapshot,

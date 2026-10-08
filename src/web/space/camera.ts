@@ -1,11 +1,9 @@
 // Own camera projection, world bounds, focus, and OrbitControls.
 import * as T from "/vendor/three.module.js";
 import { OrbitControls } from "/vendor/OrbitControls.js";
-import type { SpaceDataStore, Position } from "./data.js";
-export function createSpaceCamera(
-  canvas: HTMLCanvasElement,
-  data: SpaceDataStore,
-) {
+import type { Position } from "./types.js";
+import type { WorldPositions } from "./contracts.js";
+export function createSpaceCamera(canvas: HTMLCanvasElement) {
   const camera = new T.PerspectiveCamera(
     45,
     innerWidth / innerHeight,
@@ -34,31 +32,32 @@ export function createSpaceCamera(
   controls.addEventListener("start", updatePanSpeed);
   controls.addEventListener("change", updatePanSpeed);
 
-  function worldBounds() {
+  function worldBounds(positions: WorldPositions) {
     const box = new T.Box3();
-    for (const n of data.nodes.values()) {
-      box.expandByPoint(new T.Vector3(n.pos.x, n.pos.y, n.pos.z));
-      box.expandByPoint(new T.Vector3(n.pos.x, n.pos.y, 8));
+    for (const pos of positions.processes) {
+      box.expandByPoint(new T.Vector3(pos.x, pos.y, pos.z));
+      box.expandByPoint(new T.Vector3(pos.x, pos.y, 8));
     }
-    for (const p of data.networkPositions.values())
+    for (const p of positions.networks)
       box.expandByPoint(new T.Vector3(p.x, p.y, p.z + 1));
-    for (const p of data.filePositions.values())
+    for (const p of positions.files)
       box.expandByPoint(new T.Vector3(p.x, p.y, p.z - 1));
     return box;
   }
-  function adaptWorld(scene: T.Scene) {
-    if (!data.nodes.size) return;
-    const size = worldBounds().getSize(new T.Vector3()),
+  function adaptWorld(positions: WorldPositions) {
+    const box = worldBounds(positions);
+    if (box.isEmpty()) return;
+    const size = box.getSize(new T.Vector3()),
       extent = Math.max(50, size.x, size.y, size.z);
     controls.maxDistance = Math.max(500, extent * 2);
     camera.far = Math.max(1500, extent * 4);
     camera.updateProjectionMatrix();
-    (scene.fog as T.FogExp2).density = Math.min(0.0015, 0.8 / extent);
+    return Math.min(0.0015, 0.8 / extent);
   }
-  function fit() {
-    if (!data.nodes.size) return;
-    const box = worldBounds(),
-      center = box.getCenter(new T.Vector3()),
+  function fit(positions: WorldPositions) {
+    const box = worldBounds(positions);
+    if (box.isEmpty()) return;
+    const center = box.getCenter(new T.Vector3()),
       size = box.getSize(new T.Vector3());
     const distance = Math.max(size.x, size.y, size.z) * 0.8 + 20;
     controls.target.copy(center);
