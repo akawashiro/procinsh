@@ -34,7 +34,7 @@ fn build_html(template: &str, sha: &str, dirty: bool) -> String {
             ""
         };
         format!(
-            " · <a id=\"build-commit\" href=\"https://github.com/akawashiro/procinsh/commit/{sha}\" target=\"_blank\" rel=\"noopener noreferrer\" title=\"{sha}{note}\" aria-label=\"Build commit {sha}{note}\">{}{suffix}</a>",
+            " · <a id=\"build-commit\" href=\"https://github.com/akawashiro/procinsh/commit/{sha}\" target=\"_blank\" rel=\"noopener noreferrer\" aria-label=\"Build commit {sha}{note}\">{}{suffix}</a>",
             &sha[..7],
         )
     };
@@ -151,7 +151,7 @@ mod tests {
             assert!(html.contains(&format!(
                 "href=\"https://github.com/akawashiro/procinsh/commit/{SHA}\""
             )));
-            assert!(html.contains(&format!("title=\"{SHA}\"")));
+            assert!(!html.contains(" title="));
             assert!(html.contains(&format!("aria-label=\"Build commit {SHA}\"")));
             assert!(html.contains(">0123456</a>"));
             assert!(html.contains("target=\"_blank\" rel=\"noopener noreferrer\""));
@@ -167,6 +167,7 @@ mod tests {
             assert!(dirty.contains(">0123456-dirty</a>"));
             assert!(dirty.contains(&format!("/commit/{SHA}")));
             assert!(dirty.contains("local changes to tracked files"));
+            assert!(!dirty.contains(" title="));
             let gitless = build_html(&template, "", false);
             assert!(gitless.contains(&format!("procinsh v{}", env!("CARGO_PKG_VERSION"))));
             assert!(!gitless.contains("id=\"build-commit\""));
