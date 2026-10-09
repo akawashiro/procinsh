@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check that the crate ships every Vite artifact and builds without Node/npm."""
+"""Check packaged assets, excluded tests, and builds without Node/npm."""
 
 import os
 from pathlib import Path
@@ -21,6 +21,8 @@ def main():
     ).splitlines())
     assert artifacts <= packaged, f"Missing frontend artifacts: {artifacts - packaged}"
     assert not any("node_modules/" in path for path in packaged)
+    test_files = {path for path in packaged if path.startswith("tests/")}
+    assert not test_files, f"Unexpected packaged test files: {sorted(test_files)}"
     # Cargo verifies the unpacked crate in a directory without Git metadata.
     # Fail if its build tries to use either frontend executable.
     with tempfile.TemporaryDirectory(prefix="procinsh-no-node-") as directory:
