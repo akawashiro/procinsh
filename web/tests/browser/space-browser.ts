@@ -377,6 +377,10 @@ try {
     ),
     "/process/424242?start_time_ticks=7",
   );
+  assert.equal(
+    await evaluate("document.getElementById('parent-name').textContent"),
+    "cpu-glow-test",
+  );
   assert.ok(
     await evaluate(
       "import(window.spaceTestModule).then(m=>m.parentLineVisual('424242:7','434343:8').g>0.9)",

@@ -15,6 +15,7 @@ export interface SpaceElements {
   pid: HTMLElement;
   inspect: HTMLAnchorElement;
   "parent-details": HTMLElement;
+  "parent-name": HTMLElement;
   "parent-pid": HTMLElement;
   "parent-inspect": HTMLAnchorElement;
   "connection-details": HTMLElement;

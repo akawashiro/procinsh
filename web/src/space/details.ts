@@ -196,13 +196,12 @@ export function createSpaceDetails(
       $("inspect").href = processUrl(n.identity);
       $("parent-details").hidden = !n.parent_id;
       if (n.parent_id) {
-        renderProcessIdentity(
-          $("parent-pid"),
-          n.parent_id,
-          nodes.get(key(n.parent_id)),
-        );
+        const parent = nodes.get(key(n.parent_id));
+        $("parent-name").textContent = parent?.name ?? "Unknown process";
+        renderProcessIdentity($("parent-pid"), n.parent_id, parent);
         $("parent-inspect").href = processUrl(n.parent_id);
       } else {
+        $("parent-name").textContent = "";
         $("parent-pid").replaceChildren();
         $("parent-inspect").removeAttribute("href");
       }

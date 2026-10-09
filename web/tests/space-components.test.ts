@@ -40,6 +40,7 @@ test("parent process details follow selection and live identity updates", async 
   const parent: PlacedProcess = {
     ...processInfo({
       identity: { pid: 55, start_time_ticks: 7 },
+      name: "parent-process",
       uid: 1000,
       username: "akira",
       euid: 0,
@@ -74,6 +75,7 @@ test("parent process details follow selection and live identity updates", async 
     link = spaceElement("parent-inspect");
   details.update(data, selection);
   assert.equal(section.hidden, false);
+  assert.equal(spaceElement("parent-name").textContent, "parent-process");
   assert.equal(
     section.querySelector(".eyebrow")?.textContent,
     "PARENT PROCESS",
@@ -99,7 +101,9 @@ test("parent process details follow selection and live identity updates", async 
 
   parent.uid = 2000;
   parent.username = "updated-user";
+  parent.name = "renamed-parent";
   details.update(data, selection);
+  assert.equal(spaceElement("parent-name").textContent, "renamed-parent");
   assert.match(pid.textContent!, /Real: updated-user \(2000\)/);
   parent.username = parent.effective_username = null;
   details.update(data, selection);
@@ -116,6 +120,7 @@ test("parent process details follow selection and live identity updates", async 
   assert.equal(section.hidden, false);
   assert.equal(pid.textContent, "PID 55 · Real: unknown Effective: unknown ");
   assert.equal(link.getAttribute("href"), "/process/55?start_time_ticks=8");
+  assert.equal(spaceElement("parent-name").textContent, "Unknown process");
 
   details.update(data, { ...selection, process: "55:7" });
   assert.equal(
@@ -124,6 +129,7 @@ test("parent process details follow selection and live identity updates", async 
     "selecting a root hides the parent section",
   );
   assert.equal(pid.textContent, "");
+  assert.equal(spaceElement("parent-name").textContent, "");
   assert.equal(link.hasAttribute("href"), false);
   child.parent_id = null;
   details.update(data, selection);
