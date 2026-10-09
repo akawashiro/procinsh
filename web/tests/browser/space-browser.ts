@@ -333,7 +333,7 @@ try {
   await evaluate(`(async()=>{
     window.spaceTestSources.forEach(source=>source.close());
     const m=await import(window.spaceTestModule), id={pid:424242,start_time_ticks:7}, peerId={pid:434343,start_time_ticks:8};
-    const node={identity:id,name:'cpu-glow-test',uid:1000,username:'test',maps_epoch:1,maps:[{start:'0x1000',end:'0x2000',readable:true,private:true,writable:true,executable:false,pathname:'[heap]'}]};
+    const node={identity:id,name:'cpu-glow-test',uid:1000,username:'test',euid:0,effective_username:'root',maps_epoch:1,maps:[{start:'0x1000',end:'0x2000',readable:true,private:true,writable:true,executable:false,pathname:'[heap]'}]};
     const peer={...node,identity:peerId,parent_id:id,name:'connection-peer',username:'peer'};
     const a={process_id:id,fd:4,fd_count:1,resource:{kind:'socket',device:{major:0,minor:1},inode:'10'},kind:'socket',access:'read_write'};
     const b={process_id:peerId,fd:9,fd_count:2,resource:{kind:'socket',device:{major:0,minor:1},inode:'11'},kind:'socket',access:'read_write'};
@@ -363,6 +363,20 @@ try {
   await evaluate(
     "import(window.spaceTestModule).then(m=>m.selectProcess('434343:8'))",
   );
+  assert.equal(
+    await evaluate("document.getElementById('parent-details').hidden"),
+    false,
+  );
+  assert.equal(
+    await evaluate("document.getElementById('parent-pid').textContent"),
+    "PID 424242 · Real: test (1000) Effective: root (0) ",
+  );
+  assert.equal(
+    await evaluate(
+      "document.getElementById('parent-inspect').getAttribute('href')",
+    ),
+    "/process/424242?start_time_ticks=7",
+  );
   assert.ok(
     await evaluate(
       "import(window.spaceTestModule).then(m=>m.parentLineVisual('424242:7','434343:8').g>0.9)",
@@ -371,6 +385,11 @@ try {
   );
   await evaluate(
     "import(window.spaceTestModule).then(m=>m.selectProcess('424242:7'))",
+  );
+  assert.equal(
+    await evaluate("document.getElementById('parent-details').hidden"),
+    true,
+    "a process without a parent hides the parent section",
   );
   assert.ok(
     await evaluate(
