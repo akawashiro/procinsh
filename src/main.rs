@@ -16,9 +16,9 @@ use std::{io::Write, net::SocketAddr};
 #[derive(Parser)]
 #[command(version, about = "Read-only Linux x86-64 process inspector")]
 struct Cli {
-    /// Listen address; non-loopback addresses require --allow-non-loopback
+    /// Listen address (repeat for multiple listeners); non-loopback addresses require --allow-non-loopback
     #[arg(long, default_value = "127.0.0.1:8080")]
-    listen: SocketAddr,
+    listen: Vec<SocketAddr>,
     /// Allow non-loopback listening: exposes process memory and environment variables without authentication or TLS
     #[arg(long)]
     allow_non_loopback: bool,
@@ -51,10 +51,12 @@ async fn main() -> std::process::ExitCode {
 
 async fn run() -> Result<()> {
     let cli = Cli::parse();
-    ensure!(
-        cli.listen.ip().is_loopback() || cli.allow_non_loopback,
-        "refusing to listen on non-loopback address {}; use --allow-non-loopback to explicitly expose process memory and environment variables without authentication or TLS",
-        cli.listen
-    );
-    http_server::run(cli.listen).await
+    for address in &cli.listen {
+        ensure!(
+            address.ip().is_loopback() || cli.allow_non_loopback,
+            "refusing to listen on non-loopback address {}; use --allow-non-loopback to explicitly expose process memory and environment variables without authentication or TLS",
+            address
+        );
+    }
+    http_server::run(&cli.listen).await
 }

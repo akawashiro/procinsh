@@ -19,6 +19,7 @@ impl Drop for Target {
 struct Server {
     child: Child,
     address: SocketAddr,
+    second_address: SocketAddr,
 }
 impl Server {
     fn start() -> Self {
@@ -26,7 +27,7 @@ impl Server {
             std::env::var_os("PROCINSH_BINARY")
                 .unwrap_or_else(|| env!("CARGO_BIN_EXE_procinsh").into()),
         )
-        .args(["--listen", "127.0.0.1:0"])
+        .args(["--listen", "127.0.0.1:0", "--listen", "[::1]:0"])
         .env("RUST_LOG", "info")
         .stderr(Stdio::piped())
         .spawn()
@@ -35,6 +36,7 @@ impl Server {
         let (tx, rx) = mpsc::channel();
         std::thread::spawn(move || {
             for line in BufReader::new(stderr).lines().map_while(Result::ok) {
+                eprintln!("{line}");
                 if let Some(address) = line.split("listening on http://").nth(1) {
                     let _ = tx.send(address.split_whitespace().next().unwrap().to_owned());
                 }
@@ -44,10 +46,16 @@ impl Server {
         let mut server = Self {
             child,
             address: "127.0.0.1:0".parse().unwrap(),
+            second_address: "[::1]:0".parse().unwrap(),
         };
         server.address = rx
             .recv_timeout(Duration::from_secs(10))
             .expect("server startup")
+            .parse()
+            .unwrap();
+        server.second_address = rx
+            .recv_timeout(Duration::from_secs(10))
+            .expect("second listener startup")
             .parse()
             .unwrap();
         server
@@ -229,10 +237,16 @@ fn binary_serves_assets_process_api_and_sse_and_shuts_down() {
         );
         assert_eq!(server.get(&format!("/api/processes/{endpoint}")).0, 400);
     }
-    let mut process = server.events(&format!("/api/processes/events?{query}"), "observation");
-    let mut system = server.events("/api/system/events", "snapshot");
+    let process = server.events(&format!("/api/processes/events?{query}"), "observation");
+    let system = server.events("/api/system/events", "snapshot");
+    server.address = server.second_address;
+    assert_eq!(server.get("/api/config").0, 200);
+    let second_system = server.events("/api/system/events", "snapshot");
+    // Consume queued events while shutdown drains all open streams.
+    let readers = [process, system, second_system]
+        .map(|mut reader| std::thread::spawn(move || reader.read_to_end(&mut Vec::new()).unwrap()));
     server.shutdown();
-    // Open streams must end so graceful shutdown can finish.
-    process.read_to_end(&mut Vec::new()).unwrap();
-    system.read_to_end(&mut Vec::new()).unwrap();
+    for reader in readers {
+        reader.join().unwrap();
+    }
 }

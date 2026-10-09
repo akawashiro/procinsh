@@ -4,7 +4,7 @@
 //!
 //! | Definition | Visibility | Signature |
 //! | --- | --- | --- |
-//! | [`run`] | `pub(super)` | `async fn run(listen: `[`SocketAddr`](std::net::SocketAddr)`) -> `[`anyhow::Result`]`<()>` |
+//! | [`run`] | `pub(super)` | `async fn run(listen: &[`[`SocketAddr`](std::net::SocketAddr)`]) -> `[`anyhow::Result`]`<()>` |
 //!
 //! Shared resource identities live in [`resource`]; socket metadata and descriptor
 //! capabilities live in [`socket_types`].
