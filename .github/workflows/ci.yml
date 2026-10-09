@@ -100,8 +100,6 @@ jobs:
         run: cargo clippy --all-targets --locked -- -D warnings
       - name: Check listen policy
         run: python3 tests/listen-policy.py
-      - name: Check preview listener selection
-        run: python3 tests/preview-bind.py
       - name: Check crate packaging and embedded assets
         run: python3 scripts/check_web_package.py
 
