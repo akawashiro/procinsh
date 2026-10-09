@@ -1,6 +1,6 @@
 [package]
 name = "procinsh"
-version = "0.1.11"
+version = "0.1.12"
 edition = "2024"
 description = "A local, read-only Linux x86-64 process inspector"
 license = "MIT"
