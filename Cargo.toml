@@ -16,8 +16,6 @@ include = [
     "/rust-toolchain.toml",
     "/src/**",
     "/web/dist/**",
-    "/tests/**",
-    "!/tests/targets/bin/**",
 ]
 
 [dependencies]
