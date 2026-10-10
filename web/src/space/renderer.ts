@@ -84,7 +84,7 @@ function cpuGlowLevel(
 }
 
 const SIGNAL_CAP = 256;
-const SIGNAL_DURATION_MS = 850;
+const SIGNAL_DURATION_MS = 1700;
 const SIGNAL_PULSE_MS = 400;
 type SignalFlight = {
   source: string;
@@ -197,7 +197,15 @@ export function createSpaceRenderer({
     }),
   );
   points.frustumCulled = false;
-  scene.add(points);
+  const signalGeometry = new graphics.BufferGeometry();
+  signalGeometry.setAttribute("position", pg.attributes.position);
+  signalGeometry.setAttribute("color", pg.attributes.color);
+  signalGeometry.setDrawRange(0, 0);
+  const signalMaterial = points.material.clone();
+  signalMaterial.size = 0.8;
+  const signalPoints = new graphics.Points(signalGeometry, signalMaterial);
+  signalPoints.frustumCulled = false;
+  scene.add(points, signalPoints);
   function resizeLabels() {
     const ratio = Math.min(devicePixelRatio, 2);
     labelCanvas.width = Math.round(innerWidth * ratio);
@@ -374,7 +382,7 @@ export function createSpaceRenderer({
         destination,
         label: signalName(event.signal),
         start: now,
-        duration: reduced ? 150 : SIGNAL_DURATION_MS,
+        duration: reduced ? 300 : SIGNAL_DURATION_MS,
         curve: new graphics.QuadraticBezierCurve3(start, mid, end),
         arrived: false,
       });
@@ -432,6 +440,7 @@ export function createSpaceRenderer({
         i++;
       }
     }
+    const signalCount = i;
     for (const p of particles) {
       if (i >= CAP) break;
       if (now < p.start) continue;
@@ -444,7 +453,8 @@ export function createSpaceRenderer({
       colors.set([c.r, c.g, c.b], i * 3);
       i++;
     }
-    pg.setDrawRange(0, i);
+    signalGeometry.setDrawRange(0, signalCount);
+    pg.setDrawRange(signalCount, i - signalCount);
     pg.attributes.position.needsUpdate = true;
     pg.attributes.color.needsUpdate = true;
     const { baseGlow, haloGlow, hullIds } = readView();
@@ -571,8 +581,10 @@ export function createSpaceRenderer({
       if (frame !== undefined) cancelAnimationFrame(frame);
       pg.dispose();
       points.material.dispose();
+      signalGeometry.dispose();
+      signalMaterial.dispose();
       particleTexture.dispose();
-      scene.remove(points);
+      scene.remove(points, signalPoints);
       renderer.dispose();
     },
   };

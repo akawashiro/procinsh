@@ -562,7 +562,7 @@ try {
         "import(window.spaceTestModule).then(m=>m.cpuGlowVisual('810002:2').r>0.5)",
       ),
     "signal arrival pulses destination",
-    1500,
+    2500,
   );
   await delay(450);
   assert.equal(

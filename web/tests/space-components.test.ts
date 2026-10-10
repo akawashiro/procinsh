@@ -545,7 +545,12 @@ test("space-components regression", async () => {
     assert.deepEqual(flight.startPosition, [0, 0, 6]);
     assert.deepEqual(flight.endPosition, [10, 0, 6]);
     pendingFrame!(5100);
-    const points = root.children.find((o) => o instanceof T.Points) as T.Points;
+    const points = root.children.find(
+      (o) =>
+        o instanceof T.Points && (o.material as T.PointsMaterial).size === 0.8,
+    ) as T.Points;
+    assert.ok(points, "signal projectile has twice the particle diameter");
+    assert.equal(flight.duration, 1700, "signal takes twice as long to arrive");
     assert.equal(
       points.geometry.drawRange.count,
       7,
@@ -562,13 +567,20 @@ test("space-components regression", async () => {
     assert.equal(color.r, 0, "destination waits for arrival");
     pendingFrame!(5900);
     view.baseGlow!.getColorAt(1, color);
+    assert.equal(
+      color.r,
+      0,
+      "slower projectile is still in transit after 900ms",
+    );
+    pendingFrame!(6750);
+    view.baseGlow!.getColorAt(1, color);
     assert.ok(color.r > 0.8, "destination pulses on arrival");
     assert.equal(renderer.signalVisuals()[0].arrived, true);
-    pendingFrame!(6300);
+    pendingFrame!(7150);
     view.baseGlow!.getColorAt(1, color);
     assert.equal(color.r, 0, "arrival pulse expires");
     assert.equal(renderer.signalVisuals().length, 0);
-    emit(Array(5000).fill(signal), 7000);
+    emit(Array(5000).fill(signal), 8000);
     assert.equal(
       renderer.signalVisuals().length,
       256,
