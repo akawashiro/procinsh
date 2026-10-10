@@ -624,7 +624,19 @@ export class SpaceDataStore {
         count: e.count,
       });
     }
-    return { now, filesChanged, routes };
+    const signals = (activity.signals || [])
+      .filter((event) => {
+        const source = key(event.source_id),
+          destination = key(event.destination_id);
+        return (
+          this.nodes.has(source) &&
+          this.nodes.has(destination) &&
+          visible.has(source) &&
+          visible.has(destination)
+        );
+      })
+      .slice(-256);
+    return { now, filesChanged, routes, signals };
   }
   pruneFiles(now = performance.now()) {
     const changed = this.recentFiles.prune(now, new Set(this.nodes.keys()));
@@ -1381,6 +1393,41 @@ if (import.meta.vitest) {
         "structural additions preserve positions",
       );
 
+    const signal = {
+      timestamp_ns: 123,
+      src_pid: a.pid,
+      dst_pid: b.pid,
+      source_id: a,
+      destination_id: b,
+      signal: 10,
+    };
+    assert.deepEqual(
+      store.ingestActivity(spaceActivity({ signals: [signal] })).signals,
+      [signal],
+    );
+    assert.deepEqual(
+      store.ingestActivity(
+        spaceActivity({ signals: [signal] }),
+        new Set([key(a)]),
+      ).signals,
+      [],
+    );
+    assert.deepEqual(
+      store.ingestActivity(
+        spaceActivity({
+          signals: [
+            { ...signal, destination_id: { ...b, start_time_ticks: 999 } },
+          ],
+        }),
+      ).signals,
+      [],
+    );
+    assert.equal(
+      store.ingestActivity(spaceActivity({ signals: Array(1000).fill(signal) }))
+        .signals!.length,
+      256,
+    );
+    assert.deepEqual(store.ingestActivity(spaceActivity()).signals, []);
     const file = {
       process_id: a,
       file: { device: { major: 8, minor: 1 }, inode: "9", generation: 0 },

@@ -1,5 +1,6 @@
 // Animate activity, draw the scene and labels, and adapt rendering resolution.
 import type * as T from "three";
+import { key, signalName } from "./model.js";
 import type {
   ActivityUpdate,
   CpuGlow,
@@ -82,6 +83,19 @@ function cpuGlowLevel(
   return peak * (1 - (now - state.last) / afterglowMs);
 }
 
+const SIGNAL_CAP = 256;
+const SIGNAL_DURATION_MS = 1700;
+const SIGNAL_PULSE_MS = 400;
+type SignalFlight = {
+  source: string;
+  destination: string;
+  label: string;
+  start: number;
+  duration: number;
+  curve: T.QuadraticBezierCurve3;
+  arrived: boolean;
+};
+
 type Particle = {
   start: number;
   duration: number;
@@ -133,6 +147,8 @@ export function createSpaceRenderer({
     frameTime = performance.now(),
     running = false,
     frame: number | undefined;
+  let signalFlights: SignalFlight[] = [];
+  const signalPulses = new Map<string, number>();
   const labelPoint = new graphics.Vector3();
   let renderer: T.WebGLRenderer;
   try {
@@ -181,14 +197,22 @@ export function createSpaceRenderer({
     }),
   );
   points.frustumCulled = false;
-  scene.add(points);
+  const signalGeometry = new graphics.BufferGeometry();
+  signalGeometry.setAttribute("position", pg.attributes.position);
+  signalGeometry.setAttribute("color", pg.attributes.color);
+  signalGeometry.setDrawRange(0, 0);
+  const signalMaterial = points.material.clone();
+  signalMaterial.size = 0.8;
+  const signalPoints = new graphics.Points(signalGeometry, signalMaterial);
+  signalPoints.frustumCulled = false;
+  scene.add(points, signalPoints);
   function resizeLabels() {
     const ratio = Math.min(devicePixelRatio, 2);
     labelCanvas.width = Math.round(innerWidth * ratio);
     labelCanvas.height = Math.round(innerHeight * ratio);
     labelContext.setTransform(ratio, 0, 0, ratio, 0, 0);
   }
-  function drawLabels() {
+  function drawLabels(now: number) {
     const { nodes, hullIds, networkViews, fileViews } = readView();
     const {
       process: selected,
@@ -247,6 +271,17 @@ export function createSpaceRenderer({
         v.file.id === selectedFile || v.file.id === hoveredFile,
         true,
       );
+    for (const flight of signalFlights.slice(-12)) {
+      const progress = Math.min(
+        1,
+        Math.max(0, (now - flight.start) / flight.duration),
+      );
+      add(
+        flight.label,
+        flight.curve.getPoint(progress).add(new graphics.Vector3(0, 0, 0.6)),
+        true,
+      );
+    }
     labels.sort(
       (a, b) => Number(b.active) - Number(a.active) || a.depth - b.depth,
     );
@@ -325,10 +360,44 @@ export function createSpaceRenderer({
           color: 0xffffff,
         });
     }
+    for (const event of (update.signals || []).slice(-SIGNAL_CAP)) {
+      const source = key(event.source_id),
+        destination = key(event.destination_id);
+      const src = view.nodes.get(source),
+        dst = view.nodes.get(destination);
+      if (
+        !src ||
+        !dst ||
+        !view.hullIds.includes(source) ||
+        !view.hullIds.includes(destination)
+      )
+        continue;
+      const start = src.pos.clone().setZ(6),
+        end = dst.pos.clone().setZ(6);
+      const mid = start.clone().lerp(end, 0.5);
+      mid.z += Math.min(8, 2 + start.distanceTo(end) * 0.12);
+      if (source === destination) mid.x += 3;
+      signalFlights.push({
+        source,
+        destination,
+        label: signalName(event.signal),
+        start: now,
+        duration: reduced ? 300 : SIGNAL_DURATION_MS,
+        curve: new graphics.QuadraticBezierCurve3(start, mid, end),
+        arrived: false,
+      });
+    }
+    signalFlights = signalFlights.slice(-SIGNAL_CAP);
     if (particles.length > CAP) particles = particles.slice(-CAP);
   }
   function retainParticles(networkIds: ReadonlySet<string>) {
     const view = readView();
+    const visible = new Set(view.hullIds);
+    signalFlights = signalFlights.filter(
+      (f) => visible.has(f.source) && visible.has(f.destination),
+    );
+    for (const id of signalPulses.keys())
+      if (!visible.has(id)) signalPulses.delete(id);
     particles = particles.filter(
       (p) =>
         (!p.fileId || view.fileViews.has(p.fileId)) &&
@@ -341,8 +410,39 @@ export function createSpaceRenderer({
     if (document.hidden) return;
     beforeFrame(now);
     particles = particles.filter((p) => now - p.start < p.duration);
+    signalFlights = signalFlights.filter(
+      (f) => now - f.start < f.duration + SIGNAL_PULSE_MS,
+    );
+    for (const [id, arrival] of signalPulses)
+      if (now - arrival >= SIGNAL_PULSE_MS) signalPulses.delete(id);
     let i = 0;
+    for (const f of signalFlights) {
+      const elapsed = now - f.start;
+      if (elapsed < 0) continue;
+      if (elapsed >= f.duration) {
+        if (!f.arrived) {
+          f.arrived = true;
+          if (
+            !signalPulses.has(f.destination) &&
+            signalPulses.size >= SIGNAL_CAP
+          )
+            signalPulses.delete(signalPulses.keys().next().value!);
+          signalPulses.set(f.destination, f.start + f.duration);
+        }
+        continue;
+      }
+      const progress = elapsed / f.duration;
+      for (let tail = 0; tail < (reduced ? 1 : 7); tail++) {
+        const point = f.curve.getPoint(Math.max(0, progress - tail * 0.025));
+        positions.set(point.toArray(), i * 3);
+        const strength = tail === 0 ? 1 : 0.45 * (1 - tail / 7);
+        colors.set([strength, 0.42 * strength, 0.95 * strength], i * 3);
+        i++;
+      }
+    }
+    const signalCount = i;
     for (const p of particles) {
+      if (i >= CAP) break;
       if (now < p.start) continue;
       const t = (now - p.start) / p.duration,
         point = p.curve
@@ -353,27 +453,41 @@ export function createSpaceRenderer({
       colors.set([c.r, c.g, c.b], i * 3);
       i++;
     }
-    pg.setDrawRange(0, i);
+    signalGeometry.setDrawRange(0, signalCount);
+    pg.setDrawRange(signalCount, i - signalCount);
     pg.attributes.position.needsUpdate = true;
     pg.attributes.color.needsUpdate = true;
     const { baseGlow, haloGlow, hullIds } = readView();
     if (baseGlow && haloGlow) {
       for (let j = 0; j < hullIds.length; j++) {
         const level = cpuGlowLevel(cpuGlows.get(hullIds[j]), now);
+        const arrival = signalPulses.get(hullIds[j]);
+        const pulse =
+          arrival === undefined
+            ? 0
+            : Math.max(0, 1 - (now - arrival) / SIGNAL_PULSE_MS);
         baseGlow.setColorAt(
           j,
-          new graphics.Color().setRGB(0.45 * level, 1.15 * level, 1.05 * level),
+          new graphics.Color().setRGB(
+            0.45 * level + pulse,
+            1.15 * level + pulse * 0.35,
+            1.05 * level + pulse * 0.9,
+          ),
         );
         haloGlow.setColorAt(
           j,
-          new graphics.Color().setRGB(0.18 * level, 0.85 * level, 0.72 * level),
+          new graphics.Color().setRGB(
+            0.18 * level + pulse * 0.7,
+            0.85 * level + pulse * 0.2,
+            0.72 * level + pulse * 0.8,
+          ),
         );
       }
       if (baseGlow.instanceColor) baseGlow.instanceColor.needsUpdate = true;
       if (haloGlow.instanceColor) haloGlow.instanceColor.needsUpdate = true;
     }
     renderer.render(scene, camera);
-    drawLabels();
+    drawLabels(now);
     frames++;
     if (now - frameTime > 1000) {
       const fps = Math.round((frames * 1000) / (now - frameTime));
@@ -423,6 +537,18 @@ export function createSpaceRenderer({
 
   return {
     activity,
+    signalVisuals() {
+      return signalFlights.map((f) => ({
+        source: f.source,
+        destination: f.destination,
+        label: f.label,
+        start: f.start,
+        duration: f.duration,
+        arrived: f.arrived,
+        startPosition: f.curve.v0.toArray(),
+        endPosition: f.curve.v2.toArray(),
+      }));
+    },
     retainParticles,
     networkVisuals,
     networkParticles,
@@ -431,6 +557,8 @@ export function createSpaceRenderer({
     resetSampling: resetRenderSampling,
     clearParticles() {
       particles = [];
+      signalFlights = [];
+      signalPulses.clear();
     },
     resize() {
       renderer.setSize(innerWidth, innerHeight);
@@ -453,8 +581,10 @@ export function createSpaceRenderer({
       if (frame !== undefined) cancelAnimationFrame(frame);
       pg.dispose();
       points.material.dispose();
+      signalGeometry.dispose();
+      signalMaterial.dispose();
       particleTexture.dispose();
-      scene.remove(points);
+      scene.remove(points, signalPoints);
       renderer.dispose();
     },
   };

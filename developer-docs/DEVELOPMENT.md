@@ -8,7 +8,7 @@ ProcInSh は Linux x86-64 のプロセスを観測する Web アプリケーシ�
 
 Rust edition は 2024 です。Rust は rustup 経由で利用し、`rust-toolchain.toml` でバージョンと rustfmt・clippy を固定しています。ローカルと CI は同じ設定を使い、必要なツールチェーンは rustup が自動インストールします。Rust の更新時はこのファイルを変更し、フォーマット・Clippy・テストを再確認します。ビルドには Node.js 22.12以降と npm、C コンパイラ、`ar`、BPF backend を持つ clang、bpftool、pkg-config、libelf・zlib 開発ファイル、実行カーネルの `/sys/kernel/btf/vmlinux` が必要です。
 
-`build.rs` は bpftool で BTF から `vmlinux.h` を生成し、`libbpf-cargo` で CPU/IPC とファイル I/O の BPF オブジェクトをビルドします。通常の `cargo build` でもこの処理を実行するため、BPF を画面で利用しない場合もビルド依存は必要です。
+`build.rs` は bpftool で BTF から `vmlinux.h` を生成し、`libbpf-cargo` で CPU/IPC・ファイル I/O・シグナルの BPF オブジェクトをビルドします。通常の `cargo build` でもこの処理を実行するため、BPF を画面で利用しない場合もビルド依存は必要です。
 
 ```sh
 npm --prefix web ci
@@ -122,7 +122,7 @@ JSON のプロセス識別子は `{ "pid": 123, "start_time_ticks": 456 }` で�
 | `GET /api/processes/environment` | 識別子クエリ | 環境変数の名前・値の一覧と取得情報 |
 | `GET /api/processes/auxv` | 識別子クエリ | 補助ベクトルのタグ・値・参照先の解決結果 |
 | `GET /api/processes/events` | 識別子クエリ | SSE `observation`：指定プロセスの概要・最新観測・スレッド・履歴・マップ・終了状態 |
-| `GET /api/system/events` | なし | SSE `snapshot`・`activity`・`gap`：構造、CPU・IPC・ファイルI/O活動、配信欠落 |
+| `GET /api/system/events` | なし | SSE `snapshot`・`activity`・`gap`：構造、CPU・IPC・ファイルI/O・シグナル活動、配信欠落 |
 
 識別子クエリの欠落・構文不正は400です。PIDは正の整数である必要があります。observation/threads/mapsを含め、単発GETで対象の終了・PID再利用を検出した場合は410で返します。その他の観測処理の失敗は原則422、ブロッキングタスクの失敗は500です。
 
@@ -159,7 +159,7 @@ SSE は `Content-Type: text/event-stream` で接続を維持し、`event:` に�
 | イベント | 配信内容とタイミング |
 |---|---|
 | `snapshot` | 接続直後の保持済み構造、約1秒の待機を挟む構造更新、配信欠落後の再同期。`kind` に応じて全体または差分を反映 |
-| `activity` | 約1秒ごとの活動集計。`captured_at`、`window_ms`、`cpu`、`ipc`、`files`、`status` |
+| `activity` | 約1秒ごとの活動集計。`captured_at`、`window_ms`、`cpu`、`ipc`、`files`、`signals`、`status` |
 | `gap` | 購読遅延時の `{dropped_frames: 件数}`。続けて最新 `snapshot` を送り、失われた活動は再送しない |
 
 `system/snapshot.rs` の `SystemSnapshot` を、接続ごとの `SnapshotEncoder` で JSON に変換して配信します。`ProcessSnapshot` はプロセス、`FdEndpoint` はプロセスの FD 端点、`FdRelation` は socket・pipe・共有所有の関係を表します。
@@ -182,7 +182,8 @@ SSE は `Content-Type: text/event-stream` で接続を維持し、`event:` に�
 | `cpu` | `process_id`、`runtime_ns`（実行時間、ナノ秒）、`switches`（切替回数）、`running_threads`（実行中スレッド数）、`cpus`（実行中CPU番号） |
 | `ipc` | `process_id`、`resource`、`write`、`bytes`、`count`。送信／書き込みがtrue、受信／読み取りがfalse。ペイロードは含まない |
 | `files` | `process_id`, `file: {device: {major, minor}, inode, generation}`, `path`, `write`, `bytes`, `count`。inode は十進文字列。パスが取得不能なら null。 |
-| `status` | `active`、CPU・IPC・filesのセンサー状態、観測範囲の説明、`lost`・`files_lost`・`unresolved` などの収集統計 |
+| `signals` | `timestamp_ns`（monotonic ナノ秒）、`src_pid`、`dst_pid`、`signal`（番号）、`source_id`、`destination_id`（開始時刻を含むプロセス識別子）。`signal_generate` の観測であり、実際の配送やハンドラー実行を意味しない |
+| `status` | `active`、CPU・IPC・files・signals のセンサー状態、観測範囲の説明、`lost`・`files_lost`・`signals_lost`・`unresolved` などの収集統計 |
 
 識別情報は構造化されています。IPC 活動と system snapshot の FD の `resource` は `{kind: "pipe" | "socket", device: {major, minor}, inode: "…"}`、memory map の `device` は `{major, minor}` です。inode は全て十進文字列で送ります。
 
@@ -415,6 +416,10 @@ SPACE はシステム全体のプロセス、仮想アドレス空間、親子�
 
 描画解像度は [`AdaptiveRenderScale`](../web/src/space/renderer.ts#L12) が約1秒ごとの FPS で調整します。24 FPS 未満が3回続いた場合は pixel ratio を10%下げ、45 FPS 以上が5回続いた場合は元の解像度に向けて回復します。上限は初期の device pixel ratio（最大1.5）、下限は0.5（初期値が0.5未満ならその値）です。FPS と解像度の割合はヘッダーに表示します。
 
+シグナルは `raw_tp/signal_generate` で発信元・宛先を thread group leader に正規化し、開始時刻が現在の構造と一致するイベントだけ配信します。カーネル ring buffer は256 KiB、配信窓の保持上限は1024件で、超過分は `signals_lost` に加算します。`PROCINSH_DISABLE_SIGNALS=1 ./scripts/dev_run.sh ...` でシグナル収集を無効にできます。無効・権限不足・フック利用不能時も他の観測と SPACE 表示は継続します。
+
+SPACE は両端が表示中のシグナルを最大256件保持し、紫色の光と薄い軌跡を約1700msで宛先へ移動させ、到着時に宛先の基部を400msだけ発光させます。シグナル名のラベルは同時に最大12件表示します。これは観測イベントのアニメーションで、配送遅延の測定ではありません。`prefers-reduced-motion` では軌跡を省き、移動時間を300msに短縮します。検索、プロセス消滅、SSE のリセットで無効な表示を破棄します。
+
 #### 検索・選択とカメラ操作
 
 操作はブラウザ内で処理します。選択時に詳細 API は呼ばず、取得済みの構造・活動データから右側の詳細パネルを更新します。Open process details のリンクは [`processUrl`](../web/src/shared/navigation.ts#L4) で観測した開始時刻を引き継ぎ、`/process/{pid}?start_time_ticks={開始時刻}` に移動します。
@@ -608,6 +613,7 @@ BPF の観測権限（`CAP_BPF`・`CAP_PERFMON` など）と対応するカー�
 ```sh
 python3 tests/space-live.py http://127.0.0.1:9090
 python3 tests/space-files-live.py http://127.0.0.1:9090
+python3 tests/space-signals-live.py http://127.0.0.1:9090
 ```
 
 URL を省略した場合は一時サーバーを起動・終了しますが、そのサーバーにも観測権限が必要です。

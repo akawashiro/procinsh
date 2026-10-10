@@ -511,7 +511,105 @@ test("space-components regression", async () => {
     renderer.resume();
     pendingFrame!(4000);
     assert.deepEqual(beforeFrames, [2000, 4000]);
+    const source = { ...node, pos: new T.Vector3(0, 0, 0) };
+    const destination = {
+      ...source,
+      identity: { pid: 102, start_time_ticks: 1 },
+      pos: new T.Vector3(10, 0, 0),
+    };
+    const glow = () =>
+      new T.InstancedMesh(new T.BoxGeometry(), new T.MeshBasicMaterial(), 2);
+    view = {
+      ...view,
+      nodes: new Map([
+        ["101:1", source],
+        ["102:1", destination],
+      ]),
+      hullIds: ["101:1", "102:1"],
+      baseGlow: glow(),
+      haloGlow: glow(),
+    };
+    const signal = {
+      timestamp_ns: 123,
+      src_pid: 101,
+      dst_pid: 102,
+      signal: 10,
+      source_id: source.identity,
+      destination_id: destination.identity,
+    };
+    const emit = (signals = [signal], now = 5000) =>
+      renderer.activity({ now, filesChanged: false, routes: [], signals });
+    emit();
+    const flight = renderer.signalVisuals()[0];
+    assert.equal(flight.label, "SIGUSR1");
+    assert.deepEqual(flight.startPosition, [0, 0, 6]);
+    assert.deepEqual(flight.endPosition, [10, 0, 6]);
+    pendingFrame!(5100);
+    const points = root.children.find(
+      (o) =>
+        o instanceof T.Points && (o.material as T.PointsMaterial).size === 0.8,
+    ) as T.Points;
+    assert.ok(points, "signal projectile has twice the particle diameter");
+    assert.equal(flight.duration, 1700, "signal takes twice as long to arrive");
+    assert.equal(
+      points.geometry.drawRange.count,
+      7,
+      "one projectile has a faint six-point trail",
+    );
+    const x = points.geometry.attributes.position.getX(0);
+    pendingFrame!(5400);
+    assert.ok(
+      points.geometry.attributes.position.getX(0) > x,
+      "projectile advances toward destination",
+    );
+    const color = new T.Color();
+    view.baseGlow!.getColorAt(1, color);
+    assert.equal(color.r, 0, "destination waits for arrival");
+    pendingFrame!(5900);
+    view.baseGlow!.getColorAt(1, color);
+    assert.equal(
+      color.r,
+      0,
+      "slower projectile is still in transit after 900ms",
+    );
+    pendingFrame!(6750);
+    view.baseGlow!.getColorAt(1, color);
+    assert.ok(color.r > 0.8, "destination pulses on arrival");
+    assert.equal(renderer.signalVisuals()[0].arrived, true);
+    pendingFrame!(7150);
+    view.baseGlow!.getColorAt(1, color);
+    assert.equal(color.r, 0, "arrival pulse expires");
+    assert.equal(renderer.signalVisuals().length, 0);
+    emit(Array(5000).fill(signal), 8000);
+    assert.equal(
+      renderer.signalVisuals().length,
+      256,
+      "rapid activity has a global cap",
+    );
+    view = { ...view, hullIds: ["101:1"] };
+    renderer.retainParticles(new Set());
+    assert.equal(
+      renderer.signalVisuals().length,
+      0,
+      "hidden destination clears flights",
+    );
+    emit();
+    assert.equal(
+      renderer.signalVisuals().length,
+      0,
+      "hidden endpoints are ignored",
+    );
+    view = { ...view, hullIds: ["101:1", "102:1"] };
+    emit();
+    renderer.clearParticles();
+    assert.equal(
+      renderer.signalVisuals().length,
+      0,
+      "SSE reset clears signals",
+    );
     renderer.dispose();
+    view.baseGlow!.geometry.dispose();
+    view.haloGlow!.geometry.dispose();
     assert.equal(root.children.length, 0);
   }
   console.log(

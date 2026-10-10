@@ -133,6 +133,7 @@ impl SystemMonitor {
                     files: batch.files,
                     ipc: batch.ipc,
                     cpu: batch.cpu,
+                    signals: batch.signals,
                     status,
                 })));
                 last = Instant::now();

@@ -22,6 +22,7 @@ mod model;
 mod resolver;
 mod sched;
 mod service;
+mod signals;
 mod snapshot;
 mod status;
 use service::monotonic_ns;

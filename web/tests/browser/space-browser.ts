@@ -540,6 +540,61 @@ try {
   })()`);
   for (const [check, passed] of Object.entries(stableChecks))
     assert.equal(passed, true, check);
+  await evaluate(`(async()=>{
+    const m=await import(window.spaceTestModule);
+    document.getElementById('reset').click();
+    const source={pid:810001,start_time_ticks:1},target={pid:810002,start_time_ticks:2};
+    m.renderSystemSnapshot({processes:[{identity:source,name:'signal-source',uid:1000,maps:[],maps_epoch:1},{identity:target,parent_id:source,name:'signal-target',uid:1000,maps:[],maps_epoch:1}],fd_relations:[],warnings:[]});
+    m.fitScene();
+    window.signalFixture={timestamp_ns:123,src_pid:source.pid,dst_pid:target.pid,source_id:source,destination_id:target,signal:15};
+    m.renderActivity({signals:[window.signalFixture]});
+  })()`);
+  const signalFlight = await evaluate<
+    { label: string; source: string; destination: string }[]
+  >("import(window.spaceTestModule).then(m=>m.signalVisuals())");
+  assert.equal(signalFlight.length, 1);
+  assert.equal(signalFlight[0].label, "SIGTERM");
+  assert.equal(signalFlight[0].source, "810001:1");
+  assert.equal(signalFlight[0].destination, "810002:2");
+  await until(
+    () =>
+      evaluate(
+        "import(window.spaceTestModule).then(m=>m.cpuGlowVisual('810002:2').r>0.5)",
+      ),
+    "signal arrival pulses destination",
+    2500,
+  );
+  await delay(450);
+  assert.equal(
+    await evaluate(
+      "import(window.spaceTestModule).then(m=>m.signalVisuals().length)",
+    ),
+    0,
+  );
+  assert.ok(
+    (await evaluate<number>(
+      "import(window.spaceTestModule).then(m=>m.cpuGlowVisual('810002:2').r)",
+    )) < 0.01,
+  );
+  await evaluate(
+    "import(window.spaceTestModule).then(m=>m.renderActivity({signals:Array(5000).fill(window.signalFixture)}))",
+  );
+  assert.equal(
+    await evaluate(
+      "import(window.spaceTestModule).then(m=>m.signalVisuals().length)",
+    ),
+    256,
+  );
+  await evaluate(
+    "document.getElementById('search').value='signal-source';document.getElementById('search').dispatchEvent(new Event('input'))",
+  );
+  assert.equal(
+    await evaluate(
+      "import(window.spaceTestModule).then(m=>m.signalVisuals().length)",
+    ),
+    0,
+  );
+  await evaluate("document.getElementById('reset').click()");
   await checkFileSpace(evaluate, delay, cdp);
   await checkNetworkSpace(evaluate, delay, cdp);
   // A close-up right drag should travel as far in world space as a focused drag.

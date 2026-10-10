@@ -4,12 +4,14 @@ use super::{
     SystemSnapshot, files::FileActivityCollector, ipc::IpcActivityCollector,
     sched::CpuActivityCollector,
 };
+use super::{model::SignalEvent, signals::SignalCollector};
 
 /// Owns independently initialized BPF sensors, without service lifecycle or delivery.
 pub(super) struct ActivityCollector {
     ipc: Option<IpcActivityCollector>,
     scheduler: Option<CpuActivityCollector>,
     files: Option<FileActivityCollector>,
+    signals: Option<SignalCollector>,
     status: SystemMonitorStatus,
 }
 
@@ -17,6 +19,7 @@ pub(super) struct ActivityBatch {
     pub(super) files: Vec<FileActivity>,
     pub(super) ipc: Vec<IpcActivity>,
     pub(super) cpu: Vec<CpuActivity>,
+    pub(super) signals: Vec<SignalEvent>,
 }
 
 impl ActivityCollector {
@@ -33,7 +36,15 @@ impl ActivityCollector {
         let ipc = initialize(IpcActivityCollector::new(), &mut status.ipc);
         let scheduler = initialize(CpuActivityCollector::new(), &mut status.cpu);
         let files = initialize(FileActivityCollector::new(), &mut status.files);
+        let signals = if std::env::var_os("PROCINSH_DISABLE_SIGNALS").is_some() {
+            status.signals =
+                SensorState::Unavailable("disabled by PROCINSH_DISABLE_SIGNALS".into());
+            None
+        } else {
+            initialize(SignalCollector::new(), &mut status.signals)
+        };
         Self {
+            signals,
             ipc,
             scheduler,
             files,
@@ -42,6 +53,10 @@ impl ActivityCollector {
     }
 
     pub(super) fn poll(&mut self, snapshot: &SystemSnapshot) {
+        update_state(
+            self.signals.as_ref().map(SignalCollector::poll),
+            &mut self.status.signals,
+        );
         update_state(
             self.files.as_ref().map(FileActivityCollector::poll),
             &mut self.status.files,
@@ -83,7 +98,17 @@ impl ActivityCollector {
             .files
             .as_ref()
             .map_or_else(Vec::new, FileActivityCollector::drain);
-        ActivityBatch { files, ipc, cpu }
+        self.status.signals_lost = Some(self.signals.as_ref().map_or(0, SignalCollector::lost));
+        let signals = self
+            .signals
+            .as_ref()
+            .map_or_else(Vec::new, |sensor| sensor.drain(snapshot));
+        ActivityBatch {
+            files,
+            ipc,
+            cpu,
+            signals,
+        }
     }
 
     /// Returns sensor health; the service supplies the monitoring `active` flag.
@@ -139,6 +164,7 @@ mod tests {
     #[test]
     fn missing_sensors_preserve_health_and_produce_empty_batches() {
         let mut collector = ActivityCollector {
+            signals: None,
             ipc: None,
             scheduler: None,
             files: None,
@@ -146,14 +172,21 @@ mod tests {
                 ipc: SensorState::Unavailable("ipc denied".into()),
                 cpu: SensorState::Unavailable("cpu denied".into()),
                 files: SensorState::Unavailable("files denied".into()),
+                signals: SensorState::Unavailable("signals denied".into()),
                 ..SystemMonitorStatus::default()
             },
         };
         let snapshot = SystemSnapshot::default();
         collector.poll(&snapshot);
         let batch = collector.drain(123, &snapshot);
+        assert!(batch.signals.is_empty());
         assert!(batch.ipc.is_empty() && batch.cpu.is_empty() && batch.files.is_empty());
         let mut status = collector.status();
+        assert_eq!(
+            status.signals,
+            SensorState::Unavailable("signals denied".into())
+        );
+        assert_eq!(status.signals_lost, Some(0));
         assert_eq!(status.ipc, SensorState::Unavailable("ipc denied".into()));
         assert_eq!(status.cpu, SensorState::Unavailable("cpu denied".into()));
         assert_eq!(

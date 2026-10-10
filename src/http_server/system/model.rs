@@ -1,4 +1,17 @@
-//! Serializable system activity and sensor health data.
+//! Serializable system activity and sensor health data for monitoring delivery.
+//!
+//! # Interface
+//!
+//! | Definition | Visibility | Kind |
+//! | --- | --- | --- |
+//! | [`SystemActivity`] | `pub(in crate::http_server)` | `struct SystemActivity` |
+//! | [`IpcActivity`] | `pub(in crate::http_server)` | `struct IpcActivity` |
+//! | [`CpuActivity`] | `pub(in crate::http_server)` | `struct CpuActivity` |
+//! | [`SignalEvent`] | `pub(super)` | `struct SignalEvent` |
+//! | [`SystemMonitorStatus`] | `pub(in crate::http_server)` | `struct SystemMonitorStatus` |
+//! | [`SensorState`] | `pub(in crate::http_server)` | `enum SensorState` |
+//!
+//! Activity endpoints use [`ProcessId`]; file observations use [`FileActivity`].
 use super::files::FileActivity;
 use crate::http_server::process::ProcessId;
 use crate::http_server::resource::IpcIdentity;
@@ -11,7 +24,19 @@ pub(in crate::http_server) struct SystemActivity {
     pub(super) files: Vec<FileActivity>,
     pub(super) ipc: Vec<IpcActivity>,
     pub(super) cpu: Vec<CpuActivity>,
+    pub(super) signals: Vec<SignalEvent>,
     pub(super) status: SystemMonitorStatus,
+}
+/// An observed signal generation, not a confirmation of delivery or execution.
+/// Endpoint identities prevent PID reuse from attaching an event to another process.
+#[derive(Clone, Debug, Serialize)]
+pub(super) struct SignalEvent {
+    pub(super) timestamp_ns: u64,
+    pub(super) src_pid: u32,
+    pub(super) dst_pid: u32,
+    pub(super) signal: i32,
+    pub(super) source_id: ProcessId,
+    pub(super) destination_id: ProcessId,
 }
 #[derive(Clone, Serialize)]
 pub(in crate::http_server) struct IpcActivity {
@@ -36,6 +61,9 @@ pub(in crate::http_server) struct SystemMonitorStatus {
     pub(super) ipc: SensorState,
     pub(super) cpu: SensorState,
     pub(super) files: SensorState,
+    pub(super) signals: SensorState,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) signals_lost: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) coverage: Option<&'static str>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -84,6 +112,7 @@ mod tests {
             captured_at: 1000,
             window_ms: 100,
             files: vec![],
+            signals: vec![],
             ipc: vec![IpcActivity {
                 process_id: id,
                 resource: IpcIdentity {
@@ -104,6 +133,8 @@ mod tests {
             }],
             status: SystemMonitorStatus {
                 active: true,
+                signals: SensorState::Observing,
+                signals_lost: Some(3),
                 ipc: SensorState::Observing,
                 cpu: SensorState::Unavailable("permission denied".into()),
                 files: SensorState::Error("poll failed".into()),
@@ -117,10 +148,10 @@ mod tests {
         assert_eq!(
             to_value(activity).unwrap(),
             json!({
-                "captured_at":1000,"window_ms":100,"files":[],
+                "captured_at":1000,"window_ms":100,"files":[],"signals":[],
                 "ipc":[{"process_id":{"pid":42,"start_time_ticks":123},"resource":{"kind":"pipe","device":{"major":0,"minor":1},"inode":"2"},"write":true,"bytes":256,"count":2}],
                 "cpu":[{"process_id":{"pid":42,"start_time_ticks":123},"runtime_ns":500,"switches":3,"running_threads":2,"cpus":[0,2]}],
-                "status":{"active":true,"ipc":{"state":"observing"},"cpu":{"state":"unavailable","message":"permission denied"},"files":{"state":"error","message":"poll failed"},"coverage":"ipc coverage","files_coverage":"file coverage","lost":0,"unresolved":1,"files_lost":2}
+                "status":{"active":true,"signals":{"state":"observing"},"signals_lost":3,"ipc":{"state":"observing"},"cpu":{"state":"unavailable","message":"permission denied"},"files":{"state":"error","message":"poll failed"},"coverage":"ipc coverage","files_coverage":"file coverage","lost":0,"unresolved":1,"files_lost":2}
             })
         );
     }
@@ -129,7 +160,7 @@ mod tests {
     fn idle_and_starting_preserve_absent_status_fields() {
         assert_eq!(
             to_value(SystemMonitorStatus::default()).unwrap(),
-            json!({"active":false,"ipc":{"state":"idle"},"cpu":{"state":"idle"},"files":{"state":"idle"}})
+            json!({"active":false,"signals":{"state":"idle"},"ipc":{"state":"idle"},"cpu":{"state":"idle"},"files":{"state":"idle"}})
         );
         assert_eq!(
             to_value(SensorState::Starting).unwrap(),

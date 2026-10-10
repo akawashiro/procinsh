@@ -11,6 +11,7 @@ impl StatusLog {
             ("ipc", &status.ipc),
             ("cpu", &status.cpu),
             ("files", &status.files),
+            ("signals", &status.signals),
         ] {
             if self.0.get(key) != Some(state) {
                 self.0.insert(key, state.clone());
