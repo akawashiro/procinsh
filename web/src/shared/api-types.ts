@@ -6,6 +6,8 @@ export interface SystemMonitorStatus {
   ipc: SensorState;
   cpu: SensorState;
   files: SensorState;
+  signals?: SensorState;
+  signals_lost?: number;
   coverage?: string;
   files_coverage?: string;
   lost?: number;
@@ -349,10 +351,20 @@ export interface CpuActivity {
   running_threads: number;
   cpus: number[];
 }
+/** signal_generate observation; timestamp is monotonic kernel nanoseconds. */
+export interface SignalEvent {
+  timestamp_ns: number;
+  src_pid: number;
+  dst_pid: number;
+  signal: number;
+  source_id: ProcessId;
+  destination_id: ProcessId;
+}
 export interface SpaceActivity {
   status: SystemMonitorStatus;
   window_ms: number;
   files?: FileActivity[];
   cpu?: CpuActivity[];
   ipc?: IoActivity[];
+  signals?: SignalEvent[];
 }

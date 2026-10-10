@@ -9,6 +9,7 @@ import type {
   FileIdentity,
   CpuActivity,
   MemoryMap,
+  SignalEvent,
 } from "../shared/api-types.js";
 export interface Position {
   x: number;
@@ -62,6 +63,7 @@ export interface ActivityUpdate {
   now: number;
   filesChanged: boolean;
   routes: ActivityRoute[];
+  signals?: SignalEvent[];
 }
 export interface DataEvents {
   snapshot(): void;

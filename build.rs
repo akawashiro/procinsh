@@ -23,6 +23,7 @@ fn main() {
     println!("cargo:rerun-if-changed=src/http_server/system/sched.bpf.c");
     println!("cargo:rerun-if-changed=src/http_server/system/ipc.bpf.c");
     println!("cargo:rerun-if-changed=src/http_server/system/files.bpf.c");
+    println!("cargo:rerun-if-changed=src/http_server/system/signals.bpf.c");
     println!("cargo:rerun-if-env-changed=BPFTOOL");
     let out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     let bpftool = env::var_os("BPFTOOL").unwrap_or_else(|| "bpftool".into());
@@ -48,7 +49,7 @@ fn main() {
         String::from_utf8_lossy(&btf.stderr)
     );
     std::fs::write(out.join("vmlinux.h"), btf.stdout).unwrap();
-    for name in ["sched", "ipc", "files"] {
+    for name in ["sched", "ipc", "files", "signals"] {
         libbpf_cargo::SkeletonBuilder::new()
             .source(format!("src/http_server/system/{name}.bpf.c"))
             .clang_args([format!("-I{}", out.display()), "-D__TARGET_ARCH_x86".into()])

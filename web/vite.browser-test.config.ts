@@ -12,6 +12,7 @@ const cpuGlowVisual = scene.cpuGlowVisual,
   parentLineVisual = scene.parentLineVisual;
 const networkVisuals = renderer.networkVisuals,
   networkParticles = renderer.networkParticles,
+  signalVisuals = renderer.signalVisuals,
   fileVisuals = renderer.fileVisuals,
   fileParticles = renderer.fileParticles;
 const cameraView = camera.view;
@@ -32,6 +33,7 @@ export {
   selectNetwork,
   networkVisuals,
   networkParticles,
+  signalVisuals,
   cameraView,
   processPosition,
   parentLineVisual,

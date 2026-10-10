@@ -44,3 +44,45 @@ export const ipcLabel = (r: IpcIdentity) =>
   `${r.kind}:${r.device.major}:${r.device.minor}:${r.inode}`;
 export const fileLabel = (r: FileIdentity) =>
   `file:${r.device.major}:${r.device.minor}:${r.inode}:${r.generation}`;
+
+/** Linux x86-64 signal numbers; kernel realtime signals include reserved 32/33. */
+export function signalName(signal: number) {
+  const names = [
+    "",
+    "SIGHUP",
+    "SIGINT",
+    "SIGQUIT",
+    "SIGILL",
+    "SIGTRAP",
+    "SIGABRT",
+    "SIGBUS",
+    "SIGFPE",
+    "SIGKILL",
+    "SIGUSR1",
+    "SIGSEGV",
+    "SIGUSR2",
+    "SIGPIPE",
+    "SIGALRM",
+    "SIGTERM",
+    "SIGSTKFLT",
+    "SIGCHLD",
+    "SIGCONT",
+    "SIGSTOP",
+    "SIGTSTP",
+    "SIGTTIN",
+    "SIGTTOU",
+    "SIGURG",
+    "SIGXCPU",
+    "SIGXFSZ",
+    "SIGVTALRM",
+    "SIGPROF",
+    "SIGWINCH",
+    "SIGIO",
+    "SIGPWR",
+    "SIGSYS",
+  ];
+  return (
+    names[signal] ||
+    (signal >= 32 && signal <= 64 ? `SIGRT${signal - 32}` : `SIG${signal}`)
+  );
+}

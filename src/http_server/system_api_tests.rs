@@ -114,7 +114,7 @@ async fn sse_connections_own_viewer_lifetimes() {
                         matches!(state, "unavailable" | "error")
                     );
                 }
-                for key in ["lost", "unresolved", "files_lost"] {
+                for key in ["lost", "unresolved", "files_lost", "signals_lost"] {
                     assert!(payload["status"][key].is_u64());
                 }
                 assert!(payload["status"]["active"].is_boolean());
