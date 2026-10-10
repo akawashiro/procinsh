@@ -1,0 +1,142 @@
+name: Release
+
+on:
+  push:
+    tags: ['v[0-9]*']
+
+concurrency:
+  group: procinsh-release
+  cancel-in-progress: false
+
+jobs:
+  publish-crate:
+    name: Test and publish to crates.io
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate tag, version and release notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$(git cat-file -t "$GITHUB_REF")" != tag ]]; then
+            echo "::error::Use an annotated tag (git tag -a), not a lightweight tag."
+            exit 1
+          fi
+          git for-each-ref --format='%(contents)' "$GITHUB_REF" > "$RUNNER_TEMP/release-notes.md"
+          if ! grep -q '[^[:space:]]' "$RUNNER_TEMP/release-notes.md"; then
+            echo "::error::Write release notes in the annotated tag message."
+            exit 1
+          fi
+          python3 - <<'PY'
+          import os
+          import re
+          import tomllib
+          from pathlib import Path
+
+          tag = os.environ["GITHUB_REF_NAME"]
+          if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?", tag):
+              raise SystemExit(f"Invalid release tag: {tag}")
+          version = tag[1:]
+          with Path("Cargo.toml").open("rb") as stream:
+              manifest = tomllib.load(stream)
+          if manifest["package"]["version"] != version:
+              raise SystemExit(f"Tag {tag} does not match Cargo.toml version {manifest['package']['version']}")
+          with Path("Cargo.lock").open("rb") as stream:
+              lockfile = tomllib.load(stream)
+          if not any(pkg["name"] == "procinsh" and pkg["version"] == version
+                     for pkg in lockfile["package"]):
+              raise SystemExit(f"Cargo.lock does not contain procinsh {version}")
+          PY
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Release tag must point to a commit already on main."
+            exit 1
+          fi
+      - name: Install Rust
+        run: rustup show active-toolchain
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Build and test web assets
+        run: |
+          npm --prefix web ci
+          npm --prefix web run build
+          npm --prefix web test
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential clang llvm pkg-config libelf-dev zlib1g-dev python3 \
+            linux-tools-common linux-tools-generic
+      - name: Configure bpftool
+        shell: bash
+        run: |
+          set -euo pipefail
+          tool="$(find /usr/lib/linux-tools -type f -name bpftool -print -quit)"
+          if [[ ! -x "$tool" ]]; then
+            echo "::error::No packaged bpftool found"
+            exit 1
+          fi
+          echo "BPFTOOL=$tool" >> "$GITHUB_ENV"
+          test -r /sys/kernel/btf/vmlinux
+          "$tool" version
+      - name: Run Rust tests
+        run: cargo test --locked
+      - name: Validate publishable crate and embedded frontend
+        run: python3 scripts/check_web_package.py
+      - name: Authenticate to crates.io
+        id: crates_auth
+        uses: rust-lang/crates-io-auth-action@v1
+      - name: Publish crate
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates_auth.outputs.token }}
+        run: cargo publish --locked --allow-dirty
+
+  github-release:
+    name: Publish handwritten GitHub release
+    needs: publish-crate
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Create release using annotated tag message
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [[ "$(git cat-file -t "$GITHUB_REF")" != tag ]]; then
+            echo "::error::Release notes require an annotated tag."
+            exit 1
+          fi
+          notes="$RUNNER_TEMP/release-notes.md"
+          git for-each-ref --format='%(contents)' "$GITHUB_REF" > "$notes"
+          if ! grep -q '[^[:space:]]' "$notes"; then
+            echo "::error::Release notes are empty."
+            exit 1
+          fi
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "GitHub Release already exists: $GITHUB_REF_NAME"
+            exit 0
+          fi
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            gh release create "$GITHUB_REF_NAME" --verify-tag \
+              --title "$GITHUB_REF_NAME" --notes-file "$notes" --prerelease
+          else
+            gh release create "$GITHUB_REF_NAME" --verify-tag \
+              --title "$GITHUB_REF_NAME" --notes-file "$notes"
+          fi
