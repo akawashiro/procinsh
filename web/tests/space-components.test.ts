@@ -30,6 +30,119 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+test("parent process details follow selection and live identity updates", async () => {
+  const { createSpaceDetails } = await import("../src/space/details.js");
+  document.body.innerHTML = await readFile(
+    resolve(import.meta.dirname, "../space/index.html"),
+    "utf8",
+  );
+  const details = createSpaceDetails({ connection() {}, network() {} });
+  const parent: PlacedProcess = {
+    ...processInfo({
+      identity: { pid: 55, start_time_ticks: 7 },
+      name: "parent-process",
+      uid: 1000,
+      username: "akira",
+      euid: 0,
+      effective_username: "root",
+    }),
+    pos: { x: 0, y: 0, z: 0 },
+    regions: [],
+  };
+  const child: PlacedProcess = {
+    ...parent,
+    identity: { pid: 101, start_time_ticks: 1 },
+    parent_id: parent.identity,
+  };
+  const data: DetailsInput = {
+    nodes: new Map([
+      ["101:1", child],
+      ["55:7", parent],
+    ]),
+    snapshot: { processes: [child, parent], fd_relations: [] },
+    network: new Map(),
+    edgeStats: new Map(),
+    files: new Map(),
+  };
+  const selection: SelectionState = {
+    process: "101:1",
+    connection: null,
+    network: null,
+    file: null,
+  };
+  const section = spaceElement("parent-details"),
+    pid = spaceElement("parent-pid"),
+    link = spaceElement("parent-inspect");
+  details.update(data, selection);
+  assert.equal(section.hidden, false);
+  assert.equal(spaceElement("parent-name").textContent, "parent-process");
+  assert.equal(
+    section.querySelector(".eyebrow")?.textContent,
+    "PARENT PROCESS",
+  );
+  assert.equal(
+    pid.textContent,
+    "PID 55 · Real: akira (1000) Effective: root (0) ",
+  );
+  assert.equal(link.getAttribute("href"), "/process/55?start_time_ticks=7");
+  assert.equal(link.textContent, "Open process details ↗");
+  assert.deepEqual(
+    [...pid.children].map((child) => (child as HTMLElement).style.color),
+    [...spaceElement("pid").children].map(
+      (child) => (child as HTMLElement).style.color,
+    ),
+    "parent and selected process use the same UID colors",
+  );
+
+  link.focus();
+  details.update(data, selection);
+  assert.equal(spaceElement("parent-inspect"), link);
+  assert.equal(document.activeElement, link, "live updates retain link focus");
+
+  parent.uid = 2000;
+  parent.username = "updated-user";
+  parent.name = "renamed-parent";
+  details.update(data, selection);
+  assert.equal(spaceElement("parent-name").textContent, "renamed-parent");
+  assert.match(pid.textContent!, /Real: updated-user \(2000\)/);
+  parent.username = parent.effective_username = null;
+  details.update(data, selection);
+  assert.equal(pid.textContent, "PID 55 · Real: 2000 Effective: 0 ");
+  parent.uid = parent.euid = null;
+  details.update(data, selection);
+  assert.equal(pid.textContent, "PID 55 · Real: unknown Effective: unknown ");
+
+  // The old process with this PID must not supply metadata for the new identity.
+  parent.uid = 3000;
+  parent.username = "old-process";
+  child.parent_id = { pid: 55, start_time_ticks: 8 };
+  details.update(data, selection);
+  assert.equal(section.hidden, false);
+  assert.equal(pid.textContent, "PID 55 · Real: unknown Effective: unknown ");
+  assert.equal(link.getAttribute("href"), "/process/55?start_time_ticks=8");
+  assert.equal(spaceElement("parent-name").textContent, "Unknown process");
+
+  details.update(data, { ...selection, process: "55:7" });
+  assert.equal(
+    section.hidden,
+    true,
+    "selecting a root hides the parent section",
+  );
+  assert.equal(pid.textContent, "");
+  assert.equal(spaceElement("parent-name").textContent, "");
+  assert.equal(link.hasAttribute("href"), false);
+  child.parent_id = null;
+  details.update(data, selection);
+  assert.equal(section.hidden, true, "a live update can remove the parent");
+  child.parent_id = parent.identity;
+  details.update(data, selection);
+  assert.equal(section.hidden, false, "the section returns with a parent");
+  assert.match(pid.textContent!, /Real: old-process \(3000\)/);
+  assert.equal(link.getAttribute("href"), "/process/55?start_time_ticks=7");
+  details.update(data, { ...selection, process: null });
+  assert.equal(spaceElement("details").hidden, true);
+});
+
 test("space-components regression", async () => {
   // Exercise SPACE components with plain inputs, Three.js objects, and callbacks.
   const { createSpaceScene } = await import("../src/space/scene.js");

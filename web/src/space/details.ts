@@ -11,8 +11,32 @@ import {
 } from "./model.js";
 import type { EdgeStat, SelectionState } from "./types.js";
 import type { DetailsInput, SelectionActions } from "./contracts.js";
-import type { FdEndpoint, SocketEndpoint } from "../shared/api-types.js";
+import type {
+  FdEndpoint,
+  Process,
+  ProcessId,
+  SocketEndpoint,
+} from "../shared/api-types.js";
 import { spaceElement } from "./dom-types.js";
+
+function renderProcessIdentity(
+  container: HTMLElement,
+  identity: ProcessId,
+  process?: Pick<Process, "uid" | "username" | "euid" | "effective_username">,
+) {
+  const colors = processColors(process ?? {});
+  container.replaceChildren(document.createTextNode(`PID ${identity.pid} · `));
+  for (const [role, uid, name, color] of [
+    ["Real", process?.uid, process?.username, colors.real],
+    ["Effective", process?.euid, process?.effective_username, colors.effective],
+  ] as const) {
+    const label = document.createElement("span");
+    label.style.color = color;
+    label.textContent = `${role}: ${name ?? uid ?? "unknown"}${name ? ` (${uid})` : ""} `;
+    container.append(label);
+  }
+}
+
 export function createSpaceDetails(
   actions: Pick<SelectionActions, "connection" | "network">,
   $ = spaceElement,
@@ -168,19 +192,19 @@ export function createSpaceDetails(
       process.hidden = false;
       connection.hidden = true;
       $("name").textContent = n.name;
-      $("pid").replaceChildren(
-        document.createTextNode(`PID ${n.identity.pid} · `),
-      );
-      for (const [role, uid, name, color] of [
-        ["Real", n.uid, n.username, processColors(n).real],
-        ["Effective", n.euid, n.effective_username, processColors(n).effective],
-      ] as const) {
-        const label = document.createElement("span");
-        label.style.color = color;
-        label.textContent = `${role}: ${name ?? uid ?? "unknown"}${name ? ` (${uid})` : ""} `;
-        $("pid").append(label);
-      }
+      renderProcessIdentity($("pid"), n.identity, n);
       $("inspect").href = processUrl(n.identity);
+      $("parent-details").hidden = !n.parent_id;
+      if (n.parent_id) {
+        const parent = nodes.get(key(n.parent_id));
+        $("parent-name").textContent = parent?.name ?? "Unknown process";
+        renderProcessIdentity($("parent-pid"), n.parent_id, parent);
+        $("parent-inspect").href = processUrl(n.parent_id);
+      } else {
+        $("parent-name").textContent = "";
+        $("parent-pid").replaceChildren();
+        $("parent-inspect").removeAttribute("href");
+      }
       return;
     }
     const e = snapshot.fd_relations.find((edge) => edge.id === selectedEdge);
