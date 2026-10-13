@@ -17,6 +17,7 @@ import type {
 } from "./contracts.js";
 import { createSpaceDetails } from "./details.js";
 import { spaceElement as $ } from "./dom-types.js";
+import { initGlyph3D, ProcessInspectionCard } from "./inspection-card.js";
 
 const selection = new SpaceSelection();
 const data = new SpaceDataStore(
@@ -49,6 +50,18 @@ const search = createSpaceSearch(
 );
 const scene = createSpaceScene();
 const camera = createSpaceCamera($("world"));
+let inspectionCard: ProcessInspectionCard | null = null;
+initGlyph3D()
+  .then((atlas) => {
+    if (atlas) {
+      inspectionCard = new ProcessInspectionCard(atlas);
+      scene.root.add(inspectionCard);
+    }
+  })
+  .catch((err) => {
+    console.warn("Failed to initialize inspection card:", err);
+  });
+
 const renderer = createSpaceRenderer({
   graphics: T,
   canvas: $("world"),
@@ -62,6 +75,7 @@ const renderer = createSpaceRenderer({
   cpuGlows: data.cpuGlows,
   beforeFrame(now) {
     camera.controls.update();
+    inspectionCard?.updateCamera(camera.camera);
     if (now - lastFilePrune >= 1000) {
       lastFilePrune = now;
       pruneFiles(now);
@@ -89,7 +103,124 @@ bindSelection($("world"), $("hover"), {
   hover(state) {
     Object.assign(selection, state);
   },
+  onRegionHover(target) {
+    inspectionCard?.handleHover(target, camera.camera);
+  },
+  hitInspectionCard(ray) {
+    const hit = inspectionCard ? inspectionCard.hitTest(ray) : false;
+    if (hit) inspectionCard?.keepAlive();
+    return hit;
+  },
+  onInspectionCardClick() {
+    inspectionCard?.toggleLock();
+  },
 });
+
+window.addEventListener("keydown", (e) => {
+  const isInput =
+    document.activeElement?.tagName === "INPUT" ||
+    document.activeElement?.tagName === "TEXTAREA";
+  if (isInput) return;
+
+  if (e.key === "x" || e.key === "X" || e.key === "d" || e.key === "D") {
+    inspectionCard?.keepAlive();
+    inspectionCard?.toggleMode(camera.camera);
+  } else if (e.key === "Escape") {
+    inspectionCard?.unlock();
+  } else if (e.key === "l" || e.key === "L") {
+    inspectionCard?.keepAlive();
+    inspectionCard?.toggleLock();
+  } else if (
+    e.key === "+" ||
+    e.key === "=" ||
+    e.code === "Equal" ||
+    e.code === "NumpadAdd"
+  ) {
+    e.preventDefault();
+    inspectionCard?.keepAlive();
+    inspectionCard?.increaseSlicesPerPage(camera.camera);
+  } else if (
+    e.key === "-" ||
+    e.key === "_" ||
+    e.code === "Minus" ||
+    e.code === "NumpadSubtract"
+  ) {
+    e.preventDefault();
+    inspectionCard?.keepAlive();
+    inspectionCard?.decreaseSlicesPerPage(camera.camera);
+  } else if (e.key === "s" || e.key === "S" || e.code === "KeyS") {
+    e.preventDefault();
+    inspectionCard?.keepAlive();
+    if (e.shiftKey) {
+      inspectionCard?.decreaseSlicesPerPage(camera.camera);
+    } else {
+      inspectionCard?.increaseSlicesPerPage(camera.camera);
+    }
+  } else if (
+    e.key === "m" ||
+    e.key === "M" ||
+    e.code === "KeyM" ||
+    e.key === "h" ||
+    e.key === "H" ||
+    e.code === "KeyH" ||
+    e.key === "b" ||
+    e.key === "B" ||
+    e.code === "KeyB"
+  ) {
+    e.preventDefault();
+    inspectionCard?.keepAlive();
+    inspectionCard?.toggleMappingRows(camera.camera);
+  } else if (
+    e.key === "[" ||
+    e.key === "PageUp" ||
+    e.key === "ArrowUp" ||
+    e.key === "k" ||
+    e.key === "K"
+  ) {
+    e.preventDefault();
+    inspectionCard?.keepAlive();
+    inspectionCard?.scrollPages(-1);
+  } else if (
+    e.key === "]" ||
+    e.key === "PageDown" ||
+    e.key === "ArrowDown" ||
+    e.key === "j" ||
+    e.key === "J"
+  ) {
+    e.preventDefault();
+    inspectionCard?.keepAlive();
+    inspectionCard?.scrollPages(1);
+  }
+});
+
+const wheelRay = new T.Raycaster();
+const wheelMouse = new T.Vector2();
+
+$("world").addEventListener(
+  "wheel",
+  (e: WheelEvent) => {
+    if (!inspectionCard?.isInteractive() || e.ctrlKey || e.metaKey) return;
+    wheelMouse.set(
+      (e.clientX / innerWidth) * 2 - 1,
+      (-e.clientY / innerHeight) * 2 + 1,
+    );
+    wheelRay.setFromCamera(wheelMouse, camera.camera);
+    if (inspectionCard.hitTest(wheelRay)) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.shiftKey) {
+        if (e.deltaY > 0) {
+          inspectionCard.increaseSlicesPerPage(camera.camera);
+        } else {
+          inspectionCard.decreaseSlicesPerPage(camera.camera);
+        }
+      } else {
+        inspectionCard.scrollPages(e.deltaY > 0 ? 1 : -1);
+      }
+    }
+  },
+  { passive: false },
+);
 
 let firstView = true;
 let lastFilePrune = 0;
@@ -164,12 +295,16 @@ function updateSelection() {
 function clearSelection() {
   selection.clear();
   updateSelection();
+  inspectionCard?.unlock();
 }
 function selectProcess(id: string | null, focus = false) {
   selection.choose("process", id);
   updateSelection();
   const pos = id && data.nodes.get(id)?.pos;
   if (focus && pos) camera.focus(pos);
+  if (id && inspectionCard?.hasTarget(id)) {
+    inspectionCard.lock();
+  }
 }
 function selectConnection(id: string | null) {
   selection.choose("connection", id);

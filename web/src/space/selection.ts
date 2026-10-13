@@ -84,7 +84,15 @@ function pickData(object: T.Object3D): PickData {
 export function bindSelection(
   canvas: HTMLCanvasElement,
   hover: HTMLElement,
-  { camera, read, actions, hover: changedHover }: SelectionBindings,
+  {
+    camera,
+    read,
+    actions,
+    hover: changedHover,
+    onRegionHover,
+    hitInspectionCard,
+    onInspectionCardClick,
+  }: SelectionBindings,
 ) {
   const ray = new T.Raycaster(),
     mouse = new T.Vector2();
@@ -155,7 +163,9 @@ export function bindSelection(
     const hullIds = view.hullIds;
     const h = hit(e, view);
     if (h) actions.process(hullIds[h.instanceId!]);
-    else {
+    else if (hitInspectionCard && hitInspectionCard(ray)) {
+      onInspectionCardClick?.();
+    } else {
       const edge = edgeHit(e, view);
       if (edge) {
         if ("netlinkId" in edge) actions.netlink(edge.netlinkId);
@@ -186,8 +196,13 @@ export function bindSelection(
       if (n) {
         const r = findNearestRegion(n.regions, h.point.z);
         text = `${n.name} / ${n.identity.pid}${r ? `\n${Display.permissions(r)} ${r.pathname || "anonymous"}\n${r.start} → ${r.end}` : ""}`;
+        onRegionHover?.({ process: n, region: r ?? null, hitPoint: h.point });
       }
     } else {
+      const overCard = hitInspectionCard ? hitInspectionCard(ray) : false;
+      if (!overCard) {
+        onRegionHover?.(null);
+      }
       const edge = edgeHit(e, view);
       if (edge && "netlinkId" in edge) {
         hoveredNetlink = edge.netlinkId;
@@ -212,6 +227,7 @@ export function bindSelection(
     }
   };
   const pointerleave = () => {
+    onRegionHover?.(null);
     hover.hidden = true;
     changedHover({
       hoveredNetwork: null,

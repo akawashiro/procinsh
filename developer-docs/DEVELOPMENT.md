@@ -121,6 +121,7 @@ JSON のプロセス識別子は `{ "pid": 123, "start_time_ticks": 456 }` で�
 | `GET /api/processes/fds` | 識別子クエリ | FD、接続候補、共有所有者、探索警告 |
 | `GET /api/processes/environment` | 識別子クエリ | 環境変数の名前・値の一覧と取得情報 |
 | `GET /api/processes/auxv` | 識別子クエリ | 補助ベクトルのタグ・値・参照先の解決結果 |
+| `GET /api/processes/memory` | 識別子クエリ、address、length（既定256） | `process_id`、`address`、`requested_length`、`bytes`、`partial`、`captured_at` |
 | `GET /api/processes/events` | 識別子クエリ | SSE `observation`：指定プロセスの概要・最新観測・スレッド・履歴・マップ・終了状態 |
 | `GET /api/system/events` | なし | SSE `snapshot`・`activity`・`gap`：構造、CPU・IPC・ファイルI/O・シグナル活動、配信欠落 |
 

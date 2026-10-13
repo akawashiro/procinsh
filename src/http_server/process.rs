@@ -16,6 +16,12 @@
 //! | [`SocketMetadataReader`] | `pub(super)` | `struct `[`SocketMetadataReader`] |
 //! | [`SocketMetadata`] | `pub(super)` | `struct `[`SocketMetadata`] |
 //!
+//! ## Constants
+//!
+//! | Definition | Visibility | Kind / type |
+//! | --- | --- | --- |
+//! | [`MAX_READ`] | `pub(super)` | `const MAX_READ: `[`usize`] |
+//!
 //! ## Functions
 //!
 //! | Definition | Visibility | Signature |
@@ -27,6 +33,7 @@
 //! | [`environment`] | `pub(super)` | `fn environment(id: `[`ProcessId`]`) -> `[`Result`](anyhow::Result)`<impl `[`Serialize`](serde::Serialize)`>` |
 //! | [`auxv`] | `pub(super)` | `fn auxv(id: `[`ProcessId`]`) -> `[`Result`](anyhow::Result)`<impl `[`Serialize`](serde::Serialize)`>` |
 //! | [`fn@fds`] | `pub(super)` | `fn fds(id: `[`ProcessId`]`) -> `[`Result`](anyhow::Result)`<impl `[`Serialize`](serde::Serialize)`>` |
+//! | [`fn@memory`] | `pub(super)` | `fn memory(id: `[`ProcessId`]`, address: `[`u64`]`, length: `[`usize`]`) -> `[`Result`](anyhow::Result)`<impl `[`Serialize`](serde::Serialize)`>` |
 //! | [`memory_maps`] | `pub(super)` | `fn memory_maps(pid: `[`i32`]`) -> `[`Result`](anyhow::Result)`<`[`Vec`]`<`[`MemoryMap`]`>>` |
 //! | [`ticks_per_second`] | `pub(super)` | `fn ticks_per_second() -> `[`f64`] |
 //! | [`fields`] | `pub(super)` | `fn fields(path: &`[`str`]`) -> `[`Result`](anyhow::Result)`<`[`HashMap`](std::collections::HashMap)`<`[`String`]`, `[`String`]`>>` |
@@ -59,8 +66,9 @@ pub(super) use maps::MemoryMap;
 pub(super) use monitoring::ProcessMonitor;
 use resources::permission_help;
 pub(super) use resources::{
-    SubscribeError, auxv, environment, fds, fields, inet_sockets, maps, memory_maps, observation,
-    socket_text, threads, ticks_per_second, timestamp_ms, unix_socket_peers, unix_sockets,
+    MAX_READ, SubscribeError, auxv, environment, fds, fields, inet_sockets, maps, memory,
+    memory_maps, observation, socket_text, threads, ticks_per_second, timestamp_ms,
+    unix_socket_peers, unix_sockets,
 };
 pub(super) use socket_metadata::{SocketMetadata, SocketMetadataReader, additional_sockets};
 pub(super) use sockets::SocketInfo;

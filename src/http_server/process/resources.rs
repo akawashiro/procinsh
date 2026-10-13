@@ -75,6 +75,16 @@ pub(in crate::http_server) fn fds(id: ProcessId) -> Result<impl Serialize> {
     super::fds::read(id)
 }
 
+pub(in crate::http_server) const MAX_READ: usize = super::memory::MAX_READ;
+
+pub(in crate::http_server) fn memory(
+    id: ProcessId,
+    address: u64,
+    length: usize,
+) -> Result<impl Serialize> {
+    super::memory::read(id, address, length)
+}
+
 // Minimal primitives also used by system-wide monitoring.
 pub(in crate::http_server) fn memory_maps(pid: i32) -> Result<Vec<MemoryMap>> {
     maps::read_maps(pid)

@@ -14,5 +14,6 @@ pub(in crate::http_server) fn router() -> Router<Arc<AppState>> {
         .route("/api/processes/environment", get(process::environment))
         .route("/api/processes/auxv", get(process::auxv))
         .route("/api/processes/fds", get(process::fds))
+        .route("/api/processes/memory", get(process::memory))
         .route("/api/processes/events", get(process::events))
 }

@@ -280,10 +280,10 @@ async fn api_explicit_identity_validation_and_removed_snapshot() {
         }
     }
     for (start, length, expected) in [
-        (target.id.start_time_ticks, 8, 404),
-        (target.id.start_time_ticks + 1, 8, 404),
-        (target.id.start_time_ticks, 0, 404),
-        (target.id.start_time_ticks, 65537, 404),
+        (target.id.start_time_ticks, 8, 200),
+        (target.id.start_time_ticks + 1, 8, 410),
+        (target.id.start_time_ticks, 0, 400),
+        (target.id.start_time_ticks, 65537, 400),
     ] {
         let uri = format!(
             "/api/processes/memory?pid={}&start_time_ticks={start}&address=0x{:x}&length={length}",
