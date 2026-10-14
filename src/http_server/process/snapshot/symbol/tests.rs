@@ -65,8 +65,12 @@ impl Drop for Fixture {
 }
 impl Fixture {
     fn new() -> Self {
-        let dir =
-            std::env::temp_dir().join(format!("procinsh-symbol-tests-{}", std::process::id()));
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let serial = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let dir = std::env::temp_dir().join(format!(
+            "procinsh-symbol-tests-{}-{serial}",
+            std::process::id()
+        ));
         fs::create_dir(&dir).unwrap();
         Self(dir)
     }
@@ -175,4 +179,37 @@ fn dwarf_inline_source_only_and_cache_lifecycle() {
         .unwrap();
     assert!(cache.get(pid, &file_map(&large_path)).is_none());
     assert_eq!(cache.entries.len(), 1);
+}
+
+#[test]
+fn pinned_elf_survives_path_replacement_and_rejects_decompression_bombs() {
+    let fixture = Fixture::new();
+    let path = fixture.compile("-g", "pinned");
+    let map = file_map(&path);
+    let (descriptor, _) = matching_file(std::process::id() as i32, &map).unwrap();
+    fs::rename(&path, fixture.0.join("original")).unwrap();
+    fs::write(&path, b"replacement is not an ELF").unwrap();
+    let elf = ElfSymbols::load_file(&descriptor).unwrap();
+    assert!(elf.symbols.iter().any(|symbol| symbol.2 == "outer"));
+    assert!(ElfSymbols::load(&path).is_none());
+
+    let path = fixture.compile("-g", "compressed");
+    let mut bytes = fs::read(&path).unwrap();
+    let file = object::File::parse(bytes.as_slice()).unwrap();
+    let section = file.section_by_name(".debug_info").unwrap();
+    let index = section.index().0;
+    let (offset, size) = section.file_range().unwrap();
+    assert!(size >= 24);
+    let table = u64::from_le_bytes(bytes[40..48].try_into().unwrap()) as usize;
+    let entry_size = u16::from_le_bytes(bytes[58..60].try_into().unwrap()) as usize;
+    let flags_at = table + index * entry_size + 8;
+    let flags = u64::from_le_bytes(bytes[flags_at..flags_at + 8].try_into().unwrap());
+    bytes[flags_at..flags_at + 8].copy_from_slice(&(flags | 0x800).to_le_bytes());
+    let offset = offset as usize;
+    bytes[offset..offset + 4].copy_from_slice(&1_u32.to_le_bytes());
+    bytes[offset + 4..offset + 8].fill(0);
+    bytes[offset + 8..offset + 16].copy_from_slice(&(MAX_SECTION_SIZE + 1).to_le_bytes());
+    bytes[offset + 16..offset + 24].copy_from_slice(&1_u64.to_le_bytes());
+    fs::write(&path, bytes).unwrap();
+    assert!(ElfSymbols::load(&path).is_none());
 }

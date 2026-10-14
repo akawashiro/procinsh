@@ -44,7 +44,7 @@ pub(in crate::http_server::process::snapshot) fn elf_address(
 
 /// Resolve an ELF address without changing a frame or the ELF cache.
 /// Returns `None` only when no symbol, source location, or inline frame is found.
-/// addr2line may perform lazy debug-file I/O under the ELF's private lock.
+/// DWARF reads only bounded in-memory sections under the ELF's private lock.
 pub(in crate::http_server::process::snapshot) fn resolve_frame(
     address: u64,
     elf: &ElfSymbols,
@@ -58,12 +58,18 @@ pub(in crate::http_server::process::snapshot) fn resolve_frame(
     }
     if let Some(loader) = &elf.dwarf {
         let loader = loader.lock().unwrap_or_else(|e| e.into_inner());
-        if let Ok(mut iter) = loader.find_frames(address) {
-            while let Ok(Some(f)) = iter.next() {
+        if let Ok(mut iter) = loader.find_frames(address).skip_all_loads() {
+            while info.inline_frames.len() < 256 {
+                let Ok(Some(f)) = iter.next() else {
+                    break;
+                };
                 let function = f
                     .function
-                    .and_then(|f| f.demangle().ok().map(|v| v.into_owned()));
-                let file = f.location.as_ref().and_then(|l| l.file.map(str::to_owned));
+                    .and_then(|f| f.demangle().ok().map(|v| v.chars().take(4096).collect()));
+                let file = f
+                    .location
+                    .as_ref()
+                    .and_then(|l| l.file.map(|v| v.chars().take(4096).collect()));
                 let line = f.location.and_then(|l| l.line);
                 info.inline_frames.push(SourceFrame {
                     function,
@@ -79,7 +85,7 @@ pub(in crate::http_server::process::snapshot) fn resolve_frame(
             info.file = source.file.clone();
             info.line = source.line;
         } else if let Ok(Some(location)) = loader.find_location(address) {
-            info.file = location.file.map(str::to_owned);
+            info.file = location.file.map(|v| v.chars().take(4096).collect());
             info.line = location.line;
         }
     }

@@ -12,18 +12,18 @@
 //! | [`FdKind`] | `pub(super)` | `enum FdKind` |
 //! | [`FdAccess`] | `pub(super)` | `enum FdAccess` |
 //! | [`InetAddress`] | `pub(super)` | `struct InetAddress` |
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{
     fmt,
     net::{IpAddr, SocketAddr},
 };
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(super) enum AddressFamily {
     Ipv4,
     Ipv6,
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(tag = "kind", content = "code", rename_all = "snake_case")]
 pub(super) enum SocketType {
     Stream,
@@ -63,7 +63,7 @@ impl fmt::Display for SocketType {
         })
     }
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub(super) enum SocketProtocol {
     Tcp {
@@ -221,7 +221,7 @@ fn netlink_name(protocol: u32) -> Option<&'static str> {
 ///
 /// A peer includes an unnamed UNIX endpoint or a Netlink default destination;
 /// it does not identify a process. Unknown observations must remain visible.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(super) enum SocketConnectionStatus {
     Listening,
@@ -231,7 +231,7 @@ pub(super) enum SocketConnectionStatus {
     Unknown,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", content = "code", rename_all = "snake_case")]
 pub(super) enum SocketState {
     Established,
@@ -319,7 +319,7 @@ impl fmt::Display for SocketState {
         f.write_str(text)
     }
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(super) enum FdKind {
     Pipe,
@@ -335,7 +335,7 @@ impl fmt::Display for FdKind {
         })
     }
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(super) enum FdAccess {
     Read,
@@ -380,7 +380,7 @@ impl fmt::Display for FdAccess {
         })
     }
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(super) struct InetAddress {
     pub(super) ip: IpAddr,
     pub(super) port: u16,

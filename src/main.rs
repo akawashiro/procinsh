@@ -24,8 +24,7 @@ struct Cli {
     allow_non_loopback: bool,
 }
 
-#[tokio::main]
-async fn main() -> std::process::ExitCode {
+fn main() -> std::process::ExitCode {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
         .target(env_logger::Target::Stderr)
         .format(|buffer, record| {
@@ -40,7 +39,7 @@ async fn main() -> std::process::ExitCode {
             )
         })
         .init();
-    match run().await {
+    match run() {
         Ok(()) => std::process::ExitCode::SUCCESS,
         Err(error) => {
             log::error!("{error:#}");
@@ -49,7 +48,7 @@ async fn main() -> std::process::ExitCode {
     }
 }
 
-async fn run() -> Result<()> {
+fn run() -> Result<()> {
     let cli = Cli::parse();
     for address in &cli.listen {
         ensure!(
@@ -58,5 +57,5 @@ async fn run() -> Result<()> {
             address
         );
     }
-    http_server::run(&cli.listen).await
+    http_server::run(&cli.listen)
 }

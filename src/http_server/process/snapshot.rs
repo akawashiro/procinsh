@@ -5,6 +5,7 @@
 //!
 //! | Definition | Visibility | Kind |
 //! | --- | --- | --- |
+//! | [`Disassembly`] | `pub(in crate::http_server)` | `struct Disassembly` |
 //! | [`Sampler`] | `pub(super)` | `struct `[`Sampler`] |
 //! | [`ThreadSample`] | `pub(super)` | `struct `[`ThreadSample`] |
 
@@ -20,3 +21,5 @@ mod unwind;
 #[cfg(test)]
 mod unwind_fp;
 pub(super) use capture::{Sampler, ThreadSample};
+
+pub(in crate::http_server) use disasm::Disassembly;

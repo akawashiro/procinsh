@@ -5,6 +5,7 @@
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
 //! | [`ProcessMonitor`] | `pub(in crate::http_server)` | `struct `[`ProcessMonitor`] |
+//! | [`ObservationSession`] | `pub(in crate::http_server)` | `struct ObservationSession` |
 //! | [`capture_sample`] | `pub(super)` | `fn capture_sample(id: ProcessId) -> anyhow::Result<ProcessSample>` |
 //! | [`initial_observation`] | `pub(super)` | `fn initial_observation(current: &ProcessSample) -> ProcessObservation` |
 //!
@@ -16,4 +17,4 @@ mod sampling;
 mod service;
 use sampling::ProcessObservation;
 pub(super) use sampling::{capture_sample, initial_observation};
-pub(in crate::http_server) use service::ProcessMonitor;
+pub(in crate::http_server) use service::{ObservationSession, ProcessMonitor};

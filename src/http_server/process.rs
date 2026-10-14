@@ -10,7 +10,9 @@
 //! | [`ProcessSummary`] | `pub(super)` | `struct `[`ProcessSummary`] |
 //! | [`ProcessId`] | `pub(super)` | `struct `[`ProcessId`] |
 //! | [`MemoryMap`] | `pub(super)` | `struct `[`MemoryMap`] |
+//! | [`Disassembly`] | `pub(super)` | `struct Disassembly` |
 //! | [`ProcessMonitor`] | `pub(super)` | `struct `[`ProcessMonitor`] |
+//! | [`ObservationSession`] | `pub(super)` | `struct ObservationSession` |
 //! | [`SubscribeError`] | `pub(super)` | `enum `[`SubscribeError`] |
 //! | [`SocketInfo`] | `pub(super)` | `struct `[`SocketInfo`] |
 //! | [`SocketMetadataReader`] | `pub(super)` | `struct `[`SocketMetadataReader`] |
@@ -58,7 +60,7 @@ use discovery::{summary, users};
 pub(super) use identity::identity;
 pub(super) use identity::{ProcessId, check_identity};
 pub(super) use maps::MemoryMap;
-pub(super) use monitoring::ProcessMonitor;
+pub(super) use monitoring::{ObservationSession, ProcessMonitor};
 use resources::permission_help;
 pub(super) use resources::{
     SubscribeError, auxv, environment, fds, fields, inet_sockets, maps, memory_maps, observation,
@@ -77,3 +79,5 @@ pub(super) use test_support::NetworkNamespaceTarget as TestNetworkNamespaceTarge
 pub(super) use test_support::Target as TestTarget;
 #[cfg(test)]
 mod tests;
+
+pub(super) use snapshot::Disassembly;

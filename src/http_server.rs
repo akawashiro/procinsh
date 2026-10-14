@@ -4,13 +4,14 @@
 //!
 //! | Definition | Visibility | Signature |
 //! | --- | --- | --- |
-//! | [`run`] | `pub(super)` | `async fn run(listen: &[`[`SocketAddr`](std::net::SocketAddr)`]) -> `[`anyhow::Result`]`<()>` |
+//! | [`run`] | `pub(super)` | `fn run(listen: &[`[`SocketAddr`](std::net::SocketAddr)`]) -> `[`anyhow::Result`]`<()>` |
 //!
 //! Shared resource identities live in [`resource`]; socket metadata and descriptor
 //! capabilities live in [`socket_types`].
 //!
 mod api;
 mod middleware;
+mod privsep;
 mod process;
 mod resource;
 mod router;
@@ -19,7 +20,7 @@ mod socket_types;
 mod state;
 mod system;
 mod web;
-pub(super) use server::run;
+pub(super) use privsep::run;
 use state::AppState;
 #[cfg(test)]
 mod process_api_tests;

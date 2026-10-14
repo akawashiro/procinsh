@@ -61,6 +61,10 @@ sudo setcap \
 Without it, ProcInSh keeps available socket information and reports missing
 peer diagnostics as warnings; an unknown peer does not mean an unconnected socket.
 
+The single executable forks a privileged monitor and a capability-free HTTP
+worker before starting Tokio. The worker drops root IDs for sudo/root launches
+and sets `no_new_privs`. See the [privilege boundary and limits](developer-docs/PRIVILEGE_SEPARATION.md).
+
 ### Self build
 
 Also requires Node.js 22.12 or newer with npm and Rust via rustup. The Rust version

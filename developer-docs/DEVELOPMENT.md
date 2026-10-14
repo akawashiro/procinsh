@@ -1,6 +1,6 @@
 # ProcInSh 開発ドキュメント
 
-ProcInSh は Linux x86-64 のプロセスを観測する Web アプリケーションです。Rust の HTTP サーバーが `/proc`、perf、eBPF から情報を取得し、ブラウザに配信します。
+ProcInSh は Linux x86-64 のプロセスを観測する Web アプリケーションです。Rust の monitor が `/proc`、perf、eBPF から情報を取得し、権限を破棄した HTTP worker がブラウザに配信します。
 
 この文書は現在の実装構成、動作、API、開発・検証手順を説明します。以下のコマンドはリポジトリのルートで実行します。
 
@@ -69,8 +69,9 @@ cargo publish --dry-run
 | 場所 | 役割 |
 |---|---|
 | `src/main.rs` | CLI、ロガー初期化、起動設定の検証 |
-| `src/http_server/` | サーバー起動・終了、router・middleware、worker の停止・join |
-| `src/http_server/api/` | HTTP 入力・応答、domain error のステータス変換、JSON と SSE (Server-Sent Events) |
+| `src/http_server/` | 起動 façade、HTTP server・router・middleware |
+| `src/http_server/privsep/` | fork、権限破棄、IPC、親子の終了管理と collector の停止・join |
+| `src/http_server/api/` | HTTP 入力・応答、IPC client の呼び出し、error のステータス変換、JSON・SSE・差分生成 |
 | `src/http_server/web.rs` | 静的 Web UI 配信 |
 | `src/http_server/process/monitoring/` | 接続ごとの独立した観測、60秒の履歴、最新状態の配信 |
 | `src/http_server/process/` | `/proc` の解析、PID 識別、プロセス・スレッド・メモリ・FD・ソケット情報 |
@@ -81,7 +82,7 @@ cargo publish --dry-run
 | `web/src/` | TypeScript の通常画面・SPACE 画面・描画モデルと CSS（HTML 入口は `web/{list,process,space}/index.html`） |
 | `tests/` | Rust・ブラウザ・ログ・実機センサーのテストと C fixture |
 
-`main.rs` が唯一の crate root で、CLI の検証後は `http_server::run` だけを呼びます。Rust library API は提供しません。モジュールは直接の利用者の最小共通祖先に置き、子モジュールの宣言は private、親に必要な item は原則 `pub(super)` とします。
+`main.rs` が唯一の crate root で、CLI の検証後は `http_server::run` だけを呼びます。起動時に runtime より先に fork し、親が権限付きの取得処理、権限を破棄した子が HTTP を担当します。[権限分離と IPC の境界](PRIVILEGE_SEPARATION.md)に起動、プロトコル、ELF/DWARF 制限と検証を記載しています。Rust library API は提供しません。モジュールは直接の利用者の最小共通祖先に置き、子モジュールの宣言は private、親に必要な item は原則 `pub(super)` とします。
 
 Rust の型名は責務を表します。データ・値は表す内容（`ProcessId`、`ProcessSummary`、`ProcessSnapshot` など）、処理・状態・リソースを管理する型は役割（`ProcessScanner`、`ProcessMonitor`、`FileActivityCollector`、`PerfEventReader`、`PtraceGuard` など）が伝わる名前にします。補助メソッドの有無だけでは分類せず、すべての型に機械的な接尾辞を付けることは求めません。
 
@@ -89,11 +90,11 @@ Rust の型名は責務を表します。データ・値は表す内容（`Proce
 
 HTTP の起動と終了は `http_server/server.rs`、共有状態は `state.rs`、router の組み立ては `router.rs` と `api/router.rs`、HTTP guard とアクセスログは `middleware.rs` が担当します。process façade の実装は `process/identity.rs` と `process/resources.rs`、観測の lifecycle は `monitoring/service.rs`、snapshot の orchestration は `snapshot/capture.rs` に置きます。symbol は `symbol/cache.rs` と `symbol/resolve.rs`、system monitoring は `system/service.rs` と状態ログの `status.rs` に分けています。 `activity.rs` は BPF センサーの所有・収集・状態と欠落数の管理を担当します。依存関係図はこれらの子モジュールも含めて生成され、概要図では各サブシステムへ集約されます。
 
-HTTP handler と system monitoring は `process.rs` の façade だけを利用します。`process` 内部の `monitoring` は継続観測、`snapshot` は初回・10秒ごとの ptrace による停止状態の取得と、継続的な perf による非停止の詳細取得を担当します。各 collector の sampler が perf fd・mmap と ELF キャッシュを所有します。`process` / `system` は Axum 型に依存しません。
+HTTP handler は `privsep` の IPC client を使い、入力の識別子や命令 decode には `process.rs` の型を使います。親の IPC service と system monitoring は `process.rs` の façade を通じて取得処理を呼びます。`process` 内部の `monitoring` は継続観測、`snapshot` は初回・10秒ごとの ptrace による停止状態の取得と、継続的な perf による非停止の詳細取得を担当します。各 collector の sampler が perf fd・mmap と ELF キャッシュを所有します。`process` / `system` は Axum 型に依存しません。
 
 例外として、façade から再公開する domain 型と subscription の操作は `pub(in crate::http_server)` に限定しています。private な子モジュールから親で再公開するために必要な可視性であり、crate 外部への公開ではありません。内部テストは各モジュールに置き、`tests/http.rs` はバイナリを起動して HTTP と SSE、SIGTERM による終了を検証します。
 
-Tokio/Axum が HTTP と SSE を処理し、ブロッキングする詳細 API は `spawn_blocking` に渡します。プロセスの定期観測とシステム全体の構造・活動収集は OS スレッドで動きます。プロセス詳細監視は接続ごとに独立した状態を持ち、`AppState` は一覧探索と各サブシステムを保持します。接続数・collector は process monitoring、perf のライフサイクルとシンボルキャッシュは各 collector が管理します。
+子の Tokio/Axum が HTTP と SSE を処理し、専用 IPC worker に要求を送ります。親の IPC service が単発取得を順番に処理し、定期観測とシステム全体の構造・活動収集は親の OS スレッドで動きます。プロセス詳細監視は接続ごとに独立した状態を持ち、子の `AppState` は IPC client と配信設定を保持します。親が一覧探索と各サブシステムを所有し、接続数・collector は process monitoring、perf のライフサイクルとシンボルキャッシュは各 collector が管理します。
 
 Web UI の API 型は `web/src/shared/api-types.ts` に定義し、Rust の JSON 応答と合わせて管理します。null の扱いや16進文字列のアドレスも契約に含まれます。これらはコンパイル時の型で、実行時の入力検証ではありません。Three.js は npm 依存として Vite が同梱し、TypeScript と型定義はビルド専用の npm 依存です。
 
@@ -201,7 +202,7 @@ register の mapping は `{pathname, readable, writable, executable, private}` �
 
 ### 共通処理と状態管理
 
-Axum がルートごとにクエリを取り出し、ハンドラへ渡します。Host・Origin・Fetch Metadata の検証を通過した応答には no-store とセキュリティヘッダを付けます。ブロッキングするプロセス観測 API は `spawn_blocking` で実行し、`AppState` 内の状態は mutex で保護します。
+Axum がルートごとにクエリを取り出し、ハンドラへ渡します。Host・Origin・Fetch Metadata の検証を通過した応答には no-store とセキュリティヘッダを付けます。プロセス観測 API は型付き IPC 要求を親へ送り、親で識別子を再検証して実行します。
 
 対象は PID 単独ではなく `{pid, start_time_ticks}` で識別し、要求ごとに実際のプロセスの識別子と生存を確認します。サーバー全体の選択対象はありません。別のプロセスや別タブからの要求に依存せず、SSEなしでも単発APIを利用できます。
 
@@ -261,7 +262,7 @@ UNIX の診断は、対象の PID と開始時刻を確認して開いた networ
 
 SSE の `live_samples` は TID、`sampled_at`（Unix ms）、`sample_age_ms`（monotonic clock）、CPU、`lost_samples`、registers、call_stack、disassembly、unwind_stop、error を含みます。未採取は時刻 null と Waiting for sample、採取済みの値は Threads 一覧に経過時間を表示します。sleeping/blocked thread も10秒ごとの ptrace で更新を試み、それ以外は最後の値を保持します。保存された user-space の状態を表示し、眠っている thread の現在値ではありません。観測開始前から眠っている thread も ptrace が許可されれば初回配信で採取できます。初回取得に失敗した場合は次の実行／switch-out または10秒後の ptrace 再試行を待ちます。Registers パネルにはレジスタ表だけを表示します。取得元や voluntary / preempted の区別は内部で保持し、GUI・HTTP API には公開しません。全スレッドの同時点状態は保証しません。perf 権限不足は Threads 一覧の thread error に表示します。collector エラーは API の `sampling_error` に保持し、通常観測は継続します。
 
-Disassembly パネルには命令表と取得エラーを表示します。逆アセンブルは sampled RIP から `process_vm_readv` で後読みする best-effort 表示です。最大256バイト、最大32命令を iced-x86 で decode します。JIT/self-modifying code の命令バイトと sample 時点の RIP は整合しない場合があります。32-bit compatibility mode は対象外です。
+Disassembly パネルには命令表と取得エラーを表示します。逆アセンブルは sampled RIP から `process_vm_readv` で後読みする best-effort 表示です。親で最大256バイトを読み取り、子の HTTP worker が最大32命令を iced-x86 で decode します。JIT/self-modifying code の命令バイトと sample 時点の RIP は整合しない場合があります。32-bit compatibility mode は対象外です。
 
 PERF_RECORD_LOST と ring overrun/不正レコードを欠落として保持します。thread 終了、対象終了、SSE 切断、サーバー終了で RAII により fd/mmap を解放します。CAP_SYS_PTRACE と process_vm_readv は ptrace スナップショット・auxv・live disassembly に使います。
 
@@ -478,7 +479,7 @@ SPACE は両端が表示中のシグナルを最大256件保持し、紫色の�
 
 待受の既定値は `127.0.0.1:8080` です。IPv4/IPv6 の loopback（`127.0.0.1`、`::1` など）は追加フラグなしで利用できます。LAN アドレスや wildcard（`0.0.0.0`、`::`）など非 loopback の指定は、`--allow-non-loopback` がなければ bind 前に非ゼロ終了します。明示的に許可する例は `procinsh --listen 0.0.0.0:9090 --allow-non-loopback` です。許可した場合も警告を出します。
 
-`--listen` を複数回指定すると、一つのプロセスが各アドレスで待ち受け、収集処理を共有します。明示指定時は既定の待受アドレスを追加しません。すべてのアドレスを検証・bind してから配信を開始し、一つでも失敗すれば非ゼロ終了します。各リスナーは自分のアドレスに対して Host を検証します。SIGINT・SIGTERM はすべてのリスナーと収集処理を停止します。たとえば Tailscale と localhost で同じポートを使う場合は次を実行します。
+`--listen` を複数回指定すると、一つの HTTP worker が各アドレスで待ち受け、親の収集処理を共有します。明示指定時は既定の待受アドレスを追加しません。すべてのアドレスを検証・bind してから配信を開始し、一つでも失敗すれば非ゼロ終了します。各リスナーは自分のアドレスに対して Host を検証します。SIGINT・SIGTERM はすべてのリスナーと収集処理を停止します。たとえば Tailscale と localhost で同じポートを使う場合は次を実行します。
 
 ```sh
 ./scripts/dev_run.sh --listen "$(tailscale ip -4):9090" \

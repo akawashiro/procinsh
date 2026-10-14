@@ -1,22 +1,28 @@
 use crate::http_server::process::{maps::MemoryMap, memory};
 use iced_x86::{Decoder, DecoderError, DecoderOptions, Formatter, IntelFormatter};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 const MAX_BYTES: usize = 256;
 const MAX_INSTRUCTIONS: usize = 32;
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(super) struct Instruction {
-    #[serde(serialize_with = "crate::http_server::process::maps::hex")]
+    #[serde(
+        serialize_with = "crate::http_server::process::maps::hex",
+        deserialize_with = "crate::http_server::process::maps::parse_hex"
+    )]
     pub(super) address: u64,
     pub(super) bytes: Vec<u8>,
     pub(super) text: String,
     pub(super) current: bool,
 }
 
-#[derive(Clone, Debug, Serialize)]
-pub(super) struct Disassembly {
-    #[serde(serialize_with = "crate::http_server::process::maps::hex")]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub(in crate::http_server) struct Disassembly {
+    #[serde(
+        serialize_with = "crate::http_server::process::maps::hex",
+        deserialize_with = "crate::http_server::process::maps::parse_hex"
+    )]
     pub(super) address: u64,
     pub(super) bytes: Vec<u8>,
     pub(super) instructions: Vec<Instruction>,
@@ -60,7 +66,7 @@ impl Disassembly {
 
     /// RIP is a known instruction boundary. Never guess boundaries by decoding
     /// backwards.
-    pub(super) fn decode(&mut self) {
+    pub(in crate::http_server) fn decode(&mut self) {
         self.instructions.clear();
         let bytes = &self.bytes[..self.bytes.len().min(MAX_BYTES)];
         let mut decoder = Decoder::with_ip(64, bytes, self.address, DecoderOptions::NONE);

@@ -9,13 +9,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dfbe277e56a376000877090da837660b4427aad530e3028d44e0bffe4f89a1c1"
 dependencies = [
  "cpp_demangle",
- "fallible-iterator",
  "gimli 0.31.1",
- "memmap2",
- "object",
  "rustc-demangle",
- "smallvec",
- "typed-arena",
 ]
 
 [[package]]
@@ -1023,6 +1018,7 @@ dependencies = [
  "env_logger",
  "flate2",
  "framehop",
+ "gimli 0.31.1",
  "iced-x86",
  "libbpf-cargo",
  "libbpf-rs",
@@ -1523,12 +1519,6 @@ dependencies = [
  "cfg-if",
  "static_assertions",
 ]
-
-[[package]]
-name = "typed-arena"
-version = "2.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6af6ae20167a9ece4bcb41af5b80f8a1f1df981f6391189ce00fd257af04126a"
 
 [[package]]
 name = "typenum"

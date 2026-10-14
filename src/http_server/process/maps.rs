@@ -1,7 +1,7 @@
 // Visibility is scoped to the consumers of the parent process façade.
 use crate::http_server::resource::{DeviceId, decimal};
 use anyhow::{Context, Result, ensure};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::fs;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -17,20 +17,23 @@ pub(in crate::http_server) enum MemoryKind {
 }
 /// Structural mapping without RSS/PSS measurements.
 /// Addresses and file offsets serialize as hexadecimal strings; inodes as decimal strings.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(in crate::http_server) struct MemoryMap {
-    #[serde(serialize_with = "hex")]
+    #[serde(serialize_with = "hex", deserialize_with = "parse_hex")]
     pub(in crate::http_server) start: u64,
-    #[serde(serialize_with = "hex")]
+    #[serde(serialize_with = "hex", deserialize_with = "parse_hex")]
     pub(in crate::http_server) end: u64,
     pub(in crate::http_server) readable: bool,
     pub(in crate::http_server) writable: bool,
     pub(in crate::http_server) executable: bool,
     pub(in crate::http_server) private: bool,
-    #[serde(serialize_with = "hex")]
+    #[serde(serialize_with = "hex", deserialize_with = "parse_hex")]
     pub(in crate::http_server) file_offset: u64,
     pub(in crate::http_server) device: DeviceId,
-    #[serde(serialize_with = "decimal")]
+    #[serde(
+        serialize_with = "decimal",
+        deserialize_with = "crate::http_server::resource::parse_decimal"
+    )]
     pub(in crate::http_server) inode: u64,
     pub(in crate::http_server) pathname: Option<String>,
 }
@@ -152,7 +155,7 @@ pub(super) fn read_smaps(pid: i32) -> Result<Vec<SmapsEntry>> {
     Ok(read_maps(pid)?.into_iter().map(SmapsEntry::from).collect())
 }
 
-#[derive(Clone, Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub(super) struct MemoryRollup {
     pub(super) rss_bytes: Option<u64>,
     pub(super) pss_bytes: Option<u64>,
@@ -169,6 +172,14 @@ pub(super) fn rollup(pid: i32) -> Option<MemoryRollup> {
             .zip(bytes("Private_Dirty"))
             .map(|(a, b)| a + b),
     })
+}
+
+pub(in crate::http_server) fn parse_hex<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<u64, D::Error> {
+    let value = String::deserialize(deserializer)?;
+    u64::from_str_radix(value.strip_prefix("0x").unwrap_or(&value), 16)
+        .map_err(serde::de::Error::custom)
 }
 
 #[cfg(test)]

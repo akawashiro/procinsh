@@ -1,26 +1,87 @@
 use crate::http_server::process::maps::MemoryMap;
 use object::{Object, ObjectSection, ObjectSegment, ObjectSymbol};
+#[cfg(test)]
+use std::path::Path;
 use std::{
     collections::HashMap,
     fs,
-    os::unix::fs::MetadataExt,
-    path::{Path, PathBuf},
+    io::Read,
+    os::{
+        fd::AsRawFd,
+        unix::fs::{MetadataExt, OpenOptionsExt},
+    },
+    path::PathBuf,
     sync::{Arc, Mutex},
 };
-/// Parsed ELF data. The DWARF loader has its own synchronization for lazy data.
+
+type DwarfReader = gimli::EndianArcSlice<gimli::RunTimeEndian>;
+
+/// Parsed ELF data from one verified descriptor. The DWARF context uses owned,
+/// bounded section bytes and never opens supplementary or split debug files.
 pub(in crate::http_server::process::snapshot) struct ElfSymbols {
     /// Shared ELF section bytes used by the unwinder.
     pub(in crate::http_server::process::snapshot) unwind:
         framehop::ExplicitModuleSectionInfo<Arc<[u8]>>,
     pub(super) segments: Vec<(u64, u64, u64)>,
     pub(super) symbols: Vec<(u64, u64, String)>,
-    pub(super) dwarf: Option<Mutex<addr2line::Loader>>,
+    pub(super) dwarf: Option<Mutex<addr2line::Context<DwarfReader>>>,
 }
 
 impl ElfSymbols {
+    #[cfg(test)]
     fn load(path: &Path) -> Option<Self> {
-        let bytes = fs::read(path).ok()?;
+        Self::load_file(&fs::File::open(path).ok()?)
+    }
+
+    fn load_file(descriptor: &fs::File) -> Option<Self> {
+        let before = descriptor.metadata().ok()?;
+        if !before.is_file() || before.len() > MAX_FILE_SIZE {
+            return None;
+        }
+        let mut bytes = Vec::new();
+        descriptor
+            .take(MAX_FILE_SIZE + 1)
+            .read_to_end(&mut bytes)
+            .ok()?;
+        let after = descriptor.metadata().ok()?;
+        if bytes.len() as u64 > MAX_FILE_SIZE || file_identity(&before) != file_identity(&after) {
+            return None;
+        }
         let file = object::File::parse(bytes.as_slice()).ok()?;
+        if file.format() != object::BinaryFormat::Elf {
+            return None;
+        }
+        // Validate decompression sizes before invoking any decompressor. The
+        // aggregate also bounds retained DWARF/unwind section storage.
+        let mut expanded = 0_u64;
+        for section in file.sections() {
+            let compression = section.compressed_file_range().ok()?;
+            // object's zstd path grows its output with read_to_end and accepts
+            // an untrusted decoder window. Only its fixed-output zlib path is
+            // suitable here; unsupported compression falls back to raw frames.
+            if !matches!(
+                compression.format,
+                object::CompressionFormat::None | object::CompressionFormat::Zlib
+            ) {
+                return None;
+            }
+            let size = compression.uncompressed_size;
+            if size > MAX_SECTION_SIZE {
+                return None;
+            }
+            expanded = expanded.checked_add(size)?;
+            if expanded > MAX_EXPANDED_SIZE {
+                return None;
+            }
+        }
+        if file
+            .symbols()
+            .count()
+            .checked_add(file.dynamic_symbols().count())?
+            > MAX_SYMBOLS
+        {
+            return None;
+        }
         let segments = file
             .segments()
             .map(|s| {
@@ -28,14 +89,52 @@ impl ElfSymbols {
                 (offset, size, s.address())
             })
             .collect();
-        let mut symbols: Vec<_> = file
+        let mut symbols = Vec::new();
+        let mut name_bytes = 0_usize;
+        for symbol in file
             .symbols()
             .chain(file.dynamic_symbols())
             .filter(|s| s.is_definition() && s.kind() == object::SymbolKind::Text)
-            .filter_map(|s| Some((s.address(), s.size(), s.name().ok()?.to_owned())))
-            .collect();
+        {
+            let Some(name) = symbol.name().ok() else {
+                continue;
+            };
+            if name.len() > 4096 {
+                continue;
+            }
+            name_bytes = name_bytes.checked_add(name.len())?;
+            if name_bytes > 8 * 1024 * 1024 {
+                return None;
+            }
+            symbols.push((symbol.address(), symbol.size(), name.to_owned()));
+        }
         symbols.sort_by_key(|s| s.0);
-        let dwarf = addr2line::Loader::new(path).ok().map(Mutex::new);
+        let endian = if file.is_little_endian() {
+            gimli::RunTimeEndian::Little
+        } else {
+            gimli::RunTimeEndian::Big
+        };
+        let dwarf = gimli::Dwarf::load(|id| {
+            let bytes = file
+                .section_by_name(id.name())
+                .map(|s| s.uncompressed_data())
+                .transpose()
+                .map_err(|_| gimli::Error::Io)?
+                .unwrap_or_default();
+            Ok::<_, gimli::Error>(DwarfReader::new(Arc::from(bytes.as_ref()), endian))
+        })
+        .ok()
+        .and_then(|dwarf| {
+            let mut units = dwarf.units();
+            let mut count = 0;
+            while units.next().ok()?.is_some() {
+                count += 1;
+                if count > MAX_UNITS {
+                    return None;
+                }
+            }
+            addr2line::Context::from_dwarf(dwarf).ok().map(Mutex::new)
+        });
 
         let range = |name| {
             file.section_by_name(name)
@@ -72,7 +171,22 @@ impl ElfSymbols {
 
 type FileIdentity = (u64, u64, u64, i64, i64);
 const MAX_FILES: usize = 64;
-const MAX_FILE_SIZE: u64 = 512 * 1024 * 1024;
+const MAX_FILE_SIZE: u64 = 128 * 1024 * 1024;
+const MAX_SECTION_SIZE: u64 = 32 * 1024 * 1024;
+const MAX_EXPANDED_SIZE: u64 = 64 * 1024 * 1024;
+const MAX_SYMBOLS: usize = 262_144;
+const MAX_UNITS: usize = 16_384;
+const MAX_CACHE_BYTES: u64 = 128 * 1024 * 1024;
+
+fn file_identity(meta: &fs::Metadata) -> FileIdentity {
+    (
+        meta.dev(),
+        meta.ino(),
+        meta.len(),
+        meta.mtime(),
+        meta.mtime_nsec(),
+    )
+}
 
 /// Bounded cache keyed by device, inode, size, and nanosecond modification time.
 #[derive(Default)]
@@ -80,7 +194,7 @@ pub(in crate::http_server::process::snapshot) struct ElfCache {
     entries: HashMap<FileIdentity, Arc<ElfSymbols>>,
 }
 
-fn matching_file(pid: i32, map: &MemoryMap) -> Option<(PathBuf, fs::Metadata)> {
+fn matching_file(pid: i32, map: &MemoryMap) -> Option<(fs::File, fs::Metadata)> {
     let mut paths = vec![
         PathBuf::from(format!(
             "/proc/{pid}/map_files/{:x}-{:x}",
@@ -96,11 +210,24 @@ fn matching_file(pid: i32, map: &MemoryMap) -> Option<(PathBuf, fs::Metadata)> {
         paths.push(PathBuf::from(format!("/proc/{pid}/root{path}")));
     }
     paths.into_iter().find_map(|path| {
-        let meta = fs::metadata(&path).ok()?;
-        (meta.ino() == map.inode
-            && libc::major(meta.dev()) == map.device.major
-            && libc::minor(meta.dev()) == map.device.minor)
-            .then_some((path, meta))
+        // O_PATH pins the selected inode without opening devices or blocking on
+        // FIFOs. Only verified regular files may then be opened for reading.
+        let pinned = fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_PATH | libc::O_CLOEXEC)
+            .open(&path)
+            .ok()?;
+        let meta = pinned.metadata().ok()?;
+        if !meta.is_file()
+            || meta.ino() != map.inode
+            || libc::major(meta.dev()) != map.device.major
+            || libc::minor(meta.dev()) != map.device.minor
+        {
+            return None;
+        }
+        let descriptor = fs::File::open(format!("/proc/self/fd/{}", pinned.as_raw_fd())).ok()?;
+        (file_identity(&descriptor.metadata().ok()?) == file_identity(&meta))
+            .then_some((descriptor, meta))
     })
 }
 
@@ -113,22 +240,24 @@ impl ElfCache {
         pid: i32,
         map: &MemoryMap,
     ) -> Option<Arc<ElfSymbols>> {
-        let (path, meta) = matching_file(pid, map)?;
-        let key = (
-            meta.dev(),
-            meta.ino(),
-            meta.len(),
-            meta.mtime(),
-            meta.mtime_nsec(),
-        );
+        let (descriptor, meta) = matching_file(pid, map)?;
+        let key = file_identity(&meta);
         if let Some(elf) = self.entries.get(&key) {
             return Some(Arc::clone(elf));
         }
         if meta.len() > MAX_FILE_SIZE {
             return None;
         }
-        let elf = Arc::new(ElfSymbols::load(&path)?);
-        if self.entries.len() >= MAX_FILES {
+        let elf = Arc::new(ElfSymbols::load_file(&descriptor)?);
+        if self.entries.len() >= MAX_FILES
+            || self
+                .entries
+                .keys()
+                .map(|key| key.2)
+                .sum::<u64>()
+                .saturating_add(meta.len())
+                > MAX_CACHE_BYTES
+        {
             self.entries.clear();
         }
         self.entries.insert(key, Arc::clone(&elf));

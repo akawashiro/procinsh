@@ -263,8 +263,7 @@ fn process_sample(
             });
         apply_symbol_info(frame, info);
     }
-    let mut code = Disassembly::capture(pid, r.0[8], maps);
-    code.decode();
+    let code = Disassembly::capture(pid, r.0[8], maps);
     let age = monotonic_ns().saturating_sub(sample.time_ns) / 1_000_000;
     thread.sampled_ns = Some(sample.time_ns);
     thread.latest = ThreadSample {
@@ -670,7 +669,7 @@ mod live_tests {
             });
             let first = sampler.latest()[0].clone();
             assert_eq!(first.registers.len(), 18);
-            assert!(!first.disassembly.as_ref().unwrap().instructions.is_empty());
+            assert!(!first.disassembly.as_ref().unwrap().bytes.is_empty());
             if name.starts_with("recursive") {
                 assert!(first.call_stack.len() >= 4, "{:?}", first.call_stack);
                 assert!(

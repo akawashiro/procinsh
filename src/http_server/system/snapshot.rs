@@ -20,7 +20,7 @@ use crate::http_server::socket_types::{
     AddressFamily, SocketConnectionStatus, SocketProtocol, SocketState, SocketType,
 };
 use crate::http_server::socket_types::{FdAccess, FdKind, InetAddress};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
     fs,
@@ -29,7 +29,7 @@ use std::{
 };
 /// A Linux process and its observed structural address space, without RSS/PSS.
 /// CPU and RSS measurements belong to [`crate::http_server::process::ProcessSummary`].
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(super) struct ProcessSnapshot {
     pub(super) identity: ProcessId,
     pub(super) parent_id: Option<ProcessId>,
@@ -45,7 +45,7 @@ pub(super) struct ProcessSnapshot {
     pub(super) maps_error: Option<String>,
 }
 /// A process-owned file descriptor endpoint, including coalesced shared FDs.
-#[derive(Clone, PartialEq, Eq, Serialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(super) struct FdEndpoint {
     pub(super) process_id: ProcessId,
     pub(super) fd: u32,
@@ -56,7 +56,7 @@ pub(super) struct FdEndpoint {
     /// Independent connection observation; null for non-socket resources.
     pub(super) connection_status: Option<SocketConnectionStatus>,
 }
-#[derive(Clone, PartialEq, Eq, Serialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(super) struct SocketEndpoint {
     pub(super) protocol: SocketProtocol,
     /// Null when no state was observed, even if the socket kind is known.
@@ -86,7 +86,7 @@ impl From<&SocketInfo> for SocketEndpoint {
 }
 /// A socket, pipe, or shared-ownership relation between file descriptor endpoints.
 /// An absent peer represents an external or unidentified process endpoint.
-#[derive(Clone, PartialEq, Eq, Serialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(super) struct FdRelation {
     pub(super) id: String,
     pub(super) endpoint: FdEndpoint,
@@ -97,7 +97,7 @@ pub(super) struct FdRelation {
     pub(super) shared: bool,
 }
 /// A system-wide observation of processes and their file descriptor relations.
-#[derive(Clone, Default, Serialize)]
+#[derive(Clone, Default, Serialize, Deserialize)]
 // Re-exported by system for subscription consumers.
 pub(in crate::http_server) struct SystemSnapshot {
     pub(super) captured_at: u64,

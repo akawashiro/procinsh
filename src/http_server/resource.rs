@@ -1,10 +1,19 @@
 //! Typed identities shared by process discovery and activity collection.
 //!
-//! File and IPC inodes serialize as decimal strings to preserve integer precision.
-use serde::Serialize;
+//! # Interface
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`DeviceId`] | `pub(super)` | `struct DeviceId` |
+//! | [`IpcKind`] | `pub(super)` | `enum IpcKind` |
+//! | [`IpcIdentity`] | `pub(super)` | `struct IpcIdentity` |
+//! | [`FileIdentity`] | `pub(super)` | `struct FileIdentity` |
+//! | [`decimal`] | `pub(super)` | `fn decimal<S: serde::Serializer>(value: &u64, serializer: S) -> Result<S::Ok, S::Error>` |
+//! | [`parse_decimal`] | `pub(super)` | `fn parse_decimal<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<u64, D::Error>` |
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(super) struct DeviceId {
     pub(super) major: u32,
     pub(super) minor: u32,
@@ -28,7 +37,7 @@ impl DeviceId {
 pub(super) fn decimal<S: serde::Serializer>(value: &u64, serializer: S) -> Result<S::Ok, S::Error> {
     serializer.collect_str(value)
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(super) enum IpcKind {
     Pipe,
@@ -42,20 +51,35 @@ impl fmt::Display for IpcKind {
         })
     }
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
+/// File and IPC inodes use decimal strings to preserve integer precision in JSON.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(super) struct IpcIdentity {
     pub(super) kind: IpcKind,
     pub(super) device: DeviceId,
-    #[serde(serialize_with = "decimal")]
+    #[serde(
+        serialize_with = "decimal",
+        deserialize_with = "crate::http_server::resource::parse_decimal"
+    )]
     pub(super) inode: u64,
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(super) struct FileIdentity {
     pub(super) device: DeviceId,
-    #[serde(serialize_with = "decimal")]
+    #[serde(
+        serialize_with = "decimal",
+        deserialize_with = "crate::http_server::resource::parse_decimal"
+    )]
     pub(super) inode: u64,
     pub(super) generation: u32,
 }
+pub(super) fn parse_decimal<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<u64, D::Error> {
+    String::deserialize(deserializer)?
+        .parse()
+        .map_err(serde::de::Error::custom)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
