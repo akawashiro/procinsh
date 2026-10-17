@@ -585,6 +585,10 @@ bash scripts/docker_test.sh browser
 
 [dev-server.ts](../web/tests/integration/dev-server.ts) は `ordinary` suite に含まれ、ビルド済みバイナリと Vite を起動し、画面ルート、CSS 編集による HMR、Origin 検査、JSON と両方の SSE のプロキシを確認します。
 
+### フロントエンドの性能計測
+
+Chrome DevTools で取得した計測結果、関数別の時間、再現手順、CPU・GPU の評価範囲は [Frontend performance profiling](FRONTEND_PROFILING.md) を参照してください。
+
 ### Chrome による通信・IPC の負荷生成
 
 `scripts/chrome_load.mjs` は Google Chrome のタブを約10秒ごとにキャッシュを無視してリロードします。Node.js 22.12以降と Chrome が必要で、追加の npm パッケージは不要です。標準では `scripts/chrome_sites.txt` の先頭20サイトを開きます。GPU を無効にして実行し、画面セッション（`DISPLAY` / `WAYLAND_DISPLAY`）がない場合はヘッドレスで起動します。
