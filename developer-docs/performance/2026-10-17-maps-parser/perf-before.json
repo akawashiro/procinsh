@@ -1,0 +1,2268 @@
+{
+  "samples": 1738,
+  "dsos": [
+    {
+      "dso": "[kernel.kallsyms]",
+      "samples": 1107,
+      "percent": 63.693901035673186
+    },
+    {
+      "dso": "procinsh",
+      "samples": 306,
+      "percent": 17.60644418872267
+    },
+    {
+      "dso": "libc.so.6",
+      "samples": 283,
+      "percent": 16.28308400460299
+    },
+    {
+      "dso": "[unknown]",
+      "samples": 24,
+      "percent": 1.380897583429229
+    },
+    {
+      "dso": "bpf_trampoline_6442615664",
+      "samples": 10,
+      "percent": 0.5753739930955121
+    },
+    {
+      "dso": "[overlay]",
+      "samples": 7,
+      "percent": 0.40276179516685845
+    },
+    {
+      "dso": "bpf_trampoline_6442600695",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    }
+  ],
+  "symbols": [
+    {
+      "dso": "libc.so.6",
+      "symbol": "[unknown]",
+      "samples": 208,
+      "percent": 11.967779056386652
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "established_get_first",
+      "samples": 59,
+      "percent": 3.3947065592635215
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "mangle_path",
+      "samples": 46,
+      "percent": 2.6467203682393556
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "memcpy_orig",
+      "samples": 45,
+      "percent": 2.5891829689298045
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "htab_map_update_elem",
+      "samples": 42,
+      "percent": 2.4165707710011506
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "serde_json::ser::format_escaped_str_contents::<&mut alloc::vec::Vec<u8>, serde_json::ser::CompactFormatter>",
+      "samples": 36,
+      "percent": 2.0713463751438437
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "do_syscall_64",
+      "samples": 32,
+      "percent": 1.8411967779056386
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "lock_next_vma",
+      "samples": 31,
+      "percent": 1.7836593785960875
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "copy_from_kernel_nofault",
+      "samples": 31,
+      "percent": 1.7836593785960875
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "procinsh::http_server::process::maps::parse_map",
+      "samples": 30,
+      "percent": 1.7261219792865363
+    },
+    {
+      "dso": "[unknown]",
+      "symbol": "[unknown]",
+      "samples": 24,
+      "percent": 1.380897583429229
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "prepend_path",
+      "samples": 23,
+      "percent": 1.3233601841196778
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "seq_put_hex_ll",
+      "samples": 22,
+      "percent": 1.2658227848101267
+    },
+    {
+      "dso": "libc.so.6",
+      "symbol": "statx",
+      "samples": 21,
+      "percent": 1.2082853855005753
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "strchr",
+      "samples": 20,
+      "percent": 1.1507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "show_map_vma",
+      "samples": 18,
+      "percent": 1.0356731875719218
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "do_task_stat",
+      "samples": 17,
+      "percent": 0.9781357882623706
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "seq_read_iter",
+      "samples": 17,
+      "percent": 0.9781357882623706
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<core::str::pattern::CharSearcher as core::str::pattern::Searcher>::next_match",
+      "samples": 17,
+      "percent": 0.9781357882623706
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<core::hash::sip::Hasher<core::hash::sip::Sip13Rounds> as core::hash::Hasher>::write",
+      "samples": 17,
+      "percent": 0.9781357882623706
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "vsnprintf",
+      "samples": 17,
+      "percent": 0.9781357882623706
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "aa_dfa_match",
+      "samples": 16,
+      "percent": 0.9205983889528193
+    },
+    {
+      "dso": "libc.so.6",
+      "symbol": "malloc",
+      "samples": 12,
+      "percent": 0.6904487917146145
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "num_to_str",
+      "samples": 12,
+      "percent": 0.6904487917146145
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<str>::trim_start_matches::<<char>::is_whitespace>",
+      "samples": 11,
+      "percent": 0.6329113924050633
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "show_vma_header_prefix",
+      "samples": 10,
+      "percent": 0.5753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "security_inode_getattr",
+      "samples": 10,
+      "percent": 0.5753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "link_path_walk",
+      "samples": 10,
+      "percent": 0.5753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "d_path",
+      "samples": 10,
+      "percent": 0.5753739930955121
+    },
+    {
+      "dso": "bpf_trampoline_6442615664",
+      "symbol": "bpf_trampoline_6442615683",
+      "samples": 10,
+      "percent": 0.5753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "cp_statx",
+      "samples": 10,
+      "percent": 0.5753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "prepend_copy",
+      "samples": 9,
+      "percent": 0.5178365937859609
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "__bpf_prog_enter_recur",
+      "samples": 9,
+      "percent": 0.5178365937859609
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<alloc::string::String as core::fmt::Write>::write_char",
+      "samples": 9,
+      "percent": 0.5178365937859609
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "__d_lookup",
+      "samples": 9,
+      "percent": 0.5178365937859609
+    },
+    {
+      "dso": "libc.so.6",
+      "symbol": "syscall",
+      "samples": 9,
+      "percent": 0.5178365937859609
+    },
+    {
+      "dso": "libc.so.6",
+      "symbol": "cfree",
+      "samples": 9,
+      "percent": 0.5178365937859609
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "htab_map_delete_elem",
+      "samples": 8,
+      "percent": 0.46029919447640966
+    },
+    {
+      "dso": "libc.so.6",
+      "symbol": "getsockopt",
+      "samples": 8,
+      "percent": 0.46029919447640966
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "fget_task_next",
+      "samples": 8,
+      "percent": 0.46029919447640966
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "procinsh::http_server::system::snapshot::collect",
+      "samples": 8,
+      "percent": 0.46029919447640966
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "prepend",
+      "samples": 8,
+      "percent": 0.46029919447640966
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<core::str::lossy::Utf8Chunks as core::iter::traits::iterator::Iterator>::next",
+      "samples": 8,
+      "percent": 0.46029919447640966
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "miniz_oxide::deflate::core::compress_inner",
+      "samples": 8,
+      "percent": 0.46029919447640966
+    },
+    {
+      "dso": "libc.so.6",
+      "symbol": "realloc",
+      "samples": 7,
+      "percent": 0.40276179516685845
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "__memcg_slab_post_alloc_hook",
+      "samples": 7,
+      "percent": 0.40276179516685845
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "pick_link",
+      "samples": 7,
+      "percent": 0.40276179516685845
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "seq_put_decimal_ull_width",
+      "samples": 7,
+      "percent": 0.40276179516685845
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "seq_pad",
+      "samples": 7,
+      "percent": 0.40276179516685845
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "mas_next_node",
+      "samples": 7,
+      "percent": 0.40276179516685845
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "_raw_spin_unlock_irqrestore",
+      "samples": 7,
+      "percent": 0.40276179516685845
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "copy_from_kernel_nofault_allowed",
+      "samples": 7,
+      "percent": 0.40276179516685845
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "fdget_pos",
+      "samples": 6,
+      "percent": 0.34522439585730724
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<serde_json::ser::Compound<&mut alloc::vec::Vec<u8>, serde_json::ser::CompactFormatter> as serde_core::ser::SerializeMap>::serialize_entry::<str, u32>",
+      "samples": 6,
+      "percent": 0.34522439585730724
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "aa_path_perm",
+      "samples": 6,
+      "percent": 0.34522439585730724
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "check_heap_object",
+      "samples": 6,
+      "percent": 0.34522439585730724
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "__htab_map_lookup_elem",
+      "samples": 6,
+      "percent": 0.34522439585730724
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<alloc::raw_vec::RawVecInner<_>>::reserve::do_reserve_and_handle::<alloc::alloc::Global>",
+      "samples": 6,
+      "percent": 0.34522439585730724
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<alloc::raw_vec::RawVecInner>::finish_grow",
+      "samples": 6,
+      "percent": 0.34522439585730724
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "core::fmt::write",
+      "samples": 6,
+      "percent": 0.34522439585730724
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "inode_permission",
+      "samples": 6,
+      "percent": 0.34522439585730724
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "put_dec_trunc8",
+      "samples": 6,
+      "percent": 0.34522439585730724
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "seq_put_decimal_ull",
+      "samples": 6,
+      "percent": 0.34522439585730724
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "mntput",
+      "samples": 5,
+      "percent": 0.28768699654775604
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "do_statx",
+      "samples": 5,
+      "percent": 0.28768699654775604
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<core::str::iter::SplitWhitespace as core::iter::traits::iterator::Iterator>::next",
+      "samples": 5,
+      "percent": 0.28768699654775604
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "get_pid_task",
+      "samples": 5,
+      "percent": 0.28768699654775604
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "yama_ptrace_access_check",
+      "samples": 5,
+      "percent": 0.28768699654775604
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<serde_json::ser::Compound<&mut alloc::vec::Vec<u8>, serde_json::ser::CompactFormatter> as serde_core::ser::SerializeMap>::serialize_entry::<str, <procinsh::http_server::process::maps::MemoryMap as serde_core::ser::Serialize>::serialize::__SerializeWith>",
+      "samples": 5,
+      "percent": 0.28768699654775604
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<serde_json::ser::Compound<&mut alloc::vec::Vec<u8>, serde_json::ser::CompactFormatter> as serde_core::ser::SerializeMap>::serialize_entry::<str, bool>",
+      "samples": 5,
+      "percent": 0.28768699654775604
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "bpf_d_path",
+      "samples": 5,
+      "percent": 0.28768699654775604
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "step_into_slowpath",
+      "samples": 5,
+      "percent": 0.28768699654775604
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "proc_get_vma.isra.0",
+      "samples": 5,
+      "percent": 0.28768699654775604
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "proc_fill_cache",
+      "samples": 5,
+      "percent": 0.28768699654775604
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "aa_may_ptrace",
+      "samples": 5,
+      "percent": 0.28768699654775604
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "aa_file_perm",
+      "samples": 5,
+      "percent": 0.28768699654775604
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "__check_object_size",
+      "samples": 5,
+      "percent": 0.28768699654775604
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<core::fmt::Formatter>::pad_integral",
+      "samples": 5,
+      "percent": 0.28768699654775604
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "rep_movs_alternative",
+      "samples": 5,
+      "percent": 0.28768699654775604
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<alloc::string::String as core::fmt::Write>::write_str",
+      "samples": 5,
+      "percent": 0.28768699654775604
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "__rcu_read_unlock",
+      "samples": 5,
+      "percent": 0.28768699654775604
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "udp_get_first",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "string",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "vfs_read",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "__ptrace_may_access",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "begin_current_label_crit_section",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "apparmor_inode_getattr",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "libc.so.6",
+      "symbol": "__fstat64",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "vfs_getattr_nosec",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "[overlay]",
+      "symbol": "ovl_permission",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "path_init",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "htab_map_hash",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "format_decode",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "kmem_cache_alloc_noprof",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "security_inode_permission",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "label_compound_match.isra.0",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "__d_lookup_rcu",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "ksys_read",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "fget_task",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "seq_read",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "memset_orig",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<&u64 as core::fmt::LowerHex>::fmt",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "task_dump_owner",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "profile_ptrace_perm",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "__rcu_read_lock",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "security_ptrace_access_check",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "procinsh::http_server::system::files::decode",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "_raw_spin_trylock",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "security_file_permission",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<str>::trim_matches::<<char>::is_whitespace>",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "lookup_nulls_elem_raw",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "alloc::fmt::format::format_inner",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "get_vma_name",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<procinsh::http_server::system::ipc::IpcActivityCollector>::new::{closure#2}",
+      "samples": 4,
+      "percent": 0.23014959723820483
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "tid_fd_revalidate",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "terminate_walk",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "d_absolute_path",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "_copy_to_iter",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "percpu_counter_add_batch",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "number",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "common_perm_cond",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "path_lookupat",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "atime_needs_update",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "proc_fd_permission",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "pcpu_freelist_push",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "seq_putc",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "may_lookup",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<procinsh::http_server::process::socket_metadata::SocketMetadataReader>::read",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<std::hash::random::RandomState as core::hash::BuildHasher>::hash_one::<&u64>",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "put_dec",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "__kvmalloc_node_noprof",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "srso_alias_return_thunk",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<serde_json::ser::Compound<&mut alloc::vec::Vec<u8>, serde_json::ser::CompactFormatter> as serde_core::ser::SerializeMap>::serialize_entry::<str, procinsh::http_server::resource::DeviceId>",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "do_dentry_open",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "do_open",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "seq_path",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "lookup_fast",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "std::io::default_read_to_end::<std::fs::File>",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "apparmor_file_open",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "__aa_path_perm",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "htab_lock_bucket",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "__virt_addr_valid",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<procinsh::http_server::system::files::FileActivityCollector>::new::{closure#2}",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "std::sys::fs::metadata",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "bpf_probe_read_kernel",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "lockref_get",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "filldir64",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "miniz_oxide::deflate::core::flush_block",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "dput.part.0",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "std::fs::read_to_string::inner",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "proc_pid_permission",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "generic_permission",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "bpf_percpu_hash_copy",
+      "samples": 3,
+      "percent": 0.17261219792865362
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "expand_stack",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "seq_printf",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "apparmor_file_free_security",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<std::hash::random::RandomState as core::hash::BuildHasher>::hash_one::<&&alloc::string::String>",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "__check_heap_object",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "apparmor_socket_getsockopt",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "aa_profile_match_label",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "std::sys::fs::unix::try_statx",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "__memcg_slab_free_hook",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "bpf_ringbuf_commit",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "path_put",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "ima_file_check",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "apparmor_file_permission",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "x64_sys_call",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "mas_walk",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "set_root",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "check_stack_object",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "capable_wrt_inode_uidgid",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<core::option::Option<(&str, &str)> as anyhow::Context<(&str, &str), core::convert::Infallible>>::context::<&str>",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "_raw_spin_lock",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "kmem_cache_free",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<alloc::vec::Vec<u8>>::extend_from_slice",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "pid_revalidate",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "pid_delete_dentry",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "procinsh::http_server::process::procfs::read_stat",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "call_proc_get_link",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<hashbrown::map::HashMap<u64, &procinsh::http_server::process::maps::MemoryMap, std::hash::random::RandomState>>::insert",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<std::hash::random::RandomState as core::hash::BuildHasher>::hash_one::<&alloc::string::String>",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "aa_get_buffer",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[overlay]",
+      "symbol": "ovl_override_creds",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "security_file_release",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "mas_next_slot",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "try_to_unlazy_next",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "hash_name",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<std::hash::random::RandomState as core::hash::BuildHasher>::hash_one::<&axum::routing::RouteId>",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "filename_lookup",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "from_kgid_munged",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "single_next",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "apparmor_ptrace_access_check",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "do_user_addr_fault",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "follow_page_pte",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "proc_readfd_common",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "do_sock_getsockopt",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "rw_verify_area",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "may_open",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<std::collections::hash::map::HashMap<u64, procinsh::http_server::process::sockets::SocketInfo> as core::iter::traits::collect::FromIterator<(u64, procinsh::http_server::process::sockets::SocketInfo)>>::from_iter::<core::iter::adapters::filter_map::FilterMap<core::iter::adapters::skip::Skip<core::str::iter::Lines>, procinsh::http_server::process::sockets::parse_unix::{closure#0}>>",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "apparmor_capable",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "_copy_from_user",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "folio_mark_accessed",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<alloc::vec::Vec<&str> as alloc::vec::spec_from_iter_nested::SpecFromIterNested<&str, core::str::iter::SplitWhitespace>>::from_iter",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "libc.so.6",
+      "symbol": "readdir64",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "bitmap_string.isra.0",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "proc_pid_get_link",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "obj_cgroup_uncharge_pages",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "aa_unix_opt_perm",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "profile_capable",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "core::str::converts::from_utf8",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "nsec_to_clock_t",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "ptrace_may_access",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "__bpf_prog_exit_recur",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "aa_check_perms",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<alloc::vec::Vec<procinsh::http_server::process::maps::MemoryMap> as alloc::vec::spec_from_iter::SpecFromIter<procinsh::http_server::process::maps::MemoryMap, core::iter::adapters::GenericShunt<core::iter::adapters::map::Map<core::str::iter::Lines, procinsh::http_server::process::maps::parse_map>, core::result::Result<core::convert::Infallible, anyhow::Error>>>>::from_iter",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "putname",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "radix_tree_next_chunk",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "iov_iter_init",
+      "samples": 2,
+      "percent": 0.11507479861910241
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "d_alloc_parallel",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<hashbrown::map::HashMap<procinsh::http_server::resource::IpcIdentity, procinsh::http_server::process::socket_metadata::SocketMetadata, std::hash::random::RandomState>>::insert",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "__fput",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<hashbrown::map::HashMap<u64, procinsh::http_server::process::sockets::SocketInfo, std::hash::random::RandomState>>::insert",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "htab_map_get_next_key",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "tokio::runtime::task::raw::poll::<axum::serve::handle_connection<tokio::net::tcp::listener::TcpListener, axum::routing::Router, axum::routing::Router>::{closure#0}::{closure#3}, alloc::sync::Arc<tokio::runtime::scheduler::multi_thread::handle::Handle>>",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "proc_readdir_de",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "mutex_unlock",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "lock_sock_nested",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "task_vsize",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "path_name",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "hook_file_open",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "proc_single_show",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "nd_jump_link",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "common_perm",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "file_f_owner_release",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "alloc_pages_mpol",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "move_addr_to_user",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "audit_caps",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "anon_vma_name",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "lockref_put_return",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "aa_audit_file",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "tcp4_seq_show",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<hashbrown::map::HashMap<alloc::string::String, alloc::string::String, std::hash::random::RandomState>>::insert",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "nd_jump_root",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "aa_dfa_next",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "anon_inode_getattr",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "fput",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<hashbrown::map::HashMap<u64, (u64, u64), std::hash::random::RandomState>>::insert",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "sk_getsockopt",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "__legitimize_mnt",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "lookup_noperm_common",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<serde_json::ser::Compound<&mut alloc::vec::Vec<u8>, serde_json::ser::CompactFormatter> as serde_core::ser::SerializeMap>::serialize_entry::<str, core::option::Option<alloc::string::String>>",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "aa_capable",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "cp_new_stat",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "proc_fdinfo_permission",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "bpf_map_get_next_key",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "path_openat",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "__x64_sys_close",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "procinsh::http_server::process::procfs::parse_stat::{closure#0}",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<procinsh::http_server::process::maps::MemoryMap as serde_core::ser::Serialize>::serialize::<&mut serde_json::ser::Serializer<&mut alloc::vec::Vec<u8>>>",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<hashbrown::raw::RawTable<(u64, procinsh::http_server::process::sockets::SocketInfo)>>::reserve_rehash::<hashbrown::map::make_hasher<u64, procinsh::http_server::process::sockets::SocketInfo, std::hash::random::RandomState>::{closure#0}>",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "sched_balance_update_blocked_averages",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "libc.so.6",
+      "symbol": "read",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<usize>::_fmt_inner",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "task_state",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "down_read_killable",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "from_kuid_munged",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "thread_group_cputime",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "hook_ptrace_access_check",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "procinsh::http_server::process::maps::hex::<&mut serde_json::ser::Serializer<&mut alloc::vec::Vec<u8>>>",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "security_file_open",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "do_file_open",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<core::fmt::Formatter>::pad_integral::write_prefix",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "__rmqueue_pcplist",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "kernel_init_pages",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<procinsh::http_server::system::ipc::IpcActivityCollector>::poll",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "put_dec_full8",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<procinsh::http_server::system::sched::CpuActivityCollector>::collect",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "__lookup_mnt",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<u32 as itoa::Unsigned>::fmt",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<procinsh::http_server::system::service::SystemMonitor>::run_activity",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "refill_obj_stock",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "try_module_get",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<std::path::Path>::_join",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "build_open_flags",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "free_htab_elem",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "security_file_post_open",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<&mut serde_json::ser::Serializer<&mut alloc::vec::Vec<u8>> as serde_core::ser::Serializer>::collect_seq::<&alloc::vec::Vec<procinsh::http_server::process::maps::MemoryMap>>",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "do_statx_fd",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "is_vmalloc_addr",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<std::hash::random::RandomState as core::hash::BuildHasher>::hash_one::<&procinsh::http_server::resource::IpcIdentity>",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "aa_dfa_match_len",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "vfs_open",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<procinsh::http_server::resource::DeviceId as serde_core::ser::Serialize>::serialize::<&mut serde_json::ser::Serializer<&mut alloc::vec::Vec<u8>>>",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<serde_json::ser::Compound<&mut alloc::vec::Vec<u8>, serde_json::ser::CompactFormatter> as serde_core::ser::SerializeMap>::serialize_entry::<str, serde::private::ser::AdjacentlyTaggedEnumVariant>",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "do_getname",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "security_file_free",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "__nr_to_section",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "try_to_unlazy",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "fput_close_sync",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "proc_task_name",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "procinsh::http_server::process::maps::parse_map::{closure#0}",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "ringbuf_process_ring",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "strnlen",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "task_cputime",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "__bpf_ringbuf_reserve",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "vfs_statx",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "tcp_data_queue",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "aa_lookup_condperms",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<procinsh::http_server::system::status::StatusLog>::observe",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "d_namespace_path.constprop.0",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<procinsh::http_server::socket_types::FdKind as serde_core::ser::Serialize>::serialize::<&mut serde_json::ser::Serializer<&mut alloc::vec::Vec<u8>>>",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<serde_json::ser::Compound<&mut alloc::vec::Vec<u8>, serde_json::ser::CompactFormatter> as serde_core::ser::SerializeMap>::serialize_entry::<str, procinsh::http_server::socket_types::FdAccess>",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "bpf_obj_memcpy",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<alloc::raw_vec::RawVecInner>::try_allocate_in",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "__bpf_tramp_enter",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "__bpf_tramp_exit",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "aa_label_next_confined",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<serde_json::ser::Compound<&mut alloc::vec::Vec<u8>, serde_json::ser::CompactFormatter> as serde_core::ser::SerializeMap>::serialize_entry::<str, procinsh::http_server::resource::IpcIdentity>",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "proc_pid_status",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "aa_inet_opt_perm",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "libc.so.6",
+      "symbol": "__sysconf",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "do_sys_openat2",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "get_unused_fd_flags",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "unix_peer_get",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "__sys_bpf",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<tokio::runtime::scheduler::multi_thread::worker::Context>::run_task",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "procinsh::http_server::process::procfs::parse_stat::{closure#1}",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "bpf_ringbuf_output",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "errseq_sample",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "__x64_sys_statx",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<serde_json::ser::Compound<&mut alloc::vec::Vec<u8>, serde_json::ser::CompactFormatter> as serde_core::ser::SerializeMap>::serialize_entry::<str, usize>",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<hashbrown::raw::RawTable<(procinsh::http_server::system::sched::ProcessKey, (u64, u64))>>::reserve_rehash::<hashbrown::map::make_hasher<procinsh::http_server::system::sched::ProcessKey, (u64, u64), std::hash::random::RandomState>::{closure#0}>",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "procinsh::http_server::process::socket_metadata::option",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "alloc_fd",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "procinsh::http_server::process::procfs::fields",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "_copy_to_user",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<alloc::vec::Vec<alloc::string::String> as alloc::vec::spec_from_iter_nested::SpecFromIterNested<alloc::string::String, core::iter::adapters::map::Map<core::iter::adapters::filter::Filter<core::slice::iter::Iter<procinsh::http_server::process::maps::MemoryMap>, procinsh::http_server::system::delivery::map_delta::{closure#3}>, procinsh::http_server::system::delivery::map_delta::{closure#4}>>>::from_iter",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<&mut procinsh::http_server::system::delivery::map_delta::{closure#2} as core::ops::function::FnMut<(&&procinsh::http_server::process::maps::MemoryMap,)>>::call_mut",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<serde_json::ser::Compound<&mut alloc::vec::Vec<u8>, serde_json::ser::CompactFormatter> as serde_core::ser::SerializeMap>::serialize_entry::<str, procinsh::http_server::resource::IpcKind>",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "aa_path_name",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "map_id_range_up",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "pid_nr_ns",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<&mut serde_json::ser::Serializer<&mut alloc::vec::Vec<u8>> as serde_core::ser::Serializer>::collect_str::<u64>",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "m_next",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "_raw_spin_lock_irqsave",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "match_to_cmd.constprop.0",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "mntget",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "strncpy_from_user",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "ktime_get_coarse_real_ts64_mg",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<alloc::vec::Vec<alloc::string::String> as alloc::vec::spec_from_iter_nested::SpecFromIterNested<alloc::string::String, core::iter::adapters::map::Map<core::iter::adapters::filter::Filter<core::slice::iter::Iter<procinsh::http_server::system::snapshot::FdRelation>, <procinsh::http_server::system::delivery::SnapshotEncoder>::encode::{closure#7}::{closure#1}>, <procinsh::http_server::system::delivery::SnapshotEncoder>::encode::{closure#7}::{closure#2}>>>::from_iter",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<alloc::string::String>::from_utf8_lossy",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "bpf_trampoline_6442600695",
+      "symbol": "bpf_trampoline_6442600695",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "process_measurement",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "libc.so.6",
+      "symbol": "__close",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "__x64_sys_pidfd_getfd",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "unix_getname",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "aa_put_buffer",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<std::hash::random::RandomState as core::hash::BuildHasher>::hash_one::<&(procinsh::http_server::process::identity::ProcessId, procinsh::http_server::resource::FileIdentity, bool)>",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "shmem_getattr",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "proc_fd_link",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[overlay]",
+      "symbol": "ovl_inode_upper",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "<serde_json::ser::Compound<&mut alloc::vec::Vec<u8>, serde_json::ser::CompactFormatter> as serde_core::ser::SerializeMap>::serialize_entry::<str, core::option::Option<procinsh::http_server::socket_types::InetAddress>>",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "crc32fast::specialized::pclmulqdq::calculate_avx2",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "handle_softirqs",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "mod_memcg_state",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "dentry_unlink_inode",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "listening_get_first",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "__receive_sock",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "m_start",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "[kernel.kallsyms]",
+      "symbol": "open_last_lookups",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    },
+    {
+      "dso": "procinsh",
+      "symbol": "std::sys::backtrace::__rust_begin_short_backtrace::<procinsh::http_server::system::service::spawn_worker<<procinsh::http_server::system::service::SystemMonitor>::start::{closure#1}>::{closure#0}, ()>",
+      "samples": 1,
+      "percent": 0.05753739930955121
+    }
+  ]
+}

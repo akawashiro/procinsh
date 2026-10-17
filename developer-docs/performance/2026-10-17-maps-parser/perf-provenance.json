@@ -1,0 +1,18 @@
+{
+  "before": {
+    "backend_pid": 659,
+    "samples": 1738,
+    "record_seconds": 60,
+    "sample_hz": 199,
+    "original_leaf_text_sha256": "744732b64a82332b4213a83ed48bd383af45d6e0978797050a6a4a9722bffbb5",
+    "published_fields": "All symbols and DSOs retained; instruction addresses, PIDs and timestamps normalized."
+  },
+  "after": {
+    "backend_pid": 5721,
+    "samples": 898,
+    "record_seconds": 30,
+    "sample_hz": 199,
+    "original_leaf_text_sha256": "50f8b54a9fe6feb6c0cccc01539eed59311bf7c78d5f0ca58fba2ed255a27d72",
+    "published_fields": "All symbols and DSOs retained; instruction addresses, PIDs and timestamps normalized."
+  }
+}

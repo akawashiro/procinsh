@@ -1,0 +1,10 @@
+[package]
+name="maps-parser-bench"
+version="0.0.0"
+edition="2024"
+[dependencies]
+anyhow="=1.0.104"
+memchr="=2.8.3"
+libc="=0.2.189"
+[profile.release]
+lto="thin"

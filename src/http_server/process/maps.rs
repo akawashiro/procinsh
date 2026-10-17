@@ -75,14 +75,18 @@ impl MemoryMap {
 }
 
 pub(super) fn parse_map(line: &str) -> Result<MemoryMap> {
-    // Split only the first five columns: file names may contain spaces.
+    // Kernel metadata uses ASCII whitespace; paths may contain spaces and UTF-8.
     let mut rest = line.trim();
-    let mut columns = Vec::new();
-    for _ in 0..5 {
-        let end = rest.find(char::is_whitespace).unwrap_or(rest.len());
+    let mut columns = [""; 5];
+    for column in &mut columns {
+        let end = rest
+            .as_bytes()
+            .iter()
+            .position(u8::is_ascii_whitespace)
+            .unwrap_or(rest.len());
         ensure!(end > 0, "maps: missing field");
-        columns.push(&rest[..end]);
-        rest = rest[end..].trim_start();
+        *column = &rest[..end];
+        rest = rest[end..].trim_ascii_start();
     }
     let (start, end) = columns[0].split_once('-').context("maps: invalid range")?;
     let permissions = columns[1];
@@ -174,6 +178,41 @@ pub(super) fn rollup(pid: i32) -> Option<MemoryRollup> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ascii_metadata_preserves_utf8_paths_and_optional_names() {
+        let map = parse_map(" \t1000-2000\tr-xp  00001000\t08:01\t42\t/tmp/日本 語 (deleted)\r\n")
+            .unwrap();
+        assert_eq!(map.start, 0x1000);
+        assert_eq!(map.end, 0x2000);
+        assert!(map.readable && map.executable && map.private);
+        assert!(!map.writable);
+        assert_eq!(map.file_offset, 0x1000);
+        assert_eq!(map.device, DeviceId { major: 8, minor: 1 });
+        assert_eq!(map.inode, 42);
+        assert_eq!(map.pathname.as_deref(), Some("/tmp/日本 語 (deleted)"));
+        let unnamed = parse_map("2000-3000 ---s 0 00:00 0").unwrap();
+        assert!(unnamed.pathname.is_none());
+        assert!(!unnamed.readable && !unnamed.writable && !unnamed.executable && !unnamed.private);
+    }
+
+    #[test]
+    fn malformed_or_overflowing_metadata_returns_errors() {
+        for line in [
+            "",
+            "1000-2000 r-xp 0 00:00",
+            "1000 r-xp 0 00:00 1",
+            "2000-1000 r-xp 0 00:00 1",
+            "1000-2000 rwx 0 00:00 1",
+            "1000-2000 r-xp z 00:00 1",
+            "1000-2000 r-xp 0 00 1",
+            "1000-2000 r-xp 0 100000000:00 1",
+            "1000-2000 r-xp 0 00:00 18446744073709551616",
+            "10000000000000000-2000 r-xp 0 00:00 1",
+        ] {
+            assert!(parse_map(line).is_err(), "accepted malformed map: {line:?}");
+        }
+    }
 
     #[test]
     fn maps_and_smaps_keep_paths_and_boundaries() {

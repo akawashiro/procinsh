@@ -1,0 +1,14 @@
+{
+  "before-release": {
+    "bytes": 9484960,
+    "sha256": "382872afe3a35a4543c615326607c18f1695f5519b87b253adde9c9190a4c249"
+  },
+  "after-release": {
+    "bytes": 9483032,
+    "sha256": "de4284ec756b247e516ae0b60075d7f3502d74f79ad787e1cde97a96d8f39e76"
+  },
+  "after-debug": {
+    "bytes": 113722040,
+    "sha256": "a3ed0da11e7d7b4f54cae33614dc52022815ee4dee11fbea033dcff8a11feaf2"
+  }
+}
