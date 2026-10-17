@@ -1,0 +1,392 @@
+{
+  "cases": {
+    "s1": {
+      "settings": {
+        "snapshotMs": 1000,
+        "pollMs": 10,
+        "active": true
+      },
+      "runs": 2,
+      "cpu_percent": 14.49939240367996,
+      "user_percent": 5.208115087528721,
+      "system_percent": 9.29127731615124,
+      "cpu_runs": [
+        14.132744843715225,
+        14.866039769476167
+      ],
+      "snapshot_interval_seconds": 1.1365126213599177,
+      "snapshot_interval_median_seconds": 1.1333999999761581,
+      "snapshot_interval_range_seconds": [
+        1.085899999976158,
+        1.220600000023842
+      ],
+      "snapshot_rate_hz": 0.87988464114321,
+      "activity_interval_seconds": 1.0093538461536424,
+      "health": [
+        {
+          "iteration": 1,
+          "snapshot_count": 53,
+          "activity_count": 59,
+          "gap_count": 0,
+          "map_count_before": 29217,
+          "map_count_after": 31103,
+          "process_count_before": 51,
+          "process_count_after": 50,
+          "map_errors": [],
+          "observer_errors": [],
+          "sensors": {
+            "cpu": {
+              "state": "observing"
+            },
+            "ipc": {
+              "state": "observing"
+            },
+            "files": {
+              "state": "observing"
+            },
+            "signals": {
+              "state": "observing"
+            }
+          },
+          "counter_deltas": {
+            "lost": 0,
+            "unresolved": 1638325,
+            "files_lost": 816,
+            "signals_lost": 0
+          }
+        },
+        {
+          "iteration": 10,
+          "snapshot_count": 52,
+          "activity_count": 60,
+          "gap_count": 0,
+          "map_count_before": 32476,
+          "map_count_after": 35290,
+          "process_count_before": 46,
+          "process_count_after": 51,
+          "map_errors": [],
+          "observer_errors": [],
+          "sensors": {
+            "cpu": {
+              "state": "observing"
+            },
+            "ipc": {
+              "state": "observing"
+            },
+            "files": {
+              "state": "observing"
+            },
+            "signals": {
+              "state": "observing"
+            }
+          },
+          "counter_deltas": {
+            "lost": 0,
+            "unresolved": 1295501,
+            "files_lost": 1379,
+            "signals_lost": 0
+          }
+        }
+      ],
+      "cpu_reduction_percent_vs_s1": 0.0
+    },
+    "s2": {
+      "settings": {
+        "snapshotMs": 2000,
+        "pollMs": 10,
+        "active": true
+      },
+      "runs": 2,
+      "cpu_percent": 8.208014183102257,
+      "user_percent": 3.0998794681360806,
+      "system_percent": 5.108134714966177,
+      "cpu_runs": [
+        7.899631150553492,
+        8.516402031966436
+      ],
+      "snapshot_interval_seconds": 2.135368518518077,
+      "snapshot_interval_median_seconds": 2.1339499999880793,
+      "snapshot_interval_range_seconds": [
+        2.0408999999761583,
+        2.211100000023842
+      ],
+      "snapshot_rate_hz": 0.4683032419593735,
+      "activity_interval_seconds": 1.0096720338989111,
+      "health": [
+        {
+          "iteration": 2,
+          "snapshot_count": 28,
+          "activity_count": 60,
+          "gap_count": 0,
+          "map_count_before": 31160,
+          "map_count_after": 32634,
+          "process_count_before": 48,
+          "process_count_after": 51,
+          "map_errors": [],
+          "observer_errors": [],
+          "sensors": {
+            "cpu": {
+              "state": "observing"
+            },
+            "ipc": {
+              "state": "observing"
+            },
+            "files": {
+              "state": "observing"
+            },
+            "signals": {
+              "state": "observing"
+            }
+          },
+          "counter_deltas": {
+            "lost": 0,
+            "unresolved": 1364601,
+            "files_lost": 1788,
+            "signals_lost": 0
+          }
+        },
+        {
+          "iteration": 9,
+          "snapshot_count": 28,
+          "activity_count": 60,
+          "gap_count": 0,
+          "map_count_before": 36156,
+          "map_count_after": 36505,
+          "process_count_before": 50,
+          "process_count_after": 51,
+          "map_errors": [],
+          "observer_errors": [],
+          "sensors": {
+            "cpu": {
+              "state": "observing"
+            },
+            "ipc": {
+              "state": "observing"
+            },
+            "files": {
+              "state": "observing"
+            },
+            "signals": {
+              "state": "observing"
+            }
+          },
+          "counter_deltas": {
+            "lost": 0,
+            "unresolved": 1335008,
+            "files_lost": 416,
+            "signals_lost": 0
+          }
+        }
+      ],
+      "cpu_reduction_percent_vs_s1": 43.39063352048424
+    },
+    "s5": {
+      "settings": {
+        "snapshotMs": 5000,
+        "pollMs": 10,
+        "active": true
+      },
+      "runs": 2,
+      "cpu_percent": 3.749838115833112,
+      "user_percent": 1.4999352463332447,
+      "system_percent": 2.2499028694998673,
+      "cpu_runs": [
+        3.6165218414836455,
+        3.883153556849971
+      ],
+      "snapshot_interval_seconds": 5.141835000002384,
+      "snapshot_interval_median_seconds": 5.137500000059605,
+      "snapshot_interval_range_seconds": [
+        5.0535,
+        5.237200000047684
+      ],
+      "snapshot_rate_hz": 0.19448309796007385,
+      "activity_interval_seconds": 1.0095254237288136,
+      "health": [
+        {
+          "iteration": 3,
+          "snapshot_count": 11,
+          "activity_count": 60,
+          "gap_count": 0,
+          "map_count_before": 32133,
+          "map_count_after": 33070,
+          "process_count_before": 49,
+          "process_count_after": 51,
+          "map_errors": [],
+          "observer_errors": [],
+          "sensors": {
+            "cpu": {
+              "state": "observing"
+            },
+            "ipc": {
+              "state": "observing"
+            },
+            "files": {
+              "state": "observing"
+            },
+            "signals": {
+              "state": "observing"
+            }
+          },
+          "counter_deltas": {
+            "lost": 0,
+            "unresolved": 1368106,
+            "files_lost": 895,
+            "signals_lost": 0
+          }
+        },
+        {
+          "iteration": 8,
+          "snapshot_count": 11,
+          "activity_count": 60,
+          "gap_count": 0,
+          "map_count_before": 36082,
+          "map_count_after": 35917,
+          "process_count_before": 51,
+          "process_count_after": 51,
+          "map_errors": [],
+          "observer_errors": [],
+          "sensors": {
+            "cpu": {
+              "state": "observing"
+            },
+            "ipc": {
+              "state": "observing"
+            },
+            "files": {
+              "state": "observing"
+            },
+            "signals": {
+              "state": "observing"
+            }
+          },
+          "counter_deltas": {
+            "lost": 0,
+            "unresolved": 1376716,
+            "files_lost": 2148,
+            "signals_lost": 0
+          }
+        }
+      ],
+      "cpu_reduction_percent_vs_s1": 74.1379637750793
+    },
+    "p100": {
+      "settings": {
+        "snapshotMs": 1000,
+        "pollMs": 100,
+        "active": true
+      },
+      "runs": 2,
+      "cpu_percent": 14.557806101635247,
+      "user_percent": 5.249809870652665,
+      "system_percent": 9.307996230982582,
+      "cpu_runs": [
+        14.182872950414588,
+        14.93273643651453
+      ],
+      "snapshot_interval_seconds": 1.13773173076946,
+      "snapshot_interval_median_seconds": 1.1360000000596047,
+      "snapshot_interval_range_seconds": [
+        1.0318000000715255,
+        1.2
+      ],
+      "snapshot_rate_hz": 0.8789418216574564,
+      "activity_interval_seconds": 1.0072127118635985,
+      "health": [
+        {
+          "iteration": 4,
+          "snapshot_count": 53,
+          "activity_count": 60,
+          "gap_count": 0,
+          "map_count_before": 33362,
+          "map_count_after": 33577,
+          "process_count_before": 50,
+          "process_count_after": 51,
+          "map_errors": [],
+          "observer_errors": [],
+          "sensors": {
+            "cpu": {
+              "state": "observing"
+            },
+            "ipc": {
+              "state": "observing"
+            },
+            "files": {
+              "state": "observing"
+            },
+            "signals": {
+              "state": "observing"
+            }
+          },
+          "counter_deltas": {
+            "lost": 0,
+            "unresolved": 1356526,
+            "files_lost": 395360,
+            "signals_lost": 0
+          }
+        },
+        {
+          "iteration": 7,
+          "snapshot_count": 53,
+          "activity_count": 60,
+          "gap_count": 0,
+          "map_count_before": 35743,
+          "map_count_after": 35985,
+          "process_count_before": 51,
+          "process_count_after": 52,
+          "map_errors": [],
+          "observer_errors": [],
+          "sensors": {
+            "cpu": {
+              "state": "observing"
+            },
+            "ipc": {
+              "state": "observing"
+            },
+            "files": {
+              "state": "observing"
+            },
+            "signals": {
+              "state": "observing"
+            }
+          },
+          "counter_deltas": {
+            "lost": 0,
+            "unresolved": 1362413,
+            "files_lost": 393199,
+            "signals_lost": 0
+          }
+        }
+      ],
+      "cpu_reduction_percent_vs_s1": -0.4028699708855443
+    },
+    "idle": {
+      "settings": {
+        "snapshotMs": 1000,
+        "pollMs": 10,
+        "active": false
+      },
+      "runs": 2,
+      "cpu_percent": 0.0,
+      "user_percent": 0.0,
+      "system_percent": 0.0,
+      "cpu_runs": [
+        0,
+        0
+      ],
+      "snapshot_interval_seconds": null,
+      "snapshot_interval_median_seconds": null,
+      "snapshot_interval_range_seconds": null,
+      "snapshot_rate_hz": 0,
+      "activity_interval_seconds": null,
+      "health": [],
+      "cpu_reduction_percent_vs_s1": 100.0
+    }
+  },
+  "snapshot_frequency_fit": {
+    "cpu_percent_intercept": 0.7704479838749201,
+    "cpu_percent_per_snapshot_hz": 15.652009435192621,
+    "r_squared_of_three_means": 0.9996978481825093,
+    "interpretation": "Descriptive only; three means, two live-workload runs each."
+  }
+}

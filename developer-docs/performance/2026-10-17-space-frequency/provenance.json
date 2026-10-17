@@ -1,0 +1,53 @@
+{
+  "base_commit": "7bb1b8a13cafbb0d6ca31b549dd507fdd8ed9036",
+  "profile": "ordinary Cargo release, locked dependencies; Rust 1.98.1",
+  "cpu": "AMD Ryzen 9 5950X, 16 cores / 32 logical CPUs",
+  "runtime_image": "procinsh-isolated-perf:20261017T040238Z (local image)",
+  "runtime_image_sha256": "996e1547d4f4933ffd23d6704320c470fdf59875bd44a398db2c90123422608f",
+  "build_image": "procinsh-tests:ubuntu-24-04 (scripts/docker/Dockerfile)",
+  "runtime": "private PID namespace and bridge network, no CPU quota, 8 GiB memory limit",
+  "measurement": "whole backend PID utime + stime, one logical CPU = 100%, no external perf recorder",
+  "files": {
+    "bin/experiment-release": {
+      "bytes": 9473248,
+      "sha256": "c2d49f7f02fdf221e0ae3c126940a7746555b3bebda8dbdc63f89863da8256ed"
+    },
+    "experiment.patch": {
+      "bytes": 2393,
+      "sha256": "71153b2ba3993df0060bd47496a3dc6cfb358603402ae54455911799ea24cfac"
+    },
+    "source/src/http_server/system/service.rs": {
+      "bytes": 9074,
+      "sha256": "b1e7f4a2f36298eb978318e617333ffb1b7d2cbaa6bdcdf5d0b13486f21350ec"
+    },
+    "source/scripts/chrome_load.mjs": {
+      "bytes": 7165,
+      "sha256": "363eb5e193e3987a112eed3f02253dd37c2eea51a89c0a39ed79efb4c8483cad"
+    },
+    "source/scripts/chrome_sites.txt": {
+      "bytes": 2371,
+      "sha256": "7f6ac18e4add0b2903074dd7c29ae7c11e16a35a3cc298d495014c6c1ec5ac88"
+    },
+    "measure.mjs": {
+      "bytes": 11170,
+      "sha256": "84ba467456c7717aa5739582824865f3d0098eef502ed8556751774216edc461"
+    },
+    "cpu.py": {
+      "bytes": 3460,
+      "sha256": "4b189a26d9e785bf8e7a62981d0611f8aa095aa4f2a79af453ba90a48660b6ed"
+    },
+    "build.sh": {
+      "bytes": 464,
+      "sha256": "514c6dff038ae5ff66a2f6b84472ff075a0bf960fee092ae1731413cce338f9c"
+    },
+    "source/Cargo.lock": {
+      "bytes": 43206,
+      "sha256": "69af3fa931aeb4c489a2a5eebff1ca3e23b1a2214455cb6b47a9145131adfcb0"
+    }
+  },
+  "build_image_sha256": "32377cd79589d38376a07fce42c95aa84b58b8b92dac4cbbaf7ee7d726679cfc",
+  "kernel": "7.0.0-38-generic",
+  "chrome": "141.0.7390.65",
+  "node": "22.18.0",
+  "run_directory": "run-2026-10-17T08-33-48-403Z"
+}

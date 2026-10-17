@@ -1,0 +1,50 @@
+diff --git a/src/http_server/system/service.rs b/src/http_server/system/service.rs
+index 35bedb0..8270ced 100644
+--- a/src/http_server/system/service.rs
++++ b/src/http_server/system/service.rs
+@@ -106,6 +106,13 @@ impl SystemMonitor {
+     }
+
+     fn run_activity(&self) {
++        // Experiment-only control; production scheduling defaults are preserved.
++        let poll_interval = Duration::from_millis(
++            std::env::var("PROCINSH_EXPERIMENT_POLL_MS").map_or(10, |value| {
++                value.parse::<u64>().expect("invalid poll interval")
++            }),
++        );
++        assert!(!poll_interval.is_zero());
+         let mut collector: Option<activity::ActivityCollector> = None;
+         let mut last = Instant::now();
+         let mut logged = super::StatusLog::default();
+@@ -139,7 +146,7 @@ impl SystemMonitor {
+                 last = Instant::now();
+             }
+             logged.observe(&collector.status());
+-            std::thread::sleep(Duration::from_millis(10));
++            std::thread::sleep(poll_interval);
+         }
+         log::info!("System activity worker stopped");
+     }
+@@ -154,6 +161,13 @@ impl SystemMonitor {
+         let monitor = self.clone();
+         workers.push(spawn_worker("snapshot", move || {
+             log::info!("System snapshot worker started");
++            // Experiment-only control; activity publication stays at one second.
++            let snapshot_interval = Duration::from_millis(
++                std::env::var("PROCINSH_EXPERIMENT_SNAPSHOT_MS").map_or(1000, |value| {
++                    value.parse::<u64>().expect("invalid snapshot interval")
++                }),
++            );
++            assert!(!snapshot_interval.is_zero());
+             let mut previous_warnings = Vec::new();
+             let resolver = resolver::ReverseDnsResolver::new();
+             let mut discovery = crate::http_server::process::ProcessScanner::default();
+@@ -164,7 +178,7 @@ impl SystemMonitor {
+                     std::thread::sleep(Duration::from_millis(100));
+                     continue;
+                 }
+-                if full.elapsed() >= Duration::from_secs(1) {
++                if full.elapsed() >= snapshot_interval {
+                     let mut data = snapshot::collect(&mut discovery);
+                     if data.warnings != previous_warnings {
+                         if data.warnings.is_empty() {

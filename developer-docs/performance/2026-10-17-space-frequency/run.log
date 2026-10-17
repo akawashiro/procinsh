@@ -1,0 +1,41 @@
+2026-10-17T08:33:54.907Z WARMUP 1-s1 (30s), backend PID 740
+2026-10-17T08:34:24.914Z MEASURE 1-s1 (60s)
+[1017/083524.979186:WARNING:chrome/app/chrome_main_linux.cc:82] Read channel stable from /opt/google/chrome/CHROME_VERSION_EXTRA
+2026-10-17T08:35:25.349Z RESULT 1-s1: 14.13% (user 3s, system 5.48s)
+2026-10-17T08:35:29.762Z WARMUP 2-s2 (30s), backend PID 2885
+2026-10-17T08:35:59.834Z MEASURE 2-s2 (60s)
+[1017/083659.895261:WARNING:chrome/app/chrome_main_linux.cc:82] Read channel stable from /opt/google/chrome/CHROME_VERSION_EXTRA
+2026-10-17T08:37:00.241Z RESULT 2-s2: 7.90% (user 1.76s, system 2.98s)
+2026-10-17T08:37:04.459Z WARMUP 3-s5 (30s), backend PID 4171
+2026-10-17T08:37:34.477Z MEASURE 3-s5 (60s)
+[1017/083834.543679:WARNING:chrome/app/chrome_main_linux.cc:82] Read channel stable from /opt/google/chrome/CHROME_VERSION_EXTRA
+2026-10-17T08:38:34.904Z RESULT 3-s5: 3.62% (user 0.85s, system 1.32s)
+2026-10-17T08:38:39.169Z WARMUP 4-p100 (30s), backend PID 5524
+2026-10-17T08:39:09.179Z MEASURE 4-p100 (60s)
+[1017/084009.235097:WARNING:chrome/app/chrome_main_linux.cc:82] Read channel stable from /opt/google/chrome/CHROME_VERSION_EXTRA
+2026-10-17T08:40:09.588Z RESULT 4-p100: 14.18% (user 3.03s, system 5.48s)
+2026-10-17T08:40:11.596Z WARMUP 5-idle (30s), backend PID 6735
+2026-10-17T08:40:41.598Z MEASURE 5-idle (60s)
+[1017/084141.660153:WARNING:chrome/app/chrome_main_linux.cc:82] Read channel stable from /opt/google/chrome/CHROME_VERSION_EXTRA
+2026-10-17T08:41:41.703Z RESULT 5-idle: 0.00% (user 0s, system 0s)
+2026-10-17T08:41:43.426Z WARMUP 6-idle (30s), backend PID 7993
+2026-10-17T08:42:13.429Z MEASURE 6-idle (60s)
+[1017/084313.491738:WARNING:chrome/app/chrome_main_linux.cc:82] Read channel stable from /opt/google/chrome/CHROME_VERSION_EXTRA
+2026-10-17T08:43:13.530Z RESULT 6-idle: 0.00% (user 0s, system 0s)
+2026-10-17T08:43:17.553Z WARMUP 7-p100 (30s), backend PID 9310
+2026-10-17T08:43:47.561Z MEASURE 7-p100 (60s)
+[1017/084447.708835:WARNING:chrome/app/chrome_main_linux.cc:82] Read channel stable from /opt/google/chrome/CHROME_VERSION_EXTRA
+2026-10-17T08:44:48.168Z RESULT 7-p100: 14.93% (user 3.27s, system 5.69s)
+2026-10-17T08:44:52.384Z WARMUP 8-s5 (30s), backend PID 10549
+2026-10-17T08:45:22.389Z MEASURE 8-s5 (60s)
+[1017/084622.469931:WARNING:chrome/app/chrome_main_linux.cc:82] Read channel stable from /opt/google/chrome/CHROME_VERSION_EXTRA
+2026-10-17T08:46:22.862Z RESULT 8-s5: 3.88% (user 0.95s, system 1.38s)
+2026-10-17T08:46:27.058Z WARMUP 9-s2 (30s), backend PID 11865
+2026-10-17T08:46:57.066Z MEASURE 9-s2 (60s)
+[1017/084757.127906:WARNING:chrome/app/chrome_main_linux.cc:82] Read channel stable from /opt/google/chrome/CHROME_VERSION_EXTRA
+2026-10-17T08:47:57.592Z RESULT 9-s2: 8.52% (user 1.96s, system 3.15s)
+2026-10-17T08:48:01.859Z WARMUP 10-s1 (30s), backend PID 13096
+2026-10-17T08:48:31.862Z MEASURE 10-s1 (60s)
+[1017/084931.935382:WARNING:chrome/app/chrome_main_linux.cc:82] Read channel stable from /opt/google/chrome/CHROME_VERSION_EXTRA
+2026-10-17T08:49:32.493Z RESULT 10-s1: 14.87% (user 3.25s, system 5.67s)
+2026-10-17T08:49:34.250Z COMPLETED /experiment/run-2026-10-17T08-33-48-403Z
