@@ -1,0 +1,12 @@
+{
+  "original": {
+    "samples": 6475,
+    "sha256": "e9b2ec13e474464bdc1fdc4ae86d687876bd4eacd30ef4d97d2eb43aa861c642"
+  },
+  "analysis_copy": {
+    "samples": 6475,
+    "sha256": "e9b2ec13e474464bdc1fdc4ae86d687876bd4eacd30ef4d97d2eb43aa861c642"
+  },
+  "identical_sample_payloads": true,
+  "elf_sha256": "3905c47f86b033711da4883be1e143344a42462f9f8334104e9cf10b4148144c"
+}

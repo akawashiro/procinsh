@@ -1,0 +1,67 @@
+{
+  "load_bias": 102345352052736,
+  "segments": [
+    {
+      "flags": 4,
+      "offset": 0,
+      "vma": 0,
+      "size": 5485592
+    },
+    {
+      "flags": 5,
+      "offset": 5485600,
+      "vma": 5489696,
+      "size": 12133392
+    },
+    {
+      "flags": 6,
+      "offset": 17618992,
+      "vma": 17627184,
+      "size": 830240
+    },
+    {
+      "flags": 6,
+      "offset": 18449232,
+      "vma": 18461520,
+      "size": 9880
+    }
+  ],
+  "maps": [
+    {
+      "record": 55840,
+      "pid": 7,
+      "start": 102345352052736,
+      "length": 5488640,
+      "pgoff": 0,
+      "prot": 1,
+      "unwind_pgoff": 0
+    },
+    {
+      "record": 55976,
+      "pid": 7,
+      "start": 102345357541376,
+      "length": 12136448,
+      "pgoff": 5484544,
+      "prot": 5,
+      "unwind_pgoff": 5488640
+    },
+    {
+      "record": 56112,
+      "pid": 7,
+      "start": 102345369677824,
+      "length": 835584,
+      "pgoff": 17616896,
+      "prot": 1,
+      "unwind_pgoff": 17625088
+    },
+    {
+      "record": 56248,
+      "pid": 7,
+      "start": 102345370513408,
+      "length": 12288,
+      "pgoff": 18448384,
+      "prot": 3,
+      "unwind_pgoff": 18460672
+    }
+  ]
+}

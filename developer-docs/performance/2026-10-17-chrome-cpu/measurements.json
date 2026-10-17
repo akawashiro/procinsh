@@ -1,0 +1,2747 @@
+{
+  "metadata": {
+    "backendPid": 7,
+    "sha": "54b714c34d17541cfd7f3b89bb99ab79f1a12c54",
+    "build": "debug (unoptimized + debuginfo)",
+    "sampleSeconds": 60,
+    "warmupSeconds": 30,
+    "tabs": 20,
+    "reloadSeconds": 10,
+    "chromePid": 3683,
+    "workloadNavigationErrors": [],
+    "workloadPageCount": 20,
+    "workloadPagesWithTitles": 20,
+    "browser-detail": {
+      "pid": 3683,
+      "start_time_ticks": 93971642
+    },
+    "renderer-detail": {
+      "pid": 3839,
+      "start_time_ticks": 93971657
+    },
+    "completed": true,
+    "date_utc": "2026-10-17",
+    "run_id": "perf-2026-10-17T04-10-33-844Z",
+    "kernel": "7.0.0-38-generic",
+    "perf_version": "7.0.14",
+    "chrome_version": "141.0.7390.65",
+    "cpu": "AMD Ryzen 9 5950X (32 logical CPUs)",
+    "cpu_percent_basis": "one logical CPU = 100%"
+  },
+  "conditions": [
+    {
+      "name": "baseline",
+      "cpu_percent": 0,
+      "user_seconds": 0,
+      "system_seconds": 0,
+      "monotonic_start": 939656.392078833,
+      "monotonic_end": 939716.393590115,
+      "top_threads": [
+        {
+          "tid": 7,
+          "name": "procinsh",
+          "start": 93936110,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 11,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 12,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 13,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 14,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 15,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 16,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 17,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        }
+      ],
+      "symbols": {
+        "cpu_samples": 0,
+        "unknown_leaf_samples": 0,
+        "median_stack_depth": 0,
+        "max_stack_depth": 0,
+        "leaf_only_samples": 0,
+        "stacks_with_at_least_5_frames": 0,
+        "top_self": [],
+        "top_inclusive": []
+      }
+    },
+    {
+      "name": "load-only",
+      "cpu_percent": 0,
+      "user_seconds": 0,
+      "system_seconds": 0,
+      "monotonic_start": 939747.652863419,
+      "monotonic_end": 939807.655414025,
+      "top_threads": [
+        {
+          "tid": 7,
+          "name": "procinsh",
+          "start": 93936110,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 11,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 12,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 13,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 14,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 15,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 16,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 17,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        }
+      ],
+      "symbols": {
+        "cpu_samples": 0,
+        "unknown_leaf_samples": 0,
+        "median_stack_depth": 0,
+        "max_stack_depth": 0,
+        "leaf_only_samples": 0,
+        "stacks_with_at_least_5_frames": 0,
+        "top_self": [],
+        "top_inclusive": []
+      },
+      "workload_tabs": 20,
+      "workload_titles": 20
+    },
+    {
+      "name": "browser-detail",
+      "cpu_percent": 21.83280975925201,
+      "user_seconds": 11.84,
+      "system_seconds": 1.26,
+      "monotonic_start": 939839.274450072,
+      "monotonic_end": 939899.275888936,
+      "top_threads": [
+        {
+          "tid": 5868,
+          "name": "observe-3683",
+          "start": 93980814,
+          "user_ticks": 846,
+          "system_ticks": 123,
+          "cpu_percent": 16.14961271504977
+        },
+        {
+          "tid": 26,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 174,
+          "system_ticks": 1,
+          "cpu_percent": 2.9165967235642003
+        },
+        {
+          "tid": 14,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 164,
+          "system_ticks": 2,
+          "cpu_percent": 2.7666003206380414
+        },
+        {
+          "tid": 7,
+          "name": "procinsh",
+          "start": 93936110,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 11,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 12,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 13,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 15,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        }
+      ],
+      "symbols": {
+        "cpu_samples": 1283,
+        "unknown_leaf_samples": 34,
+        "median_stack_depth": 17,
+        "max_stack_depth": 43,
+        "leaf_only_samples": 325,
+        "stacks_with_at_least_5_frames": 956,
+        "top_self": [
+          {
+            "symbol": "procinsh::http_server::process::snapshot::perf::PerfEventReader::copy::{closure#0}",
+            "samples": 116,
+            "percent": 9.041309431021045
+          },
+          {
+            "symbol": "core::ops::range::Range::spec_next",
+            "samples": 71,
+            "percent": 5.533904910366329
+          },
+          {
+            "symbol": "core::ops::range::Range::fold",
+            "samples": 51,
+            "percent": 3.975058456742011
+          },
+          {
+            "symbol": "core::ptr::read_volatile::precondition_check",
+            "samples": 40,
+            "percent": 3.117692907248636
+          },
+          {
+            "symbol": "[unknown]",
+            "samples": 34,
+            "percent": 2.6500389711613406
+          },
+          {
+            "symbol": "core::ptr::read_volatile",
+            "samples": 31,
+            "percent": 2.4162120031176926
+          },
+          {
+            "symbol": "<core::iter::adapters::map::Map<core::iter::adapters::filter::Filter<alloc::vec::into_iter::IntoIter<(tower_http::content_encoding::Encoding, tower_http::content_encoding::QValue)>, <tower_http::content_encoding::Encoding>::preferred_encoding<alloc::vec::into_iter::IntoIter<(tower_http::content_encoding::Encoding, tower_http::content_encoding::QValue)>>::{closure#0}>, core::iter::traits::iterator::Iterator::max_by_key::key<(tower_http::content_encoding::Encoding, tower_http::content_encoding::QValue),",
+            "samples": 28,
+            "percent": 2.1823850350740455
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::symbol::resolve::resolve_frame::{closure#0}",
+            "samples": 27,
+            "percent": 2.1044427123928293
+          },
+          {
+            "symbol": "core::slice::iter::Iter::find",
+            "samples": 23,
+            "percent": 1.7926734216679656
+          },
+          {
+            "symbol": "usize::count_ones",
+            "samples": 22,
+            "percent": 1.71473109898675
+          },
+          {
+            "symbol": "core::iter::traits::double_ended::DoubleEndedIterator::rfind::check::::{closure#0}",
+            "samples": 19,
+            "percent": 1.4809041309431021
+          },
+          {
+            "symbol": "usize::forward_unchecked",
+            "samples": 18,
+            "percent": 1.4029618082618862
+          },
+          {
+            "symbol": "core::ub_checks::maybe_is_aligned::runtime",
+            "samples": 16,
+            "percent": 1.2470771628994544
+          },
+          {
+            "symbol": "procinsh::http_server::process::maps::MemoryMap::contains",
+            "samples": 16,
+            "percent": 1.2470771628994544
+          },
+          {
+            "symbol": "core::ptr::copy_nonoverlapping::precondition_check",
+            "samples": 16,
+            "percent": 1.2470771628994544
+          },
+          {
+            "symbol": "*const ()::is_aligned_to",
+            "samples": 15,
+            "percent": 1.1691348402182384
+          },
+          {
+            "symbol": "core::iter::adapters::map::map_fold::::{closure#0}",
+            "samples": 14,
+            "percent": 1.0911925175370227
+          },
+          {
+            "symbol": "alloc::vec::Vec::extend_trusted::::{closure#0}",
+            "samples": 13,
+            "percent": 1.0132501948558068
+          },
+          {
+            "symbol": "serde_json::ser::format_escaped_str_contents",
+            "samples": 12,
+            "percent": 0.9353078721745909
+          },
+          {
+            "symbol": "memchr::arch::generic::memchr::Two::new",
+            "samples": 11,
+            "percent": 0.857365549493375
+          },
+          {
+            "symbol": "core::ub_checks::maybe_is_aligned_and_not_null",
+            "samples": 11,
+            "percent": 0.857365549493375
+          },
+          {
+            "symbol": "core::slice::iter::Iter::try_rfold",
+            "samples": 11,
+            "percent": 0.857365549493375
+          },
+          {
+            "symbol": "axum::routing::method_routing::MethodRouter::on",
+            "samples": 11,
+            "percent": 0.857365549493375
+          },
+          {
+            "symbol": "core::core_arch::x86::avx::_mm256_set1_epi8",
+            "samples": 11,
+            "percent": 0.857365549493375
+          },
+          {
+            "symbol": "core::slice::iter::Iter::next",
+            "samples": 10,
+            "percent": 0.779423226812159
+          },
+          {
+            "symbol": "core::ops::range::Range::next",
+            "samples": 10,
+            "percent": 0.779423226812159
+          },
+          {
+            "symbol": "<*const",
+            "samples": 10,
+            "percent": 0.779423226812159
+          },
+          {
+            "symbol": "miniz_oxide::deflate::core::compress_fast::{closure#0}",
+            "samples": 10,
+            "percent": 0.779423226812159
+          },
+          {
+            "symbol": "usize::unchecked_add",
+            "samples": 9,
+            "percent": 0.7014809041309431
+          },
+          {
+            "symbol": "<axum::util::MapIntoResponse<tower::util::map_err::MapErr<axum::middleware::from_fn::FromFn<procinsh::http_server::router::router::{closure#0},",
+            "samples": 9,
+            "percent": 0.7014809041309431
+          },
+          {
+            "symbol": "usize::unchecked_add::precondition_check",
+            "samples": 9,
+            "percent": 0.7014809041309431
+          },
+          {
+            "symbol": "core::slice::iter::Iter::fold",
+            "samples": 8,
+            "percent": 0.6235385814497272
+          },
+          {
+            "symbol": "[u8]::split_at",
+            "samples": 8,
+            "percent": 0.6235385814497272
+          },
+          {
+            "symbol": "cfree",
+            "samples": 8,
+            "percent": 0.6235385814497272
+          },
+          {
+            "symbol": "[u8]::split_first",
+            "samples": 8,
+            "percent": 0.6235385814497272
+          },
+          {
+            "symbol": "core::slice::raw::from_raw_parts::precondition_check",
+            "samples": 8,
+            "percent": 0.6235385814497272
+          },
+          {
+            "symbol": "[u8]::split_at_unchecked",
+            "samples": 8,
+            "percent": 0.6235385814497272
+          },
+          {
+            "symbol": "memchr::arch::x86_64::avx2::memchr::Two::find_raw::{closure#0}",
+            "samples": 7,
+            "percent": 0.5455962587685114
+          },
+          {
+            "symbol": "core::slice::iter::Iter::next_back",
+            "samples": 7,
+            "percent": 0.5455962587685114
+          },
+          {
+            "symbol": "memchr::memchr::Memchr2::into_iter",
+            "samples": 7,
+            "percent": 0.5455962587685114
+          },
+          {
+            "symbol": "memchr::arch::generic::memchr::fwd_byte_by_byte",
+            "samples": 7,
+            "percent": 0.5455962587685114
+          },
+          {
+            "symbol": "axum::response::sse::EventDataWriter::write_buf",
+            "samples": 7,
+            "percent": 0.5455962587685114
+          },
+          {
+            "symbol": "core::ops::range::Range::index",
+            "samples": 6,
+            "percent": 0.46765393608729544
+          },
+          {
+            "symbol": "core::str::validations::next_code_point",
+            "samples": 6,
+            "percent": 0.46765393608729544
+          },
+          {
+            "symbol": "bytes::buf::writer::Writer::write",
+            "samples": 5,
+            "percent": 0.3897116134060795
+          },
+          {
+            "symbol": "[u8: 4]::try_from",
+            "samples": 5,
+            "percent": 0.3897116134060795
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::unwind::StackUnwinder::walk::{closure#2}",
+            "samples": 5,
+            "percent": 0.3897116134060795
+          },
+          {
+            "symbol": "core::core_arch::simd::Simd::as_m256i",
+            "samples": 5,
+            "percent": 0.3897116134060795
+          },
+          {
+            "symbol": "[u8: 33026]::index",
+            "samples": 5,
+            "percent": 0.3897116134060795
+          },
+          {
+            "symbol": "memchr::arch::x86_64::memchr::memchr2_raw::find_avx2",
+            "samples": 5,
+            "percent": 0.3897116134060795
+          }
+        ],
+        "top_inclusive": [
+          {
+            "symbol": "procinsh::http_server::process::monitoring::service::ProcessMonitor::observe::{closure#1}",
+            "samples": 899,
+            "percent": 70.0701480904131
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::capture::Sampler::poll",
+            "samples": 873,
+            "percent": 68.04364770070148
+          },
+          {
+            "symbol": "std::thread::lifecycle::spawn_unchecked::::{closure#1}::{closure#0}",
+            "samples": 829,
+            "percent": 64.61418550272798
+          },
+          {
+            "symbol": "std::sys::backtrace::__rust_begin_short_backtrace",
+            "samples": 829,
+            "percent": 64.61418550272798
+          },
+          {
+            "symbol": "alloc::vec::Vec::from_iter",
+            "samples": 565,
+            "percent": 44.03741231488698
+          },
+          {
+            "symbol": "alloc::vec::Vec::spec_extend",
+            "samples": 559,
+            "percent": 43.56975837879969
+          },
+          {
+            "symbol": "core::iter::adapters::map::Map::fold",
+            "samples": 517,
+            "percent": 40.29618082618862
+          },
+          {
+            "symbol": "alloc::vec::Vec::extend_trusted",
+            "samples": 508,
+            "percent": 39.59469992205768
+          },
+          {
+            "symbol": "core::iter::adapters::map::map_try_fold",
+            "samples": 502,
+            "percent": 39.12704598597038
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::perf::PerfEventReader::drain",
+            "samples": 494,
+            "percent": 38.503507404520654
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::perf::PerfEventReader::drain::{closure#0}",
+            "samples": 492,
+            "percent": 38.34762275915822
+          },
+          {
+            "symbol": "core::iter::adapters::map::Map::collect",
+            "samples": 492,
+            "percent": 38.34762275915822
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::perf::PerfEventReader::copy",
+            "samples": 474,
+            "percent": 36.944660950896335
+          },
+          {
+            "symbol": "core::ops::range::Range::fold",
+            "samples": 468,
+            "percent": 36.47700701480904
+          },
+          {
+            "symbol": "core::panic::unwind_safe::AssertUnwindSafe::call_once",
+            "samples": 341,
+            "percent": 26.578332034294622
+          },
+          {
+            "symbol": "std::panicking::catch_unwind::do_catch",
+            "samples": 314,
+            "percent": 24.473889321901794
+          },
+          {
+            "symbol": "<core::iter::adapters::map::Map<core::iter::adapters::filter::Filter<alloc::vec::into_iter::IntoIter<(tower_http::content_encoding::Encoding, tower_http::content_encoding::QValue)>, <tower_http::content_encoding::Encoding>::preferred_encoding<alloc::vec::into_iter::IntoIter<(tower_http::content_encoding::Encoding, tower_http::content_encoding::QValue)>>::{closure#0}>, core::iter::traits::iterator::Iterator::max_by_key::key<(tower_http::content_encoding::Encoding, tower_http::content_encoding::QValue),",
+            "samples": 288,
+            "percent": 22.44738893219018
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::capture::process_sample",
+            "samples": 265,
+            "percent": 20.654715510522216
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::perf::PerfEventReader::copy::{closure#0}",
+            "samples": 234,
+            "percent": 18.23850350740452
+          },
+          {
+            "symbol": "std::panicking::catch_unwind",
+            "samples": 192,
+            "percent": 14.964925954793454
+          },
+          {
+            "symbol": "__rust_try",
+            "samples": 192,
+            "percent": 14.964925954793454
+          },
+          {
+            "symbol": "core::option::Option::and_then",
+            "samples": 151,
+            "percent": 11.769290724863602
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::capture::process_sample::{closure#2}",
+            "samples": 150,
+            "percent": 11.691348402182385
+          },
+          {
+            "symbol": "entry_SYSCALL_64_after_hwframe",
+            "samples": 136,
+            "percent": 10.600155884645362
+          },
+          {
+            "symbol": "do_syscall_64",
+            "samples": 136,
+            "percent": 10.600155884645362
+          },
+          {
+            "symbol": "x64_sys_call",
+            "samples": 134,
+            "percent": 10.44427123928293
+          },
+          {
+            "symbol": "core::ops::range::Range::next",
+            "samples": 118,
+            "percent": 9.197194076383477
+          },
+          {
+            "symbol": "core::ptr::read_volatile",
+            "samples": 117,
+            "percent": 9.11925175370226
+          },
+          {
+            "symbol": "core::ops::range::Range::spec_next",
+            "samples": 107,
+            "percent": 8.339828526890102
+          },
+          {
+            "symbol": "procinsh::http_server::process::procfs::read_stat",
+            "samples": 104,
+            "percent": 8.106001558846454
+          },
+          {
+            "symbol": "[unknown]",
+            "samples": 99,
+            "percent": 7.716289945440375
+          },
+          {
+            "symbol": "std::fs::read_to_string",
+            "samples": 86,
+            "percent": 6.703039750584567
+          },
+          {
+            "symbol": "alloc::vec::into_iter::IntoIter::try_fold",
+            "samples": 80,
+            "percent": 6.235385814497272
+          },
+          {
+            "symbol": "alloc::vec::into_iter::IntoIter::find_map",
+            "samples": 80,
+            "percent": 6.235385814497272
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::symbol::resolve::resolve_frame",
+            "samples": 77,
+            "percent": 6.001558846453625
+          },
+          {
+            "symbol": "core::iter::adapters::rev::Rev::find",
+            "samples": 75,
+            "percent": 5.845674201091192
+          },
+          {
+            "symbol": "core::slice::iter::Iter::rfind",
+            "samples": 75,
+            "percent": 5.845674201091192
+          },
+          {
+            "symbol": "core::slice::iter::Iter::try_rfold",
+            "samples": 75,
+            "percent": 5.845674201091192
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::symbol::cache::ElfCache::get",
+            "samples": 71,
+            "percent": 5.533904910366329
+          },
+          {
+            "symbol": "core::slice::iter::Iter::fold",
+            "samples": 66,
+            "percent": 5.144193296960249
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::symbol::cache::matching_file",
+            "samples": 63,
+            "percent": 4.910366328916601
+          },
+          {
+            "symbol": "core::iter::adapters::map::map_fold::::{closure#0}",
+            "samples": 61,
+            "percent": 4.75448168355417
+          },
+          {
+            "symbol": "statx",
+            "samples": 59,
+            "percent": 4.5985970381917385
+          },
+          {
+            "symbol": "std::sys::fs::unix::try_statx::statx",
+            "samples": 59,
+            "percent": 4.5985970381917385
+          },
+          {
+            "symbol": "std::io::default_read_to_string::::{closure#0}",
+            "samples": 59,
+            "percent": 4.5985970381917385
+          },
+          {
+            "symbol": "__x64_sys_statx",
+            "samples": 57,
+            "percent": 4.442712392829307
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::symbol::cache::matching_file::{closure#1}",
+            "samples": 55,
+            "percent": 4.286827747466875
+          },
+          {
+            "symbol": "core::iter::traits::iterator::Iterator::find_map::check::::{closure#0}",
+            "samples": 55,
+            "percent": 4.286827747466875
+          },
+          {
+            "symbol": "read",
+            "samples": 55,
+            "percent": 4.286827747466875
+          },
+          {
+            "symbol": "std::sys::fs::unix::stat",
+            "samples": 53,
+            "percent": 4.1309431021044425
+          },
+          {
+            "symbol": "core::ub_checks::maybe_is_aligned::runtime",
+            "samples": 53,
+            "percent": 4.1309431021044425
+          },
+          {
+            "symbol": "axum::routing::method_routing::MethodRouter::fallback",
+            "samples": 51,
+            "percent": 3.975058456742011
+          },
+          {
+            "symbol": "procinsh::http_server::process::monitoring::service::refresh_maps",
+            "samples": 49,
+            "percent": 3.819173811379579
+          },
+          {
+            "symbol": "core::str::iter::Split::find",
+            "samples": 48,
+            "percent": 3.7412314886983635
+          },
+          {
+            "symbol": "core::str::iter::Split::try_fold",
+            "samples": 48,
+            "percent": 3.7412314886983635
+          },
+          {
+            "symbol": "core::iter::traits::double_ended::DoubleEndedIterator::rfind::check::::{closure#0}",
+            "samples": 46,
+            "percent": 3.5853468433359312
+          },
+          {
+            "symbol": "do_statx",
+            "samples": 46,
+            "percent": 3.5853468433359312
+          },
+          {
+            "symbol": "ksys_read",
+            "samples": 46,
+            "percent": 3.5853468433359312
+          },
+          {
+            "symbol": "__x64_sys_read",
+            "samples": 46,
+            "percent": 3.5853468433359312
+          },
+          {
+            "symbol": "core::slice::iter::Iter::find",
+            "samples": 45,
+            "percent": 3.507404520654715
+          },
+          {
+            "symbol": "vfs_statx",
+            "samples": 45,
+            "percent": 3.507404520654715
+          },
+          {
+            "symbol": "core::str::iter::Split::next",
+            "samples": 45,
+            "percent": 3.507404520654715
+          },
+          {
+            "symbol": "alloc::vec::Vec::extend_desugared",
+            "samples": 44,
+            "percent": 3.4294621979735
+          },
+          {
+            "symbol": "vfs_read",
+            "samples": 44,
+            "percent": 3.4294621979735
+          },
+          {
+            "symbol": "procinsh::http_server::process::maps::read_smaps",
+            "samples": 44,
+            "percent": 3.4294621979735
+          },
+          {
+            "symbol": "core::str::iter::SplitInternal::next",
+            "samples": 43,
+            "percent": 3.3515198752922837
+          },
+          {
+            "symbol": "core::ptr::read_volatile::precondition_check",
+            "samples": 41,
+            "percent": 3.195635229929852
+          },
+          {
+            "symbol": "seq_read",
+            "samples": 41,
+            "percent": 3.195635229929852
+          },
+          {
+            "symbol": "seq_read_iter",
+            "samples": 40,
+            "percent": 3.117692907248636
+          },
+          {
+            "symbol": "core::str::pattern::CharPredicateSearcher::next_match",
+            "samples": 40,
+            "percent": 3.117692907248636
+          },
+          {
+            "symbol": "core::str::pattern::MultiCharEqSearcher::next_match",
+            "samples": 40,
+            "percent": 3.117692907248636
+          },
+          {
+            "symbol": "procinsh::http_server::process::procfs::parse_stat",
+            "samples": 38,
+            "percent": 2.9618082618862043
+          },
+          {
+            "symbol": "path_lookupat",
+            "samples": 34,
+            "percent": 2.6500389711613406
+          },
+          {
+            "symbol": "filename_lookup",
+            "samples": 34,
+            "percent": 2.6500389711613406
+          },
+          {
+            "symbol": "core::array::iter::iter_inner::PolymorphicIter::try_fold::::{closure#0}",
+            "samples": 34,
+            "percent": 2.6500389711613406
+          },
+          {
+            "symbol": "core::ops::index_range::IndexRange::try_fold",
+            "samples": 34,
+            "percent": 2.6500389711613406
+          },
+          {
+            "symbol": "core::array::iter::iter_inner::PolymorphicIter::try_fold",
+            "samples": 34,
+            "percent": 2.6500389711613406
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::registers::classify",
+            "samples": 34,
+            "percent": 2.6500389711613406
+          },
+          {
+            "symbol": "core::ops::try_trait::NeverShortCircuit::wrap_mut_2::::{closure#0}",
+            "samples": 34,
+            "percent": 2.6500389711613406
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::registers::from_sample",
+            "samples": 34,
+            "percent": 2.6500389711613406
+          },
+          {
+            "symbol": "core::iter::adapters::flatten::FlattenCompat::iter_fold::flatten",
+            "samples": 34,
+            "percent": 2.6500389711613406
+          },
+          {
+            "symbol": "procinsh::http_server::process::maps::parse_smaps",
+            "samples": 34,
+            "percent": 2.6500389711613406
+          },
+          {
+            "symbol": "std::io::default_read_to_end",
+            "samples": 33,
+            "percent": 2.5720966484801244
+          },
+          {
+            "symbol": "core::str::pattern::MultiCharEqSearcher::next",
+            "samples": 32,
+            "percent": 2.4941543257989087
+          },
+          {
+            "symbol": "std::sys::fd::unix::FileDesc::read",
+            "samples": 29,
+            "percent": 2.260327357755261
+          },
+          {
+            "symbol": "core::str::iter::SplitWhitespace::collect",
+            "samples": 29,
+            "percent": 2.260327357755261
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::symbol::resolve::resolve_frame::{closure#0}",
+            "samples": 27,
+            "percent": 2.1044427123928293
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::unwind::StackUnwinder::walk",
+            "samples": 27,
+            "percent": 2.1044427123928293
+          },
+          {
+            "symbol": "procinsh::http_server::process::monitoring::sampling::capture_sample",
+            "samples": 26,
+            "percent": 2.0265003897116136
+          },
+          {
+            "symbol": "core::iter::adapters::filter_map::FilterMap::next",
+            "samples": 26,
+            "percent": 2.0265003897116136
+          },
+          {
+            "symbol": "core::iter::adapters::filter_map::FilterMap::collect",
+            "samples": 26,
+            "percent": 2.0265003897116136
+          },
+          {
+            "symbol": "std::sys::fd::unix::FileDesc::read_buf",
+            "samples": 26,
+            "percent": 2.0265003897116136
+          },
+          {
+            "symbol": "procinsh::http_server::process::threads::read",
+            "samples": 25,
+            "percent": 1.9485580670303975
+          },
+          {
+            "symbol": "procinsh::http_server::process::monitoring::sampling::capture_sample::{closure#0}",
+            "samples": 25,
+            "percent": 1.9485580670303975
+          },
+          {
+            "symbol": "&mut procinsh::http_server::process::monitoring::sampling::capture_sample::{closure#0}::call_mut",
+            "samples": 25,
+            "percent": 1.9485580670303975
+          },
+          {
+            "symbol": "<axum::util::MapIntoResponse<axum::handler::service::HandlerService<procinsh::http_server::web::router::{closure#2},",
+            "samples": 25,
+            "percent": 1.9485580670303975
+          },
+          {
+            "symbol": "procinsh::http_server::process::procfs::fields",
+            "samples": 23,
+            "percent": 1.7926734216679656
+          },
+          {
+            "symbol": "link_path_walk",
+            "samples": 23,
+            "percent": 1.7926734216679656
+          },
+          {
+            "symbol": "axum::routing::method_routing::MethodRouter::on",
+            "samples": 23,
+            "percent": 1.7926734216679656
+          },
+          {
+            "symbol": "<axum::util::MapIntoResponse<tower::util::map_err::MapErr<axum::middleware::from_fn::FromFn<procinsh::http_server::router::router::{closure#0},",
+            "samples": 23,
+            "percent": 1.7926734216679656
+          }
+        ]
+      },
+      "sse_errors": [],
+      "internal_lost_before": 419283,
+      "internal_lost_after": 1210385,
+      "thread_errors": [],
+      "workload_tabs": 20,
+      "workload_titles": 20
+    },
+    {
+      "name": "renderer-detail",
+      "cpu_percent": 16.916283301972733,
+      "user_seconds": 8.77,
+      "system_seconds": 1.38,
+      "monotonic_start": 939943.113550357,
+      "monotonic_end": 940003.114910105,
+      "top_threads": [
+        {
+          "tid": 7352,
+          "name": "observe-3839",
+          "start": 93991185,
+          "user_ticks": 496,
+          "system_ticks": 135,
+          "cpu_percent": 10.51642833846778
+        },
+        {
+          "tid": 13,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 192,
+          "system_ticks": 2,
+          "cpu_percent": 3.2332600596874
+        },
+        {
+          "tid": 39,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 188,
+          "system_ticks": 2,
+          "cpu_percent": 3.1665949038175567
+        },
+        {
+          "tid": 7,
+          "name": "procinsh",
+          "start": 93936110,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 11,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 12,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 14,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 15,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        }
+      ],
+      "symbols": {
+        "cpu_samples": 996,
+        "unknown_leaf_samples": 32,
+        "median_stack_depth": 15.0,
+        "max_stack_depth": 42,
+        "leaf_only_samples": 371,
+        "stacks_with_at_least_5_frames": 623,
+        "top_self": [
+          {
+            "symbol": "procinsh::http_server::process::snapshot::perf::PerfEventReader::copy::{closure#0}",
+            "samples": 56,
+            "percent": 5.622489959839357
+          },
+          {
+            "symbol": "core::ops::range::Range::spec_next",
+            "samples": 43,
+            "percent": 4.317269076305221
+          },
+          {
+            "symbol": "[unknown]",
+            "samples": 31,
+            "percent": 3.1124497991967868
+          },
+          {
+            "symbol": "core::ptr::read_volatile::precondition_check",
+            "samples": 21,
+            "percent": 2.108433734939759
+          },
+          {
+            "symbol": "core::slice::iter::Iter::find",
+            "samples": 18,
+            "percent": 1.8072289156626504
+          },
+          {
+            "symbol": "smaps_account",
+            "samples": 16,
+            "percent": 1.6064257028112447
+          },
+          {
+            "symbol": "core::ops::range::Range::fold",
+            "samples": 16,
+            "percent": 1.6064257028112447
+          },
+          {
+            "symbol": "<core::iter::adapters::map::Map<core::iter::adapters::filter::Filter<alloc::vec::into_iter::IntoIter<(tower_http::content_encoding::Encoding, tower_http::content_encoding::QValue)>, <tower_http::content_encoding::Encoding>::preferred_encoding<alloc::vec::into_iter::IntoIter<(tower_http::content_encoding::Encoding, tower_http::content_encoding::QValue)>>::{closure#0}>, core::iter::traits::iterator::Iterator::max_by_key::key<(tower_http::content_encoding::Encoding, tower_http::content_encoding::QValue),",
+            "samples": 16,
+            "percent": 1.6064257028112447
+          },
+          {
+            "symbol": "core::core_arch::x86::avx::_mm256_set1_epi8",
+            "samples": 16,
+            "percent": 1.6064257028112447
+          },
+          {
+            "symbol": "axum::routing::method_routing::MethodRouter::on",
+            "samples": 15,
+            "percent": 1.5060240963855422
+          },
+          {
+            "symbol": "<*const",
+            "samples": 14,
+            "percent": 1.4056224899598393
+          },
+          {
+            "symbol": "memchr::arch::generic::memchr::Two::new",
+            "samples": 12,
+            "percent": 1.2048192771084338
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::symbol::resolve::resolve_frame::{closure#0}",
+            "samples": 12,
+            "percent": 1.2048192771084338
+          },
+          {
+            "symbol": "usize::forward_unchecked",
+            "samples": 12,
+            "percent": 1.2048192771084338
+          },
+          {
+            "symbol": "core::ub_checks::maybe_is_aligned_and_not_null",
+            "samples": 11,
+            "percent": 1.104417670682731
+          },
+          {
+            "symbol": "core::str::pattern::MultiCharEqSearcher::next",
+            "samples": 11,
+            "percent": 1.104417670682731
+          },
+          {
+            "symbol": "memchr::arch::generic::memchr::fwd_byte_by_byte",
+            "samples": 11,
+            "percent": 1.104417670682731
+          },
+          {
+            "symbol": "serde_json::ser::format_escaped_str_contents",
+            "samples": 10,
+            "percent": 1.0040160642570282
+          },
+          {
+            "symbol": "miniz_oxide::deflate::core::compress_fast::{closure#0}",
+            "samples": 10,
+            "percent": 1.0040160642570282
+          },
+          {
+            "symbol": "alloc::vec::Vec::extend_trusted::::{closure#0}",
+            "samples": 10,
+            "percent": 1.0040160642570282
+          },
+          {
+            "symbol": "core::str::validations::next_code_point",
+            "samples": 10,
+            "percent": 1.0040160642570282
+          },
+          {
+            "symbol": "memchr::memchr::Memchr2::into_iter",
+            "samples": 10,
+            "percent": 1.0040160642570282
+          },
+          {
+            "symbol": "[u8: 33026]::index",
+            "samples": 9,
+            "percent": 0.9036144578313252
+          },
+          {
+            "symbol": "bytes::buf::writer::Writer::write_all",
+            "samples": 9,
+            "percent": 0.9036144578313252
+          },
+          {
+            "symbol": "procinsh::http_server::process::maps::MemoryMap::contains",
+            "samples": 9,
+            "percent": 0.9036144578313252
+          },
+          {
+            "symbol": "core::ptr::copy_nonoverlapping::precondition_check",
+            "samples": 9,
+            "percent": 0.9036144578313252
+          },
+          {
+            "symbol": "core::ptr::read_volatile",
+            "samples": 8,
+            "percent": 0.8032128514056224
+          },
+          {
+            "symbol": "::json_data::JsonWriter::write_all",
+            "samples": 7,
+            "percent": 0.7028112449799196
+          },
+          {
+            "symbol": "core::slice::raw::from_raw_parts::precondition_check",
+            "samples": 7,
+            "percent": 0.7028112449799196
+          },
+          {
+            "symbol": "core::ptr::drop_glue",
+            "samples": 7,
+            "percent": 0.7028112449799196
+          },
+          {
+            "symbol": "core::ops::range::Range::next",
+            "samples": 7,
+            "percent": 0.7028112449799196
+          },
+          {
+            "symbol": "*const ()::is_aligned_to",
+            "samples": 7,
+            "percent": 0.7028112449799196
+          },
+          {
+            "symbol": "usize::min",
+            "samples": 7,
+            "percent": 0.7028112449799196
+          },
+          {
+            "symbol": "core::core_arch::simd::Simd::as_m256i",
+            "samples": 7,
+            "percent": 0.7028112449799196
+          },
+          {
+            "symbol": "bytes::bytes_mut::BytesMut::advance_mut",
+            "samples": 7,
+            "percent": 0.7028112449799196
+          },
+          {
+            "symbol": "[u8]::split_at",
+            "samples": 7,
+            "percent": 0.7028112449799196
+          },
+          {
+            "symbol": "[u8]::split_first",
+            "samples": 6,
+            "percent": 0.6024096385542169
+          },
+          {
+            "symbol": "core::core_arch::simd::Simd::as_m128i",
+            "samples": 6,
+            "percent": 0.6024096385542169
+          },
+          {
+            "symbol": "do_syscall_64",
+            "samples": 6,
+            "percent": 0.6024096385542169
+          },
+          {
+            "symbol": "usize::unchecked_add",
+            "samples": 6,
+            "percent": 0.6024096385542169
+          },
+          {
+            "symbol": "bytes::buf::writer::Writer::write",
+            "samples": 6,
+            "percent": 0.6024096385542169
+          },
+          {
+            "symbol": "core::slice::iter::Iter::next",
+            "samples": 6,
+            "percent": 0.6024096385542169
+          },
+          {
+            "symbol": "[u8]::split_at_unchecked",
+            "samples": 6,
+            "percent": 0.6024096385542169
+          },
+          {
+            "symbol": "axum::response::sse::EventDataWriter::write_buf",
+            "samples": 6,
+            "percent": 0.6024096385542169
+          },
+          {
+            "symbol": "core::iter::traits::iterator::Iterator::find::check::::{closure#0}",
+            "samples": 6,
+            "percent": 0.6024096385542169
+          },
+          {
+            "symbol": "*const _::offset_from_unsigned::precondition_check",
+            "samples": 5,
+            "percent": 0.5020080321285141
+          },
+          {
+            "symbol": "core::slice::iter::Iter::fold",
+            "samples": 5,
+            "percent": 0.5020080321285141
+          },
+          {
+            "symbol": "core::slice::raw::from_raw_parts_mut::precondition_check",
+            "samples": 5,
+            "percent": 0.5020080321285141
+          },
+          {
+            "symbol": "core::slice::iter::Iter::pre_dec_end",
+            "samples": 5,
+            "percent": 0.5020080321285141
+          },
+          {
+            "symbol": "serde_json::ser::Compound::serialize_key",
+            "samples": 5,
+            "percent": 0.5020080321285141
+          }
+        ],
+        "top_inclusive": [
+          {
+            "symbol": "procinsh::http_server::process::monitoring::service::ProcessMonitor::observe::{closure#1}",
+            "samples": 578,
+            "percent": 58.032128514056225
+          },
+          {
+            "symbol": "std::thread::lifecycle::spawn_unchecked::::{closure#1}::{closure#0}",
+            "samples": 545,
+            "percent": 54.71887550200803
+          },
+          {
+            "symbol": "std::sys::backtrace::__rust_begin_short_backtrace",
+            "samples": 545,
+            "percent": 54.71887550200803
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::capture::Sampler::poll",
+            "samples": 514,
+            "percent": 51.606425702811244
+          },
+          {
+            "symbol": "alloc::vec::Vec::from_iter",
+            "samples": 324,
+            "percent": 32.53012048192771
+          },
+          {
+            "symbol": "alloc::vec::Vec::spec_extend",
+            "samples": 319,
+            "percent": 32.028112449799195
+          },
+          {
+            "symbol": "core::panic::unwind_safe::AssertUnwindSafe::call_once",
+            "samples": 315,
+            "percent": 31.626506024096386
+          },
+          {
+            "symbol": "std::panicking::catch_unwind::do_catch",
+            "samples": 293,
+            "percent": 29.417670682730922
+          },
+          {
+            "symbol": "core::iter::adapters::map::Map::fold",
+            "samples": 258,
+            "percent": 25.903614457831324
+          },
+          {
+            "symbol": "alloc::vec::Vec::extend_trusted",
+            "samples": 243,
+            "percent": 24.397590361445783
+          },
+          {
+            "symbol": "core::iter::adapters::map::map_try_fold",
+            "samples": 242,
+            "percent": 24.29718875502008
+          },
+          {
+            "symbol": "core::iter::adapters::map::Map::collect",
+            "samples": 239,
+            "percent": 23.99598393574297
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::perf::PerfEventReader::drain",
+            "samples": 232,
+            "percent": 23.293172690763054
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::perf::PerfEventReader::drain::{closure#0}",
+            "samples": 229,
+            "percent": 22.991967871485944
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::perf::PerfEventReader::copy",
+            "samples": 220,
+            "percent": 22.08835341365462
+          },
+          {
+            "symbol": "core::ops::range::Range::fold",
+            "samples": 218,
+            "percent": 21.88755020080321
+          },
+          {
+            "symbol": "__rust_try",
+            "samples": 204,
+            "percent": 20.481927710843372
+          },
+          {
+            "symbol": "std::panicking::catch_unwind",
+            "samples": 204,
+            "percent": 20.481927710843372
+          },
+          {
+            "symbol": "entry_SYSCALL_64_after_hwframe",
+            "samples": 141,
+            "percent": 14.156626506024098
+          },
+          {
+            "symbol": "procinsh::http_server::process::procfs::read_stat",
+            "samples": 141,
+            "percent": 14.156626506024098
+          },
+          {
+            "symbol": "do_syscall_64",
+            "samples": 141,
+            "percent": 14.156626506024098
+          },
+          {
+            "symbol": "x64_sys_call",
+            "samples": 135,
+            "percent": 13.55421686746988
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::capture::process_sample",
+            "samples": 134,
+            "percent": 13.453815261044177
+          },
+          {
+            "symbol": "<core::iter::adapters::map::Map<core::iter::adapters::filter::Filter<alloc::vec::into_iter::IntoIter<(tower_http::content_encoding::Encoding, tower_http::content_encoding::QValue)>, <tower_http::content_encoding::Encoding>::preferred_encoding<alloc::vec::into_iter::IntoIter<(tower_http::content_encoding::Encoding, tower_http::content_encoding::QValue)>>::{closure#0}>, core::iter::traits::iterator::Iterator::max_by_key::key<(tower_http::content_encoding::Encoding, tower_http::content_encoding::QValue),",
+            "samples": 131,
+            "percent": 13.152610441767068
+          },
+          {
+            "symbol": "[unknown]",
+            "samples": 124,
+            "percent": 12.449799196787147
+          },
+          {
+            "symbol": "std::fs::read_to_string",
+            "samples": 116,
+            "percent": 11.646586345381527
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::perf::PerfEventReader::copy::{closure#0}",
+            "samples": 99,
+            "percent": 9.939759036144578
+          },
+          {
+            "symbol": "core::option::Option::and_then",
+            "samples": 81,
+            "percent": 8.132530120481928
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::capture::process_sample::{closure#2}",
+            "samples": 79,
+            "percent": 7.931726907630522
+          },
+          {
+            "symbol": "std::io::default_read_to_string::::{closure#0}",
+            "samples": 78,
+            "percent": 7.83132530120482
+          },
+          {
+            "symbol": "axum::routing::method_routing::MethodRouter::fallback",
+            "samples": 77,
+            "percent": 7.730923694779117
+          },
+          {
+            "symbol": "alloc::vec::Vec::extend_desugared",
+            "samples": 76,
+            "percent": 7.630522088353414
+          },
+          {
+            "symbol": "read",
+            "samples": 75,
+            "percent": 7.530120481927711
+          },
+          {
+            "symbol": "core::str::iter::Split::try_fold",
+            "samples": 71,
+            "percent": 7.128514056224899
+          },
+          {
+            "symbol": "core::str::iter::Split::find",
+            "samples": 70,
+            "percent": 7.028112449799197
+          },
+          {
+            "symbol": "alloc::vec::into_iter::IntoIter::try_fold",
+            "samples": 68,
+            "percent": 6.827309236947792
+          },
+          {
+            "symbol": "alloc::vec::into_iter::IntoIter::find_map",
+            "samples": 68,
+            "percent": 6.827309236947792
+          },
+          {
+            "symbol": "core::ops::range::Range::next",
+            "samples": 68,
+            "percent": 6.827309236947792
+          },
+          {
+            "symbol": "procinsh::http_server::process::monitoring::service::refresh_maps",
+            "samples": 64,
+            "percent": 6.425702811244979
+          },
+          {
+            "symbol": "core::str::pattern::CharPredicateSearcher::next_match",
+            "samples": 63,
+            "percent": 6.325301204819277
+          },
+          {
+            "symbol": "core::str::pattern::MultiCharEqSearcher::next_match",
+            "samples": 63,
+            "percent": 6.325301204819277
+          },
+          {
+            "symbol": "core::ops::range::Range::spec_next",
+            "samples": 63,
+            "percent": 6.325301204819277
+          },
+          {
+            "symbol": "core::str::iter::Split::next",
+            "samples": 62,
+            "percent": 6.2248995983935735
+          },
+          {
+            "symbol": "core::str::iter::SplitInternal::next",
+            "samples": 62,
+            "percent": 6.2248995983935735
+          },
+          {
+            "symbol": "__x64_sys_read",
+            "samples": 61,
+            "percent": 6.124497991967871
+          },
+          {
+            "symbol": "ksys_read",
+            "samples": 60,
+            "percent": 6.024096385542169
+          },
+          {
+            "symbol": "vfs_read",
+            "samples": 60,
+            "percent": 6.024096385542169
+          },
+          {
+            "symbol": "procinsh::http_server::process::procfs::parse_stat",
+            "samples": 58,
+            "percent": 5.8232931726907635
+          },
+          {
+            "symbol": "core::str::pattern::MultiCharEqSearcher::next",
+            "samples": 57,
+            "percent": 5.72289156626506
+          },
+          {
+            "symbol": "seq_read",
+            "samples": 54,
+            "percent": 5.421686746987952
+          },
+          {
+            "symbol": "seq_read_iter",
+            "samples": 52,
+            "percent": 5.220883534136546
+          },
+          {
+            "symbol": "procinsh::http_server::process::maps::read_smaps",
+            "samples": 52,
+            "percent": 5.220883534136546
+          },
+          {
+            "symbol": "core::str::iter::SplitWhitespace::collect",
+            "samples": 49,
+            "percent": 4.919678714859438
+          },
+          {
+            "symbol": "statx",
+            "samples": 45,
+            "percent": 4.518072289156627
+          },
+          {
+            "symbol": "std::sys::fs::unix::try_statx::statx",
+            "samples": 45,
+            "percent": 4.518072289156627
+          },
+          {
+            "symbol": "std::io::default_read_to_end",
+            "samples": 44,
+            "percent": 4.417670682730924
+          },
+          {
+            "symbol": "__x64_sys_statx",
+            "samples": 43,
+            "percent": 4.317269076305221
+          },
+          {
+            "symbol": "std::sys::fd::unix::FileDesc::read",
+            "samples": 43,
+            "percent": 4.317269076305221
+          },
+          {
+            "symbol": "core::slice::iter::Iter::fold",
+            "samples": 43,
+            "percent": 4.317269076305221
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::symbol::cache::ElfCache::get",
+            "samples": 43,
+            "percent": 4.317269076305221
+          },
+          {
+            "symbol": "core::ptr::read_volatile",
+            "samples": 43,
+            "percent": 4.317269076305221
+          },
+          {
+            "symbol": "core::iter::adapters::map::map_fold::::{closure#0}",
+            "samples": 41,
+            "percent": 4.116465863453815
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::symbol::cache::matching_file",
+            "samples": 40,
+            "percent": 4.016064257028113
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::symbol::cache::matching_file::{closure#1}",
+            "samples": 37,
+            "percent": 3.7148594377510036
+          },
+          {
+            "symbol": "core::iter::traits::iterator::Iterator::find_map::check::::{closure#0}",
+            "samples": 37,
+            "percent": 3.7148594377510036
+          },
+          {
+            "symbol": "std::sys::fs::unix::stat",
+            "samples": 36,
+            "percent": 3.614457831325301
+          },
+          {
+            "symbol": "axum::routing::method_routing::MethodRouter::on",
+            "samples": 36,
+            "percent": 3.614457831325301
+          },
+          {
+            "symbol": "procinsh::http_server::process::maps::parse_smaps",
+            "samples": 36,
+            "percent": 3.614457831325301
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::symbol::resolve::resolve_frame",
+            "samples": 36,
+            "percent": 3.614457831325301
+          },
+          {
+            "symbol": "procinsh::http_server::process::procfs::fields",
+            "samples": 34,
+            "percent": 3.413654618473896
+          },
+          {
+            "symbol": "core::iter::adapters::rev::Rev::find",
+            "samples": 33,
+            "percent": 3.313253012048193
+          },
+          {
+            "symbol": "core::slice::iter::Iter::rfind",
+            "samples": 33,
+            "percent": 3.313253012048193
+          },
+          {
+            "symbol": "core::slice::iter::Iter::try_rfold",
+            "samples": 33,
+            "percent": 3.313253012048193
+          },
+          {
+            "symbol": "procinsh::http_server::process::monitoring::sampling::capture_sample",
+            "samples": 32,
+            "percent": 3.2128514056224895
+          },
+          {
+            "symbol": "std::sys::fd::unix::FileDesc::read_buf",
+            "samples": 32,
+            "percent": 3.2128514056224895
+          },
+          {
+            "symbol": "do_statx",
+            "samples": 31,
+            "percent": 3.1124497991967868
+          },
+          {
+            "symbol": "vfs_statx",
+            "samples": 31,
+            "percent": 3.1124497991967868
+          },
+          {
+            "symbol": "procinsh::http_server::process::monitoring::sampling::capture_sample::{closure#0}",
+            "samples": 31,
+            "percent": 3.1124497991967868
+          },
+          {
+            "symbol": "&mut procinsh::http_server::process::monitoring::sampling::capture_sample::{closure#0}::call_mut",
+            "samples": 31,
+            "percent": 3.1124497991967868
+          },
+          {
+            "symbol": "<axum::util::MapIntoResponse<axum::handler::service::HandlerService<procinsh::http_server::web::router::{closure#2},",
+            "samples": 31,
+            "percent": 3.1124497991967868
+          },
+          {
+            "symbol": "core::iter::adapters::filter_map::FilterMap::next",
+            "samples": 31,
+            "percent": 3.1124497991967868
+          },
+          {
+            "symbol": "core::iter::adapters::filter_map::FilterMap::collect",
+            "samples": 31,
+            "percent": 3.1124497991967868
+          },
+          {
+            "symbol": "core::slice::iter::Iter::find",
+            "samples": 30,
+            "percent": 3.0120481927710845
+          },
+          {
+            "symbol": "procinsh::http_server::process::threads::read",
+            "samples": 29,
+            "percent": 2.9116465863453818
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::registers::from_sample",
+            "samples": 25,
+            "percent": 2.5100401606425704
+          },
+          {
+            "symbol": "core::array::iter::iter_inner::PolymorphicIter::try_fold::::{closure#0}",
+            "samples": 24,
+            "percent": 2.4096385542168677
+          },
+          {
+            "symbol": "core::ops::index_range::IndexRange::try_fold",
+            "samples": 24,
+            "percent": 2.4096385542168677
+          },
+          {
+            "symbol": "core::array::iter::iter_inner::PolymorphicIter::try_fold",
+            "samples": 24,
+            "percent": 2.4096385542168677
+          },
+          {
+            "symbol": "procinsh::http_server::process::snapshot::registers::classify",
+            "samples": 24,
+            "percent": 2.4096385542168677
+          },
+          {
+            "symbol": "core::ops::try_trait::NeverShortCircuit::wrap_mut_2::::{closure#0}",
+            "samples": 24,
+            "percent": 2.4096385542168677
+          },
+          {
+            "symbol": "core::iter::adapters::flatten::FlattenCompat::iter_fold::flatten",
+            "samples": 24,
+            "percent": 2.4096385542168677
+          },
+          {
+            "symbol": "smaps_pte_range",
+            "samples": 23,
+            "percent": 2.3092369477911645
+          },
+          {
+            "symbol": "walk_p4d_range",
+            "samples": 23,
+            "percent": 2.3092369477911645
+          },
+          {
+            "symbol": "__walk_page_range",
+            "samples": 23,
+            "percent": 2.3092369477911645
+          },
+          {
+            "symbol": "walk_pmd_range",
+            "samples": 23,
+            "percent": 2.3092369477911645
+          },
+          {
+            "symbol": "walk_page_vma",
+            "samples": 23,
+            "percent": 2.3092369477911645
+          },
+          {
+            "symbol": "walk_pgd_range",
+            "samples": 23,
+            "percent": 2.3092369477911645
+          },
+          {
+            "symbol": "walk_pud_range.isra.0",
+            "samples": 23,
+            "percent": 2.3092369477911645
+          },
+          {
+            "symbol": "smap_gather_stats.part.0",
+            "samples": 23,
+            "percent": 2.3092369477911645
+          },
+          {
+            "symbol": "path_lookupat",
+            "samples": 22,
+            "percent": 2.208835341365462
+          }
+        ]
+      },
+      "sse_errors": [],
+      "internal_lost_before": 24630,
+      "internal_lost_after": 78706,
+      "thread_errors": [],
+      "workload_tabs": 20,
+      "workload_titles": 20
+    },
+    {
+      "name": "space",
+      "cpu_percent": 32.61559883737218,
+      "user_seconds": 15.07,
+      "system_seconds": 4.5,
+      "monotonic_start": 940035.526337454,
+      "monotonic_end": 940095.528301844,
+      "top_threads": [
+        {
+          "tid": 8556,
+          "name": "tokio-rt-worker",
+          "start": 94000344,
+          "user_ticks": 952,
+          "system_ticks": 433,
+          "cpu_percent": 23.082577613572035
+        },
+        {
+          "tid": 13,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 214,
+          "system_ticks": 1,
+          "cpu_percent": 3.58321601943537
+        },
+        {
+          "tid": 40,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 187,
+          "system_ticks": 1,
+          "cpu_percent": 3.13323075187837
+        },
+        {
+          "tid": 8555,
+          "name": "tokio-rt-worker",
+          "start": 94000344,
+          "user_ticks": 154,
+          "system_ticks": 15,
+          "cpu_percent": 2.816574452486407
+        },
+        {
+          "tid": 7,
+          "name": "procinsh",
+          "start": 93936110,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 11,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 12,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 14,
+          "name": "tokio-rt-worker",
+          "start": 93936111,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        }
+      ],
+      "symbols": {
+        "cpu_samples": 1932,
+        "unknown_leaf_samples": 150,
+        "median_stack_depth": 19.0,
+        "max_stack_depth": 31,
+        "leaf_only_samples": 553,
+        "stacks_with_at_least_5_frames": 1369,
+        "top_self": [
+          {
+            "symbol": "[unknown]",
+            "samples": 149,
+            "percent": 7.712215320910973
+          },
+          {
+            "symbol": "core::str::pattern::MultiCharEqSearcher::next",
+            "samples": 70,
+            "percent": 3.6231884057971016
+          },
+          {
+            "symbol": "core::str::validations::next_code_point",
+            "samples": 59,
+            "percent": 3.0538302277432714
+          },
+          {
+            "symbol": "char::is_whitespace",
+            "samples": 39,
+            "percent": 2.018633540372671
+          },
+          {
+            "symbol": "*const u8::offset_from_unsigned",
+            "samples": 37,
+            "percent": 1.9151138716356109
+          },
+          {
+            "symbol": "core::slice::iter::Iter::len",
+            "samples": 36,
+            "percent": 1.8633540372670807
+          },
+          {
+            "symbol": "core::str::iter::CharIndices::next",
+            "samples": 32,
+            "percent": 1.6563146997929608
+          },
+          {
+            "symbol": "*const _::offset_from_unsigned::precondition_check",
+            "samples": 31,
+            "percent": 1.6045548654244308
+          },
+          {
+            "symbol": "<*const",
+            "samples": 30,
+            "percent": 1.5527950310559007
+          },
+          {
+            "symbol": "serde_json::ser::format_escaped_str_contents",
+            "samples": 27,
+            "percent": 1.3975155279503106
+          },
+          {
+            "symbol": "core::ptr::copy_nonoverlapping::precondition_check",
+            "samples": 26,
+            "percent": 1.3457556935817805
+          },
+          {
+            "symbol": "mangle_path",
+            "samples": 26,
+            "percent": 1.3457556935817805
+          },
+          {
+            "symbol": "char::to_digit",
+            "samples": 25,
+            "percent": 1.2939958592132506
+          },
+          {
+            "symbol": "core::slice::iter::Iter::next",
+            "samples": 25,
+            "percent": 1.2939958592132506
+          },
+          {
+            "symbol": "u64::from_ascii_radix",
+            "samples": 22,
+            "percent": 1.1387163561076603
+          },
+          {
+            "symbol": "procinsh::http_server::process::maps::parse_map",
+            "samples": 22,
+            "percent": 1.1387163561076603
+          },
+          {
+            "symbol": "established_get_first",
+            "samples": 21,
+            "percent": 1.0869565217391304
+          },
+          {
+            "symbol": "*const _::offset_from_unsigned::runtime_ptr_ge::runtime",
+            "samples": 21,
+            "percent": 1.0869565217391304
+          },
+          {
+            "symbol": "lock_next_vma",
+            "samples": 21,
+            "percent": 1.0869565217391304
+          },
+          {
+            "symbol": "core::hash::sip::Sip13Rounds::d_rounds",
+            "samples": 19,
+            "percent": 0.9834368530020704
+          },
+          {
+            "symbol": "core::ub_checks::maybe_is_nonoverlapping::runtime",
+            "samples": 18,
+            "percent": 0.9316770186335404
+          },
+          {
+            "symbol": "core::option::Option::branch",
+            "samples": 17,
+            "percent": 0.8799171842650104
+          },
+          {
+            "symbol": "core::ub_checks::maybe_is_aligned_and_not_null",
+            "samples": 17,
+            "percent": 0.8799171842650104
+          },
+          {
+            "symbol": "::is_whitespace::call_mut",
+            "samples": 15,
+            "percent": 0.7763975155279503
+          },
+          {
+            "symbol": "core::str::pattern::MultiCharEqSearcher::next_match",
+            "samples": 13,
+            "percent": 0.6728778467908902
+          },
+          {
+            "symbol": "core::ub_checks::is_valid_allocation_size",
+            "samples": 13,
+            "percent": 0.6728778467908902
+          },
+          {
+            "symbol": "core::slice::raw::from_raw_parts::precondition_check",
+            "samples": 13,
+            "percent": 0.6728778467908902
+          },
+          {
+            "symbol": "axum::routing::method_routing::MethodRouter::on",
+            "samples": 12,
+            "percent": 0.6211180124223602
+          },
+          {
+            "symbol": "core::result::Result::unwrap",
+            "samples": 12,
+            "percent": 0.6211180124223602
+          },
+          {
+            "symbol": "do_syscall_64",
+            "samples": 12,
+            "percent": 0.6211180124223602
+          },
+          {
+            "symbol": "alloc::vec::Vec::append_elements",
+            "samples": 11,
+            "percent": 0.5693581780538302
+          },
+          {
+            "symbol": "core::result::Result::branch",
+            "samples": 11,
+            "percent": 0.5693581780538302
+          },
+          {
+            "symbol": "core::hash::sip::Hasher::write",
+            "samples": 11,
+            "percent": 0.5693581780538302
+          },
+          {
+            "symbol": "anyhow::__private::not",
+            "samples": 10,
+            "percent": 0.5175983436853002
+          },
+          {
+            "symbol": "core::str::pattern::MultiCharEqPattern::into_searcher",
+            "samples": 10,
+            "percent": 0.5175983436853002
+          },
+          {
+            "symbol": "core::intrinsics::rotate_left",
+            "samples": 10,
+            "percent": 0.5175983436853002
+          },
+          {
+            "symbol": "seq_put_hex_ll",
+            "samples": 10,
+            "percent": 0.5175983436853002
+          },
+          {
+            "symbol": "&[u8]::try_into",
+            "samples": 10,
+            "percent": 0.5175983436853002
+          },
+          {
+            "symbol": "core::hash::sip::Sip13Rounds::c_rounds",
+            "samples": 10,
+            "percent": 0.5175983436853002
+          },
+          {
+            "symbol": "core::option::Option::map",
+            "samples": 9,
+            "percent": 0.4658385093167702
+          },
+          {
+            "symbol": "::is_whitespace::matches",
+            "samples": 9,
+            "percent": 0.4658385093167702
+          },
+          {
+            "symbol": "[u8]::split_first",
+            "samples": 9,
+            "percent": 0.4658385093167702
+          },
+          {
+            "symbol": "core::ops::range::Range::index",
+            "samples": 9,
+            "percent": 0.4658385093167702
+          },
+          {
+            "symbol": "[u8]::split_at",
+            "samples": 9,
+            "percent": 0.4658385093167702
+          },
+          {
+            "symbol": "core::str::pattern::MultiCharEqSearcher::next_reject",
+            "samples": 8,
+            "percent": 0.4140786749482402
+          },
+          {
+            "symbol": "core::ops::range::Range::get_unchecked::precondition_check",
+            "samples": 8,
+            "percent": 0.4140786749482402
+          },
+          {
+            "symbol": "core::slice::raw::from_raw_parts",
+            "samples": 8,
+            "percent": 0.4140786749482402
+          },
+          {
+            "symbol": "malloc",
+            "samples": 8,
+            "percent": 0.4140786749482402
+          },
+          {
+            "symbol": "[u8]::split_at_unchecked",
+            "samples": 8,
+            "percent": 0.4140786749482402
+          },
+          {
+            "symbol": "core::result::Result::map_err",
+            "samples": 8,
+            "percent": 0.4140786749482402
+          }
+        ],
+        "top_inclusive": [
+          {
+            "symbol": "procinsh::http_server::system::snapshot::collect",
+            "samples": 1368,
+            "percent": 70.80745341614907
+          },
+          {
+            "symbol": "procinsh::http_server::process::maps::read_maps",
+            "samples": 786,
+            "percent": 40.683229813664596
+          },
+          {
+            "symbol": "procinsh::http_server::process::resources::memory_maps",
+            "samples": 786,
+            "percent": 40.683229813664596
+          },
+          {
+            "symbol": "alloc::vec::Vec::spec_extend",
+            "samples": 748,
+            "percent": 38.71635610766045
+          },
+          {
+            "symbol": "alloc::vec::Vec::from_iter",
+            "samples": 747,
+            "percent": 38.66459627329192
+          },
+          {
+            "symbol": "alloc::vec::Vec::extend_desugared",
+            "samples": 743,
+            "percent": 38.457556935817806
+          },
+          {
+            "symbol": "core::iter::adapters::map::map_fold",
+            "samples": 655,
+            "percent": 33.90269151138716
+          },
+          {
+            "symbol": "core::iter::adapters::try_process",
+            "samples": 654,
+            "percent": 33.85093167701863
+          },
+          {
+            "symbol": "core::result::Result::from_iter",
+            "samples": 654,
+            "percent": 33.85093167701863
+          },
+          {
+            "symbol": "core::iter::adapters::GenericShunt::collect",
+            "samples": 654,
+            "percent": 33.85093167701863
+          },
+          {
+            "symbol": "core::iter::adapters::map::Map::try_fold",
+            "samples": 645,
+            "percent": 33.38509316770186
+          },
+          {
+            "symbol": "core::iter::adapters::GenericShunt::try_for_each",
+            "samples": 644,
+            "percent": 33.33333333333333
+          },
+          {
+            "symbol": "core::iter::adapters::GenericShunt::try_fold",
+            "samples": 644,
+            "percent": 33.33333333333333
+          },
+          {
+            "symbol": "core::str::iter::Lines::try_fold",
+            "samples": 643,
+            "percent": 33.2815734989648
+          },
+          {
+            "symbol": "procinsh::http_server::process::maps::parse_map",
+            "samples": 598,
+            "percent": 30.952380952380953
+          },
+          {
+            "symbol": "procinsh::http_server::process::maps::parse_map::call_mut",
+            "samples": 598,
+            "percent": 30.952380952380953
+          },
+          {
+            "symbol": "[unknown]",
+            "samples": 429,
+            "percent": 22.204968944099377
+          },
+          {
+            "symbol": "entry_SYSCALL_64_after_hwframe",
+            "samples": 409,
+            "percent": 21.169772256728777
+          },
+          {
+            "symbol": "procinsh::http_server::system::service::SystemMonitor::start::{closure#1}",
+            "samples": 409,
+            "percent": 21.169772256728777
+          },
+          {
+            "symbol": "do_syscall_64",
+            "samples": 406,
+            "percent": 21.014492753623188
+          },
+          {
+            "symbol": "x64_sys_call",
+            "samples": 396,
+            "percent": 20.496894409937887
+          },
+          {
+            "symbol": "core::str::pattern::MultiCharEqSearcher::next",
+            "samples": 370,
+            "percent": 19.151138716356108
+          },
+          {
+            "symbol": "core::str::pattern::CharPredicateSearcher::next_match",
+            "samples": 319,
+            "percent": 16.511387163561075
+          },
+          {
+            "symbol": "core::str::pattern::MultiCharEqSearcher::next_match",
+            "samples": 316,
+            "percent": 16.35610766045549
+          },
+          {
+            "symbol": "std::fs::read_to_string",
+            "samples": 297,
+            "percent": 15.372670807453417
+          },
+          {
+            "symbol": "str::find",
+            "samples": 255,
+            "percent": 13.198757763975156
+          },
+          {
+            "symbol": "procinsh::http_server::process::socket_metadata::SocketMetadataReader::read",
+            "samples": 242,
+            "percent": 12.525879917184266
+          },
+          {
+            "symbol": "read",
+            "samples": 234,
+            "percent": 12.111801242236025
+          },
+          {
+            "symbol": "procinsh::http_server::process::procfs::read_stat",
+            "samples": 228,
+            "percent": 11.801242236024844
+          },
+          {
+            "symbol": "__x64_sys_read",
+            "samples": 216,
+            "percent": 11.180124223602485
+          },
+          {
+            "symbol": "ksys_read",
+            "samples": 216,
+            "percent": 11.180124223602485
+          },
+          {
+            "symbol": "procinsh::http_server::process::identity::validate_process_identity",
+            "samples": 214,
+            "percent": 11.076604554865424
+          },
+          {
+            "symbol": "bpf_trampoline_6442615683",
+            "samples": 212,
+            "percent": 10.973084886128365
+          },
+          {
+            "symbol": "std::io::default_read_to_string::::{closure#0}",
+            "samples": 209,
+            "percent": 10.817805383022774
+          },
+          {
+            "symbol": "vfs_read",
+            "samples": 203,
+            "percent": 10.507246376811594
+          },
+          {
+            "symbol": "seq_read",
+            "samples": 187,
+            "percent": 9.679089026915113
+          },
+          {
+            "symbol": "seq_read_iter",
+            "samples": 185,
+            "percent": 9.575569358178054
+          },
+          {
+            "symbol": "std::sys::fd::unix::FileDesc::read_buf",
+            "samples": 180,
+            "percent": 9.316770186335404
+          },
+          {
+            "symbol": "core::str::pattern::CharPredicateSearcher::next_reject",
+            "samples": 143,
+            "percent": 7.401656314699793
+          },
+          {
+            "symbol": "str::trim_start",
+            "samples": 143,
+            "percent": 7.401656314699793
+          },
+          {
+            "symbol": "core::str::pattern::MultiCharEqSearcher::next_reject",
+            "samples": 142,
+            "percent": 7.349896480331262
+          },
+          {
+            "symbol": "str::trim_start_matches",
+            "samples": 142,
+            "percent": 7.349896480331262
+          },
+          {
+            "symbol": "axum::routing::method_routing::MethodRouter::fallback",
+            "samples": 116,
+            "percent": 6.004140786749482
+          },
+          {
+            "symbol": "procinsh::http_server::process::procfs::parse_stat",
+            "samples": 107,
+            "percent": 5.538302277432712
+          },
+          {
+            "symbol": "std::sys::fs::unix::try_statx::statx",
+            "samples": 94,
+            "percent": 4.865424430641822
+          },
+          {
+            "symbol": "statx",
+            "samples": 94,
+            "percent": 4.865424430641822
+          },
+          {
+            "symbol": "procinsh::http_server::process::procfs::fields",
+            "samples": 92,
+            "percent": 4.761904761904762
+          },
+          {
+            "symbol": "core::str::iter::SplitWhitespace::collect",
+            "samples": 91,
+            "percent": 4.710144927536232
+          },
+          {
+            "symbol": "core::str::validations::next_code_point",
+            "samples": 91,
+            "percent": 4.710144927536232
+          },
+          {
+            "symbol": "show_map",
+            "samples": 88,
+            "percent": 4.554865424430641
+          },
+          {
+            "symbol": "core::str::iter::Split::find",
+            "samples": 85,
+            "percent": 4.399585921325052
+          },
+          {
+            "symbol": "core::str::iter::Split::try_fold",
+            "samples": 85,
+            "percent": 4.399585921325052
+          },
+          {
+            "symbol": "show_map_vma",
+            "samples": 84,
+            "percent": 4.3478260869565215
+          },
+          {
+            "symbol": "__x64_sys_statx",
+            "samples": 84,
+            "percent": 4.3478260869565215
+          },
+          {
+            "symbol": "core::str::iter::Chars::next",
+            "samples": 83,
+            "percent": 4.296066252587992
+          },
+          {
+            "symbol": "*const u8::offset_from_unsigned",
+            "samples": 83,
+            "percent": 4.296066252587992
+          },
+          {
+            "symbol": "std::fs::metadata",
+            "samples": 83,
+            "percent": 4.296066252587992
+          },
+          {
+            "symbol": "core::str::iter::Split::next",
+            "samples": 82,
+            "percent": 4.244306418219462
+          },
+          {
+            "symbol": "std::sys::fs::unix::stat",
+            "samples": 82,
+            "percent": 4.244306418219462
+          },
+          {
+            "symbol": "core::str::iter::SplitInternal::next",
+            "samples": 81,
+            "percent": 4.192546583850932
+          },
+          {
+            "symbol": "std::io::default_read_to_end",
+            "samples": 77,
+            "percent": 3.985507246376811
+          },
+          {
+            "symbol": "core::str::iter::Lines::fold",
+            "samples": 69,
+            "percent": 3.571428571428571
+          },
+          {
+            "symbol": "core::iter::adapters::filter_map::FilterMap::fold",
+            "samples": 69,
+            "percent": 3.571428571428571
+          },
+          {
+            "symbol": "do_statx",
+            "samples": 69,
+            "percent": 3.571428571428571
+          },
+          {
+            "symbol": "vfs_statx",
+            "samples": 65,
+            "percent": 3.3643892339544514
+          },
+          {
+            "symbol": "core::iter::adapters::filter_map::filter_map_fold::::{closure#0}",
+            "samples": 61,
+            "percent": 3.1573498964803313
+          },
+          {
+            "symbol": "procinsh::http_server::process::resources::fields",
+            "samples": 60,
+            "percent": 3.1055900621118013
+          },
+          {
+            "symbol": "std::collections::hash::map::HashMap::extend",
+            "samples": 56,
+            "percent": 2.898550724637681
+          },
+          {
+            "symbol": "::is_whitespace::matches",
+            "samples": 56,
+            "percent": 2.898550724637681
+          },
+          {
+            "symbol": "procinsh::http_server::process::discovery::ProcessScanner::collect",
+            "samples": 55,
+            "percent": 2.846790890269151
+          },
+          {
+            "symbol": "hashbrown::map::HashMap::extend",
+            "samples": 55,
+            "percent": 2.846790890269151
+          },
+          {
+            "symbol": "std::sys::fs::unix::File::open::{closure#0}",
+            "samples": 55,
+            "percent": 2.846790890269151
+          },
+          {
+            "symbol": "std::sys::fd::unix::FileDesc::read",
+            "samples": 54,
+            "percent": 2.7950310559006213
+          },
+          {
+            "symbol": "std::sys::fs::unix::File::open_c::{closure#0}",
+            "samples": 54,
+            "percent": 2.7950310559006213
+          },
+          {
+            "symbol": "open64",
+            "samples": 54,
+            "percent": 2.7950310559006213
+          },
+          {
+            "symbol": "filename_lookup",
+            "samples": 54,
+            "percent": 2.7950310559006213
+          },
+          {
+            "symbol": "core::iter::adapters::map::Map::collect",
+            "samples": 50,
+            "percent": 2.587991718426501
+          },
+          {
+            "symbol": "path_lookupat",
+            "samples": 50,
+            "percent": 2.587991718426501
+          },
+          {
+            "symbol": "__x64_sys_openat",
+            "samples": 49,
+            "percent": 2.536231884057971
+          },
+          {
+            "symbol": "do_sys_openat2",
+            "samples": 49,
+            "percent": 2.536231884057971
+          },
+          {
+            "symbol": "u64::from_str_radix",
+            "samples": 47,
+            "percent": 2.432712215320911
+          },
+          {
+            "symbol": "u64::from_ascii_radix",
+            "samples": 47,
+            "percent": 2.432712215320911
+          },
+          {
+            "symbol": "::is_whitespace::call_mut",
+            "samples": 47,
+            "percent": 2.432712215320911
+          },
+          {
+            "symbol": "seq_path",
+            "samples": 47,
+            "percent": 2.432712215320911
+          },
+          {
+            "symbol": "core::iter::adapters::map::Map::fold",
+            "samples": 46,
+            "percent": 2.380952380952381
+          },
+          {
+            "symbol": "core::iter::adapters::map::Map::for_each",
+            "samples": 46,
+            "percent": 2.380952380952381
+          },
+          {
+            "symbol": "path_openat",
+            "samples": 44,
+            "percent": 2.2774327122153206
+          },
+          {
+            "symbol": "do_file_open",
+            "samples": 44,
+            "percent": 2.2774327122153206
+          },
+          {
+            "symbol": "axum::routing::method_routing::MethodRouter::on",
+            "samples": 42,
+            "percent": 2.1739130434782608
+          },
+          {
+            "symbol": "std::hash::random::RandomState::hash_one",
+            "samples": 42,
+            "percent": 2.1739130434782608
+          },
+          {
+            "symbol": "procinsh::http_server::process::discovery::summary",
+            "samples": 40,
+            "percent": 2.070393374741201
+          },
+          {
+            "symbol": "<*const",
+            "samples": 39,
+            "percent": 2.018633540372671
+          },
+          {
+            "symbol": "char::is_whitespace",
+            "samples": 39,
+            "percent": 2.018633540372671
+          },
+          {
+            "symbol": "core::slice::iter::Iter::len",
+            "samples": 36,
+            "percent": 1.8633540372670807
+          },
+          {
+            "symbol": "core::iter::adapters::map::map_fold::::{closure#0}",
+            "samples": 34,
+            "percent": 1.7598343685300208
+          },
+          {
+            "symbol": "str::trim",
+            "samples": 32,
+            "percent": 1.6563146997929608
+          },
+          {
+            "symbol": "hashbrown::map::make_hash",
+            "samples": 32,
+            "percent": 1.6563146997929608
+          },
+          {
+            "symbol": "core::str::iter::CharIndices::next",
+            "samples": 32,
+            "percent": 1.6563146997929608
+          },
+          {
+            "symbol": "alloc::raw_vec::RawVecInner::grow_amortized",
+            "samples": 32,
+            "percent": 1.6563146997929608
+          },
+          {
+            "symbol": "*const _::offset_from_unsigned::precondition_check",
+            "samples": 31,
+            "percent": 1.6045548654244308
+          }
+        ]
+      },
+      "sse_errors": [],
+      "sensors": {
+        "active": true,
+        "ipc": {
+          "state": "observing"
+        },
+        "cpu": {
+          "state": "observing"
+        },
+        "files": {
+          "state": "observing"
+        },
+        "signals": {
+          "state": "observing"
+        },
+        "signals_lost": 0,
+        "coverage": "pipe read/write; socket send/recv. splice, sendfile and some io_uring paths are not observed; worker attribution is excluded.",
+        "files_coverage": "Regular-file read/write, pread/pwrite and vectored I/O, including page cache. Not physical disk traffic. mmap, io_uring, splice/sendfile and kernel workers are not observed.",
+        "lost": 0,
+        "unresolved": 2026637,
+        "files_lost": 1629
+      },
+      "workload_tabs": 20,
+      "workload_titles": 20
+    }
+  ]
+}
