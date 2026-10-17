@@ -108,12 +108,16 @@ impl IpcActivityCollector {
         if consumed < 0 {
             return Err(std::io::Error::from_raw_os_error(-consumed).into());
         }
+        let mut events = self.queue.lock().unwrap();
+        if events.is_empty() {
+            return Ok(());
+        }
         let processes: HashMap<_, _> = snapshot
             .processes
             .iter()
             .map(|n| (n.identity.pid, n))
             .collect();
-        for e in self.queue.lock().unwrap().drain(..) {
+        for e in events.drain(..) {
             let Some(n) = processes.get(&(e.pid as i32)) else {
                 self.unresolved += 1;
                 continue;

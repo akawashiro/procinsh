@@ -3,6 +3,7 @@ use crate::http_server::process::{MemoryMap, ProcessId};
 use serde::Serialize;
 use std::{
     collections::HashMap,
+    io::{self, Write},
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -54,6 +55,41 @@ struct EntryDelta<'a, T: Serialize, K: Serialize> {
     upsert: Vec<&'a T>,
     remove: Vec<K>,
 }
+
+/// Stops writing once a replacement is known to be larger than its delta.
+struct JsonSizeWriter {
+    bytes: usize,
+    limit: usize,
+}
+
+impl Write for JsonSizeWriter {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.bytes = self.bytes.saturating_add(bytes.len());
+        if self.bytes > self.limit {
+            return Err(io::Error::other("JSON size limit reached"));
+        }
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+fn replacement_is_larger<T: Serialize + ?Sized>(
+    replacement: &T,
+    delta_size: usize,
+) -> serde_json::Result<bool> {
+    let mut writer = JsonSizeWriter {
+        bytes: 0,
+        limit: delta_size,
+    };
+    match serde_json::to_writer(&mut writer, replacement) {
+        Err(_) if writer.bytes > writer.limit => Ok(true),
+        result => result.map(|()| false),
+    }
+}
+
 fn map_delta<'a>(old: &[MemoryMap], current: &'a [MemoryMap]) -> EntryDelta<'a, MemoryMap, String> {
     let previous: HashMap<_, _> = old.iter().map(|m| (m.start, m)).collect();
     let live: std::collections::HashSet<_> = current.iter().map(|m| m.start).collect();
@@ -117,8 +153,8 @@ impl SnapshotEncoder {
                     None
                 };
                 let delta = delta.filter(|d| {
-                    serde_json::to_vec(d).unwrap().len() + 6
-                        < serde_json::to_vec(&p.maps).unwrap().len()
+                    replacement_is_larger(&p.maps, serde_json::to_vec(d).unwrap().len() + 6)
+                        .unwrap()
                 });
                 let include_maps = !unchanged && delta.is_none();
                 ProcessPayload {
@@ -159,8 +195,11 @@ impl SnapshotEncoder {
                     .collect(),
             })
             .filter(|d| {
-                serde_json::to_vec(d).unwrap().len() + 6
-                    < serde_json::to_vec(&snapshot.fd_relations).unwrap().len()
+                replacement_is_larger(
+                    &snapshot.fd_relations,
+                    serde_json::to_vec(d).unwrap().len() + 6,
+                )
+                .unwrap()
             });
         let data = serde_json::to_string(&SnapshotPayload {
             captured_at: snapshot.captured_at,
@@ -197,6 +236,44 @@ mod tests {
     use super::super::snapshot::ProcessSnapshot;
     use super::*;
     use crate::http_server::{process::MemoryMap, resource::DeviceId};
+
+    #[test]
+    fn replacement_size_comparison_uses_encoded_bytes_and_stops_early() {
+        let replacement = vec!["日本語\n\"\\"; 16];
+        let size = serde_json::to_vec(&replacement).unwrap().len();
+        for limit in 0..=size + 1 {
+            assert_eq!(
+                replacement_is_larger(&replacement, limit).unwrap(),
+                size > limit
+            );
+        }
+
+        struct SerializationProbe<'a>(&'a std::cell::Cell<usize>);
+        impl Serialize for SerializationProbe<'_> {
+            fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                self.0.set(self.0.get() + 1);
+                serializer.serialize_u64(0)
+            }
+        }
+        let visits = std::cell::Cell::new(0);
+        let large: Vec<_> = (0..1000).map(|_| SerializationProbe(&visits)).collect();
+        assert!(replacement_is_larger(&large, 32).unwrap());
+        assert!(
+            visits.get() < 20,
+            "must stop before traversing the full replacement"
+        );
+    }
+
+    #[test]
+    fn replacement_size_comparison_preserves_serialization_errors() {
+        struct SerializationFailure;
+        impl Serialize for SerializationFailure {
+            fn serialize<S: serde::Serializer>(&self, _: S) -> Result<S::Ok, S::Error> {
+                Err(serde::ser::Error::custom("serialization failed"))
+            }
+        }
+        assert!(replacement_is_larger(&SerializationFailure, 32).is_err());
+    }
 
     fn fixture(start: u64, mapped: bool, epoch: u64) -> Arc<SystemSnapshot> {
         Arc::new(SystemSnapshot {

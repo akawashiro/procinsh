@@ -589,10 +589,42 @@ test("space-components regression", async () => {
       "scene does not convert the input coordinates in place",
     );
     const picked = scene.pickingView();
+    const sceneMaterials = () => {
+      const materials = new Set<T.Material>();
+      scene.root.traverse((object) => {
+        if (
+          object instanceof T.Mesh ||
+          object instanceof T.Line ||
+          object instanceof T.Points
+        )
+          for (const material of Array.isArray(object.material)
+            ? object.material
+            : [object.material])
+            materials.add(material);
+      });
+      return materials;
+    };
+    const materials = sceneMaterials();
+    let materialDisposals = 0;
+    for (const material of materials)
+      material.addEventListener("dispose", () => materialDisposals++);
     let disposed = false;
+    let instancesDisposed = false;
     picked.hull!.geometry.addEventListener("dispose", () => (disposed = true));
+    picked.hull!.addEventListener("dispose", () => (instancesDisposed = true));
     scene.rebuild({ ...input, visible: new Set() }, null);
+    assert.deepEqual(
+      sceneMaterials(),
+      materials,
+      "rebuild reuses shader materials",
+    );
+    assert.equal(materialDisposals, 0, "rebuild retains shader programs");
     assert.equal(disposed, true, "rebuild disposes old picking geometry");
+    assert.equal(
+      instancesDisposed,
+      true,
+      "rebuild releases old instance buffers",
+    );
     assert.notEqual(
       scene.pickingView().hull,
       picked.hull,
@@ -620,6 +652,11 @@ test("space-components regression", async () => {
       "file refresh accepts only the needed values",
     );
     scene.dispose();
+    assert.equal(
+      materialDisposals,
+      materials.size,
+      "scene disposal releases every material once",
+    );
   }
   {
     const selection = new SpaceSelection();

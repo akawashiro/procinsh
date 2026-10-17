@@ -136,17 +136,22 @@ function parentJoints(sections: ParentSegment[]): ParentJoint[] {
   }));
 }
 
-function disposeObject(object: T.Object3D) {
+function disposeObject(
+  object: T.Object3D,
+  retainedMaterials?: ReadonlySet<T.Material>,
+) {
   if (
     object instanceof T.Mesh ||
     object instanceof T.Line ||
     object instanceof T.Points
   ) {
+    if (object instanceof T.InstancedMesh) object.dispose();
     object.geometry.dispose();
     const materials = Array.isArray(object.material)
       ? object.material
       : [object.material];
-    for (const material of materials) material.dispose();
+    for (const material of materials)
+      if (!retainedMaterials?.has(material)) material.dispose();
   }
 }
 
@@ -174,6 +179,88 @@ export function createSpaceScene() {
     baseGlow: T.InstancedMesh | null = null,
     haloGlow: T.InstancedMesh | null = null,
     hullIds: string[] = [];
+  // Materials outlive geometry rebuilds so the renderer can retain shader programs.
+  const materials = {
+    hull: new T.MeshBasicMaterial({
+      color: 0x4bd6bf,
+      transparent: true,
+      opacity: 0.025,
+      depthWrite: false,
+    }),
+    baseGlow: new T.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.95,
+      blending: T.AdditiveBlending,
+      depthWrite: false,
+    }),
+    haloGlow: new T.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.32,
+      blending: T.AdditiveBlending,
+      depthWrite: false,
+    }),
+    parentLines: new T.MeshBasicMaterial({
+      color: 0xffffff,
+      side: T.DoubleSide,
+      depthWrite: false,
+    }),
+    layers: new T.MeshBasicMaterial({
+      transparent: true,
+      opacity: 0.18,
+      depthWrite: true,
+    }),
+    networkMarkers: new T.MeshBasicMaterial({
+      color: 0x68baff,
+      transparent: true,
+      opacity: 0.2,
+    }),
+    networkEdges: new T.MeshBasicMaterial({
+      color: 0x8dd4ff,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.9,
+    }),
+    connections: new T.LineBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.75,
+      depthWrite: false,
+      blending: T.AdditiveBlending,
+    }),
+    mutedConnections: new T.LineBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.3,
+      depthWrite: false,
+    }),
+    fileMarkers: new T.MeshBasicMaterial({
+      color: 0xe2d5a0,
+      transparent: true,
+      opacity: 0.65,
+    }),
+    fileConnections: new T.LineBasicMaterial({
+      color: 0xc9bb88,
+      transparent: true,
+      opacity: 0.5,
+      depthWrite: false,
+    }),
+    netlinkPlates: new T.MeshBasicMaterial({
+      color: 0xf5a45d,
+      transparent: true,
+      opacity: 0.85,
+    }),
+    netlinkSides: new T.MeshBasicMaterial({ color: 0xad6c38 }),
+    netlinkBottom: new T.MeshBasicMaterial({ color: 0xe49252 }),
+    netlinkConnections: new T.LineBasicMaterial({
+      color: 0xf5a45d,
+      transparent: true,
+      opacity: 0.55,
+      depthWrite: false,
+    }),
+  };
+  const sharedMaterials = new Set<T.Material>(Object.values(materials));
   const dummy = new T.Object3D();
   function syncNodes(input: FileSceneInput) {
     nodes = new Map(
@@ -218,7 +305,7 @@ export function createSpaceScene() {
             : 0x244b5e;
   }
   function disposeGroup() {
-    geometryGroup.traverse(disposeObject);
+    geometryGroup.traverse((object) => disposeObject(object, sharedMaterials));
     scene.remove(geometryGroup);
     geometryGroup = new T.Group();
     scene.add(geometryGroup);
@@ -231,25 +318,14 @@ export function createSpaceScene() {
     hullIds = [...visible];
     hull = new T.InstancedMesh(
       new T.BoxGeometry(PROCESS_SIDE, PROCESS_SIDE, PROCESS_HEIGHT),
-      new T.MeshBasicMaterial({
-        color: 0x4bd6bf,
-        transparent: true,
-        opacity: 0.025,
-        depthWrite: false,
-      }),
+      materials.hull,
       Math.max(1, hullIds.length),
     );
     hull.count = hullIds.length;
     geometryGroup.add(hull);
     baseGlow = new T.InstancedMesh(
       new T.BoxGeometry(2.28, 2.28, 0.07),
-      new T.MeshBasicMaterial({
-        color: 0xffffff,
-        transparent: true,
-        opacity: 0.95,
-        blending: T.AdditiveBlending,
-        depthWrite: false,
-      }),
+      materials.baseGlow,
       Math.max(1, hullIds.length),
     );
     baseGlow.count = hullIds.length;
@@ -257,13 +333,7 @@ export function createSpaceScene() {
     geometryGroup.add(baseGlow);
     haloGlow = new T.InstancedMesh(
       new T.BoxGeometry(3.15, 3.15, 0.025),
-      new T.MeshBasicMaterial({
-        color: 0xffffff,
-        transparent: true,
-        opacity: 0.32,
-        blending: T.AdditiveBlending,
-        depthWrite: false,
-      }),
+      materials.haloGlow,
       Math.max(1, hullIds.length),
     );
     haloGlow.count = hullIds.length;
@@ -291,11 +361,7 @@ export function createSpaceScene() {
     parentSections = parentSegments(parentViews);
     parentLines = new T.InstancedMesh(
       new T.PlaneGeometry(1, 1),
-      new T.MeshBasicMaterial({
-        color: 0xffffff,
-        side: T.DoubleSide,
-        depthWrite: false,
-      }),
+      materials.parentLines,
       Math.max(1, parentSections.length),
     );
     parentLines.count = parentSections.length;
@@ -323,7 +389,7 @@ export function createSpaceScene() {
     parentCorners = parentJoints(parentSections);
     parentLineJoints = new T.InstancedMesh(
       new T.CircleGeometry(PARENT_LINE_WIDTH / 2, 24),
-      parentLines.material.clone(),
+      materials.parentLines,
       Math.max(1, parentCorners.length),
     );
     parentLineJoints.count = parentCorners.length;
@@ -405,11 +471,7 @@ export function createSpaceScene() {
     }
     const layers = new T.InstancedMesh(
       new T.BoxGeometry(2.12, 2.12, 1),
-      new T.MeshBasicMaterial({
-        transparent: true,
-        opacity: 0.18,
-        depthWrite: true,
-      }),
+      materials.layers,
       Math.max(1, layerList.length),
     );
     layers.count = layerList.length;
@@ -433,11 +495,7 @@ export function createSpaceScene() {
     );
     const markers = new T.InstancedMesh(
       new T.OctahedronGeometry(0.75),
-      new T.MeshBasicMaterial({
-        color: 0x68baff,
-        transparent: true,
-        opacity: 0.2,
-      }),
+      materials.networkMarkers,
       Math.max(1, visibleGroups.length),
     );
     markers.count = visibleGroups.length;
@@ -445,12 +503,7 @@ export function createSpaceScene() {
     geometryGroup.add(markers);
     const markerEdges = new T.InstancedMesh(
       new T.OctahedronGeometry(0.75),
-      new T.MeshBasicMaterial({
-        color: 0x8dd4ff,
-        wireframe: true,
-        transparent: true,
-        opacity: 0.9,
-      }),
+      materials.networkEdges,
       Math.max(1, visibleGroups.length),
     );
     markerEdges.count = markers.count;
@@ -549,30 +602,13 @@ export function createSpaceScene() {
     const lines = new T.BufferGeometry();
     lines.setAttribute("position", new T.Float32BufferAttribute(linePos, 3));
     lines.setAttribute("color", new T.Float32BufferAttribute(lineColors, 3));
-    const solidLines = new T.LineSegments(
-      lines,
-      new T.LineBasicMaterial({
-        vertexColors: true,
-        transparent: true,
-        opacity: 0.75,
-        depthWrite: false,
-        blending: T.AdditiveBlending,
-      }),
-    );
+    const solidLines = new T.LineSegments(lines, materials.connections);
     solidLines.userData.fd_relations = lineEdges;
     geometryGroup.add(solidLines);
     const muted = new T.BufferGeometry();
     muted.setAttribute("position", new T.Float32BufferAttribute(mutedPos, 3));
     muted.setAttribute("color", new T.Float32BufferAttribute(mutedColors, 3));
-    const mutedLines = new T.LineSegments(
-      muted,
-      new T.LineBasicMaterial({
-        vertexColors: true,
-        transparent: true,
-        opacity: 0.3,
-        depthWrite: false,
-      }),
-    );
+    const mutedLines = new T.LineSegments(muted, materials.mutedConnections);
     mutedLines.userData.fd_relations = mutedEdges;
     geometryGroup.add(mutedLines);
     refreshFileScene(input);
@@ -585,7 +621,7 @@ export function createSpaceScene() {
       netlink,
       netlinkPositions,
     } = input;
-    fileGroup.traverse(disposeObject);
+    fileGroup.traverse((object) => disposeObject(object, sharedMaterials));
     scene.remove(fileGroup);
     fileGroup = new T.Group();
     scene.add(fileGroup);
@@ -595,11 +631,7 @@ export function createSpaceScene() {
       );
     const markers = new T.InstancedMesh(
       new T.BoxGeometry(1.5, 0.22, 1.8),
-      new T.MeshBasicMaterial({
-        color: 0xe2d5a0,
-        transparent: true,
-        opacity: 0.65,
-      }),
+      materials.fileMarkers,
       Math.max(1, files.length),
     );
     markers.count = files.length;
@@ -633,15 +665,7 @@ export function createSpaceScene() {
       "position",
       new T.Float32BufferAttribute(vertices, 3),
     );
-    const lines = new T.LineSegments(
-      geometry,
-      new T.LineBasicMaterial({
-        color: 0xc9bb88,
-        transparent: true,
-        opacity: 0.5,
-        depthWrite: false,
-      }),
-    );
+    const lines = new T.LineSegments(geometry, materials.fileConnections);
     lines.userData.filePaths = paths;
     fileGroup.add(lines);
     netlinkViews = new Map();
@@ -650,17 +674,12 @@ export function createSpaceScene() {
         visible.has(key(socket.endpoint.process_id)) &&
         netlinkPositions.has(socket.id),
     );
-    const plateMaterial = new T.MeshBasicMaterial({
-      color: 0xf5a45d,
-      transparent: true,
-      opacity: 0.85,
-    });
     const plates = new T.InstancedMesh(
       new T.CylinderGeometry(0.85, 0.85, 0.16, 6).rotateX(Math.PI / 2),
       [
-        new T.MeshBasicMaterial({ color: 0xad6c38 }),
-        plateMaterial,
-        new T.MeshBasicMaterial({ color: 0xe49252 }),
+        materials.netlinkSides,
+        materials.netlinkPlates,
+        materials.netlinkBottom,
       ],
       Math.max(1, sockets.length),
     );
@@ -698,12 +717,7 @@ export function createSpaceScene() {
     );
     const socketLines = new T.LineSegments(
       socketGeometry,
-      new T.LineBasicMaterial({
-        color: 0xf5a45d,
-        transparent: true,
-        opacity: 0.55,
-        depthWrite: false,
-      }),
+      materials.netlinkConnections,
     );
     socketLines.userData.netlinkPaths = socketPaths;
     fileGroup.add(socketLines);
@@ -834,7 +848,8 @@ export function createSpaceScene() {
       };
     },
     dispose() {
-      scene.traverse(disposeObject);
+      scene.traverse((object) => disposeObject(object, sharedMaterials));
+      for (const material of sharedMaterials) material.dispose();
     },
   };
 }
