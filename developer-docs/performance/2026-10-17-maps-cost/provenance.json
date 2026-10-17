@@ -1,0 +1,65 @@
+{
+  "base_commit": "7bb1b8a13cafbb0d6ca31b549dd507fdd8ed9036",
+  "profile": "ordinary Cargo release; Rust 1.98.1; locked dependencies",
+  "cpu": "AMD Ryzen 9 5950X, 16 cores / 32 logical CPUs",
+  "kernel": "7.0.0-38-generic",
+  "chrome": "141.0.7390.65",
+  "node": "22.18.0",
+  "runtime_image": "procinsh-isolated-perf:20261017T040238Z (local image)",
+  "runtime_image_sha256": "996e1547d4f4933ffd23d6704320c470fdf59875bd44a398db2c90123422608f",
+  "build_image": "procinsh-tests:ubuntu-24-04 (scripts/docker/Dockerfile)",
+  "build_image_sha256": "32377cd79589d38376a07fce42c95aa84b58b8b92dac4cbbaf7ee7d726679cfc",
+  "runtime": "private PID namespace and bridge network; no CPU quota; 8 GiB memory limit",
+  "files": {
+    "bin/experiment-release": {
+      "bytes": 9431864,
+      "sha256": "32764121b1c35d5c7d0bdf6fca2239a259f4f48c0be2ac252009c3e5c72cda00"
+    },
+    "experiment.patch": {
+      "bytes": 3820,
+      "sha256": "507aa1e4c9290874a5a80aabebbb27a8aa26fd4e968f3d36202f0399ce686a67"
+    },
+    "source/src/http_server/process/maps.rs": {
+      "bytes": 9692,
+      "sha256": "123c114db6bc7e26bbcf370dd1bd6555ae14330625ccf17155b6589bbc080f79"
+    },
+    "source/src/http_server/system/snapshot.rs": {
+      "bytes": 24250,
+      "sha256": "05282f7a1e29800d95eef8f471d9fd3c8f06c6072498b9c0f03f1cbe40f5ab96"
+    },
+    "source/Cargo.lock": {
+      "bytes": 43206,
+      "sha256": "69af3fa931aeb4c489a2a5eebff1ca3e23b1a2214455cb6b47a9145131adfcb0"
+    },
+    "source/scripts/chrome_load.mjs": {
+      "bytes": 7165,
+      "sha256": "363eb5e193e3987a112eed3f02253dd37c2eea51a89c0a39ed79efb4c8483cad"
+    },
+    "source/scripts/chrome_sites.txt": {
+      "bytes": 2371,
+      "sha256": "7f6ac18e4add0b2903074dd7c29ae7c11e16a35a3cc298d495014c6c1ec5ac88"
+    },
+    "measure.mjs": {
+      "bytes": 13033,
+      "sha256": "8fbc74cfa3f60f895c4aa076204dfb05f47be32719a6100ddc21f223fc90dfd7"
+    },
+    "cpu.py": {
+      "bytes": 3460,
+      "sha256": "4b189a26d9e785bf8e7a62981d0611f8aa095aa4f2a79af453ba90a48660b6ed"
+    },
+    "build.sh": {
+      "bytes": 464,
+      "sha256": "514c6dff038ae5ff66a2f6b84472ff075a0bf960fee092ae1731413cce338f9c"
+    }
+  },
+  "run_directory": "run-2026-10-17T10-05-18-397Z",
+  "perf": {
+    "target_pid": 5500,
+    "sample_event": "cpu-clock",
+    "frequency_hz": 199,
+    "requested_seconds": 30,
+    "leaf_samples": 916,
+    "original_leaf_text_sha256": "e6ce0311414fbe2a615459d27b4231b8acef69ec3dbc535f470e1b0198d0051e",
+    "normalization": "PID, time and IP replaced with zero; DSO basenames; every sample symbol retained."
+  }
+}

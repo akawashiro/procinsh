@@ -1,0 +1,236 @@
+{
+  "normal": {
+    "runs": 2,
+    "elapsed_seconds": 120.0043191750301,
+    "cpu_seconds": 17.29,
+    "user_percent": 5.116482508470896,
+    "system_percent": 9.291332242581513,
+    "cpu_percent": 14.407814751052406,
+    "cpu_runs": [
+      14.21617841770691,
+      14.599450452586979
+    ],
+    "snapshot_mean_period_seconds": 1.134863106795885,
+    "health": [
+      {
+        "iteration": 1,
+        "snapshots": 53,
+        "activities": 60,
+        "sse_gaps": 0,
+        "processes": [
+          50,
+          50
+        ],
+        "maps": [
+          28495,
+          31091
+        ],
+        "inspected_fds": [
+          2482,
+          2557
+        ],
+        "map_errors": [],
+        "observer_errors": [],
+        "sensors": {
+          "cpu": {
+            "state": "observing"
+          },
+          "ipc": {
+            "state": "observing"
+          },
+          "files": {
+            "state": "observing"
+          },
+          "signals": {
+            "state": "observing"
+          }
+        },
+        "counter_deltas": {
+          "lost": 0,
+          "unresolved": 1696158,
+          "files_lost": 1496,
+          "signals_lost": 0
+        }
+      },
+      {
+        "iteration": 4,
+        "snapshots": 52,
+        "activities": 60,
+        "sse_gaps": 0,
+        "processes": [
+          50,
+          52
+        ],
+        "maps": [
+          33170,
+          34093
+        ],
+        "inspected_fds": [
+          2469,
+          2539
+        ],
+        "map_errors": [],
+        "observer_errors": [],
+        "sensors": {
+          "cpu": {
+            "state": "observing"
+          },
+          "ipc": {
+            "state": "observing"
+          },
+          "files": {
+            "state": "observing"
+          },
+          "signals": {
+            "state": "observing"
+          }
+        },
+        "counter_deltas": {
+          "lost": 0,
+          "unresolved": 1385747,
+          "files_lost": 1215,
+          "signals_lost": 0
+        }
+      }
+    ],
+    "maps_scope": {
+      "read_cpu_seconds": 3.1538211179999998,
+      "parse_cpu_seconds": 1.411866267,
+      "cpu_seconds": 4.5656873849999995,
+      "read_cpu_percent": 2.628089671839271,
+      "parse_cpu_percent": 1.1765128761246904,
+      "cpu_percent": 3.804602547963961,
+      "share_of_backend_cpu_percent": 26.40652044534413,
+      "read_share_of_maps_cpu_percent": 69.07658917606774,
+      "parse_share_of_maps_cpu_percent": 30.92341082393227,
+      "calls": 5297,
+      "boundaryCalls": 0,
+      "rows": 3329344,
+      "bytes": 338849390,
+      "failedCalls": 7,
+      "per_run": [
+        {
+          "scope": "Complete read_maps calls entirely within the whole-process CPU interval; logging is excluded.",
+          "calls": 2595,
+          "boundaryCalls": 0,
+          "readCpuSeconds": 1.465974544,
+          "parseCpuSeconds": 0.650853071,
+          "rows": 1530990,
+          "bytes": 156101183,
+          "failedCalls": 2
+        },
+        {
+          "scope": "Complete read_maps calls entirely within the whole-process CPU interval; logging is excluded.",
+          "calls": 2702,
+          "boundaryCalls": 0,
+          "readCpuSeconds": 1.687846574,
+          "parseCpuSeconds": 0.761013196,
+          "rows": 1798354,
+          "bytes": 182748207,
+          "failedCalls": 5
+        }
+      ],
+      "boundary_policy": "Only complete read_maps spans within the process CPU interval; partial boundary spans are excluded."
+    }
+  },
+  "no_maps": {
+    "runs": 2,
+    "elapsed_seconds": 120.00497245113365,
+    "cpu_seconds": 11.32,
+    "user_percent": 2.3332366507897557,
+    "system_percent": 7.099705808831685,
+    "cpu_percent": 9.432942459621442,
+    "cpu_runs": [
+      9.416303702994597,
+      9.449581120054171
+    ],
+    "snapshot_mean_period_seconds": 1.091965740741403,
+    "health": [
+      {
+        "iteration": 2,
+        "snapshots": 55,
+        "activities": 60,
+        "sse_gaps": 0,
+        "processes": [
+          48,
+          51
+        ],
+        "maps": [
+          0,
+          0
+        ],
+        "inspected_fds": [
+          2426,
+          2480
+        ],
+        "map_errors": [],
+        "observer_errors": [],
+        "sensors": {
+          "cpu": {
+            "state": "observing"
+          },
+          "ipc": {
+            "state": "observing"
+          },
+          "files": {
+            "state": "observing"
+          },
+          "signals": {
+            "state": "observing"
+          }
+        },
+        "counter_deltas": {
+          "lost": 0,
+          "unresolved": 1411061,
+          "files_lost": 843,
+          "signals_lost": 0
+        }
+      },
+      {
+        "iteration": 3,
+        "snapshots": 55,
+        "activities": 60,
+        "sse_gaps": 0,
+        "processes": [
+          49,
+          50
+        ],
+        "maps": [
+          0,
+          0
+        ],
+        "inspected_fds": [
+          2456,
+          2462
+        ],
+        "map_errors": [],
+        "observer_errors": [],
+        "sensors": {
+          "cpu": {
+            "state": "observing"
+          },
+          "ipc": {
+            "state": "observing"
+          },
+          "files": {
+            "state": "observing"
+          },
+          "signals": {
+            "state": "observing"
+          }
+        },
+        "counter_deltas": {
+          "lost": 0,
+          "unresolved": 1441756,
+          "files_lost": 1211,
+          "signals_lost": 0
+        }
+      }
+    ]
+  },
+  "ablation": {
+    "cpu_reduction_percent": 34.528985674719195,
+    "cpu_percentage_points_saved": 4.974872291430964,
+    "scope": "Whole-backend effect in this private container: maps reads, parsing, downstream map handling and observer feedback; scan cadence can change."
+  }
+}

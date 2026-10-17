@@ -1,0 +1,20 @@
+2026-10-17T10:05:24.033Z WARMUP 1-normal (30s), backend PID 688
+2026-10-17T10:05:54.042Z MEASURE 1-normal (60s)
+[1017/100654.108131:WARNING:chrome/app/chrome_main_linux.cc:82] Read channel stable from /opt/google/chrome/CHROME_VERSION_EXTRA
+2026-10-17T10:06:54.473Z RESULT 1-normal: 14.22% (user 3s, system 5.53s)
+2026-10-17T10:06:54.732Z MAPS 1-normal: read 1.4660s, parse 0.6509s
+2026-10-17T10:06:58.571Z WARMUP 2-no_maps (30s), backend PID 2846
+2026-10-17T10:07:28.583Z MEASURE 2-no_maps (60s)
+[1017/100828.643485:WARNING:chrome/app/chrome_main_linux.cc:82] Read channel stable from /opt/google/chrome/CHROME_VERSION_EXTRA
+2026-10-17T10:08:28.854Z RESULT 2-no_maps: 9.42% (user 1.42s, system 4.23s)
+2026-10-17T10:08:33.114Z WARMUP 3-no_maps (30s), backend PID 4139
+2026-10-17T10:09:03.119Z MEASURE 3-no_maps (60s)
+[1017/101003.195656:WARNING:chrome/app/chrome_main_linux.cc:82] Read channel stable from /opt/google/chrome/CHROME_VERSION_EXTRA
+2026-10-17T10:10:03.440Z RESULT 3-no_maps: 9.45% (user 1.38s, system 4.29s)
+2026-10-17T10:10:07.652Z WARMUP 4-normal (30s), backend PID 5500
+2026-10-17T10:10:37.662Z MEASURE 4-normal (60s)
+[1017/101137.722772:WARNING:chrome/app/chrome_main_linux.cc:82] Read channel stable from /opt/google/chrome/CHROME_VERSION_EXTRA
+2026-10-17T10:11:38.188Z RESULT 4-normal: 14.60% (user 3.14s, system 5.62s)
+2026-10-17T10:11:38.188Z PERF 4-normal: 30s, outside CPU interval
+2026-10-17T10:12:09.867Z MAPS 4-normal: read 1.6878s, parse 0.7610s
+2026-10-17T10:12:11.368Z COMPLETED /experiment/run-2026-10-17T10-05-18-397Z

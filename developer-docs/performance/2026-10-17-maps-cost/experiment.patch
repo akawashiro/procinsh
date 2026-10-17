@@ -1,0 +1,91 @@
+diff --git a/src/http_server/process/maps.rs b/src/http_server/process/maps.rs
+index 41da4cd..a469b0b 100644
+--- a/src/http_server/process/maps.rs
++++ b/src/http_server/process/maps.rs
+@@ -137,11 +137,53 @@ pub(super) fn parse_smaps(text: &str) -> Result<Vec<SmapsEntry>> {
+     Ok(maps)
+ }
+
++// Experiment-only, buffered per-thread recording; scope CPU excludes logging.
++std::thread_local! {
++    static MAPS_CPU_LOG: std::cell::RefCell<Option<std::io::BufWriter<std::fs::File>>> =
++        std::cell::RefCell::new(std::env::var_os("PROCINSH_EXPERIMENT_MAPS_LOG").map(|path| {
++            std::io::BufWriter::new(std::fs::OpenOptions::new()
++                .create(true).append(true).open(path).expect("maps CPU log"))
++        }));
++}
++
++fn experiment_clock_ns(clock: libc::clockid_t) -> u64 {
++    let mut time = libc::timespec {
++        tv_sec: 0,
++        tv_nsec: 0,
++    };
++    assert_eq!(unsafe { libc::clock_gettime(clock, &mut time) }, 0);
++    time.tv_sec as u64 * 1_000_000_000 + time.tv_nsec as u64
++}
++
+ pub(super) fn read_maps(pid: i32) -> Result<Vec<MemoryMap>> {
+-    fs::read_to_string(format!("/proc/{pid}/maps"))?
+-        .lines()
+-        .map(parse_map)
+-        .collect()
++    let monotonic_start = experiment_clock_ns(libc::CLOCK_MONOTONIC);
++    let cpu_start = experiment_clock_ns(libc::CLOCK_THREAD_CPUTIME_ID);
++    let text = fs::read_to_string(format!("/proc/{pid}/maps"));
++    let cpu_read = experiment_clock_ns(libc::CLOCK_THREAD_CPUTIME_ID);
++    let bytes = text.as_ref().map_or(0, |text| text.len());
++    let result: Result<Vec<MemoryMap>> = text
++        .map_err(anyhow::Error::from)
++        .and_then(|text| text.lines().map(parse_map).collect());
++    let cpu_end = experiment_clock_ns(libc::CLOCK_THREAD_CPUTIME_ID);
++    let monotonic_end = experiment_clock_ns(libc::CLOCK_MONOTONIC);
++    MAPS_CPU_LOG.with(|log| {
++        if let Some(writer) = log.borrow_mut().as_mut() {
++            use std::io::Write;
++            writeln!(
++                writer,
++                "{}",
++                serde_json::json!({
++                    "pid": pid, "start_ns": monotonic_start, "end_ns": monotonic_end,
++                    "read_cpu_ns": cpu_read - cpu_start,
++                    "parse_cpu_ns": cpu_end - cpu_read,
++                    "bytes": bytes, "rows": result.as_ref().map_or(0, Vec::len),
++                    "success": result.is_ok(),
++                })
++            )
++            .expect("write maps CPU log");
++        }
++    });
++    result
+ }
+
+ /// Reads smaps, falling back to maps without usage measurements if smaps cannot be read.
+diff --git a/src/http_server/system/snapshot.rs b/src/http_server/system/snapshot.rs
+index 92dbee8..80d74d5 100644
+--- a/src/http_server/system/snapshot.rs
++++ b/src/http_server/system/snapshot.rs
+@@ -167,15 +167,17 @@ pub(super) fn collect(discovery: &mut ProcessScanner) -> SystemSnapshot {
+             continue;
+         }
+         n.maps_epoch = super::monotonic_ns();
+-        match process::memory_maps(pid) {
+-            Ok(mut m) => {
+-                if m.len() > 4096 {
+-                    m.truncate(4096);
+-                    truncated = true;
++        if std::env::var_os("PROCINSH_EXPERIMENT_NO_MAPS").is_none() {
++            match process::memory_maps(pid) {
++                Ok(mut m) => {
++                    if m.len() > 4096 {
++                        m.truncate(4096);
++                        truncated = true;
++                    }
++                    n.maps = m;
+                 }
+-                n.maps = m;
++                Err(e) => n.maps_error = Some(e.to_string()),
+             }
+-            Err(e) => n.maps_error = Some(e.to_string()),
+         }
+         if let Ok(ns) = fs::metadata(format!("/proc/{pid}/ns/net"))
+             && namespaces.insert((ns.dev(), ns.ino()))
