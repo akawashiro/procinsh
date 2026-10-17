@@ -2,7 +2,7 @@
 use crate::http_server::resource::{DeviceId, decimal};
 use anyhow::{Context, Result, ensure};
 use serde::Serialize;
-use std::fs;
+use std::{fs, io::Read};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -137,11 +137,20 @@ pub(super) fn parse_smaps(text: &str) -> Result<Vec<SmapsEntry>> {
     Ok(maps)
 }
 
+/// Reads structural mappings through PROCMAP_QUERY, or text on unsupported kernels.
+/// The binary API omits kernel pseudo-mappings such as x86's `[vsyscall]`.
 pub(super) fn read_maps(pid: i32) -> Result<Vec<MemoryMap>> {
-    fs::read_to_string(format!("/proc/{pid}/maps"))?
-        .lines()
-        .map(parse_map)
-        .collect()
+    read_maps_file(fs::File::open(format!("/proc/{pid}/maps"))?)
+}
+
+fn read_maps_file(mut file: fs::File) -> Result<Vec<MemoryMap>> {
+    if let Some(maps) = super::map_query::read_maps(&file)? {
+        return Ok(maps);
+    }
+    // Reuse the opened file so PID reuse cannot redirect the fallback to a new process.
+    let mut text = String::new();
+    file.read_to_string(&mut text)?;
+    text.lines().map(parse_map).collect()
 }
 
 /// Reads smaps, falling back to maps without usage measurements if smaps cannot be read.
@@ -174,6 +183,26 @@ pub(super) fn rollup(pid: i32) -> Option<MemoryRollup> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unsupported_ioctl_reads_text_from_the_same_file() {
+        use std::io::{Seek, SeekFrom, Write};
+        let path = std::env::temp_dir().join(format!("procinsh-maps-{}", std::process::id()));
+        let mut file = fs::OpenOptions::new()
+            .create_new(true)
+            .read(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+        fs::remove_file(path).unwrap();
+        let line = "1000-2000 r-xp 00001000 08:01 10 /tmp/a b (deleted)";
+        writeln!(file, "{line}").unwrap();
+        file.seek(SeekFrom::Start(0)).unwrap();
+        assert_eq!(
+            read_maps_file(file).unwrap(),
+            vec![parse_map(line).unwrap()]
+        );
+    }
 
     #[test]
     fn maps_and_smaps_keep_paths_and_boundaries() {

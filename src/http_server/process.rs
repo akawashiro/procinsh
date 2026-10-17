@@ -42,6 +42,7 @@ mod details;
 mod discovery;
 mod fds;
 mod identity;
+mod map_query;
 mod maps;
 mod memory;
 mod monitoring;

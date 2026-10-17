@@ -4,6 +4,10 @@ ProcInSh は Linux x86-64 のプロセスを観測する Web アプリケーシ�
 
 この文書は現在の実装構成、動作、API、開発・検証手順を説明します。以下のコマンドはリポジトリのルートで実行します。
 
+## 性能調査
+
+[SPACE のバックエンド CPU：テキスト maps と PROCMAP_QUERY の比較](performance/2026-10-17-procmap-query/README.md)には、debug／release の変更前後の計測条件・結果と検証手順を掲載しています。
+
 ## ビルドと実行環境
 
 Rust edition は 2024 です。Rust は rustup 経由で利用し、`rust-toolchain.toml` でバージョンと rustfmt・clippy を固定しています。ローカルと CI は同じ設定を使い、必要なツールチェーンは rustup が自動インストールします。Rust の更新時はこのファイルを変更し、フォーマット・Clippy・テストを再確認します。ビルドには Node.js 22.12以降と npm、C コンパイラ、`ar`、BPF backend を持つ clang、bpftool、pkg-config、libelf・zlib 開発ファイル、実行カーネルの `/sys/kernel/btf/vmlinux` が必要です。

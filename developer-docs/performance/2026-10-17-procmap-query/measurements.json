@@ -1,0 +1,1328 @@
+{
+  "baseCommit": "7bb1b8a13cafbb0d6ca31b549dd507fdd8ed9036",
+  "afterCommit": "f90a6413230d78c28e0a7d1f809cc1578d7d5c3c",
+  "warmupSeconds": 30,
+  "sampleSeconds": 60,
+  "order": [
+    "before",
+    "after",
+    "after",
+    "before"
+  ],
+  "kernel": "7.0.0-38-generic",
+  "chrome": "Google Chrome 141.0.7390.65",
+  "records": [
+    {
+      "profile": "debug",
+      "variant": "before",
+      "iteration": 1,
+      "backendPid": 1936,
+      "pid": 1936,
+      "clock_ticks_per_second": 100,
+      "elapsed_seconds": 60.002772054984234,
+      "user_seconds": 29.36,
+      "system_seconds": 6.81,
+      "cpu_percent": 60.28054831675978,
+      "peak_rss_bytes": 86183936,
+      "monotonic_start": 947987.207207418,
+      "monotonic_end": 948047.209979473,
+      "thread_accounting": "Lower bound for threads that exit between one-second reads.",
+      "topThreads": [
+        {
+          "tid": 2121,
+          "name": "tokio-rt-worker",
+          "start": 94795492,
+          "user_ticks": 965,
+          "system_ticks": 506,
+          "cpu_percent": 24.515534026528513
+        },
+        {
+          "tid": 2120,
+          "name": "tokio-rt-worker",
+          "start": 94795492,
+          "user_ticks": 642,
+          "system_ticks": 165,
+          "cpu_percent": 13.4493786263824
+        },
+        {
+          "tid": 1950,
+          "name": "tokio-rt-worker",
+          "start": 94795432,
+          "user_ticks": 750,
+          "system_ticks": 7,
+          "cpu_percent": 12.616083792034047
+        },
+        {
+          "tid": 1968,
+          "name": "tokio-rt-worker",
+          "start": 94795432,
+          "user_ticks": 578,
+          "system_ticks": 1,
+          "cpu_percent": 9.649554181753913
+        },
+        {
+          "tid": 1936,
+          "name": "procinsh",
+          "start": 94795431,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 1940,
+          "name": "tokio-rt-worker",
+          "start": 94795432,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 1941,
+          "name": "tokio-rt-worker",
+          "start": 94795432,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 1942,
+          "name": "tokio-rt-worker",
+          "start": 94795432,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        }
+      ],
+      "before": {
+        "counts": {
+          "snapshot": 25,
+          "activity": 30,
+          "gap": 0
+        },
+        "errors": [],
+        "status": {
+          "active": true,
+          "ipc": {
+            "state": "observing"
+          },
+          "cpu": {
+            "state": "observing"
+          },
+          "files": {
+            "state": "observing"
+          },
+          "signals": {
+            "state": "observing"
+          },
+          "signals_lost": 0,
+          "coverage": "pipe read/write; socket send/recv. splice, sendfile and some io_uring paths are not observed; worker attribution is excluded.",
+          "files_coverage": "Regular-file read/write, pread/pwrite and vectored I/O, including page cache. Not physical disk traffic. mmap, io_uring, splice/sendfile and kernel workers are not observed.",
+          "lost": 0,
+          "unresolved": 751616,
+          "files_lost": 0
+        },
+        "snapshot": {
+          "processes": 49,
+          "maps": 27838,
+          "mapErrors": []
+        }
+      },
+      "after": {
+        "counts": {
+          "snapshot": 70,
+          "activity": 83,
+          "gap": 0
+        },
+        "errors": [],
+        "status": {
+          "active": true,
+          "ipc": {
+            "state": "observing"
+          },
+          "cpu": {
+            "state": "observing"
+          },
+          "files": {
+            "state": "observing"
+          },
+          "signals": {
+            "state": "observing"
+          },
+          "signals_lost": 0,
+          "coverage": "pipe read/write; socket send/recv. splice, sendfile and some io_uring paths are not observed; worker attribution is excluded.",
+          "files_coverage": "Regular-file read/write, pread/pwrite and vectored I/O, including page cache. Not physical disk traffic. mmap, io_uring, splice/sendfile and kernel workers are not observed.",
+          "lost": 0,
+          "unresolved": 2396644,
+          "files_lost": 7467
+        },
+        "snapshot": {
+          "processes": 47,
+          "maps": 29177,
+          "mapErrors": []
+        }
+      },
+      "workloadBefore": {
+        "tabs": 20,
+        "titled": 20,
+        "chromeErrorPages": 0,
+        "challengePages": 2,
+        "navigationErrors": []
+      },
+      "workloadAfter": {
+        "tabs": 20,
+        "titled": 20,
+        "chromeErrorPages": 0,
+        "challengePages": 2,
+        "navigationErrors": []
+      }
+    },
+    {
+      "profile": "debug",
+      "variant": "after",
+      "iteration": 2,
+      "backendPid": 4085,
+      "pid": 4085,
+      "clock_ticks_per_second": 100,
+      "elapsed_seconds": 60.002553803962655,
+      "user_seconds": 30.26,
+      "system_seconds": 7.64,
+      "cpu_percent": 63.16397819303655,
+      "peak_rss_bytes": 99368960,
+      "monotonic_start": 948082.036936152,
+      "monotonic_end": 948142.039489956,
+      "thread_accounting": "Lower bound for threads that exit between one-second reads.",
+      "topThreads": [
+        {
+          "tid": 4116,
+          "name": "tokio-rt-worker",
+          "start": 94804953,
+          "user_ticks": 1765,
+          "system_ticks": 4,
+          "cpu_percent": 29.482078475852685
+        },
+        {
+          "tid": 4122,
+          "name": "tokio-rt-worker",
+          "start": 94804983,
+          "user_ticks": 463,
+          "system_ticks": 582,
+          "cpu_percent": 17.415925385678946
+        },
+        {
+          "tid": 4121,
+          "name": "tokio-rt-worker",
+          "start": 94804983,
+          "user_ticks": 798,
+          "system_ticks": 176,
+          "cpu_percent": 16.232642416891192
+        },
+        {
+          "tid": 4085,
+          "name": "procinsh",
+          "start": 94804952,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 4089,
+          "name": "tokio-rt-worker",
+          "start": 94804953,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 4090,
+          "name": "tokio-rt-worker",
+          "start": 94804953,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 4091,
+          "name": "tokio-rt-worker",
+          "start": 94804953,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 4092,
+          "name": "tokio-rt-worker",
+          "start": 94804953,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        }
+      ],
+      "before": {
+        "counts": {
+          "snapshot": 28,
+          "activity": 30,
+          "gap": 0
+        },
+        "errors": [],
+        "status": {
+          "active": true,
+          "ipc": {
+            "state": "observing"
+          },
+          "cpu": {
+            "state": "observing"
+          },
+          "files": {
+            "state": "observing"
+          },
+          "signals": {
+            "state": "observing"
+          },
+          "signals_lost": 0,
+          "coverage": "pipe read/write; socket send/recv. splice, sendfile and some io_uring paths are not observed; worker attribution is excluded.",
+          "files_coverage": "Regular-file read/write, pread/pwrite and vectored I/O, including page cache. Not physical disk traffic. mmap, io_uring, splice/sendfile and kernel workers are not observed.",
+          "lost": 0,
+          "unresolved": 705273,
+          "files_lost": 7195
+        },
+        "snapshot": {
+          "processes": 49,
+          "maps": 32500,
+          "mapErrors": []
+        }
+      },
+      "after": {
+        "counts": {
+          "snapshot": 78,
+          "activity": 84,
+          "gap": 0
+        },
+        "errors": [],
+        "status": {
+          "active": true,
+          "ipc": {
+            "state": "observing"
+          },
+          "cpu": {
+            "state": "observing"
+          },
+          "files": {
+            "state": "observing"
+          },
+          "signals": {
+            "state": "observing"
+          },
+          "signals_lost": 0,
+          "coverage": "pipe read/write; socket send/recv. splice, sendfile and some io_uring paths are not observed; worker attribution is excluded.",
+          "files_coverage": "Regular-file read/write, pread/pwrite and vectored I/O, including page cache. Not physical disk traffic. mmap, io_uring, splice/sendfile and kernel workers are not observed.",
+          "lost": 0,
+          "unresolved": 2125004,
+          "files_lost": 101738
+        },
+        "snapshot": {
+          "processes": 51,
+          "maps": 33714,
+          "mapErrors": []
+        }
+      },
+      "workloadBefore": {
+        "tabs": 20,
+        "titled": 20,
+        "chromeErrorPages": 0,
+        "challengePages": 2,
+        "navigationErrors": []
+      },
+      "workloadAfter": {
+        "tabs": 20,
+        "titled": 20,
+        "chromeErrorPages": 0,
+        "challengePages": 2,
+        "navigationErrors": []
+      }
+    },
+    {
+      "profile": "debug",
+      "variant": "after",
+      "iteration": 3,
+      "backendPid": 5324,
+      "pid": 5324,
+      "clock_ticks_per_second": 100,
+      "elapsed_seconds": 60.002653468050994,
+      "user_seconds": 26.12,
+      "system_seconds": 8.33,
+      "cpu_percent": 57.414127557447515,
+      "peak_rss_bytes": 88076288,
+      "monotonic_start": 948177.173137878,
+      "monotonic_end": 948237.175791346,
+      "thread_accounting": "Lower bound for threads that exit between one-second reads.",
+      "topThreads": [
+        {
+          "tid": 5361,
+          "name": "tokio-rt-worker",
+          "start": 94814488,
+          "user_ticks": 455,
+          "system_ticks": 650,
+          "cpu_percent": 18.41585223540769
+        },
+        {
+          "tid": 5343,
+          "name": "tokio-rt-worker",
+          "start": 94814456,
+          "user_ticks": 1011,
+          "system_ticks": 4,
+          "cpu_percent": 16.915918569175393
+        },
+        {
+          "tid": 5360,
+          "name": "tokio-rt-worker",
+          "start": 94814488,
+          "user_ticks": 662,
+          "system_ticks": 172,
+          "cpu_percent": 13.899385307085987
+        },
+        {
+          "tid": 5328,
+          "name": "tokio-rt-worker",
+          "start": 94814456,
+          "user_ticks": 484,
+          "system_ticks": 4,
+          "cpu_percent": 8.13297365690403
+        },
+        {
+          "tid": 5365,
+          "name": "tokio-rt-worker",
+          "start": 94814488,
+          "user_ticks": 0,
+          "system_ticks": 1,
+          "cpu_percent": 0.01666592962480334
+        },
+        {
+          "tid": 5324,
+          "name": "procinsh",
+          "start": 94814455,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 5329,
+          "name": "tokio-rt-worker",
+          "start": 94814456,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 5330,
+          "name": "tokio-rt-worker",
+          "start": 94814456,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        }
+      ],
+      "before": {
+        "counts": {
+          "snapshot": 27,
+          "activity": 30,
+          "gap": 0
+        },
+        "errors": [],
+        "status": {
+          "active": true,
+          "ipc": {
+            "state": "observing"
+          },
+          "cpu": {
+            "state": "observing"
+          },
+          "files": {
+            "state": "observing"
+          },
+          "signals": {
+            "state": "observing"
+          },
+          "signals_lost": 0,
+          "coverage": "pipe read/write; socket send/recv. splice, sendfile and some io_uring paths are not observed; worker attribution is excluded.",
+          "files_coverage": "Regular-file read/write, pread/pwrite and vectored I/O, including page cache. Not physical disk traffic. mmap, io_uring, splice/sendfile and kernel workers are not observed.",
+          "lost": 0,
+          "unresolved": 774932,
+          "files_lost": 5418
+        },
+        "snapshot": {
+          "processes": 49,
+          "maps": 33436,
+          "mapErrors": []
+        }
+      },
+      "after": {
+        "counts": {
+          "snapshot": 76,
+          "activity": 84,
+          "gap": 0
+        },
+        "errors": [],
+        "status": {
+          "active": true,
+          "ipc": {
+            "state": "observing"
+          },
+          "cpu": {
+            "state": "observing"
+          },
+          "files": {
+            "state": "observing"
+          },
+          "signals": {
+            "state": "observing"
+          },
+          "signals_lost": 0,
+          "coverage": "pipe read/write; socket send/recv. splice, sendfile and some io_uring paths are not observed; worker attribution is excluded.",
+          "files_coverage": "Regular-file read/write, pread/pwrite and vectored I/O, including page cache. Not physical disk traffic. mmap, io_uring, splice/sendfile and kernel workers are not observed.",
+          "lost": 0,
+          "unresolved": 2198904,
+          "files_lost": 60580
+        },
+        "snapshot": {
+          "processes": 50,
+          "maps": 33902,
+          "mapErrors": []
+        }
+      },
+      "workloadBefore": {
+        "tabs": 20,
+        "titled": 20,
+        "chromeErrorPages": 0,
+        "challengePages": 2,
+        "navigationErrors": []
+      },
+      "workloadAfter": {
+        "tabs": 20,
+        "titled": 20,
+        "chromeErrorPages": 0,
+        "challengePages": 2,
+        "navigationErrors": []
+      }
+    },
+    {
+      "profile": "debug",
+      "variant": "before",
+      "iteration": 4,
+      "backendPid": 6662,
+      "pid": 6662,
+      "clock_ticks_per_second": 100,
+      "elapsed_seconds": 60.0025735659292,
+      "user_seconds": 35.28,
+      "system_seconds": 6.98,
+      "cpu_percent": 70.43031238246117,
+      "peak_rss_bytes": 97570816,
+      "monotonic_start": 948271.944024584,
+      "monotonic_end": 948331.94659815,
+      "thread_accounting": "Lower bound for threads that exit between one-second reads.",
+      "topThreads": [
+        {
+          "tid": 6699,
+          "name": "tokio-rt-worker",
+          "start": 94823981,
+          "user_ticks": 1087,
+          "system_ticks": 518,
+          "cpu_percent": 26.74885266773549
+        },
+        {
+          "tid": 6680,
+          "name": "tokio-rt-worker",
+          "start": 94823948,
+          "user_ticks": 1155,
+          "system_ticks": 3,
+          "cpu_percent": 19.29917220513252
+        },
+        {
+          "tid": 6698,
+          "name": "tokio-rt-worker",
+          "start": 94823981,
+          "user_ticks": 801,
+          "system_ticks": 175,
+          "cpu_percent": 16.26596897427404
+        },
+        {
+          "tid": 6692,
+          "name": "tokio-rt-worker",
+          "start": 94823948,
+          "user_ticks": 485,
+          "system_ticks": 1,
+          "cpu_percent": 8.099652583501213
+        },
+        {
+          "tid": 6662,
+          "name": "procinsh",
+          "start": 94823947,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 6666,
+          "name": "tokio-rt-worker",
+          "start": 94823948,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 6667,
+          "name": "tokio-rt-worker",
+          "start": 94823948,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 6668,
+          "name": "tokio-rt-worker",
+          "start": 94823948,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        }
+      ],
+      "before": {
+        "counts": {
+          "snapshot": 25,
+          "activity": 30,
+          "gap": 0
+        },
+        "errors": [],
+        "status": {
+          "active": true,
+          "ipc": {
+            "state": "observing"
+          },
+          "cpu": {
+            "state": "observing"
+          },
+          "files": {
+            "state": "observing"
+          },
+          "signals": {
+            "state": "observing"
+          },
+          "signals_lost": 0,
+          "coverage": "pipe read/write; socket send/recv. splice, sendfile and some io_uring paths are not observed; worker attribution is excluded.",
+          "files_coverage": "Regular-file read/write, pread/pwrite and vectored I/O, including page cache. Not physical disk traffic. mmap, io_uring, splice/sendfile and kernel workers are not observed.",
+          "lost": 0,
+          "unresolved": 677151,
+          "files_lost": 5283
+        },
+        "snapshot": {
+          "processes": 50,
+          "maps": 35005,
+          "mapErrors": []
+        }
+      },
+      "after": {
+        "counts": {
+          "snapshot": 69,
+          "activity": 83,
+          "gap": 0
+        },
+        "errors": [],
+        "status": {
+          "active": true,
+          "ipc": {
+            "state": "observing"
+          },
+          "cpu": {
+            "state": "observing"
+          },
+          "files": {
+            "state": "observing"
+          },
+          "signals": {
+            "state": "observing"
+          },
+          "signals_lost": 0,
+          "coverage": "pipe read/write; socket send/recv. splice, sendfile and some io_uring paths are not observed; worker attribution is excluded.",
+          "files_coverage": "Regular-file read/write, pread/pwrite and vectored I/O, including page cache. Not physical disk traffic. mmap, io_uring, splice/sendfile and kernel workers are not observed.",
+          "lost": 0,
+          "unresolved": 2037232,
+          "files_lost": 98741
+        },
+        "snapshot": {
+          "processes": 51,
+          "maps": 35485,
+          "mapErrors": []
+        }
+      },
+      "workloadBefore": {
+        "tabs": 20,
+        "titled": 20,
+        "chromeErrorPages": 0,
+        "challengePages": 2,
+        "navigationErrors": []
+      },
+      "workloadAfter": {
+        "tabs": 20,
+        "titled": 20,
+        "chromeErrorPages": 0,
+        "challengePages": 2,
+        "navigationErrors": []
+      }
+    },
+    {
+      "profile": "release",
+      "variant": "before",
+      "iteration": 1,
+      "backendPid": 7850,
+      "pid": 7850,
+      "clock_ticks_per_second": 100,
+      "elapsed_seconds": 60.00290139904246,
+      "user_seconds": 4.39,
+      "system_seconds": 7.39,
+      "cpu_percent": 19.6323839769988,
+      "peak_rss_bytes": 83783680,
+      "monotonic_start": 948366.707726336,
+      "monotonic_end": 948426.710627735,
+      "thread_accounting": "Lower bound for threads that exit between one-second reads.",
+      "topThreads": [
+        {
+          "tid": 7896,
+          "name": "tokio-rt-worker",
+          "start": 94833457,
+          "user_ticks": 179,
+          "system_ticks": 572,
+          "cpu_percent": 12.516061431855771
+        },
+        {
+          "tid": 7895,
+          "name": "tokio-rt-worker",
+          "start": 94833457,
+          "user_ticks": 141,
+          "system_ticks": 165,
+          "cpu_percent": 5.09975339300648
+        },
+        {
+          "tid": 7883,
+          "name": "tokio-rt-worker",
+          "start": 94833426,
+          "user_ticks": 76,
+          "system_ticks": 3,
+          "cpu_percent": 1.3166030001552678
+        },
+        {
+          "tid": 7855,
+          "name": "tokio-rt-worker",
+          "start": 94833425,
+          "user_ticks": 42,
+          "system_ticks": 0,
+          "cpu_percent": 0.6999661519812814
+        },
+        {
+          "tid": 7850,
+          "name": "procinsh",
+          "start": 94833425,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 7854,
+          "name": "tokio-rt-worker",
+          "start": 94833425,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 7856,
+          "name": "tokio-rt-worker",
+          "start": 94833425,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 7857,
+          "name": "tokio-rt-worker",
+          "start": 94833425,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        }
+      ],
+      "before": {
+        "counts": {
+          "snapshot": 29,
+          "activity": 31,
+          "gap": 0
+        },
+        "errors": [],
+        "status": {
+          "active": true,
+          "ipc": {
+            "state": "observing"
+          },
+          "cpu": {
+            "state": "observing"
+          },
+          "files": {
+            "state": "observing"
+          },
+          "signals": {
+            "state": "observing"
+          },
+          "signals_lost": 0,
+          "coverage": "pipe read/write; socket send/recv. splice, sendfile and some io_uring paths are not observed; worker attribution is excluded.",
+          "files_coverage": "Regular-file read/write, pread/pwrite and vectored I/O, including page cache. Not physical disk traffic. mmap, io_uring, splice/sendfile and kernel workers are not observed.",
+          "lost": 0,
+          "unresolved": 814759,
+          "files_lost": 1441
+        },
+        "snapshot": {
+          "processes": 50,
+          "maps": 35961,
+          "mapErrors": []
+        }
+      },
+      "after": {
+        "counts": {
+          "snapshot": 81,
+          "activity": 88,
+          "gap": 0
+        },
+        "errors": [],
+        "status": {
+          "active": true,
+          "ipc": {
+            "state": "observing"
+          },
+          "cpu": {
+            "state": "observing"
+          },
+          "files": {
+            "state": "observing"
+          },
+          "signals": {
+            "state": "observing"
+          },
+          "signals_lost": 0,
+          "coverage": "pipe read/write; socket send/recv. splice, sendfile and some io_uring paths are not observed; worker attribution is excluded.",
+          "files_coverage": "Regular-file read/write, pread/pwrite and vectored I/O, including page cache. Not physical disk traffic. mmap, io_uring, splice/sendfile and kernel workers are not observed.",
+          "lost": 0,
+          "unresolved": 2204584,
+          "files_lost": 22506
+        },
+        "snapshot": {
+          "processes": 50,
+          "maps": 36010,
+          "mapErrors": []
+        }
+      },
+      "workloadBefore": {
+        "tabs": 20,
+        "titled": 20,
+        "chromeErrorPages": 0,
+        "challengePages": 2,
+        "navigationErrors": []
+      },
+      "workloadAfter": {
+        "tabs": 20,
+        "titled": 20,
+        "chromeErrorPages": 0,
+        "challengePages": 2,
+        "navigationErrors": []
+      }
+    },
+    {
+      "profile": "release",
+      "variant": "after",
+      "iteration": 2,
+      "backendPid": 9152,
+      "pid": 9152,
+      "clock_ticks_per_second": 100,
+      "elapsed_seconds": 60.00243252993096,
+      "user_seconds": 4.35,
+      "system_seconds": 7.44,
+      "cpu_percent": 19.64920337874436,
+      "peak_rss_bytes": 84508672,
+      "monotonic_start": 948461.510714808,
+      "monotonic_end": 948521.513147338,
+      "thread_accounting": "Lower bound for threads that exit between one-second reads.",
+      "topThreads": [
+        {
+          "tid": 9189,
+          "name": "tokio-rt-worker",
+          "start": 94842923,
+          "user_ticks": 172,
+          "system_ticks": 575,
+          "cpu_percent": 12.449495270502153
+        },
+        {
+          "tid": 9188,
+          "name": "tokio-rt-worker",
+          "start": 94842923,
+          "user_ticks": 138,
+          "system_ticks": 165,
+          "cpu_percent": 5.049795270364327
+        },
+        {
+          "tid": 9158,
+          "name": "tokio-rt-worker",
+          "start": 94842895,
+          "user_ticks": 66,
+          "system_ticks": 1,
+          "cpu_percent": 1.1166213964171945
+        },
+        {
+          "tid": 9184,
+          "name": "tokio-rt-worker",
+          "start": 94842895,
+          "user_ticks": 59,
+          "system_ticks": 0,
+          "cpu_percent": 0.9832934684867831
+        },
+        {
+          "tid": 9152,
+          "name": "procinsh",
+          "start": 94842894,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 9156,
+          "name": "tokio-rt-worker",
+          "start": 94842895,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 9157,
+          "name": "tokio-rt-worker",
+          "start": 94842895,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 9159,
+          "name": "tokio-rt-worker",
+          "start": 94842895,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        }
+      ],
+      "before": {
+        "counts": {
+          "snapshot": 30,
+          "activity": 31,
+          "gap": 0
+        },
+        "errors": [],
+        "status": {
+          "active": true,
+          "ipc": {
+            "state": "observing"
+          },
+          "cpu": {
+            "state": "observing"
+          },
+          "files": {
+            "state": "observing"
+          },
+          "signals": {
+            "state": "observing"
+          },
+          "signals_lost": 0,
+          "coverage": "pipe read/write; socket send/recv. splice, sendfile and some io_uring paths are not observed; worker attribution is excluded.",
+          "files_coverage": "Regular-file read/write, pread/pwrite and vectored I/O, including page cache. Not physical disk traffic. mmap, io_uring, splice/sendfile and kernel workers are not observed.",
+          "lost": 0,
+          "unresolved": 696066,
+          "files_lost": 679
+        },
+        "snapshot": {
+          "processes": 50,
+          "maps": 36625,
+          "mapErrors": []
+        }
+      },
+      "after": {
+        "counts": {
+          "snapshot": 82,
+          "activity": 88,
+          "gap": 0
+        },
+        "errors": [],
+        "status": {
+          "active": true,
+          "ipc": {
+            "state": "observing"
+          },
+          "cpu": {
+            "state": "observing"
+          },
+          "files": {
+            "state": "observing"
+          },
+          "signals": {
+            "state": "observing"
+          },
+          "signals_lost": 0,
+          "coverage": "pipe read/write; socket send/recv. splice, sendfile and some io_uring paths are not observed; worker attribution is excluded.",
+          "files_coverage": "Regular-file read/write, pread/pwrite and vectored I/O, including page cache. Not physical disk traffic. mmap, io_uring, splice/sendfile and kernel workers are not observed.",
+          "lost": 0,
+          "unresolved": 2088154,
+          "files_lost": 16118
+        },
+        "snapshot": {
+          "processes": 51,
+          "maps": 37234,
+          "mapErrors": []
+        }
+      },
+      "workloadBefore": {
+        "tabs": 20,
+        "titled": 20,
+        "chromeErrorPages": 0,
+        "challengePages": 2,
+        "navigationErrors": []
+      },
+      "workloadAfter": {
+        "tabs": 20,
+        "titled": 20,
+        "chromeErrorPages": 0,
+        "challengePages": 2,
+        "navigationErrors": []
+      }
+    },
+    {
+      "profile": "release",
+      "variant": "after",
+      "iteration": 3,
+      "backendPid": 10345,
+      "pid": 10345,
+      "clock_ticks_per_second": 100,
+      "elapsed_seconds": 60.0019408230437,
+      "user_seconds": 4.56,
+      "system_seconds": 7.58,
+      "cpu_percent": 20.232678865843692,
+      "peak_rss_bytes": 79982592,
+      "monotonic_start": 948556.055526742,
+      "monotonic_end": 948616.057467565,
+      "thread_accounting": "Lower bound for threads that exit between one-second reads.",
+      "topThreads": [
+        {
+          "tid": 10382,
+          "name": "tokio-rt-worker",
+          "start": 94852399,
+          "user_ticks": 185,
+          "system_ticks": 593,
+          "cpu_percent": 12.966247246809221
+        },
+        {
+          "tid": 10381,
+          "name": "tokio-rt-worker",
+          "start": 94852399,
+          "user_ticks": 135,
+          "system_ticks": 162,
+          "cpu_percent": 4.94983988727807
+        },
+        {
+          "tid": 10376,
+          "name": "tokio-rt-worker",
+          "start": 94852371,
+          "user_ticks": 74,
+          "system_ticks": 2,
+          "cpu_percent": 1.2666256950610548
+        },
+        {
+          "tid": 10351,
+          "name": "tokio-rt-worker",
+          "start": 94852371,
+          "user_ticks": 62,
+          "system_ticks": 1,
+          "cpu_percent": 1.049966036695348
+        },
+        {
+          "tid": 10345,
+          "name": "procinsh",
+          "start": 94852370,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 10349,
+          "name": "tokio-rt-worker",
+          "start": 94852371,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 10350,
+          "name": "tokio-rt-worker",
+          "start": 94852371,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 10352,
+          "name": "tokio-rt-worker",
+          "start": 94852371,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        }
+      ],
+      "before": {
+        "counts": {
+          "snapshot": 29,
+          "activity": 31,
+          "gap": 0
+        },
+        "errors": [],
+        "status": {
+          "active": true,
+          "ipc": {
+            "state": "observing"
+          },
+          "cpu": {
+            "state": "observing"
+          },
+          "files": {
+            "state": "observing"
+          },
+          "signals": {
+            "state": "observing"
+          },
+          "signals_lost": 0,
+          "coverage": "pipe read/write; socket send/recv. splice, sendfile and some io_uring paths are not observed; worker attribution is excluded.",
+          "files_coverage": "Regular-file read/write, pread/pwrite and vectored I/O, including page cache. Not physical disk traffic. mmap, io_uring, splice/sendfile and kernel workers are not observed.",
+          "lost": 0,
+          "unresolved": 839169,
+          "files_lost": 2577
+        },
+        "snapshot": {
+          "processes": 47,
+          "maps": 35620,
+          "mapErrors": []
+        }
+      },
+      "after": {
+        "counts": {
+          "snapshot": 82,
+          "activity": 88,
+          "gap": 0
+        },
+        "errors": [],
+        "status": {
+          "active": true,
+          "ipc": {
+            "state": "observing"
+          },
+          "cpu": {
+            "state": "observing"
+          },
+          "files": {
+            "state": "observing"
+          },
+          "signals": {
+            "state": "observing"
+          },
+          "signals_lost": 0,
+          "coverage": "pipe read/write; socket send/recv. splice, sendfile and some io_uring paths are not observed; worker attribution is excluded.",
+          "files_coverage": "Regular-file read/write, pread/pwrite and vectored I/O, including page cache. Not physical disk traffic. mmap, io_uring, splice/sendfile and kernel workers are not observed.",
+          "lost": 0,
+          "unresolved": 2213857,
+          "files_lost": 21201
+        },
+        "snapshot": {
+          "processes": 50,
+          "maps": 37263,
+          "mapErrors": []
+        }
+      },
+      "workloadBefore": {
+        "tabs": 20,
+        "titled": 20,
+        "chromeErrorPages": 0,
+        "challengePages": 2,
+        "navigationErrors": []
+      },
+      "workloadAfter": {
+        "tabs": 20,
+        "titled": 20,
+        "chromeErrorPages": 0,
+        "challengePages": 2,
+        "navigationErrors": []
+      }
+    },
+    {
+      "profile": "release",
+      "variant": "before",
+      "iteration": 4,
+      "backendPid": 11671,
+      "pid": 11671,
+      "clock_ticks_per_second": 100,
+      "elapsed_seconds": 60.00225458305795,
+      "user_seconds": 5.01,
+      "system_seconds": 6.57,
+      "cpu_percent": 19.299274803033306,
+      "peak_rss_bytes": 95518720,
+      "monotonic_start": 948650.907830621,
+      "monotonic_end": 948710.910085204,
+      "thread_accounting": "Lower bound for threads that exit between one-second reads.",
+      "topThreads": [
+        {
+          "tid": 11708,
+          "name": "tokio-rt-worker",
+          "start": 94861866,
+          "user_ticks": 195,
+          "system_ticks": 489,
+          "cpu_percent": 11.39957164531501
+        },
+        {
+          "tid": 11707,
+          "name": "tokio-rt-worker",
+          "start": 94861866,
+          "user_ticks": 175,
+          "system_ticks": 165,
+          "cpu_percent": 5.666453741823251
+        },
+        {
+          "tid": 11675,
+          "name": "tokio-rt-worker",
+          "start": 94861836,
+          "user_ticks": 119,
+          "system_ticks": 3,
+          "cpu_percent": 2.0332569308895194
+        },
+        {
+          "tid": 11677,
+          "name": "tokio-rt-worker",
+          "start": 94861836,
+          "user_ticks": 13,
+          "system_ticks": 0,
+          "cpu_percent": 0.21665852542265368
+        },
+        {
+          "tid": 11671,
+          "name": "procinsh",
+          "start": 94861836,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 11676,
+          "name": "tokio-rt-worker",
+          "start": 94861836,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 11678,
+          "name": "tokio-rt-worker",
+          "start": 94861836,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        },
+        {
+          "tid": 11679,
+          "name": "tokio-rt-worker",
+          "start": 94861836,
+          "user_ticks": 0,
+          "system_ticks": 0,
+          "cpu_percent": 0
+        }
+      ],
+      "before": {
+        "counts": {
+          "snapshot": 30,
+          "activity": 31,
+          "gap": 0
+        },
+        "errors": [],
+        "status": {
+          "active": true,
+          "ipc": {
+            "state": "observing"
+          },
+          "cpu": {
+            "state": "observing"
+          },
+          "files": {
+            "state": "observing"
+          },
+          "signals": {
+            "state": "observing"
+          },
+          "signals_lost": 0,
+          "coverage": "pipe read/write; socket send/recv. splice, sendfile and some io_uring paths are not observed; worker attribution is excluded.",
+          "files_coverage": "Regular-file read/write, pread/pwrite and vectored I/O, including page cache. Not physical disk traffic. mmap, io_uring, splice/sendfile and kernel workers are not observed.",
+          "lost": 0,
+          "unresolved": 690980,
+          "files_lost": 0
+        },
+        "snapshot": {
+          "processes": 51,
+          "maps": 38769,
+          "mapErrors": []
+        }
+      },
+      "after": {
+        "counts": {
+          "snapshot": 83,
+          "activity": 88,
+          "gap": 0
+        },
+        "errors": [],
+        "status": {
+          "active": true,
+          "ipc": {
+            "state": "observing"
+          },
+          "cpu": {
+            "state": "observing"
+          },
+          "files": {
+            "state": "observing"
+          },
+          "signals": {
+            "state": "observing"
+          },
+          "signals_lost": 0,
+          "coverage": "pipe read/write; socket send/recv. splice, sendfile and some io_uring paths are not observed; worker attribution is excluded.",
+          "files_coverage": "Regular-file read/write, pread/pwrite and vectored I/O, including page cache. Not physical disk traffic. mmap, io_uring, splice/sendfile and kernel workers are not observed.",
+          "lost": 0,
+          "unresolved": 2062938,
+          "files_lost": 1556
+        },
+        "snapshot": {
+          "processes": 51,
+          "maps": 38724,
+          "mapErrors": []
+        }
+      },
+      "workloadBefore": {
+        "tabs": 20,
+        "titled": 20,
+        "chromeErrorPages": 0,
+        "challengePages": 2,
+        "navigationErrors": []
+      },
+      "workloadAfter": {
+        "tabs": 20,
+        "titled": 20,
+        "chromeErrorPages": 0,
+        "challengePages": 2,
+        "navigationErrors": []
+      }
+    }
+  ]
+}

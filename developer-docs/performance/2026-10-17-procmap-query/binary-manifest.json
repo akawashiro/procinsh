@@ -1,0 +1,18 @@
+{
+  "after-debug": {
+    "bytes": 113739192,
+    "sha256": "d25d781c1a6828a1cb3a5b957959bb71f00615fd22e1aa4249c459d963e702bb"
+  },
+  "after-release": {
+    "bytes": 9444176,
+    "sha256": "9c8c8cca39400941fbc02d1f26cfdfe2a29aea8b38d91f1e0a571f849e47a036"
+  },
+  "before-debug": {
+    "bytes": 113679416,
+    "sha256": "5706c195ae9a594c9a091699631c3ca70be835f151be39a68a5db96bb5794023"
+  },
+  "before-release": {
+    "bytes": 9484960,
+    "sha256": "382872afe3a35a4543c615326607c18f1695f5519b87b253adde9c9190a4c249"
+  }
+}

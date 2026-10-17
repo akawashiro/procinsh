@@ -1,0 +1,82 @@
+{
+  "debug": {
+    "before": {
+      "runs": 2,
+      "cpu_percent": 65.35542195574655,
+      "user_percent": 53.8642671837238,
+      "system_percent": 11.49115477202276,
+      "run_cpu_percent": [
+        60.28054831675978,
+        70.43031238246117
+      ],
+      "maps_at_start": [
+        27838,
+        35005
+      ],
+      "maps_at_end": [
+        29177,
+        35485
+      ]
+    },
+    "after": {
+      "runs": 2,
+      "cpu_percent": 60.28905048762222,
+      "user_percent": 46.981294630160896,
+      "system_percent": 13.307755857461325,
+      "run_cpu_percent": [
+        63.16397819303655,
+        57.414127557447515
+      ],
+      "maps_at_start": [
+        32500,
+        33436
+      ],
+      "maps_at_end": [
+        33714,
+        33902
+      ]
+    },
+    "cpu_change_percentage_points": -5.066371468124331,
+    "relative_cpu_change_percent": -7.752029313734477
+  },
+  "release": {
+    "before": {
+      "runs": 2,
+      "cpu_percent": 19.465830287728892,
+      "user_percent": 7.832996776740221,
+      "system_percent": 11.63283351098867,
+      "run_cpu_percent": [
+        19.6323839769988,
+        19.299274803033306
+      ],
+      "maps_at_start": [
+        35961,
+        38769
+      ],
+      "maps_at_end": [
+        36010,
+        38724
+      ]
+    },
+    "after": {
+      "runs": 2,
+      "cpu_percent": 19.940939926925445,
+      "user_percent": 7.424729408646289,
+      "system_percent": 12.516210518279154,
+      "run_cpu_percent": [
+        19.64920337874436,
+        20.232678865843692
+      ],
+      "maps_at_start": [
+        36625,
+        35620
+      ],
+      "maps_at_end": [
+        37234,
+        37263
+      ]
+    },
+    "cpu_change_percentage_points": 0.47510963919655325,
+    "relative_cpu_change_percent": 2.4407365736464737
+  }
+}

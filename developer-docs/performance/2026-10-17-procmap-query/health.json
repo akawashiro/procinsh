@@ -1,0 +1,170 @@
+[
+  {
+    "profile": "debug",
+    "variant": "before",
+    "before": {
+      "tabs": 20,
+      "titled": 20,
+      "chromeErrorPages": 0,
+      "challengePages": 2,
+      "navigationErrors": []
+    },
+    "after": {
+      "tabs": 20,
+      "titled": 20,
+      "chromeErrorPages": 0,
+      "challengePages": 2,
+      "navigationErrors": []
+    },
+    "map_errors": [],
+    "observer_errors": [],
+    "gaps": 0
+  },
+  {
+    "profile": "debug",
+    "variant": "after",
+    "before": {
+      "tabs": 20,
+      "titled": 20,
+      "chromeErrorPages": 0,
+      "challengePages": 2,
+      "navigationErrors": []
+    },
+    "after": {
+      "tabs": 20,
+      "titled": 20,
+      "chromeErrorPages": 0,
+      "challengePages": 2,
+      "navigationErrors": []
+    },
+    "map_errors": [],
+    "observer_errors": [],
+    "gaps": 0
+  },
+  {
+    "profile": "debug",
+    "variant": "after",
+    "before": {
+      "tabs": 20,
+      "titled": 20,
+      "chromeErrorPages": 0,
+      "challengePages": 2,
+      "navigationErrors": []
+    },
+    "after": {
+      "tabs": 20,
+      "titled": 20,
+      "chromeErrorPages": 0,
+      "challengePages": 2,
+      "navigationErrors": []
+    },
+    "map_errors": [],
+    "observer_errors": [],
+    "gaps": 0
+  },
+  {
+    "profile": "debug",
+    "variant": "before",
+    "before": {
+      "tabs": 20,
+      "titled": 20,
+      "chromeErrorPages": 0,
+      "challengePages": 2,
+      "navigationErrors": []
+    },
+    "after": {
+      "tabs": 20,
+      "titled": 20,
+      "chromeErrorPages": 0,
+      "challengePages": 2,
+      "navigationErrors": []
+    },
+    "map_errors": [],
+    "observer_errors": [],
+    "gaps": 0
+  },
+  {
+    "profile": "release",
+    "variant": "before",
+    "before": {
+      "tabs": 20,
+      "titled": 20,
+      "chromeErrorPages": 0,
+      "challengePages": 2,
+      "navigationErrors": []
+    },
+    "after": {
+      "tabs": 20,
+      "titled": 20,
+      "chromeErrorPages": 0,
+      "challengePages": 2,
+      "navigationErrors": []
+    },
+    "map_errors": [],
+    "observer_errors": [],
+    "gaps": 0
+  },
+  {
+    "profile": "release",
+    "variant": "after",
+    "before": {
+      "tabs": 20,
+      "titled": 20,
+      "chromeErrorPages": 0,
+      "challengePages": 2,
+      "navigationErrors": []
+    },
+    "after": {
+      "tabs": 20,
+      "titled": 20,
+      "chromeErrorPages": 0,
+      "challengePages": 2,
+      "navigationErrors": []
+    },
+    "map_errors": [],
+    "observer_errors": [],
+    "gaps": 0
+  },
+  {
+    "profile": "release",
+    "variant": "after",
+    "before": {
+      "tabs": 20,
+      "titled": 20,
+      "chromeErrorPages": 0,
+      "challengePages": 2,
+      "navigationErrors": []
+    },
+    "after": {
+      "tabs": 20,
+      "titled": 20,
+      "chromeErrorPages": 0,
+      "challengePages": 2,
+      "navigationErrors": []
+    },
+    "map_errors": [],
+    "observer_errors": [],
+    "gaps": 0
+  },
+  {
+    "profile": "release",
+    "variant": "before",
+    "before": {
+      "tabs": 20,
+      "titled": 20,
+      "chromeErrorPages": 0,
+      "challengePages": 2,
+      "navigationErrors": []
+    },
+    "after": {
+      "tabs": 20,
+      "titled": 20,
+      "chromeErrorPages": 0,
+      "challengePages": 2,
+      "navigationErrors": []
+    },
+    "map_errors": [],
+    "observer_errors": [],
+    "gaps": 0
+  }
+]
