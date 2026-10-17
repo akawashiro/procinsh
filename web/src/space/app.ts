@@ -93,6 +93,7 @@ bindSelection($("world"), $("hover"), {
   actions,
   hover(state) {
     Object.assign(selection, state);
+    renderer.invalidateLabels();
   },
 });
 
@@ -152,6 +153,7 @@ function retainParticles() {
 function rebuildScene() {
   scene.rebuild(sceneInput(), selection.process);
   scene.updateSelection(selection);
+  renderer.invalidateLabels();
 }
 function adaptCamera() {
   if (!data.nodes.size) return;
@@ -164,6 +166,7 @@ function updateDetails() {
 
 function updateSelection() {
   scene.updateSelection(selection);
+  renderer.invalidateLabels();
   updateDetails();
 }
 function clearSelection() {
@@ -207,6 +210,7 @@ function refreshFiles() {
   retainSelection();
   scene.refreshFiles(sceneInput());
   scene.updateSelection(selection);
+  renderer.invalidateLabels();
   retainParticles();
   adaptCamera();
   updateDetails();

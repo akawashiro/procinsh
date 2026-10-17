@@ -1,0 +1,1005 @@
+{
+  "scenario": "interact-space",
+  "fixture": true,
+  "url": "http://127.0.0.1:44381/space",
+  "releaseBackend": "http://127.0.0.1:9110",
+  "collectedAt": "2026-10-17T12:09:57.661Z",
+  "commit": "271a33aa941328dbd9ab2f95c076b8f5fbcda717",
+  "dirty": "",
+  "hardware": {
+    "cpu": "AMD Ryzen 9 5950X 16-Core Processor",
+    "logicalCpus": 32,
+    "kernel": "7.0.0-38-generic"
+  },
+  "version": {
+    "Browser": "Chrome/141.0.7390.65",
+    "Protocol-Version": "1.3",
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.0.0 Safari/537.36",
+    "V8-Version": "14.1.146.11",
+    "WebKit-Version": "537.36 (@b2ec783d2b51a396804a4e3e33f6586be09a4e2d)",
+    "webSocketDebuggerUrl": "ws://127.0.0.1:35439/devtools/browser/a1450007-65c1-4af8-86c6-a4ec37e60d40"
+  },
+  "gpu": {
+    "devices": [
+      {
+        "vendorId": 4318,
+        "deviceId": 11524,
+        "vendorString": "Google Inc. (NVIDIA Corporation)",
+        "deviceString": "ANGLE (NVIDIA Corporation, NVIDIA GeForce RTX 5060 Ti/PCIe/SSE2, OpenGL ES 3.2 NVIDIA 580.178.04)",
+        "driverVendor": "NVIDIA",
+        "driverVersion": "580.178.04"
+      }
+    ],
+    "auxAttributes": {
+      "amdSwitchable": false,
+      "canSupportThreadedTextureMailbox": false,
+      "directRenderingVersion": "",
+      "displayType": "ANGLE_OPENGL_EGL",
+      "glExtensions": "GL_AMD_performance_monitor GL_ANGLE_base_vertex_base_instance_shader_builtin GL_ANGLE_blob_cache GL_ANGLE_client_arrays GL_ANGLE_compressed_texture_etc GL_ANGLE_depth_texture GL_ANGLE_framebuffer_blit GL_ANGLE_framebuffer_multisample GL_ANGLE_get_serialized_context_string GL_ANGLE_get_tex_level_parameter GL_ANGLE_instanced_arrays GL_ANGLE_memory_size GL_ANGLE_polygon_mode GL_ANGLE_program_binary_readiness_query GL_ANGLE_program_cache_control GL_ANGLE_request_extension GL_ANGLE_robust_client_memory GL_ANGLE_texture_compression_dxt3 GL_ANGLE_texture_compression_dxt5 GL_ANGLE_texture_external_update GL_ANGLE_translated_shader_source GL_ARM_rgba8 GL_CHROMIUM_bind_generates_resource GL_CHROMIUM_bind_uniform_location GL_CHROMIUM_color_buffer_float_rgba GL_CHROMIUM_copy_texture GL_CHROMIUM_framebuffer_mixed_samples GL_CHROMIUM_lose_context GL_EXT_EGL_image_external_wrap_modes GL_EXT_base_instance GL_EXT_blend_func_extended GL_EXT_blend_minmax GL_EXT_clear_texture GL_EXT_clip_control GL_EXT_color_buffer_half_float GL_EXT_compressed_ETC1_RGB8_sub_texture GL_EXT_debug_label GL_EXT_debug_marker GL_EXT_depth_clamp GL_EXT_discard_framebuffer GL_EXT_disjoint_timer_query GL_EXT_draw_elements_base_vertex GL_EXT_float_blend GL_EXT_frag_depth GL_EXT_instanced_arrays GL_EXT_map_buffer_range GL_EXT_memory_object GL_EXT_memory_object_fd GL_EXT_multisample_compatibility GL_EXT_multisampled_render_to_texture GL_EXT_multisampled_render_to_texture2 GL_EXT_occlusion_query_boolean GL_EXT_polygon_offset_clamp GL_EXT_read_format_bgra GL_EXT_robustness GL_EXT_sRGB GL_EXT_sRGB_write_control GL_EXT_semaphore GL_EXT_semaphore_fd GL_EXT_shader_texture_lod GL_EXT_shadow_samplers GL_EXT_texture_border_clamp GL_EXT_texture_compression_bptc GL_EXT_texture_compression_dxt1 GL_EXT_texture_compression_rgtc GL_EXT_texture_compression_s3tc_srgb GL_EXT_texture_filter_anisotropic GL_EXT_texture_format_BGRA8888 GL_EXT_texture_mirror_clamp_to_edge GL_EXT_texture_norm16 GL_EXT_texture_rg GL_EXT_texture_sRGB_decode GL_EXT_texture_storage GL_EXT_unpack_subimage GL_KHR_blend_equation_advanced GL_KHR_blend_equation_advanced_coherent GL_KHR_debug GL_KHR_parallel_shader_compile GL_KHR_robustness GL_KHR_texture_compression_astc_hdr GL_KHR_texture_compression_astc_ldr GL_KHR_texture_compression_astc_sliced_3d GL_NV_depth_buffer_float2 GL_NV_fence GL_NV_framebuffer_blit GL_NV_pack_subimage GL_NV_pixel_buffer_object GL_NV_polygon_mode GL_NV_read_depth GL_NV_read_stencil GL_NV_robustness_video_memory_purge GL_OES_EGL_image GL_OES_EGL_image_external GL_OES_EGL_sync GL_OES_compressed_EAC_R11_signed_texture GL_OES_compressed_EAC_R11_unsigned_texture GL_OES_compressed_EAC_RG11_signed_texture GL_OES_compressed_EAC_RG11_unsigned_texture GL_OES_compressed_ETC1_RGB8_texture GL_OES_compressed_ETC2_RGB8_texture GL_OES_compressed_ETC2_RGBA8_texture GL_OES_compressed_ETC2_punchthroughA_RGBA8_texture GL_OES_compressed_ETC2_punchthroughA_sRGB8_alpha_texture GL_OES_compressed_ETC2_sRGB8_alpha8_texture GL_OES_compressed_ETC2_sRGB8_texture GL_OES_depth24 GL_OES_depth32 GL_OES_depth_texture GL_OES_draw_elements_base_vertex GL_OES_element_index_uint GL_OES_fbo_render_mipmap GL_OES_get_program_binary GL_OES_mapbuffer GL_OES_packed_depth_stencil GL_OES_rgb8_rgba8 GL_OES_standard_derivatives GL_OES_surfaceless_context GL_OES_texture_3D GL_OES_texture_border_clamp GL_OES_texture_float GL_OES_texture_float_linear GL_OES_texture_half_float GL_OES_texture_half_float_linear GL_OES_texture_npot GL_OES_vertex_array_object GL_WEBGL_video_texture ",
+      "glImplementationParts": "(gl=egl-angle,angle=opengl)",
+      "glRenderer": "ANGLE (NVIDIA Corporation, NVIDIA GeForce RTX 5060 Ti/PCIe/SSE2, OpenGL ES 3.2 NVIDIA 580.178.04)",
+      "glResetNotificationStrategy": 33362,
+      "glVendor": "Google Inc. (NVIDIA Corporation)",
+      "glVersion": "OpenGL ES 2.0.0 (ANGLE 2.1.26018 git hash: bb55ea10fcef)",
+      "glWsExtensions": "EGL_EXT_create_context_robustness EGL_KHR_create_context EGL_KHR_image EGL_KHR_image_base EGL_KHR_gl_colorspace EGL_KHR_gl_texture_2D_image EGL_KHR_gl_texture_cubemap_image EGL_KHR_gl_texture_3D_image EGL_KHR_gl_renderbuffer_image EGL_KHR_get_all_proc_addresses EGL_KHR_fence_sync EGL_KHR_wait_sync EGL_ANGLE_create_context_webgl_compatibility EGL_CHROMIUM_create_context_bind_generates_resource EGL_KHR_swap_buffers_with_damage EGL_EXT_pixel_format_float EGL_KHR_surfaceless_context EGL_ANGLE_display_texture_share_group EGL_ANGLE_display_semaphore_share_group EGL_ANGLE_create_context_client_arrays EGL_ANGLE_program_cache_control EGL_ANGLE_robust_resource_initialization EGL_ANGLE_create_context_extensions_enabled EGL_ANDROID_blob_cache EGL_ANDROID_recordable EGL_ANGLE_create_context_backwards_compatible EGL_KHR_no_config_context EGL_KHR_create_context_no_error EGL_EXT_image_dma_buf_import EGL_EXT_image_dma_buf_import_modifiers EGL_NV_robustness_video_memory_purge EGL_KHR_reusable_sync EGL_ANGLE_external_context_and_surface EGL_EXT_buffer_age EGL_ANGLE_context_virtualization EGL_ANGLE_memory_usage_report EGL_ANGLE_create_context_passthrough_shaders ",
+      "glWsVendor": "Google Inc. (NVIDIA Corporation)",
+      "glWsVersion": "1.5 (ANGLE 2.1.26018 git hash: bb55ea10fcef)",
+      "hardwareSupportsVulkan": false,
+      "inProcessGpu": false,
+      "initializationTime": 0.262325,
+      "isAsan": false,
+      "isClangCoverage": false,
+      "jpegDecodeAcceleratorSupported": false,
+      "maxMsaaSamples": "8",
+      "optimus": false,
+      "passthroughCmdDecoder": true,
+      "pixelShaderVersion": "1.00",
+      "processCrashCount": 0,
+      "sandboxed": false,
+      "skiaBackendType": "GaneshGL",
+      "subpixelFontRendering": true,
+      "targetCpuBits": 64,
+      "vertexShaderVersion": "1.00",
+      "visibilityCallbackCallCount": 0
+    },
+    "featureStatus": {
+      "2d_canvas": "enabled",
+      "direct_rendering_display_compositor": "disabled_off_ok",
+      "gpu_compositing": "enabled",
+      "multiple_raster_threads": "enabled_on",
+      "opengl": "enabled_on",
+      "rasterization": "enabled",
+      "raw_draw": "disabled_off_ok",
+      "skia_graphite": "disabled_off",
+      "trees_in_viz": "disabled_off",
+      "video_decode": "enabled",
+      "video_encode": "disabled_software",
+      "vulkan": "disabled_off",
+      "webgl": "enabled",
+      "webgl2": "enabled",
+      "webgpu": "disabled_off",
+      "webnn": "disabled_off"
+    },
+    "driverBugWorkarounds": [
+      "disable_discard_framebuffer",
+      "enable_webgl_timer_query_extensions",
+      "exit_on_context_lost",
+      "force_cube_complete",
+      "init_gl_position_in_vertex_shader",
+      "unpack_overlapping_rows_separately_unpack_buffer",
+      "disabled_extension_GL_KHR_blend_equation_advanced",
+      "disabled_extension_GL_KHR_blend_equation_advanced_coherent"
+    ],
+    "videoDecoding": [],
+    "videoEncoding": [],
+    "imageDecoding": []
+  },
+  "chromeArgs": [
+    "--headless=new",
+    "--no-sandbox",
+    "--no-first-run",
+    "--disable-extensions",
+    "--disable-dev-shm-usage",
+    "--use-gl=angle",
+    "--use-angle=gl-egl",
+    "--remote-debugging-port=0",
+    "--user-data-dir=/tmp/procinsh-profile-EhOH8m",
+    "about:blank"
+  ],
+  "counts": {
+    "processes": 256,
+    "maps": 4096,
+    "relations": 255
+  },
+  "elapsedSeconds": 15.014270915000004,
+  "beforeState": {
+    "hidden": false,
+    "width": 1440,
+    "height": 1100,
+    "dpr": 1,
+    "fps": "60 FPS · 100% render",
+    "heap": 13077794,
+    "buildRevision": "https://github.com/akawashiro/procinsh/commit/271a33aa941328dbd9ab2f95c076b8f5fbcda717",
+    "buildLabel": "271a33a"
+  },
+  "afterState": {
+    "hidden": false,
+    "width": 1440,
+    "height": 1100,
+    "dpr": 1,
+    "fps": "60 FPS · 100% render",
+    "heap": 38631588,
+    "buildRevision": "https://github.com/akawashiro/procinsh/commit/271a33aa941328dbd9ab2f95c076b8f5fbcda717",
+    "buildLabel": "271a33a"
+  },
+  "processCpuPercentOfOneCore": {
+    "browser": 1.731685817259678,
+    "renderer": 17.450064773924453,
+    "GPU": 19.448163793839463,
+    "network.mojom.NetworkService": 0.1332066013276673,
+    "storage.mojom.StorageService": 0
+  },
+  "taskBusyPercent": 11.244482063483527,
+  "scriptSeconds": 1.279211,
+  "layoutSeconds": 0.001268,
+  "animationFrames": {
+    "count": 900,
+    "totalMs": 612.6899999999996,
+    "p50Ms": 0.536,
+    "p95Ms": 0.856,
+    "maxMs": 8.811
+  },
+  "longTasks": {
+    "count": 0,
+    "totalMs": 0,
+    "p50Ms": 0,
+    "p95Ms": 0,
+    "maxMs": 0
+  },
+  "gc": {
+    "count": 20,
+    "totalMs": 29.487000000000002,
+    "p50Ms": 1.459,
+    "p95Ms": 1.965,
+    "maxMs": 1.965
+  },
+  "layout": {
+    "count": 4,
+    "totalMs": 1.2469999999999999,
+    "p50Ms": 0.112,
+    "p95Ms": 1.007,
+    "maxMs": 1.007
+  },
+  "paint": {
+    "count": 7,
+    "totalMs": 0.21999999999999997,
+    "p50Ms": 0.032,
+    "p95Ms": 0.052,
+    "maxMs": 0.052
+  },
+  "beforeMetrics": {
+    "metrics": [
+      {
+        "name": "Timestamp",
+        "value": 968369.523286
+      },
+      {
+        "name": "AudioHandlers",
+        "value": 0
+      },
+      {
+        "name": "AudioWorkletProcessors",
+        "value": 0
+      },
+      {
+        "name": "Documents",
+        "value": 1
+      },
+      {
+        "name": "Frames",
+        "value": 1
+      },
+      {
+        "name": "JSEventListeners",
+        "value": 27
+      },
+      {
+        "name": "LayoutObjects",
+        "value": 35
+      },
+      {
+        "name": "MediaKeySessions",
+        "value": 0
+      },
+      {
+        "name": "MediaKeys",
+        "value": 0
+      },
+      {
+        "name": "Nodes",
+        "value": 70
+      },
+      {
+        "name": "Resources",
+        "value": 4
+      },
+      {
+        "name": "ContextLifecycleStateObservers",
+        "value": 2
+      },
+      {
+        "name": "V8PerContextDatas",
+        "value": 1
+      },
+      {
+        "name": "WorkerGlobalScopes",
+        "value": 0
+      },
+      {
+        "name": "UACSSResources",
+        "value": 0
+      },
+      {
+        "name": "RTCPeerConnections",
+        "value": 0
+      },
+      {
+        "name": "ResourceFetchers",
+        "value": 1
+      },
+      {
+        "name": "AdSubframes",
+        "value": 0
+      },
+      {
+        "name": "DetachedScriptStates",
+        "value": 0
+      },
+      {
+        "name": "ArrayBufferContents",
+        "value": 68
+      },
+      {
+        "name": "LayoutCount",
+        "value": 5
+      },
+      {
+        "name": "RecalcStyleCount",
+        "value": 63
+      },
+      {
+        "name": "LayoutDuration",
+        "value": 0.010974
+      },
+      {
+        "name": "RecalcStyleDuration",
+        "value": 0.005773
+      },
+      {
+        "name": "DevToolsCommandDuration",
+        "value": 0.001288
+      },
+      {
+        "name": "ScriptDuration",
+        "value": 0.745114
+      },
+      {
+        "name": "V8CompileDuration",
+        "value": 0
+      },
+      {
+        "name": "TaskDuration",
+        "value": 0.840294
+      },
+      {
+        "name": "TaskOtherDuration",
+        "value": 0.077145
+      },
+      {
+        "name": "ThreadTime",
+        "value": 0.379932
+      },
+      {
+        "name": "ProcessTime",
+        "value": 0.72
+      },
+      {
+        "name": "JSHeapUsedSize",
+        "value": 8114068
+      },
+      {
+        "name": "JSHeapTotalSize",
+        "value": 43778048
+      },
+      {
+        "name": "FirstMeaningfulPaint",
+        "value": 968363.254514
+      },
+      {
+        "name": "DomContentLoaded",
+        "value": 968363.484162
+      },
+      {
+        "name": "NavigationStart",
+        "value": 968338.381387
+      }
+    ]
+  },
+  "afterMetrics": {
+    "metrics": [
+      {
+        "name": "Timestamp",
+        "value": 968384.593485
+      },
+      {
+        "name": "AudioHandlers",
+        "value": 0
+      },
+      {
+        "name": "AudioWorkletProcessors",
+        "value": 0
+      },
+      {
+        "name": "Documents",
+        "value": 1
+      },
+      {
+        "name": "Frames",
+        "value": 1
+      },
+      {
+        "name": "JSEventListeners",
+        "value": 31
+      },
+      {
+        "name": "LayoutObjects",
+        "value": 35
+      },
+      {
+        "name": "MediaKeySessions",
+        "value": 0
+      },
+      {
+        "name": "MediaKeys",
+        "value": 0
+      },
+      {
+        "name": "Nodes",
+        "value": 71
+      },
+      {
+        "name": "Resources",
+        "value": 4
+      },
+      {
+        "name": "ContextLifecycleStateObservers",
+        "value": 2
+      },
+      {
+        "name": "V8PerContextDatas",
+        "value": 1
+      },
+      {
+        "name": "WorkerGlobalScopes",
+        "value": 0
+      },
+      {
+        "name": "UACSSResources",
+        "value": 0
+      },
+      {
+        "name": "RTCPeerConnections",
+        "value": 0
+      },
+      {
+        "name": "ResourceFetchers",
+        "value": 1
+      },
+      {
+        "name": "AdSubframes",
+        "value": 0
+      },
+      {
+        "name": "DetachedScriptStates",
+        "value": 0
+      },
+      {
+        "name": "ArrayBufferContents",
+        "value": 123
+      },
+      {
+        "name": "LayoutCount",
+        "value": 9
+      },
+      {
+        "name": "RecalcStyleCount",
+        "value": 598
+      },
+      {
+        "name": "LayoutDuration",
+        "value": 0.012242
+      },
+      {
+        "name": "RecalcStyleDuration",
+        "value": 0.012794
+      },
+      {
+        "name": "DevToolsCommandDuration",
+        "value": 0.039684
+      },
+      {
+        "name": "ScriptDuration",
+        "value": 2.024325
+      },
+      {
+        "name": "V8CompileDuration",
+        "value": 0
+      },
+      {
+        "name": "TaskDuration",
+        "value": 2.528571
+      },
+      {
+        "name": "TaskOtherDuration",
+        "value": 0.439526
+      },
+      {
+        "name": "ThreadTime",
+        "value": 2.186397
+      },
+      {
+        "name": "ProcessTime",
+        "value": 3.33
+      },
+      {
+        "name": "JSHeapUsedSize",
+        "value": 34253644
+      },
+      {
+        "name": "JSHeapTotalSize",
+        "value": 68067328
+      },
+      {
+        "name": "FirstMeaningfulPaint",
+        "value": 968363.254514
+      },
+      {
+        "name": "DomContentLoaded",
+        "value": 968363.484162
+      },
+      {
+        "name": "NavigationStart",
+        "value": 968338.381387
+      }
+    ]
+  },
+  "beforeProcesses": {
+    "processInfo": [
+      {
+        "type": "browser",
+        "id": 3638357,
+        "cpuTime": 1.26
+      },
+      {
+        "type": "renderer",
+        "id": 3638433,
+        "cpuTime": 0.01
+      },
+      {
+        "type": "renderer",
+        "id": 3638420,
+        "cpuTime": 0.72
+      },
+      {
+        "type": "GPU",
+        "id": 3638393,
+        "cpuTime": 3.3
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 3638395,
+        "cpuTime": 0.34
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 3638397,
+        "cpuTime": 0
+      }
+    ]
+  },
+  "afterProcesses": {
+    "processInfo": [
+      {
+        "type": "browser",
+        "id": 3638357,
+        "cpuTime": 1.52
+      },
+      {
+        "type": "renderer",
+        "id": 3638433,
+        "cpuTime": 0.02
+      },
+      {
+        "type": "renderer",
+        "id": 3638420,
+        "cpuTime": 3.33
+      },
+      {
+        "type": "GPU",
+        "id": 3638393,
+        "cpuTime": 6.22
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 3638395,
+        "cpuTime": 0.36
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 3638397,
+        "cpuTime": 0
+      },
+      {
+        "type": "tracing.mojom.TracingService",
+        "id": 3644076,
+        "cpuTime": 0.01
+      }
+    ]
+  },
+  "topSelf": [
+    {
+      "milliseconds": 13374.424,
+      "frame": {
+        "functionName": "(idle)",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      }
+    },
+    {
+      "milliseconds": 371.899,
+      "frame": {
+        "functionName": "(program)",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      }
+    },
+    {
+      "milliseconds": 110.181,
+      "frame": {
+        "functionName": "S",
+        "scriptId": "7",
+        "url": "http://127.0.0.1:44381/assets/space-M3w9yQB0.js",
+        "lineNumber": 3831,
+        "columnNumber": 81277
+      },
+      "source": {
+        "generatedLine": 3831,
+        "generatedColumn": 81275,
+        "originalSource": "../../src/space/renderer.ts",
+        "originalLine": 259,
+        "originalColumn": 10,
+        "name": "add"
+      }
+    },
+    {
+      "milliseconds": 100.683,
+      "frame": {
+        "functionName": "measureText",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      }
+    },
+    {
+      "milliseconds": 74.166,
+      "frame": {
+        "functionName": "re",
+        "scriptId": "7",
+        "url": "http://127.0.0.1:44381/assets/space-M3w9yQB0.js",
+        "lineNumber": 3831,
+        "columnNumber": 80907
+      },
+      "source": {
+        "generatedLine": 3831,
+        "generatedColumn": 80905,
+        "originalSource": "../../src/space/renderer.ts",
+        "originalLine": 231,
+        "originalColumn": 11,
+        "name": "drawLabels"
+      }
+    },
+    {
+      "milliseconds": 58.228,
+      "frame": {
+        "functionName": "raycast",
+        "scriptId": "7",
+        "url": "http://127.0.0.1:44381/assets/space-M3w9yQB0.js",
+        "lineNumber": 39,
+        "columnNumber": 22232
+      },
+      "source": {
+        "generatedLine": 39,
+        "generatedColumn": 22225,
+        "originalSource": "../../node_modules/three/build/three.core.js",
+        "originalLine": 25834,
+        "originalColumn": 1
+      }
+    },
+    {
+      "milliseconds": 58.18,
+      "frame": {
+        "functionName": "multiplyMatrices",
+        "scriptId": "7",
+        "url": "http://127.0.0.1:44381/assets/space-M3w9yQB0.js",
+        "lineNumber": 0,
+        "columnNumber": 57332
+      },
+      "source": {
+        "generatedLine": 0,
+        "generatedColumn": 57316,
+        "originalSource": "../../node_modules/three/build/three.core.js",
+        "originalLine": 11842,
+        "originalColumn": 1
+      }
+    },
+    {
+      "milliseconds": 41.529,
+      "frame": {
+        "functionName": "(garbage collector)",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      }
+    },
+    {
+      "milliseconds": 37.042,
+      "frame": {
+        "functionName": "",
+        "scriptId": "7",
+        "url": "http://127.0.0.1:44381/assets/space-M3w9yQB0.js",
+        "lineNumber": 3831,
+        "columnNumber": 66810
+      },
+      "source": {
+        "generatedLine": 3831,
+        "generatedColumn": 66810,
+        "originalSource": "../../src/space/data.ts",
+        "originalLine": 626,
+        "originalColumn": 42
+      }
+    },
+    {
+      "milliseconds": 32.845,
+      "frame": {
+        "functionName": "j",
+        "scriptId": "7",
+        "url": "http://127.0.0.1:44381/assets/space-M3w9yQB0.js",
+        "lineNumber": 3831,
+        "columnNumber": 71165
+      },
+      "source": {
+        "generatedLine": 3831,
+        "generatedColumn": 71163,
+        "originalSource": "../../src/space/scene.ts",
+        "originalLine": 344,
+        "originalColumn": 10,
+        "name": "addLine"
+      }
+    },
+    {
+      "milliseconds": 32.071,
+      "frame": {
+        "functionName": "distanceSqToSegment",
+        "scriptId": "7",
+        "url": "http://127.0.0.1:44381/assets/space-M3w9yQB0.js",
+        "lineNumber": 0,
+        "columnNumber": 51548
+      },
+      "source": {
+        "generatedLine": 0,
+        "generatedColumn": 51529,
+        "originalSource": "../../node_modules/three/build/three.core.js",
+        "originalLine": 10833,
+        "originalColumn": 1
+      }
+    },
+    {
+      "milliseconds": 29.632,
+      "frame": {
+        "functionName": "length",
+        "scriptId": "7",
+        "url": "http://127.0.0.1:44381/assets/space-M3w9yQB0.js",
+        "lineNumber": 0,
+        "columnNumber": 18446
+      },
+      "source": {
+        "generatedLine": 0,
+        "generatedColumn": 18440,
+        "originalSource": "../../node_modules/three/build/three.core.js",
+        "originalLine": 5097,
+        "originalColumn": 1
+      }
+    },
+    {
+      "milliseconds": 29.629,
+      "frame": {
+        "functionName": "applyMatrix4",
+        "scriptId": "7",
+        "url": "http://127.0.0.1:44381/assets/space-M3w9yQB0.js",
+        "lineNumber": 0,
+        "columnNumber": 16519
+      },
+      "source": {
+        "generatedLine": 0,
+        "generatedColumn": 16507,
+        "originalSource": "../../node_modules/three/build/three.core.js",
+        "originalLine": 4776,
+        "originalColumn": 1
+      }
+    },
+    {
+      "milliseconds": 27.527,
+      "frame": {
+        "functionName": "strokeText",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      }
+    },
+    {
+      "milliseconds": 25.491,
+      "frame": {
+        "functionName": "getProgramInfoLog",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      }
+    },
+    {
+      "milliseconds": 23.265,
+      "frame": {
+        "functionName": "dot",
+        "scriptId": "7",
+        "url": "http://127.0.0.1:44381/assets/space-M3w9yQB0.js",
+        "lineNumber": 0,
+        "columnNumber": 18336
+      },
+      "source": {
+        "generatedLine": 0,
+        "generatedColumn": 18333,
+        "originalSource": "../../node_modules/three/build/three.core.js",
+        "originalLine": 5071,
+        "originalColumn": 1
+      }
+    },
+    {
+      "milliseconds": 19.04,
+      "frame": {
+        "functionName": "fromArray",
+        "scriptId": "7",
+        "url": "http://127.0.0.1:44381/assets/space-M3w9yQB0.js",
+        "lineNumber": 0,
+        "columnNumber": 62698
+      },
+      "source": {
+        "generatedLine": 0,
+        "generatedColumn": 62689,
+        "originalSource": "../../node_modules/three/build/three.core.js",
+        "originalLine": 12543,
+        "originalColumn": 1
+      }
+    },
+    {
+      "milliseconds": 19.02,
+      "frame": {
+        "functionName": "C",
+        "scriptId": "7",
+        "url": "http://127.0.0.1:44381/assets/space-M3w9yQB0.js",
+        "lineNumber": 3831,
+        "columnNumber": 69572
+      },
+      "source": {
+        "generatedLine": 3831,
+        "generatedColumn": 69571,
+        "originalSource": "../../src/space/scene.ts",
+        "originalLine": 225,
+        "originalColumn": 11,
+        "name": "buildScene"
+      }
+    },
+    {
+      "milliseconds": 16.917,
+      "frame": {
+        "functionName": "raycast",
+        "scriptId": "7",
+        "url": "http://127.0.0.1:44381/assets/space-M3w9yQB0.js",
+        "lineNumber": 0,
+        "columnNumber": 118725
+      },
+      "source": {
+        "generatedLine": 0,
+        "generatedColumn": 118718,
+        "originalSource": "../../node_modules/three/build/three.core.js",
+        "originalLine": 20398,
+        "originalColumn": 1
+      }
+    },
+    {
+      "milliseconds": 15.914,
+      "frame": {
+        "functionName": "",
+        "scriptId": "7",
+        "url": "http://127.0.0.1:44381/assets/space-M3w9yQB0.js",
+        "lineNumber": 3831,
+        "columnNumber": 82323
+      },
+      "source": {
+        "generatedLine": 3831,
+        "generatedColumn": 82323,
+        "originalSource": "../../src/space/renderer.ts",
+        "originalLine": 332,
+        "originalColumn": 11
+      }
+    },
+    {
+      "milliseconds": 14.822,
+      "frame": {
+        "functionName": "fillText",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      }
+    },
+    {
+      "milliseconds": 13.621,
+      "frame": {
+        "functionName": "Ro",
+        "scriptId": "7",
+        "url": "http://127.0.0.1:44381/assets/space-M3w9yQB0.js",
+        "lineNumber": 39,
+        "columnNumber": 47548
+      },
+      "source": {
+        "generatedLine": 39,
+        "generatedColumn": 47546,
+        "originalSource": "../../node_modules/three/build/three.core.js",
+        "originalLine": 28916,
+        "originalColumn": 9,
+        "name": "checkIntersection"
+      }
+    },
+    {
+      "milliseconds": 12.77,
+      "frame": {
+        "functionName": "getProgramInfoLog",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      }
+    },
+    {
+      "milliseconds": 12.729,
+      "frame": {
+        "functionName": "renderBufferDirect",
+        "scriptId": "7",
+        "url": "http://127.0.0.1:44381/assets/space-M3w9yQB0.js",
+        "lineNumber": 3831,
+        "columnNumber": 24760
+      },
+      "source": {
+        "generatedLine": 3831,
+        "generatedColumn": 24752,
+        "originalSource": "../../node_modules/three/build/three.module.js",
+        "originalLine": 15934,
+        "originalColumn": 28
+      }
+    },
+    {
+      "milliseconds": 12.722,
+      "frame": {
+        "functionName": "st",
+        "scriptId": "7",
+        "url": "http://127.0.0.1:44381/assets/space-M3w9yQB0.js",
+        "lineNumber": 3831,
+        "columnNumber": 35561
+      },
+      "source": {
+        "generatedLine": 3831,
+        "generatedColumn": 35559,
+        "originalSource": "../../node_modules/three/build/three.module.js",
+        "originalLine": 17020,
+        "originalColumn": 11,
+        "name": "setProgram"
+      }
+    },
+    {
+      "milliseconds": 12.693,
+      "frame": {
+        "functionName": "shaderSource",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      }
+    },
+    {
+      "milliseconds": 11.642,
+      "frame": {
+        "functionName": "copy",
+        "scriptId": "7",
+        "url": "http://127.0.0.1:44381/assets/space-M3w9yQB0.js",
+        "lineNumber": 0,
+        "columnNumber": 15466
+      },
+      "source": {
+        "generatedLine": 0,
+        "generatedColumn": 15462,
+        "originalSource": "../../node_modules/three/build/three.core.js",
+        "originalLine": 4538,
+        "originalColumn": 1
+      }
+    },
+    {
+      "milliseconds": 10.582,
+      "frame": {
+        "functionName": "",
+        "scriptId": "7",
+        "url": "http://127.0.0.1:44381/assets/space-M3w9yQB0.js",
+        "lineNumber": 3831,
+        "columnNumber": 64479
+      },
+      "source": {
+        "generatedLine": 3831,
+        "generatedColumn": 64479,
+        "originalSource": "../../src/space/data.ts",
+        "originalLine": 486,
+        "originalColumn": 46
+      }
+    },
+    {
+      "milliseconds": 10.581,
+      "frame": {
+        "functionName": "addScaledVector",
+        "scriptId": "7",
+        "url": "http://127.0.0.1:44381/assets/space-M3w9yQB0.js",
+        "lineNumber": 0,
+        "columnNumber": 15713
+      },
+      "source": {
+        "generatedLine": 0,
+        "generatedColumn": 15698,
+        "originalSource": "../../node_modules/three/build/three.core.js",
+        "originalLine": 4604,
+        "originalColumn": 1
+      }
+    },
+    {
+      "milliseconds": 10.535,
+      "frame": {
+        "functionName": "divideScalar",
+        "scriptId": "7",
+        "url": "http://127.0.0.1:44381/assets/space-M3w9yQB0.js",
+        "lineNumber": 0,
+        "columnNumber": 17348
+      },
+      "source": {
+        "generatedLine": 0,
+        "generatedColumn": 17336,
+        "originalSource": "../../node_modules/three/build/three.core.js",
+        "originalLine": 4889,
+        "originalColumn": 1
+      }
+    }
+  ],
+  "errors": []
+}

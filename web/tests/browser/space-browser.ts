@@ -18,6 +18,7 @@ import { checkProcessDetails } from "./process-details.js";
 import { checkDescriptors } from "./fds.js";
 import { checkNetlinkSpace } from "./space-netlink.js";
 import { checkFileSpace } from "./space-files.js";
+import { checkSpaceLabels } from "./space-labels.js";
 import { checkNetworkSpace } from "./space-network.js";
 import { checkSocketVisibility } from "./space-socket-visibility.js";
 import { processEventRecording } from "./process-events.js";
@@ -346,6 +347,7 @@ try {
     "window.spaceTestSources.at(-1).snapshots[0]?.kind==='full' && window.spaceTestSources.at(-1).snapshots[0]?.sequence===1",
     "baseline mismatch full reset",
   );
+  await checkSpaceLabels(evaluate, cdp);
   await evaluate(`(async()=>{
     window.spaceTestSources.forEach(source=>source.close());
     const m=await import(window.spaceTestModule), id={pid:424242,start_time_ticks:7}, peerId={pid:434343,start_time_ticks:8};
