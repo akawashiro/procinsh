@@ -1,4 +1,10 @@
 // Compose SPACE data, rendering, and user actions; own page lifecycle events.
+import { SpaceRecorder } from "./recording.js";
+import {
+  mountRecordingControls,
+  mountReplayControls,
+} from "./session-controls.js";
+import { setSpaceClock, spaceNow } from "./clock.js";
 import * as T from "three";
 import { isKernelNetlink } from "./netlink.js";
 import { SpaceDataStore } from "./data.js";
@@ -18,17 +24,32 @@ import type {
 import { createSpaceDetails } from "./details.js";
 import { spaceElement as $ } from "./dom-types.js";
 
+const replayMode = document.body.dataset.mode === "replay";
+let replayTime = 0;
+let tickReplay: (() => void) | undefined;
+if (replayMode) setSpaceClock(() => replayTime);
+const recorder = new SpaceRecorder(spaceNow);
+let liveReady = false;
+
 const selection = new SpaceSelection();
 const data = new SpaceDataStore(
   {
-    snapshot: updateSnapshot,
+    snapshot() {
+      liveReady = true;
+      updateSnapshot();
+    },
     activity: updateActivity,
     reset() {
+      liveReady = false;
+      recorder.stop(
+        "Live stream interrupted; download the retained recording.",
+      );
       renderer.clearParticles();
       if (data.pruneRetention()) updateSnapshot();
       else refreshFiles();
     },
     gap() {
+      recorder.stop("Live event gap; download the retained recording.");
       renderer.clearParticles();
       if (data.pruneRetention()) updateSnapshot();
     },
@@ -40,6 +61,7 @@ const data = new SpaceDataStore(
   () => search.visibleIds(),
   undefined,
   (now, suppressed) => renderer.activeResources(now, suppressed),
+  (event) => recorder.capture(event),
 );
 const search = createSpaceSearch(
   $("search"),
@@ -64,7 +86,9 @@ const renderer = createSpaceRenderer({
   view: scene.renderView,
   selection: () => selection,
   cpuGlows: data.cpuGlows,
-  beforeFrame(now) {
+  beforeFrame(_now) {
+    tickReplay?.();
+    const now = spaceNow();
     camera.controls.update();
     if (data.pruneRetention(now)) updateSnapshot();
     if (now - lastFilePrune >= 1000) {
@@ -223,7 +247,7 @@ function updateActivity(update: ActivityUpdate) {
 function renderActivity(activity: SpaceActivity) {
   updateActivity(data.ingestActivity(activity, search.visibleIds()));
 }
-function pruneFiles(now = performance.now()) {
+function pruneFiles(now = spaceNow()) {
   if (data.pruneFiles(now)) refreshFiles();
 }
 function fitScene() {
@@ -254,11 +278,12 @@ addEventListener("resize", () => {
 function start() {
   if (document.hidden) return;
   renderer.resume();
-  data.start();
+  if (!replayMode) data.start();
 }
 function stop() {
   renderer.pause();
-  data.stop();
+  recorder.stop("Tab hidden or page left; download the retained recording.");
+  if (!replayMode) data.stop();
 }
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) stop();
@@ -268,4 +293,35 @@ addEventListener("pagehide", stop);
 addEventListener("pageshow", (event) => {
   if (event.persisted) start();
 });
+if (replayMode) {
+  tickReplay = mountReplayControls(
+    (snapshot) => {
+      renderer.clearParticles();
+      data.cpuGlows.clear();
+      data.edgeStats.clear();
+      data.recentFiles.clear();
+      data.netlinkSockets.clear();
+      data.nodes.clear();
+      data.displaySnapshot = { processes: [], fd_relations: [] };
+      data.networkPositions.clear();
+      data.filePositions.clear();
+      data.netlinkPositions.clear();
+      lastFilePrune = 0;
+      renderSystemSnapshot(snapshot, true);
+    },
+    (event) => {
+      if (event.type === "snapshot") renderSystemSnapshot(event.data);
+      else renderActivity(event.data);
+    },
+    (time) => {
+      replayTime = time;
+    },
+  );
+} else {
+  mountRecordingControls(
+    recorder,
+    () => data.snapshot,
+    () => liveReady,
+  );
+}
 start();

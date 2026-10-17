@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, cpSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { defineConfig, loadEnv, type Plugin } from "vite";
 
@@ -10,10 +10,31 @@ function applicationPages(): Plugin {
   ).match(/^version = "([^"]+)"/m)![1];
   return {
     name: "procinsh-pages",
+    closeBundle() {
+      const directory = resolve(import.meta.dirname, "dist/recordings");
+      mkdirSync(directory, { recursive: true });
+      cpSync(
+        resolve(import.meta.dirname, "replay-public/recordings"),
+        directory,
+        { recursive: true },
+      );
+    },
     configureServer(server) {
-      server.middlewares.use((request, _response, next) => {
+      server.middlewares.use((request, response, next) => {
         const url = new URL(request.url ?? "/", "http://localhost");
         const path = url.pathname;
+        if (path === "/recordings/demo.json") {
+          response.setHeader("content-type", "application/json; charset=utf-8");
+          response.end(
+            readFileSync(
+              resolve(
+                import.meta.dirname,
+                "replay-public/recordings/demo.json",
+              ),
+            ),
+          );
+          return;
+        }
         const page = /^\/list\/?$/.test(path)
           ? "list"
           : /^\/process\/\d+\/?$/.test(path)
@@ -52,7 +73,7 @@ export default defineConfig(({ mode }) => {
       rolldownOptions: {
         input: {
           ...Object.fromEntries(
-            ["list", "process", "space"].map((page) => [
+            ["list", "process", "space", "replay/space"].map((page) => [
               page,
               resolve(import.meta.dirname, page, "index.html"),
             ]),

@@ -1,4 +1,4 @@
-//! Embedded SPACE home page, process list, process details, and static assets.
+//! Embedded SPACE, SPACE replay, process pages, and static assets.
 //!
 //! # Interface
 //! - [`router`]: `pub(super) fn router() -> Router<Arc<AppState>>`; supplies the
@@ -80,6 +80,14 @@ pub(super) fn router() -> Router<Arc<AppState>> {
         .route(
             "/space",
             get(|| async { embedded_asset("space/index.html") }),
+        )
+        .route(
+            "/replay/space/",
+            get(|| async { embedded_asset("replay/space/index.html") }),
+        )
+        .route(
+            "/replay/space",
+            get(|| async { axum::response::Redirect::permanent("/replay/space/") }),
         )
         .fallback(|method: Method, uri: Uri| async move {
             let path = uri.path().trim_start_matches('/');

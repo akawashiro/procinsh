@@ -553,12 +553,14 @@ test("space-components regression", async () => {
         assert.ok(
           [
             "./types.js",
+            "./clock.js",
             "./contracts.js",
             "./model.js",
             "./netlink.js",
             "./dom-types.js",
           ].includes(path) ||
             (name === "data.ts" && path === "./process-layout.js") ||
+            (name === "session-controls.ts" && path === "./recording.js") ||
             (name === "scene.ts" && path === "./ipc-ports.js"),
           `${name} depends on ${path}`,
         );

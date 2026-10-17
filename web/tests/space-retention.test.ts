@@ -2,6 +2,7 @@
 import { afterEach, test, vi } from "vitest";
 import assert from "node:assert/strict";
 import * as T from "three";
+import { setSpaceClock } from "../src/space/clock.js";
 import { SpaceDataStore } from "../src/space/data.js";
 import { createSpaceRenderer } from "../src/space/renderer.js";
 import { createSpaceScene } from "../src/space/scene.js";
@@ -510,5 +511,38 @@ test("positive socket exclusion cancels retention and reduced-motion data expire
     assert.equal(h.data.network.size, 0);
   } finally {
     h.dispose();
+  }
+});
+
+test("paused replay freezes CPU glow and signal motion independently of wall frames", () => {
+  let replayTime = 1000;
+  setSpaceClock(() => replayTime);
+  const h = setup();
+  try {
+    h.snapshot(initial);
+    h.activity({
+      signals: [signal],
+      cpu: [
+        {
+          process_id: source,
+          runtime_ns: 100_000_000,
+          switches: 1,
+          running_threads: 1,
+          cpus: [0],
+        },
+      ],
+    });
+    h.frame(1000);
+    const glow = h.scene.cpuGlowVisual(key(source));
+    h.frame(100_000);
+    assert.deepEqual(h.scene.cpuGlowVisual(key(source)), glow);
+    assert.equal(h.renderer.signalVisuals()[0].arrived, false);
+    replayTime = 2750;
+    h.frame(100_010);
+    assert.equal(h.renderer.signalVisuals()[0].arrived, true);
+    assert.notDeepEqual(h.scene.cpuGlowVisual(key(source)), glow);
+  } finally {
+    h.dispose();
+    setSpaceClock();
   }
 });

@@ -11,3 +11,5 @@ AGENTS.md
 
 /web/.env.local
 /web/.env.*.local
+
+/web/dist-replay/

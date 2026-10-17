@@ -15,11 +15,13 @@
     "typecheck": "tsc --noEmit",
     "docs": "typedoc",
     "docs:architecture": "node --import tsx scripts/module-dependencies.ts",
-    "test:browser": "npm run test:browser:list && npm run test:browser:space",
+    "test:browser": "npm run test:browser:list && npm run test:browser:space && npm run test:browser:replay",
     "test:browser:list": "tsx tests/browser/browser.ts",
     "build:browser-test": "npm run typecheck && vite build --config vite.browser-test.config.ts",
     "test:browser:space": "npm run build:browser-test && cargo build --locked --manifest-path ../Cargo.toml && tsx tests/browser/space-browser.ts",
-    "test:dev": "tsx tests/integration/dev-server.ts"
+    "test:dev": "tsx tests/integration/dev-server.ts",
+    "build:replay": "npm run typecheck && vite build --config vite.replay.config.ts",
+    "test:browser:replay": "PROCINSH_REPLAY_BASE=/demo/ npm run build:replay && tsx tests/browser/space-replay-static.ts"
   },
   "devDependencies": {
     "@types/node": "26.6.4",

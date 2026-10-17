@@ -1,4 +1,5 @@
 // Render selection details and identity-preserving process links in the DOM.
+import { spaceNow } from "./clock.js";
 import { Display } from "../shared/display.js";
 import { processUrl } from "../shared/navigation.js";
 import {
@@ -34,10 +35,11 @@ export function createSpaceDetails(
     selectedNetlink: string | null = null;
   const selectConnection = actions.connection,
     selectNetwork = actions.network;
+  const replayMode = document.body.dataset.mode === "replay";
   function processLink(id: ProcessId) {
     const link = document.createElement("a");
     link.className = "process-link";
-    link.href = processUrl(id);
+    if (!replayMode) link.href = processUrl(id);
     link.textContent = nodes.get(key(id))?.name || "Unknown process";
     return link;
   }
@@ -54,7 +56,7 @@ export function createSpaceDetails(
     const latest = Math.max(0, ...stats.map((s) => s.time)),
       recent = stats.filter((s) => s.time === latest);
     $("connection-facts").textContent = recent.length
-      ? `Latest window: ${recent.reduce((n, s) => n + s.bytes, 0)} bytes / ${recent.reduce((n, s) => n + s.count, 0)} operations · ${((performance.now() - latest) / 1000).toFixed(1)}s ago`
+      ? `Latest window: ${recent.reduce((n, s) => n + s.bytes, 0)} bytes / ${recent.reduce((n, s) => n + s.count, 0)} operations · ${((spaceNow() - latest) / 1000).toFixed(1)}s ago`
       : "Recent traffic —";
     const heading = document.createElement("p");
     const remoteAddress =
@@ -77,7 +79,7 @@ export function createSpaceDetails(
       const stat = edgeStats.get(e.id),
         observed = document.createElement("span");
       observed.textContent = stat
-        ? `${stat.bytes} bytes / ${stat.count} operations · ${((performance.now() - stat.time) / 1000).toFixed(1)}s ago`
+        ? `${stat.bytes} bytes / ${stat.count} operations · ${((spaceNow() - stat.time) / 1000).toFixed(1)}s ago`
         : "Recent traffic —";
       row.append(button, address, observed);
       content.push(row);
@@ -210,7 +212,8 @@ export function createSpaceDetails(
       process.hidden = false;
       connection.hidden = true;
       $("name").textContent = n.name;
-      $("name").href = processUrl(n.identity);
+      if (!replayMode) $("name").href = processUrl(n.identity);
+      else $("name").removeAttribute("href");
       $("cmdline").textContent = n.command_line?.join(" ") || "N/A";
       $("pid").replaceChildren(
         document.createTextNode(`PID ${n.identity.pid} · `),
@@ -234,7 +237,7 @@ export function createSpaceDetails(
     $("connection-state").textContent = connectionState(e);
     const stat = edgeStats.get(e.id);
     $("connection-facts").textContent = stat
-      ? `Latest activity: ${stat.bytes} bytes / ${stat.count} operations · ${((performance.now() - stat.time) / 1000).toFixed(1)}s ago`
+      ? `Latest activity: ${stat.bytes} bytes / ${stat.count} operations · ${((spaceNow() - stat.time) / 1000).toFixed(1)}s ago`
       : "Recent traffic —";
     // Collection can reverse a relation; order the cards by identity and FD.
     const [first, second] = e.peer

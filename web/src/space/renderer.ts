@@ -1,4 +1,5 @@
 // Animate activity, draw the scene and labels, and adapt rendering resolution.
+import { spaceNow } from "./clock.js";
 import type * as T from "three";
 import { key, signalName } from "./model.js";
 import { emptyActivityRetention } from "./types.js";
@@ -423,7 +424,7 @@ export function createSpaceRenderer({
     if (particles.length > CAP) particles = particles.slice(-CAP);
   }
   function activeResources(
-    now = performance.now(),
+    now = spaceNow(),
     suppressed: ReadonlySet<string> = new Set(),
   ) {
     const retained = emptyActivityRetention();
@@ -471,11 +472,12 @@ export function createSpaceRenderer({
         (!p.networkId || networkIds.has(p.networkId)),
     );
   }
-  function animate(now: number) {
+  function animate(wallTime: number) {
     if (!running) return;
     frame = requestAnimationFrame(animate);
     if (document.hidden) return;
-    beforeFrame(now);
+    beforeFrame(spaceNow(wallTime));
+    const now = spaceNow(wallTime);
     particles = particles.filter((p) => now - p.start < p.duration);
     signalFlights = signalFlights.filter(
       (f) => now - f.start < f.duration + SIGNAL_PULSE_MS,
@@ -556,14 +558,14 @@ export function createSpaceRenderer({
     renderer.render(scene, camera);
     drawLabels(now);
     frames++;
-    if (now - frameTime > 1000) {
-      const fps = Math.round((frames * 1000) / (now - frameTime));
+    if (wallTime - frameTime > 1000) {
+      const fps = Math.round((frames * 1000) / (wallTime - frameTime));
       const previousScale = renderResolution.scale;
       const renderScale = renderResolution.sample(fps);
       if (renderScale !== previousScale) renderer.setPixelRatio(renderScale);
       fpsLabel.textContent = `${fps} FPS · ${Math.round(renderScale * 100)}% render`;
       frames = 0;
-      frameTime = now;
+      frameTime = wallTime;
     }
   }
   function networkVisuals() {

@@ -19,6 +19,7 @@ suite=$1
 shift
 case "$suite" in
   ordinary)
+    npm --prefix web run build:replay
     cargo build --locked --all-targets
     cargo test --locked
     npm --prefix web test

@@ -1,4 +1,5 @@
 // Own selection and hover state, and translate pointer hits into user actions.
+import { spaceNow } from "./clock.js";
 import * as T from "three";
 import { Display } from "../shared/display.js";
 import {
@@ -200,7 +201,7 @@ export function bindSelection(
       } else if (edge) {
         hoveredNetwork = edge.networkId || null;
         const stat = edgeStats.get(edge.id);
-        text = `${edge.label}${edge.candidate ? " · Candidate peer" : ""}${edge.shared ? " · Shared FD" : ""}\nPID ${edge.endpoint.process_id.pid} / FD ${edge.endpoint.fd}${edge.endpoint.fd_count > 1 ? ` (+${edge.endpoint.fd_count - 1} shared FDs)` : ""} ↔ ${edge.peer ? `PID ${edge.peer.process_id.pid} / FD ${edge.peer.fd}` : edge.socket?.network_peer ? remoteLabel(edge.socket) : connectionState(edge)}${stat ? `\nLatest window: ${stat.bytes} bytes / ${stat.count} operations (${((performance.now() - stat.time) / 1000).toFixed(1)}s ago)` : ""}`;
+        text = `${edge.label}${edge.candidate ? " · Candidate peer" : ""}${edge.shared ? " · Shared FD" : ""}\nPID ${edge.endpoint.process_id.pid} / FD ${edge.endpoint.fd}${edge.endpoint.fd_count > 1 ? ` (+${edge.endpoint.fd_count - 1} shared FDs)` : ""} ↔ ${edge.peer ? `PID ${edge.peer.process_id.pid} / FD ${edge.peer.fd}` : edge.socket?.network_peer ? remoteLabel(edge.socket) : connectionState(edge)}${stat ? `\nLatest window: ${stat.bytes} bytes / ${stat.count} operations (${((spaceNow() - stat.time) / 1000).toFixed(1)}s ago)` : ""}`;
       }
     }
     changedHover({ hoveredNetwork, hoveredFile, hoveredNetlink });

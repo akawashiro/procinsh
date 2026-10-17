@@ -47,6 +47,7 @@ function connectionVisual(id: string) {
   };
 }
 export {
+  replayTime,
   socketVisibilityState,
   ipcPortVisuals,
   selectNetlink,

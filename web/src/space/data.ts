@@ -1,4 +1,5 @@
 // System SSE, observed state, retained activity, and plain layout coordinates.
+import { spaceNow } from "./clock.js";
 import { NetlinkSocketStore, isKernelNetlink } from "./netlink.js";
 import { Display } from "../shared/display.js";
 import {
@@ -320,12 +321,15 @@ export class SpaceDataStore {
       now: number,
       suppressed: ReadonlySet<string>,
     ) => ActivityRetention = emptyActivityRetention,
+    private readonly observe: (
+      event: import("./recording.js").RecordingEvent,
+    ) => void = () => {},
   ) {}
 
   replaceSnapshot(
     snapshot: SystemSnapshot,
     rearrange = false,
-    now = performance.now(),
+    now = spaceNow(),
   ) {
     this.snapshot = snapshot;
     this.liveIds = new Set(snapshot.processes.map((p) => key(p.identity)));
@@ -441,7 +445,7 @@ export class SpaceDataStore {
   }
 
   /** Rebuild only when an animation no longer needs an absent observation. */
-  pruneRetention(now = performance.now()) {
+  pruneRetention(now = spaceNow()) {
     if (!Object.values(this.retained).some((ids) => ids.size)) return false;
     const active = this.activeResources(now, this.suppressedSocketOwners);
     for (const kind of [
@@ -499,7 +503,7 @@ export class SpaceDataStore {
   ingestActivity(
     activity: SpaceActivity,
     visible: ReadonlySet<string> = this.visibleIds(),
-    now = performance.now(),
+    now = spaceNow(),
   ): ActivityUpdate {
     const live = this.liveIds;
     const filesChanged = this.recentFiles.ingest(
@@ -597,7 +601,7 @@ export class SpaceDataStore {
     if (filesChanged) this.layoutFiles();
     return { now, filesChanged, netlinkChanged: false, routes, signals };
   }
-  pruneFiles(now = performance.now()) {
+  pruneFiles(now = spaceNow()) {
     const changed = this.recentFiles.prune(
       now,
       this.liveIds,
@@ -635,11 +639,15 @@ export class SpaceDataStore {
         return;
       }
       this.replaceSnapshot(merged);
+      this.observe({ type: "snapshot", at_ms: 0, data: merged });
       this.events.snapshot();
     });
     current.addEventListener("activity", (event) => {
-      if (this.source === current)
-        this.events.activity(this.ingestActivity(JSON.parse(event.data)));
+      if (this.source === current) {
+        const activity = JSON.parse(event.data);
+        this.observe({ type: "activity", at_ms: 0, data: activity });
+        this.events.activity(this.ingestActivity(activity));
+      }
     });
     current.addEventListener("gap", () => {
       if (this.source === current) this.events.gap();

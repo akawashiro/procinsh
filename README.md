@@ -19,6 +19,17 @@ Join our [Discord server](https://discord.gg/aQuNSczpw) for questions and discus
 
 <img src="./images/procinsh_list.png" alt="Screenshot of the process list" width="800">
 
+## SPACE recording and replay
+
+Use **Record** and **Stop & Download** in the SPACE toolbar to save a single JSON
+recording. **Open recording** opens `/replay/space/`, where files stay in your
+browser. Playback supports pause, seek, event stepping and slow motion with the
+same 3D camera controls. Review recordings for sensitive data before sharing.
+
+A backend-free static viewer and synthetic sanitized demo build with
+`npm --prefix web run build:replay` into `web/dist-replay/` for Cloudflare Pages
+Free. See [recording, format and deployment instructions](developer-docs/RECORDING.md).
+
 ## Usage
 
 Requires Linux x86-64. Both installation methods compile native code and require

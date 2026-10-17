@@ -21,6 +21,7 @@ import { checkFileSpace } from "./space-files.js";
 import { checkNetworkSpace } from "./space-network.js";
 import { checkSocketVisibility } from "./space-socket-visibility.js";
 import { processEventRecording } from "./process-events.js";
+import { checkSpaceRecording } from "./space-recording.js";
 import { checkBuildHeader } from "./build-header.js";
 
 // The test build manifest locates the SPACE inspection module.
@@ -251,7 +252,15 @@ try {
     await evaluate(
       "Array.from(document.querySelector('.tools').children,e=>e.id)",
     ),
-    ["search", "reset", "rearrange"],
+    [
+      "search",
+      "reset",
+      "rearrange",
+      "record",
+      "download-recording",
+      "recording-status",
+      "open-recording",
+    ],
   );
   await delay(1000);
   assert.ok(snapshot.processes.length > 2);
@@ -932,6 +941,11 @@ try {
     `location.pathname==='/process/${app.pid}' && location.search==='?start_time_ticks=${n.identity.start_time_ticks}' && document.getElementById('inspector')?.hidden===false`,
     "process title opens the inspector with Enter",
   );
+  assert.deepEqual(
+    errors.filter((e) => !/favicon.ico/.test(e)),
+    [],
+  );
+  await checkSpaceRecording(cdp, evaluate, waitFor, url);
   assert.deepEqual(
     errors.filter((e) => !/favicon.ico/.test(e)),
     [],
