@@ -442,7 +442,7 @@ SPACE はシステム全体のプロセス、仮想アドレス空間、親子�
 | IPC・ネットワークの粒子 | 読み書きの向きと操作回数に応じて粒子を生成。接続先を一つに特定できない場合は操作元のポートだけを発光。`prefers-reduced-motion` に応じて粒子の表示時間と数を減らす | [`edgeDirection`](../web/src/space/data.ts)、[`ipcParticlePlan`](../web/src/space/renderer.ts#L48)、[`SpaceDataStore.ingestActivity`](../web/src/space/data.ts) |
 | netlink 通信 | USERSOCK を除く表示対象の netlink は、スナップショットに存在する間、送受信の有無によらずプロセスの下方にオレンジ色の六角形プレートと接続線を表示。プロセスとソケット資源ごとに複製 FD をまとめ、通信前の集計は0。送受信イベントがあるときだけ、送信はプレートへ、受信はプロセスへ粒子を流す。時間経過や件数による表示の打切りは行わず、ソケットがスナップショットから消えたとき、プロセス終了・SSEリセット・待受または未接続への変化で削除。プレートはカーネル側インターフェースの概念図で、実際の相手の netlink アドレスは未観測 | [NetlinkSocketStore](../web/src/space/netlink.ts)、[refreshFileScene](../web/src/space/scene.ts) |
 | ファイル I/O | 読み書きの粒子と、保持中のファイルのバイト数・操作回数を表示。最終アクセスから30秒、各プロセス32個・全体512個まで保持し、終了したプロセスのファイルは削除 | [`RecentFiles`](../web/src/space/data.ts)、[`fileDetails`](../web/src/space/details.ts#L72) |
-| プロセス名・接続先ラベル | 3D 座標を画面座標へ投影し、WebGL とは別の Canvas 2D に描画 | [`drawLabels`](../web/src/space/renderer.ts#L191) |
+| プロセス名・接続先ラベル | 3D 座標を画面座標へ投影し、WebGL とは別の Canvas 2D に描画。重なる非選択ラベルは手前のものを残して隠す。前フレームで表示中のラベルを優先し、深度の近いラベル同士が毎フレーム入れ替わらないようにする。表示・非表示は約150msでフェードし、`prefers-reduced-motion` では即座に切り替える | [`drawLabels`](../web/src/space/renderer.ts#L284)、[`placeLabels`](../web/src/space/renderer.ts#L107) |
 
 描画解像度は [`AdaptiveRenderScale`](../web/src/space/renderer.ts#L12) が約1秒ごとの FPS で調整します。24 FPS 未満が3回続いた場合は pixel ratio を10%下げ、45 FPS 以上が5回続いた場合は元の解像度に向けて回復します。上限は初期の device pixel ratio（最大1.5）、下限は0.5（初期値が0.5未満ならその値）です。FPS と解像度の割合はヘッダーに表示します。
 
@@ -477,7 +477,7 @@ SPACE は両端が表示中のシグナルを最大256件保持し、紫色の�
 |---|---|---|
 | 部品間の import 境界、シーンへの入力、当たり判定・選択、カメラ範囲、詳細表示のリンク・操作、描画の通知・停止復帰 | [space-components.test.ts](../web/tests/space-components.test.ts) | `bash scripts/docker_test.sh web` |
 | プロセス配置 | [process-layout.ts](../web/src/space/process-layout.ts) の in-source test と [process-layout.test.ts](../web/tests/process-layout.test.ts) のソケット通信相手・配置安定性の回帰テスト | `bash scripts/docker_test.sh web src/space/process-layout.ts tests/process-layout.test.ts` |
-| データのマージ、接続先・ファイルの配置、活動モデル、解像度調整 | [data.ts](../web/src/space/data.ts)・[renderer.ts](../web/src/space/renderer.ts) の in-source test | `bash scripts/docker_test.sh web` |
+| データのマージ、接続先・ファイルの配置、活動モデル、解像度調整、ラベルの配置・フェード | [data.ts](../web/src/space/data.ts)・[renderer.ts](../web/src/space/renderer.ts) の in-source test | `bash scripts/docker_test.sh web` |
 | netlink の常時表示、分類、共有FD、終了・状態変化、配置 | [space-netlink.test.ts](../web/tests/space-netlink.test.ts) | `bash scripts/docker_test.sh web` |
 | 表示ラベルと UID 色 | [space-formatting.test.ts](../web/tests/space-formatting.test.ts) | `bash scripts/docker_test.sh web` |
 | 観測状態・活動経路、SSE の停止・再同期・古い通知の破棄 | [data.ts の in-source test](../web/src/space/data.ts) | `bash scripts/docker_test.sh web` |

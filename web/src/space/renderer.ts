@@ -86,6 +86,66 @@ function cpuGlowLevel(
   return peak * (1 - (now - state.last) / afterglowMs);
 }
 
+// Labels fade between shown and hidden so overlap culling never flickers.
+const LABEL_FADE_MS = 150;
+
+type LabelState = { alpha: number; shown: boolean };
+type LabelCandidate = {
+  x: number;
+  y: number;
+  width: number;
+  depth: number;
+  active: boolean;
+  state: LabelState;
+};
+
+/**
+ * Hide inactive labels that overlap a nearer one and move each label's alpha
+ * toward the result by `fadeStep`. Labels shown last frame keep priority so
+ * near-equal depths do not swap. Returns the labels to draw, in draw order.
+ */
+function placeLabels<L extends LabelCandidate>(
+  labels: L[],
+  fadeStep: number,
+): L[] {
+  labels.sort(
+    (a, b) =>
+      Number(b.active) - Number(a.active) ||
+      Number(b.state.shown) - Number(a.state.shown) ||
+      a.depth - b.depth,
+  );
+  const occupied: {
+    left: number;
+    right: number;
+    top: number;
+    bottom: number;
+  }[] = [];
+  return labels.filter((label) => {
+    const box = {
+      left: label.x - label.width / 2,
+      right: label.x + label.width / 2,
+      top: label.y - 12,
+      bottom: label.y + 2,
+    };
+    const shown =
+      label.active ||
+      !occupied.some(
+        (o) =>
+          box.left < o.right &&
+          box.right > o.left &&
+          box.top < o.bottom &&
+          box.bottom > o.top,
+      );
+    if (shown) occupied.push(box);
+    const { state } = label;
+    state.shown = shown;
+    state.alpha = shown
+      ? Math.min(1, state.alpha + fadeStep)
+      : Math.max(0, state.alpha - fadeStep);
+    return state.alpha > 0;
+  });
+}
+
 const SIGNAL_CAP = 256;
 const SIGNAL_DURATION_MS = 1700;
 const SIGNAL_PULSE_MS = 400;
@@ -157,6 +217,8 @@ export function createSpaceRenderer({
   let signalFlights: SignalFlight[] = [];
   const signalPulses = new Map<string, number>();
   const labelPoint = new graphics.Vector3();
+  const labelStates = new Map<string, LabelState>();
+  let labelTime: number | undefined;
   let renderer: T.WebGLRenderer;
   try {
     renderer = new graphics.WebGLRenderer({
@@ -219,7 +281,12 @@ export function createSpaceRenderer({
     labelCanvas.height = Math.round(innerHeight * ratio);
     labelContext.setTransform(ratio, 0, 0, ratio, 0, 0);
   }
-  function drawLabels(now: number) {
+  function drawLabels(now: number, wallTime: number) {
+    const fadeStep =
+      labelTime === undefined || reduced
+        ? 1
+        : Math.min(1, Math.max(0, wallTime - labelTime) / LABEL_FADE_MS);
+    labelTime = wallTime;
     const { nodes, hullIds, networkViews, fileViews, netlinkViews } =
       readView();
     const {
@@ -239,15 +306,14 @@ export function createSpaceRenderer({
     labelContext.textBaseline = "bottom";
     labelContext.lineJoin = "round";
     labelContext.lineWidth = 3;
-    const labels: {
+    const labels: (LabelCandidate & {
       name: string;
-      x: number;
-      y: number;
-      depth: number;
-      active: boolean;
+      max: number;
       external: boolean;
-    }[] = [];
+    })[] = [];
+    const seen = new Set<string>();
     const add = (
+      key: string,
       name: string,
       pos: T.Vector3,
       active: boolean,
@@ -259,14 +325,33 @@ export function createSpaceRenderer({
         y = (-labelPoint.y * 0.5 + 0.5) * innerHeight - 3;
       if (x < -200 || x > innerWidth + 200 || y < 0 || y > innerHeight + 12)
         return;
-      labels.push({ name, x, y, depth: labelPoint.z, active, external });
+      let state = labelStates.get(key);
+      if (!state) {
+        state = { alpha: 0, shown: false };
+        labelStates.set(key, state);
+      }
+      seen.add(key);
+      const max = external ? 300 : 130;
+      labels.push({
+        name,
+        max,
+        x,
+        y,
+        width: Math.min(max, labelContext.measureText(name).width) + 6,
+        depth: labelPoint.z,
+        active,
+        external,
+        state,
+      });
     };
     for (const id of hullIds) {
       const n = nodes.get(id);
-      if (n) add(n.name, n.pos.clone().setZ(8.55), id === selected);
+      if (n)
+        add(`process:${id}`, n.name, n.pos.clone().setZ(8.55), id === selected);
     }
     for (const v of networkViews)
       add(
+        `network:${v.group.id}`,
         v.group.label,
         v.pos.clone().add(new graphics.Vector3(0, 0, 1)),
         v.group.id === selectedNetwork ||
@@ -276,6 +361,7 @@ export function createSpaceRenderer({
       );
     for (const v of fileViews.values())
       add(
+        `file:${v.file.id}`,
         v.file.label,
         v.pos.clone().add(new graphics.Vector3(0, 0, 0.7)),
         v.file.id === selectedFile || v.file.id === hoveredFile,
@@ -283,6 +369,7 @@ export function createSpaceRenderer({
       );
     for (const v of netlinkViews.values())
       add(
+        `netlink:${v.socket.id}`,
         v.socket.label,
         v.pos.clone().add(new graphics.Vector3(0, 0, 0.7)),
         v.socket.id === selectedNetlink || v.socket.id === hoveredNetlink,
@@ -294,50 +381,27 @@ export function createSpaceRenderer({
         Math.max(0, (now - flight.start) / flight.duration),
       );
       add(
+        `signal:${flight.start}:${flight.source}:${flight.destination}:${flight.label}`,
         flight.label,
         flight.curve.getPoint(progress).add(new graphics.Vector3(0, 0, 0.6)),
         true,
       );
     }
-    labels.sort(
-      (a, b) => Number(b.active) - Number(a.active) || a.depth - b.depth,
-    );
-    const occupied: {
-      left: number;
-      right: number;
-      top: number;
-      bottom: number;
-    }[] = [];
-    for (const label of labels) {
-      const max = label.external ? 300 : 130,
-        width = Math.min(max, labelContext.measureText(label.name).width) + 6;
-      const box = {
-        left: label.x - width / 2,
-        right: label.x + width / 2,
-        top: label.y - 12,
-        bottom: label.y + 2,
-      };
-      if (
-        !label.active &&
-        occupied.some(
-          (o) =>
-            box.left < o.right &&
-            box.right > o.left &&
-            box.top < o.bottom &&
-            box.bottom > o.top,
-        )
-      )
-        continue;
-      occupied.push(box);
+    for (const key of labelStates.keys())
+      if (!seen.has(key)) labelStates.delete(key);
+    for (const label of placeLabels(labels, fadeStep)) {
+      const { name, x, y, max } = label;
+      labelContext.globalAlpha = label.state.alpha;
       labelContext.strokeStyle = "rgba(2,9,14,.92)";
-      labelContext.strokeText(label.name, label.x, label.y, max);
+      labelContext.strokeText(name, x, y, max);
       labelContext.fillStyle = label.active
         ? "#e0faff"
         : label.external
           ? "#84caff"
           : "rgba(190,246,232,.88)";
-      labelContext.fillText(label.name, label.x, label.y, max);
+      labelContext.fillText(name, x, y, max);
     }
+    labelContext.globalAlpha = 1;
   }
   resizeLabels();
 
@@ -556,7 +620,7 @@ export function createSpaceRenderer({
       if (haloGlow.instanceColor) haloGlow.instanceColor.needsUpdate = true;
     }
     renderer.render(scene, camera);
-    drawLabels(now);
+    drawLabels(now, wallTime);
     frames++;
     if (wallTime - frameTime > 1000) {
       const fps = Math.round((frames * 1000) / (wallTime - frameTime));
@@ -642,6 +706,8 @@ export function createSpaceRenderer({
     netlinkParticles,
     resetSampling: resetRenderSampling,
     clearParticles() {
+      labelStates.clear();
+      labelTime = undefined;
       particles = [];
       signalFlights = [];
       signalPulses.clear();
@@ -771,6 +837,51 @@ if (import.meta.vitest) {
         );
       }
     }
+  });
+  test("label placement fades and keeps shown labels", async () => {
+    const assert: typeof import("node:assert/strict") = (
+      await import("node:assert/strict")
+    ).default;
+    const label = (name: string, depth: number, x = 100, active = false) => ({
+      name,
+      x,
+      y: 50,
+      width: 40,
+      depth,
+      active,
+      state: { alpha: 0, shown: false },
+    });
+    const names = (labels: { name: string }[]) => labels.map((l) => l.name);
+    const near = label("near", 0.1),
+      far = label("far", 0.2),
+      apart = label("apart", 0.3, 300);
+    let drawn = placeLabels([far, near, apart], 0.5);
+    assert.deepEqual(names(drawn), ["near", "apart"], "nearer label wins");
+    assert.equal(near.state.alpha, 0.5, "new labels fade in");
+    placeLabels([far, near, apart], 0.5);
+    assert.equal(near.state.alpha, 1);
+    near.depth = 0.21;
+    drawn = placeLabels([far, near, apart], 0.5);
+    assert.deepEqual(
+      names(drawn),
+      ["near", "apart"],
+      "a shown label keeps its place when depths nearly swap",
+    );
+    assert.equal(far.state.alpha, 0);
+    apart.x = 110;
+    drawn = placeLabels([far, near, apart], 0.5);
+    assert.deepEqual(names(drawn), ["near", "apart"]);
+    assert.equal(apart.state.alpha, 0.5, "a newly covered label fades out");
+    drawn = placeLabels([far, near, apart], 0.5);
+    assert.deepEqual(names(drawn), ["near"], "faded labels are not drawn");
+    const selected = label("selected", 0.9, 100, true);
+    drawn = placeLabels([near, selected], 1);
+    assert.deepEqual(
+      names(drawn),
+      ["selected"],
+      "active labels win and fadeStep 1 switches immediately",
+    );
+    assert.equal(near.state.alpha, 0);
   });
   test("IPC particle plan and CPU glow", async () => {
     const assert: typeof import("node:assert/strict") = (
