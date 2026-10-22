@@ -1,6 +1,6 @@
 [package]
 name = "procinsh"
-version = "0.1.19"
+version = "0.1.20"
 edition = "2024"
 description = "Explore Linux processes in 3D. A real-time process inspector powered by Rust, eBPF and Three.js."
 license = "MIT"
