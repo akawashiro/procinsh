@@ -74,7 +74,7 @@ From a checkout of this repository, run one of:
 ./scripts/release.sh major  # 0.1.13 -> 1.0.0
 ```
 
-The script verifies the crates.io publication, pushes the version tag, and creates a published GitHub Release titled `v<version>` with automatically generated release notes and no uploaded assets. The notes list pull requests merged since the previous version tag (`v<previous-version>`) and include a comparison link. If GitHub Release creation fails, the published crate, tag, and release worktree are retained for manual inspection.
+The script verifies the crates.io publication, pushes the version tag, and creates a published GitHub Release titled `v<version>` with automatically generated release notes and no uploaded assets. The notes start with a link to that version on crates.io, list pull requests merged since the previous version tag (`v<previous-version>`), and include a comparison link. If GitHub Release creation fails, the published crate, tag, and release worktree are retained for manual inspection.
 
 ## 実装構成
 

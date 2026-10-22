@@ -289,6 +289,8 @@ class Release:
                 self.git("tag", "-a", tag, commit, "-m", f"Release {tag}")
             self.git("push", REMOTE_URL, f"refs/tags/{tag}")
         url = self.gh("release", "create", tag, "--verify-tag", "--title", tag,
+                      "--notes", f"[{PACKAGE} {self.info['version']} on crates.io]"
+                      f"(https://crates.io/crates/{PACKAGE}/{self.info['version']})\n\n",
                       "--generate-notes", "--notes-start-tag", f"v{self.info['previous']}")
         self.ensure_clean()
         self.git("worktree", "remove", str(self.work))

@@ -86,6 +86,8 @@ class ReleaseTest(unittest.TestCase):
         if args[:3] == ("gh", "release", "create"):
             tag = args[3]
             self.assertEqual(args[4:], ("--verify-tag", "--title", tag,
+                                        "--notes", "[procinsh 0.1.14 on crates.io]"
+                                        "(https://crates.io/crates/procinsh/0.1.14)\n\n",
                                         "--generate-notes", "--notes-start-tag", "v0.1.13",
                                         "--repo", release.REPO))
             self.assertEqual(self.uploads, 1)
