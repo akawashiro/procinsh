@@ -26,9 +26,9 @@ OS は Ubuntu 26.04.1 LTS。`linux-image-7.0.0-38-generic` のソースパッケ
 | PCIe Switch | 上流ポートと複数の下流ポートを持ち、接続を分岐させる |
 | Endpoint | GPU、NIC、NVMe コントローラーなどの末端デバイス |
 
-各外部リンクはポイントツーポイント接続で、スイッチを介して枝分かれする。Root Complex ごとの通常の階層をツリーとして扱えるが、マシン全体に根が一つしかないという意味ではない。NTB（Non-Transparent Bridge）では、独立したアドレス空間を持つ PCIe 階層同士を接続できる。
+各外部リンクはポイントツーポイント接続で、スイッチを介して枝分かれする。Root Complex ごとの通常の階層をツリーとして扱える。
 
-根拠は [Renesas / IDT AN-510](https://www.renesas.com/document/510-use-non-transpared-bridging-idt-pci-express-ntb-gen1-switches) の Introduction・Figure 1 と、続く NTB の説明。リンクの性質や複数ホスト構成については [Microchip の PCIe Interconnect Architecture 解説](https://ww1.microchip.com/downloads/aemDocuments/documents/UNG/ProductDocuments/SupportingCollateral/PCIe-White-Paper-DS00005141.pdf) も参照できる。
+根拠は [Renesas / IDT AN-510](https://www.renesas.com/document/510-use-non-transpared-bridging-idt-pci-express-ntb-gen1-switches) の Introduction・Figure 1 を参照する。
 
 ## 物理的なスイッチと OS から見えるブリッジ
 
