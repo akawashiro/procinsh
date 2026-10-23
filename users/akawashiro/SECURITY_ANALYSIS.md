@@ -39,11 +39,11 @@ Rust の本番コード、3種類の BPF C コード、起動・テスト・常�
 
 ## 1. 対象のデータを直接書き換える経路
 
-[memory.rs](../src/http_server/process/memory.rs) の `read_raw` は `process_vm_readv` を使い、1回の読み取りを最大 65,536 bytes に制限し、アドレス加算の overflow を検査する。ローカルの出力バッファとリモートの入力アドレスは正しい方向に渡されている。`process_vm_writev` は使っていない。これは他プロセスから呼び出し側へデータを転送する API である。[process_vm_readv(2)](https://man7.org/linux/man-pages/man2/process_vm_readv.2.html)
+[memory.rs](../../src/http_server/process/memory.rs) の `read_raw` は `process_vm_readv` を使い、1回の読み取りを最大 65,536 bytes に制限し、アドレス加算の overflow を検査する。ローカルの出力バッファとリモートの入力アドレスは正しい方向に渡されている。`process_vm_writev` は使っていない。これは他プロセスから呼び出し側へデータを転送する API である。[process_vm_readv(2)](https://man7.org/linux/man-pages/man2/process_vm_readv.2.html)
 
-[ptrace.rs](../src/http_server/process/snapshot/ptrace.rs) の本番コードが使う要求は `PTRACE_SEIZE`、`PTRACE_INTERRUPT`、`PTRACE_GETREGSET`、`PTRACE_DETACH` である。`PTRACE_POKEDATA`、`PTRACE_SETREGSET`、命令の注入、ブレークポイントの書き込みはない。`NT_PRSTATUS` の取得先は procinsh 自身の `user_regs_struct` で、返されたサイズも検査する。対象へのシグナル送信 API は HTTP router に存在せず、テスト fixture 用の `kill` は本番処理とは別である。
+[ptrace.rs](../../src/http_server/process/snapshot/ptrace.rs) の本番コードが使う要求は `PTRACE_SEIZE`、`PTRACE_INTERRUPT`、`PTRACE_GETREGSET`、`PTRACE_DETACH` である。`PTRACE_POKEDATA`、`PTRACE_SETREGSET`、命令の注入、ブレークポイントの書き込みはない。`NT_PRSTATUS` の取得先は procinsh 自身の `user_regs_struct` で、返されたサイズも検査する。対象へのシグナル送信 API は HTTP router に存在せず、テスト fixture 用の `kill` は本番処理とは別である。
 
-スタックは ptrace/perf で取得したコピーを使い、[unwind.rs](../src/http_server/process/snapshot/unwind.rs) はそのスライスの範囲内を読む。最大256フレームの上限もある。[disasm.rs](../src/http_server/process/snapshot/disasm.rs) は命令を最大256 bytes 読んで解析するが、その命令を実行しない。
+スタックは ptrace/perf で取得したコピーを使い、[unwind.rs](../../src/http_server/process/snapshot/unwind.rs) はそのスライスの範囲内を読む。最大256フレームの上限もある。[disasm.rs](../../src/http_server/process/snapshot/disasm.rs) は命令を最大256 bytes 読んで解析するが、その命令を実行しない。
 
 したがって、壊れたスタックや不正な RIP/RSP を観測しただけで、それを対象へ書き戻す仕組みはない。ただし、読み取りでもページ取得や I/O、キャッシュ状態などに影響しうるため、「書き込みがない」と「実行への影響がない」は別である。
 
@@ -51,13 +51,13 @@ Rust の本番コード、3種類の BPF C コード、起動・テスト・常�
 
 ### 2.1 短時間停止は必ず発生し、停止時間の上限はない
 
-[capture.rs](../src/http_server/process/snapshot/capture.rs) の `bootstrap` と `capture_ptrace` は観測対象の各 TID を順に捕捉する。初回と、完了から10秒後以降の定期観測で実行される。各 TID は `SEIZE → INTERRUPT → waitpid → GETREGSET → スタック読み取り → DETACH` の間停止する。
+[capture.rs](../../src/http_server/process/snapshot/capture.rs) の `bootstrap` と `capture_ptrace` は観測対象の各 TID を順に捕捉する。初回と、完了から10秒後以降の定期観測で実行される。各 TID は `SEIZE → INTERRUPT → waitpid → GETREGSET → スタック読み取り → DETACH` の間停止する。
 
 ロックを持つスレッドを停止すると、他スレッドや別プロセスもそのロック待ちになりうる。リアルタイム処理、heartbeat、短い deadline を持つ通信やトランザクションには、メモリを変更しなくても影響する。全スレッドを同時停止していないため、共有メモリや maps を含む観測がプロセス全体の一貫した snapshot になるわけでもない。
 
 `PtraceGuard::wait` は `waitpid(tid, ..., __WALL)` をブロッキングで呼ぶ。期限、キャンセルの確認、`WNOHANG` による監視がない。対象がカーネル内の長い待ちから停止可能な状態へ戻らない場合、観測側は待ち続けうる。また、停止後の `process_vm_readv` にも時間の上限がない。ページ取得などで読み取りが遅れる場合、16 KiB というサイズ制限だけでは停止時間を制限できない。
 
-この待機中は [monitoring/service.rs](../src/http_server/process/monitoring/service.rs) のキャンセル・停止フラグを確認できない。接続が切れても `spawn_blocking` 内の初期化を直ちに止める仕組みはなく、collector の `join` にも期限がない。停止時間を含む悪条件での再現確認が必要である。
+この待機中は [monitoring/service.rs](../../src/http_server/process/monitoring/service.rs) のキャンセル・停止フラグを確認できない。接続が切れても `spawn_blocking` 内の初期化を直ちに止める仕組みはなく、collector の `join` にも期限がない。停止時間を含む悪条件での再現確認が必要である。
 
 **対策:** ptrace を既定では使わない perf 中心のモードを設け、停止が必要な場合は明示的に選択する。停止待ちの deadline と停止時間の計測を導入し、停止中の読み取りを縮小する。単にタイムアウトで関数を抜けるだけでは不十分で、以下の detach まで含めて回復方法を設計する必要がある。読み取り中のブロッキング syscall は Rust 側の timeout だけで中断できるとは限らないため、観測 worker のプロセス分離も検討する。
 
@@ -83,11 +83,11 @@ Rust の本番コード、3種類の BPF C コード、起動・テスト・常�
 
 通常シグナルの再注入は実装されているが、捕捉中の SIGCONT、停止シグナル、スレッド終了、非 leader スレッドからの exec との競合を網羅したテストは確認できなかった。`PTRACE_SEIZE` を採用しているため、`PTRACE_ATTACH` が送る SIGSTOP に固有の問題を、そのままこの実装の不具合として扱うべきではない。[ptrace(2): PTRACE_SEIZE](https://man7.org/linux/man-pages/man2/ptrace.2.html)
 
-既存の [ptrace.rs のテスト](../src/http_server/process/snapshot/ptrace.rs) は取得失敗時の detach と既に traced な対象を、[capture.rs の live tests](../src/http_server/process/snapshot/capture.rs) は定期捕捉や perf との切り替え等を検査する。これらは有用だが、停止状態やシグナル意味の保存まで保証しない。
+既存の [ptrace.rs のテスト](../../src/http_server/process/snapshot/ptrace.rs) は取得失敗時の detach と既に traced な対象を、[capture.rs の live tests](../../src/http_server/process/snapshot/capture.rs) は定期捕捉や perf との切り替え等を検査する。これらは有用だが、停止状態やシグナル意味の保存まで保証しない。
 
 ## 3. PID/TID の再利用と snapshot の競合
 
-[identity.rs](../src/http_server/process/identity.rs) は PID と `start_time_ticks` を検査し、`Sampler::poll` もスレッドの開始時刻が変われば古い perf event を破棄する。誤対象の結果を返すリスクを減らす実装である。
+[identity.rs](../../src/http_server/process/identity.rs) は PID と `start_time_ticks` を検査し、`Sampler::poll` もスレッドの開始時刻が変われば古い perf event を破棄する。誤対象の結果を返すリスクを減らす実装である。
 
 ただし、検査と `ptrace(tid)` / `perf_event_open(tid)` / `process_vm_readv(pid)` は別操作である。`capture_ptrace` は保持している TID に対して捕捉を始め、全 TID の処理後にプロセス識別子を再検査する。直前にその TID が終了・再利用されると、別の TID を一時停止する可能性を数値 ID と事後検査だけでは除外できない。開始時刻は tick 単位であり、exec によるアドレス空間変更も、同一 PID・開始時刻のまま起きうる。
 
@@ -99,9 +99,9 @@ Rust の本番コード、3種類の BPF C コード、起動・テスト・常�
 
 | BPF | 接続点 | 読むもの | 書き込み先 |
 |---|---|---|---|
-| [sched.bpf.c](../src/http_server/system/sched.bpf.c) | `tp_btf/sched_switch`、`sched_process_exit` | task の識別・開始時刻、時刻 | CPU ごとの現在状態と集計 map |
-| [ipc.bpf.c](../src/http_server/system/ipc.bpf.c) | pipe の `fexit`、socket の `tp_btf` | file/inode の識別、元処理の返り値 | ring buffer、欠落数 map |
-| [files.bpf.c](../src/http_server/system/files.bpf.c) | VFS の `fentry/fexit`、`security_file_permission` の `fentry`、終了 tracepoint | file/inode/path、元処理の返り値 | pending map、ring buffer、欠落数 map |
+| [sched.bpf.c](../../src/http_server/system/sched.bpf.c) | `tp_btf/sched_switch`、`sched_process_exit` | task の識別・開始時刻、時刻 | CPU ごとの現在状態と集計 map |
+| [ipc.bpf.c](../../src/http_server/system/ipc.bpf.c) | pipe の `fexit`、socket の `tp_btf` | file/inode の識別、元処理の返り値 | ring buffer、欠落数 map |
+| [files.bpf.c](../../src/http_server/system/files.bpf.c) | VFS の `fentry/fexit`、`security_file_permission` の `fentry`、終了 tracepoint | file/inode/path、元処理の返り値 | pending map、ring buffer、欠落数 map |
 
 `bpf_probe_write_user`、`bpf_override_return`、シグナル送信、LSM の許可・拒否判定、XDP/TC のパケット変更は使っていない。`security_file_permission` に接続しているのも LSM policy の置換ではなく、path を取得する tracing hook である。BPF 関数の `return 0` を VFS の元の返り値を書き換える処理と解釈してはいけない。
 
@@ -116,7 +116,7 @@ map / buffer は上限付きだが、小さいとは限らない。
 - IPC と file の ring buffer はそれぞれ 8 MiB、合計 16 MiB。
 - file の pending map は最大4,096件。構造体サイズから値部分だけで約16 MiB規模になり、管理領域は別途必要。
 - scheduler は最大65,536件の `LRU_PERCPU_HASH`。値16 bytes × 65,536 × possible CPU 数だけで、CPU 1個あたり約1 MiB、256個なら約256 MiBとなる概算。これは map 管理領域等を含まない設計上の計算で、実測値ではない。
-- [sched.rs](../src/http_server/system/sched.rs) は約100 msごとの集計で最大65,536 keyを列挙し、CPU ごとの値を取得する。CPU 数と登録数の増加は user space の収集負荷も増やす。
+- [sched.rs](../../src/http_server/system/sched.rs) は約100 msごとの集計で最大65,536 keyを列挙し、CPU ごとの値を取得する。CPU 数と登録数の増加は user space の収集負荷も増やす。
 
 負荷はカーネルメモリ破壊とは別問題だが、ホストの latency、メモリ圧迫、サービスの timeout に結びつく。ring の飽和や pending の不足は通常は観測欠落として処理される。file の入れ子深度・entry/exit の対応が崩れた場合も、まず集計ミスや pending の残留を疑うべきで、対象ファイルへの上書きと同一視できない。
 
@@ -124,9 +124,9 @@ map / buffer は上限付きだが、小さいとは限らない。
 
 ### 4.3 attach/detach とエラー処理
 
-[sched.rs](../src/http_server/system/sched.rs)、[ipc.rs](../src/http_server/system/ipc.rs)、[files.rs](../src/http_server/system/files.rs) は組み込みの BPF オブジェクトをロードし、`Link` と `Object` を所有する。HTTP 入力から任意の BPF ソースや object をロードする API はない。pin や永続的なリンク配置も見つからず、通常の drop/プロセス終了で所有するリソースを解放する構造である。途中の attach 失敗も、ローカルの `Vec<Link>` の drop で既に接続した分を解放する構造になっている。
+[sched.rs](../../src/http_server/system/sched.rs)、[ipc.rs](../../src/http_server/system/ipc.rs)、[files.rs](../../src/http_server/system/files.rs) は組み込みの BPF オブジェクトをロードし、`Link` と `Object` を所有する。HTTP 入力から任意の BPF ソースや object をロードする API はない。pin や永続的なリンク配置も見つからず、通常の drop/プロセス終了で所有するリソースを解放する構造である。途中の attach 失敗も、ローカルの `Vec<Link>` の drop で既に接続した分を解放する構造になっている。
 
-[system/service.rs](../src/http_server/system/service.rs) はシステム購読者がいないと collector を drop する。初期化失敗は [activity.rs](../src/http_server/system/activity.rs) でセンサー単位の unavailable 状態になる。一方、poll/collect のエラーは状態を変更するだけで、生きているセンサーを自動 detach しない。異常表示や観測欠落が出ても、kernel hook の負荷が止まったとは限らない。
+[system/service.rs](../../src/http_server/system/service.rs) はシステム購読者がいないと collector を drop する。初期化失敗は [activity.rs](../../src/http_server/system/activity.rs) でセンサー単位の unavailable 状態になる。一方、poll/collect のエラーは状態を変更するだけで、生きているセンサーを自動 detach しない。異常表示や観測欠落が出ても、kernel hook の負荷が止まったとは限らない。
 
 **対策:** 継続エラーや過負荷で対象センサーを停止する仕組みと、フックが解放されたことを確認する終了テストを追加する。通常の capability で十分かをカーネル別に確認し、ロード失敗を避けるために権限を無制限に広げない。
 
@@ -138,13 +138,13 @@ CO-RE と BTF は構造体配置の違いに対応するが、接続先の意味
 
 ## 5. perf: 対象の書き換えよりも資源と負荷
 
-[perf.rs](../src/http_server/process/snapshot/perf.rs) は TID ごとに CPU-clock event と context-switch event を作る。CPU-clock は実行中の user CPU 時間に対して約100 Hz、context-switch 側は切り替えイベントに応じてユーザーレジスタと最大16 KiBのスタックを収集する。後者の負荷は100 Hzに固定されていない。
+[perf.rs](../../src/http_server/process/snapshot/perf.rs) は TID ごとに CPU-clock event と context-switch event を作る。CPU-clock は実行中の user CPU 時間に対して約100 Hz、context-switch 側は切り替えイベントに応じてユーザーレジスタと最大16 KiBのスタックを収集する。後者の負荷は100 Hzに固定されていない。
 
 `mmap(PROT_READ | PROT_WRITE)` は **perf の共有 ring と metadata** を map するもので、対象のメモリを writable に map するものではない。`data_tail` を書くのは消費位置を知らせるためである。ring の配置・record 長・stack 長を検査し、head/tail に Acquire/Release を使い、失敗時はその ring のデータを捨てる。破損 record を対象メモリへ書き戻す経路はない。FD は `OwnedFd`、mapping は `Drop` で解放する。
 
 ただし、4 KiB page の環境では、17 pages × 2 events = **TID あたり約136 KiB** の mapping が必要となる。1,000 TID なら1接続でも約133 MiBであり、32接続なら約4.15 GiB、FD は最大64,000個相当となる。これは全 event の作成に成功した場合の概算で、その他のメモリを含まない。実際は RLIMIT、perf のメモリ制限やカーネル設定によって先に失敗する場合もある。[Linux kernel: Perf events and tool security](https://docs.kernel.org/admin-guide/perf-security.html)
 
-[monitoring/service.rs](../src/http_server/process/monitoring/service.rs) は同時接続を32に制限するが、接続ごとに独立した `Sampler` を作る。全 TID 数、全 perf FD 数、全 mapping 容量にはアプリケーション独自の総量上限がない。同一 PID を複数のブラウザ・接続で開いても重複する。ptrace の競合はエラーとして扱うが、perf は独立して動きうる。
+[monitoring/service.rs](../../src/http_server/process/monitoring/service.rs) は同時接続を32に制限するが、接続ごとに独立した `Sampler` を作る。全 TID 数、全 perf FD 数、全 mapping 容量にはアプリケーション独自の総量上限がない。同一 PID を複数のブラウザ・接続で開いても重複する。ptrace の競合はエラーとして扱うが、perf は独立して動きうる。
 
 **対策:** TID/FD/メモリの総量制限、PID ごとの collector 共有、context-switch event の無効化・頻度制御を設ける。32という接続数だけでは資源予算を表せない。接続を繰り返すと初回 ptrace が再実行されるので、PID ごとの停止頻度制限も必要である。
 
@@ -152,7 +152,7 @@ CO-RE と BTF は構造体配置の違いに対応するが、接続先の意味
 
 ### 6.1 「読取専用 API」は OS の権限制限ではない
 
-[dev_run.sh](../scripts/dev_run.sh) は実行ファイルに `cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search,cap_sys_admin=ep` を付ける。これらを持つ HTTP サーバーが侵害されると、現在の router に書き込み API がなくても、別の syscall を呼ぶことで対象メモリやレジスタを変更できる可能性がある。特に `CAP_SYS_PTRACE` は読み取り専用の capability ではない。`CAP_DAC_READ_SEARCH` は通常のファイル読み取り・ディレクトリの読み取りと探索に対する DAC の権限検査を迂回するので、侵害時の機密ファイル読み取りの影響も広がる。ただし、この権限単独で通常のファイル書き込み権限を迂回するものではなく、LSM 等の別の制約がなくなるわけでもない。root 起動は、さらに広い権限を与える。[capabilities(7)](https://man7.org/linux/man-pages/man7/capabilities.7.html)
+[dev_run.sh](../../scripts/dev_run.sh) は実行ファイルに `cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search,cap_sys_admin=ep` を付ける。これらを持つ HTTP サーバーが侵害されると、現在の router に書き込み API がなくても、別の syscall を呼ぶことで対象メモリやレジスタを変更できる可能性がある。特に `CAP_SYS_PTRACE` は読み取り専用の capability ではない。`CAP_DAC_READ_SEARCH` は通常のファイル読み取り・ディレクトリの読み取りと探索に対する DAC の権限検査を迂回するので、侵害時の機密ファイル読み取りの影響も広がる。ただし、この権限単独で通常のファイル書き込み権限を迂回するものではなく、LSM 等の別の制約がなくなるわけでもない。root 起動は、さらに広い権限を与える。[capabilities(7)](https://man7.org/linux/man-pages/man7/capabilities.7.html)
 
 `CAP_SYS_ADMIN` は別 network namespace に診断用ソケットを作るために使いますが、namespace の操作に限定された権限ではなく、マウントなどにも使える広い capability です。namespace の切り替えは短命の専用スレッドだけで行います。HTTP スレッドの namespace は維持されますが、プロセス全体がこの capability を持つことによる侵害時の影響は残ります。
 
@@ -164,17 +164,17 @@ HTTP、`/proc` の解析、libbpf の FFI、perf の unsafe、ELF/DWARF の解�
 
 file capability は一度付けると、通常の終了で消えない。実行ファイル・祖先ディレクトリのアクセス権によっては、他ユーザーも強い権限付きのバイナリを起動できる。loopback の HTTP にも OS ユーザーの認証はないので、ローカルの別ユーザーからの利用を禁止するものではない。
 
-ユーザーが書き換えられる実行ファイルのパスに対して `NOPASSWD setcap` を許す場合、そのパスに別の実行ファイルを置けるユーザーは、それにも同じ capability を付与できる。パスと引数だけを制限する sudoers ルールは、実行ファイルの内容やハッシュを検証しない。
+[main_preview.sh](scripts/main_preview.sh) と [release_preview.sh](scripts/release_preview.sh) は候補を mode `0755` で配置し、capability を付けて更新する。[PREVIEW.md](PREVIEW.md) の sudoers 例はユーザー所有の candidate パスへの `NOPASSWD setcap` を許す。そのパスに別の実行ファイルを置けるユーザーは、文書通りのルールならそれにも同じ capability を付与できる。これはルールが procinsh の内容・ハッシュを検証しないことから導かれる権限上の意味であり、稼働ホストにそのルールが存在することを確認したわけではない。
 
 **対策:** バイナリと配置ディレクトリの owner/mode、capability、sudoers を確認し、実行ユーザーを限定する。特権を付ける成果物を root 管理の配備経路で検証する。最新 main の自動ビルドへそのまま権限を付ける運用は、リポジトリ・ビルド依存・更新経路まで信頼することを意味する。常設する場合はレビュー済みの版を固定する。
 
 ## 7. ELF/DWARF と通常 HTTP API の DoS
 
-[symbol/cache.rs](../src/http_server/process/snapshot/symbol/cache.rs) はファイルサイズを512 MiB、cache 件数を64に制限するが、**解析後の総メモリ量**を制限しない。多数の大きな ELF、展開された debug section、複数接続分の cache が重なると、大きなメモリ消費となりうる。件数上限だけではバイト数の上限にならない。
+[symbol/cache.rs](../../src/http_server/process/snapshot/symbol/cache.rs) はファイルサイズを512 MiB、cache 件数を64に制限するが、**解析後の総メモリ量**を制限しない。多数の大きな ELF、展開された debug section、複数接続分の cache が重なると、大きなメモリ消費となりうる。件数上限だけではバイト数の上限にならない。
 
 さらに `matching_file` は pathname の metadata で inode/device を確認した後、`ElfSymbols::load` がその pathname を再度開く。確認した FD を使い続ける方式ではないので、ファイルの増大・置換・対象の exec との TOCTOU が残る。`fs::read` は確認済みサイズを上限として読むものではない。fallback の `/proc/PID/root/...` などでファイルが置換されると、確認とは異なるファイルへの I/O になる可能性がある。成立条件は未再現だが、対象が管理する filesystem、FUSE、ネットワーク filesystem の遅い I/O も timeout なしの解析には問題となりうる。
 
-通常の詳細 API も `spawn_blocking` を利用し、SSE の32接続制限とは独立している。[api/process.rs](../src/http_server/api/process.rs) に共通の同時実行数・頻度制限はない。[maps.rs](../src/http_server/process/maps.rs) の maps/smaps 読み取りは `read_to_string` でサイズ上限を設けていない。大量の mapping を持つ対象への繰り返し要求は追加負荷になる。環境変数1 MiB、auxv 64 KiB、FD探索の件数・時間制限など、個別の防御はあるが全 API の総量を制限するものではない。
+通常の詳細 API も `spawn_blocking` を利用し、SSE の32接続制限とは独立している。[api/process.rs](../../src/http_server/api/process.rs) に共通の同時実行数・頻度制限はない。[maps.rs](../../src/http_server/process/maps.rs) の maps/smaps 読み取りは `read_to_string` でサイズ上限を設けていない。大量の mapping を持つ対象への繰り返し要求は追加負荷になる。環境変数1 MiB、auxv 64 KiB、FD探索の件数・時間制限など、個別の防御はあるが全 API の総量を制限するものではない。
 
 **対策:** 同じ FD 上で file type・identity・size を検査し、読み取りと debug 展開にもバイト上限を付ける。cache の総容量と解析の同時実行数を制限し、重い解析を低権限 worker に分離する。通常 API にも共有 semaphore・頻度制限・実行期限を設ける。
 
@@ -182,7 +182,7 @@ file capability は一度付けると、通常の終了で消えない。実行�
 
 `0.0.0.0` 公開時の環境変数漏えいに加え、到達できるクライアントは SSE の GET 要求で上述の ptrace/perf を開始できる。したがって、非 loopback 公開の問題は情報漏えいだけではなく、**強い権限を持つ観測操作を他者が起動できること**でもある。任意アドレスのメモリ読み取り HTTP API があるわけではないが、レジスタ・スタックフレーム・命令 bytes・maps 等の情報は返る。
 
-[middleware.rs](../src/http_server/middleware.rs) の Host/Origin/Fetch Metadata 検査はブラウザ経由の攻撃に対する防御になるが、任意の header を付けられる HTTP クライアントの認証ではない。既定 loopback と `--allow-non-loopback` の明示要求は待受範囲の制限になるが、非 loopback で公開した場合、到達できるクライアントに対するアプリケーション側の認証はない。リバースプロキシを置く場合は認証/TLSに加え、裏側ポートへ直接到達できない配置にする必要がある。
+[middleware.rs](../../src/http_server/middleware.rs) の Host/Origin/Fetch Metadata 検査はブラウザ経由の攻撃に対する防御になるが、任意の header を付けられる HTTP クライアントの認証ではない。既定 loopback と `--allow-non-loopback` の明示要求は有効な防御である一方、[main の常設プレビュー service](scripts/systemd/procinsh-preview.service) と [公開版の service](scripts/systemd/procinsh-release-preview.service) は [preview_bind.sh](scripts/preview_bind.sh) 経由で Tailscale IPv4 のみに bind する。待受範囲は限定されるが、Tailscale 経由で到達できるクライアントに対するアプリケーション側の認証はない。リバースプロキシを置く場合は認証/TLSに加え、裏側ポートへ直接到達できない配置にする必要がある。
 
 ## 9. 対策と追加検証の順番
 
