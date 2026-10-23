@@ -164,7 +164,7 @@ HTTP、`/proc` の解析、libbpf の FFI、perf の unsafe、ELF/DWARF の解�
 
 file capability は一度付けると、通常の終了で消えない。実行ファイル・祖先ディレクトリのアクセス権によっては、他ユーザーも強い権限付きのバイナリを起動できる。loopback の HTTP にも OS ユーザーの認証はないので、ローカルの別ユーザーからの利用を禁止するものではない。
 
-[main_preview.sh](../scripts/main_preview.sh) と [release_preview.sh](../scripts/release_preview.sh) は候補を mode `0755` で配置し、capability を付けて更新する。[PREVIEW.md](PREVIEW.md) の sudoers 例はユーザー所有の candidate パスへの `NOPASSWD setcap` を許す。そのパスに別の実行ファイルを置けるユーザーは、文書通りのルールならそれにも同じ capability を付与できる。これはルールが procinsh の内容・ハッシュを検証しないことから導かれる権限上の意味であり、稼働ホストにそのルールが存在することを確認したわけではない。
+[main_preview.sh](../scripts/main_preview.sh) と [release_preview.sh](../scripts/release_preview.sh) は候補を mode `0755` で配置し、capability を付けて更新する。[PREVIEW.md](../users/akawashiro/PREVIEW.md) の sudoers 例はユーザー所有の candidate パスへの `NOPASSWD setcap` を許す。そのパスに別の実行ファイルを置けるユーザーは、文書通りのルールならそれにも同じ capability を付与できる。これはルールが procinsh の内容・ハッシュを検証しないことから導かれる権限上の意味であり、稼働ホストにそのルールが存在することを確認したわけではない。
 
 **対策:** バイナリと配置ディレクトリの owner/mode、capability、sudoers を確認し、実行ユーザーを限定する。特権を付ける成果物を root 管理の配備経路で検証する。最新 main の自動ビルドへそのまま権限を付ける運用は、リポジトリ・ビルド依存・更新経路まで信頼することを意味する。常設する場合はレビュー済みの版を固定する。
 
