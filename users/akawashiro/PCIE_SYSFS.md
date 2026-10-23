@@ -64,15 +64,13 @@ masumi の NVMe SSD は、AMD 500 Series Chipset の上流ポートと下流ポ�
 
 ここで、ディレクトリ間の辺すべてが独立した物理 PCIe リンクを表すわけではない。スイッチ内部の仮想バスを介する親子関係も含まれる。ブリッジのディレクトリ数をそのまま物理スイッチ数として数えることもできない。
 
-`0000:03:00.0` は `domain:bus:device.function` 形式の PCI アドレスである。末端の単位は PCI function なので、一枚のカードに複数のエントリが存在することもある。`pci0000:00` は host bridge オブジェクトの名前で、PCI function のアドレスではない。これを CPU ソケットや Root Complex 全体と一対一に対応すると仮定しない。
+`0000:03:00.0` は `domain:bus:device.function` 形式の PCI アドレスである[^pci-address]。末端の単位は PCI function なので、一枚のカードに複数のエントリが存在することもある。`pci0000:00` は host bridge オブジェクトの名前で、PCI function のアドレスではない。これを CPU ソケットや Root Complex 全体と一対一に対応すると仮定しない。
 
 パス文字列から分かる親子関係だけで、ポートや機器の種別がすべて確定するわけではない。 上の名前は `lspci` の PCI ID データベースによる表示であり、PCI Express Capability のポート種別を直接確認した結果とは区別する。masumi の一般ユーザーでの `lspci -vv` は `Capabilities: <access denied>` となるため、図の `00:01.2` と `00:03.1` も観測できた GPP Bridge という名前で記載している。
 
 ## なぜ sysfs の階層から親子関係が分かるのか
 
 公式文書と Linux の実装を、次の順に組み合わせると確認できる。ソースコードは Linus の `torvalds/linux` ツリーの Linux v7.0 を参照し、GitHub のリンクをコミット `028ef9c96e96197026887c0f092424679298aae8` に固定する。
-
-masumi の `7.0.0-38-generic` は Ubuntu ソースバージョン `7.0.0-38.38` で、対応する Makefile は `VERSION = 7`・`PATCHLEVEL = 0`・`SUBLEVEL = 14`（Linux 7.0.14 ベース）。7.0 系の stable 更新を含む実機との差を明確にするため、Linus ツリー側ではその基点の [v7.0 リリースコミット](https://github.com/torvalds/linux/commit/028ef9c96e96197026887c0f092424679298aae8) を使用する。以下の `probe.c` の3箇所は、実機と一致する Ubuntu ソースパッケージとも照合し、コードと行番号が一致することを確認している。
 
 1. sysfs はオブジェクトの親子関係をディレクトリにする。
    [sysfs 文書の Directory Creation](https://docs.kernel.org/filesystems/sysfs.html#directory-creation) は、登録された kobject のディレクトリを、その親 kobject のサブディレクトリとして作成すると説明している。同文書の devices の説明では、`/sys/devices` が `struct device` の階層に直接対応するとしている。
@@ -141,4 +139,4 @@ $ cat /sys/bus/pci/devices/0000:03:00.0/device
 
 属性の説明は [Accessing PCI device resources through sysfs](https://docs.kernel.org/PCI/sysfs-pci.html) と [PCI sysfs ABI 定義](https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-bus-pci) を参照する。
 
-このツリーはカーネルが列挙する PCI 階層であり、プロセスがどのデバイスを開いているか、転送量がどれくらいかを表すものではない。それらは FD や活動情報を別途観測して対応付ける。
+[^pci-address]: カーネルの [PCI sysfs ABI 定義](https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-bus-pci) の `/sys/bus/pci/drivers/.../bind` は、デバイスの位置を `DDDD:BB:DD.F`（Domain:Bus:Device.Function）形式と定義し、`/sys/bus/pci/devices/` と同じ形式であると説明している。`0000:03:00.0` では domain が `0000`、bus が `03`、device が `00`、function が `0` に対応する。
