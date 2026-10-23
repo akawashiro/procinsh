@@ -227,6 +227,8 @@ export function createSpaceRenderer({
   let signalFlights: SignalFlight[] = [];
   const signalPulses = new Map<string, number>();
   const labelPoint = new graphics.Vector3();
+  const framePoint = new graphics.Vector3();
+  const frameColor = new graphics.Color();
   const labelStates = new Map<string, LabelState>();
   let labelTime: number | undefined;
   let renderer: T.WebGLRenderer;
@@ -612,10 +614,12 @@ export function createSpaceRenderer({
       }
       const progress = elapsed / f.duration;
       for (let tail = 0; tail < (reduced ? 1 : 7); tail++) {
-        const point = f.curve.getPoint(Math.max(0, progress - tail * 0.025));
-        positions.set(point.toArray(), i * 3);
+        f.curve.getPoint(Math.max(0, progress - tail * 0.025), framePoint);
+        framePoint.toArray(positions, i * 3);
         const strength = tail === 0 ? 1 : 0.45 * (1 - tail / 7);
-        colors.set([strength, 0.42 * strength, 0.95 * strength], i * 3);
+        colors[i * 3] = strength;
+        colors[i * 3 + 1] = 0.42 * strength;
+        colors[i * 3 + 2] = 0.95 * strength;
         i++;
       }
     }
@@ -625,11 +629,13 @@ export function createSpaceRenderer({
       if (now < p.start) continue;
       const t = (now - p.start) / p.duration,
         point = p.curve
-          ? p.curve.getPoint(p.direction === 1 ? t : 1 - t)
+          ? p.curve.getPoint(p.direction === 1 ? t : 1 - t, framePoint)
           : p.pos;
-      positions.set(point.toArray(), i * 3);
-      const c = new graphics.Color(p.color).multiplyScalar(1 - t * 0.8);
-      colors.set([c.r, c.g, c.b], i * 3);
+      point.toArray(positions, i * 3);
+      frameColor
+        .set(p.color)
+        .multiplyScalar(1 - t * 0.8)
+        .toArray(colors, i * 3);
       i++;
     }
     signalGeometry.setDrawRange(0, signalCount);
@@ -647,7 +653,7 @@ export function createSpaceRenderer({
             : Math.max(0, 1 - (now - arrival) / SIGNAL_PULSE_MS);
         baseGlow.setColorAt(
           j,
-          new graphics.Color().setRGB(
+          frameColor.setRGB(
             0.45 * level + pulse,
             1.15 * level + pulse * 0.35,
             1.05 * level + pulse * 0.9,
@@ -655,7 +661,7 @@ export function createSpaceRenderer({
         );
         haloGlow.setColorAt(
           j,
-          new graphics.Color().setRGB(
+          frameColor.setRGB(
             0.18 * level + pulse * 0.7,
             0.85 * level + pulse * 0.2,
             0.72 * level + pulse * 0.8,

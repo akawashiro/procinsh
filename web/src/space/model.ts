@@ -116,21 +116,24 @@ export function signalName(signal: number) {
 export function layoutMaps<M extends Pick<MemoryMap, "start" | "end">>(
   maps: M[],
 ) {
-  const sorted = [...maps].sort((a, b) =>
-    BigInt(a.start) < BigInt(b.start) ? -1 : 1,
-  );
-  const sizes = sorted.map((m) => Number(BigInt(m.end) - BigInt(m.start)));
+  // Parse each address once; comparing BigInts parsed inside the sort
+  // comparator dominated snapshot updates.
+  const sorted = maps
+    .map((m) => ({ m, start: BigInt(m.start) }))
+    .sort((a, b) => (a.start < b.start ? -1 : 1));
+  const sizes = sorted.map(({ m, start }) => Number(BigInt(m.end) - start));
   const total = sizes.reduce((a, b) => a + b, 0) || 1,
     gap = 0.018;
+  const heights = sizes.map((size) => Math.max(0.008, (size / total) * 7));
+  let end = 0;
+  for (const h of heights) end += h + gap;
   let z = 0;
-  return sorted
-    .map((m, i) => {
-      const h = Math.max(0.008, (sizes[i] / total) * 7);
-      const result = { ...m, z, h };
-      z += h + gap;
-      return result;
-    })
-    .map((m, _, all) => ({ ...m, z: (m.z / z) * 8, h: (m.h / z) * 8 }));
+  return sorted.map(({ m }, i) => {
+    const h = heights[i];
+    const result = { ...m, z: (z / end) * 8, h: (h / end) * 8 };
+    z += h + gap;
+    return result;
+  });
 }
 
 export function findNearestRegion(

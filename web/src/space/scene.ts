@@ -63,6 +63,25 @@ const PATH_COLORS = {
   node: 0xf09050,
   sys: 0xf06060,
 } as const;
+const BOX_CORNERS = [
+  [-1.1, -1.1],
+  [1.1, -1.1],
+  [1.1, 1.1],
+  [-1.1, 1.1],
+];
+
+// Rebuilds color hundreds of thousands of lines and layers from a few dozen
+// distinct values; parsing and color-space conversion dominated the rebuild.
+// Callers copy from these shared instances and must not mutate them.
+const colorCache = new Map<T.ColorRepresentation, T.Color>();
+function cachedColor(color: T.ColorRepresentation): T.Color {
+  let cached = colorCache.get(color);
+  if (!cached) {
+    cached = new T.Color(color);
+    colorCache.set(color, cached);
+  }
+  return cached;
+}
 
 function ipcCurve(
   start: T.Vector3,
@@ -242,7 +261,11 @@ function parentJoints(sections: ParentSegment[]): ParentJoint[] {
   }));
 }
 
-function disposeObject(object: T.Object3D) {
+/**
+ * Free an object's GPU buffers. Materials go to `retired` when given, so a
+ * rebuild can release them only after its replacements have rendered.
+ */
+function disposeObject(object: T.Object3D, retired?: Set<T.Material>) {
   if (object instanceof T.InstancedMesh) object.dispose();
   if (
     object instanceof T.Mesh ||
@@ -253,13 +276,25 @@ function disposeObject(object: T.Object3D) {
     const materials = Array.isArray(object.material)
       ? object.material
       : [object.material];
-    for (const material of materials) material.dispose();
+    for (const material of materials)
+      if (retired) retired.add(material);
+      else material.dispose();
   }
 }
 
 export function createSpaceScene() {
   const scene = new T.Scene();
   scene.fog = new T.FogExp2(0x03090e, 0.0015);
+  // three.js destroys a shader program when its last material is disposed, so
+  // disposing the old materials before a rebuild renders forced every snapshot
+  // to recompile shaders synchronously (~70 ms). Releasing them after the next
+  // render lets the replacements reuse the cached programs.
+  const retiredMaterials = new Set<T.Material>();
+  function releaseRetiredMaterials() {
+    for (const material of retiredMaterials) material.dispose();
+    retiredMaterials.clear();
+  }
+  scene.onAfterRender = releaseRetiredMaterials;
   let nodes = new Map<string, RenderNode>();
   let edgeViews: EdgeView[] = [],
     networkViews: NetworkView[] = [],
@@ -336,7 +371,7 @@ export function createSpaceScene() {
             : 0x244b5e;
   }
   function disposeGroup() {
-    geometryGroup.traverse(disposeObject);
+    geometryGroup.traverse((object) => disposeObject(object, retiredMaterials));
     scene.remove(geometryGroup);
     geometryGroup = new T.Group();
     scene.add(geometryGroup);
@@ -461,14 +496,14 @@ export function createSpaceScene() {
       layerList: { n: RenderNode; r: Region }[] = [];
     let regionLimit = 0;
     const addLine = (
-      endpoint: number[],
-      peer: number[],
+      endpoint: T.Vector3Like,
+      peer: T.Vector3Like,
       color: T.ColorRepresentation,
       edge: ConnectionPick | null = null,
     ) => {
       lineEdges.push(edge);
-      linePos.push(...endpoint, ...peer);
-      const c = new T.Color(color);
+      linePos.push(endpoint.x, endpoint.y, endpoint.z, peer.x, peer.y, peer.z);
+      const c = cachedColor(color);
       lineColors.push(c.r, c.g, c.b, c.r, c.g, c.b);
     };
     for (let i = 0; i < hullIds.length; i++) {
@@ -482,32 +517,26 @@ export function createSpaceScene() {
       dummy.position.set(p.x, p.y, -0.035);
       dummy.updateMatrix();
       baseGlow.setMatrixAt(i, dummy.matrix);
-      baseGlow.setColorAt(i, new T.Color(0));
+      baseGlow.setColorAt(i, cachedColor(0));
       dummy.position.z = -0.075;
       dummy.updateMatrix();
       haloGlow.setMatrixAt(i, dummy.matrix);
-      haloGlow.setColorAt(i, new T.Color(0));
+      haloGlow.setColorAt(i, cachedColor(0));
       for (const z of [0, 8])
         for (let j = 0; j < 4; j++) {
-          const corners = [
-              [-1.1, -1.1],
-              [1.1, -1.1],
-              [1.1, 1.1],
-              [-1.1, 1.1],
-            ],
-            a = corners[j],
-            b = corners[(j + 1) % 4];
+          const a = BOX_CORNERS[j],
+            b = BOX_CORNERS[(j + 1) % 4];
           addLine(
-            [p.x + a[0], p.y + a[1], z],
-            [p.x + b[0], p.y + b[1], z],
+            { x: p.x + a[0], y: p.y + a[1], z },
+            { x: p.x + b[0], y: p.y + b[1], z },
             userColors.real,
           );
         }
       for (const x of [-1.1, 1.1])
         for (const y of [-1.1, 1.1])
           addLine(
-            [p.x + x, p.y + y, 0],
-            [p.x + x, p.y + y, 8],
+            { x: p.x + x, y: p.y + y, z: 0 },
+            { x: p.x + x, y: p.y + y, z: 8 },
             userColors.effective,
           );
       const stride =
@@ -537,7 +566,7 @@ export function createSpaceScene() {
       dummy.scale.set(1, 1, Math.max(0.0001, r.h));
       dummy.updateMatrix();
       layers.setMatrixAt(i, dummy.matrix);
-      layers.setColorAt(i, new T.Color(regionColor(r)));
+      layers.setColorAt(i, cachedColor(regionColor(r)));
     }
     geometryGroup.add(layers);
     edgeViews = [];
@@ -611,7 +640,7 @@ export function createSpaceScene() {
           curves.set(port.id, curve);
           const pts = curve.getPoints(24);
           for (let j = 0; j < 24; j++)
-            addLine(pts[j].toArray(), pts[j + 1].toArray(), 0x68baff, pick);
+            addLine(pts[j], pts[j + 1], 0x68baff, pick);
         }
         representative ??= curve;
         edgeViews.push({ e, curve, networkId: group.id });
@@ -657,12 +686,19 @@ export function createSpaceScene() {
       );
       edgeViews.push({ e, curve });
       const pts = curve.getPoints(16);
-      const mutedColor = new T.Color(
+      const mutedColor = cachedColor(
         e.shared ? SHARED_FD_COLOR : CANDIDATE_PEER_COLOR,
       );
       for (let j = 0; j < pts.length - 1; j++) {
         if (e.candidate || e.shared) {
-          mutedPos.push(...pts[j], ...pts[j + 1]);
+          mutedPos.push(
+            pts[j].x,
+            pts[j].y,
+            pts[j].z,
+            pts[j + 1].x,
+            pts[j + 1].y,
+            pts[j + 1].z,
+          );
           mutedColors.push(
             mutedColor.r,
             mutedColor.g,
@@ -672,13 +708,7 @@ export function createSpaceScene() {
             mutedColor.b,
           );
           mutedEdges.push(e);
-        } else
-          addLine(
-            pts[j].toArray(),
-            pts[j + 1].toArray(),
-            e.peer ? 0x236857 : 0x24404c,
-            e,
-          );
+        } else addLine(pts[j], pts[j + 1], e.peer ? 0x236857 : 0x24404c, e);
       }
     }
     ipcPorts = [...ports.values()];
@@ -705,7 +735,7 @@ export function createSpaceScene() {
         .addScaledVector(port.normal, -IPC_STEM_LENGTH / 2);
       transform.updateMatrix();
       portStems.setMatrixAt(i, transform.matrix);
-      portStems.setColorAt(i, new T.Color(IPC_PORT_COLOR));
+      portStems.setColorAt(i, cachedColor(IPC_PORT_COLOR));
     }
     portGroup.add(portStems);
     const lines = new T.BufferGeometry();
@@ -975,7 +1005,9 @@ export function createSpaceScene() {
    * descriptor links between processes and devices for a selected process or device.
    */
   function updateHardwareOverlay(selectionState: SelectionState) {
-    hardwareOverlay.traverse(disposeObject);
+    hardwareOverlay.traverse((object) =>
+      disposeObject(object, retiredMaterials),
+    );
     scene.remove(hardwareOverlay);
     hardwareOverlay = new T.Group();
     hardwareOverlay.name = "hardware-overlay";
@@ -1046,7 +1078,7 @@ export function createSpaceScene() {
       netlink,
       netlinkPositions,
     } = input;
-    fileGroup.traverse(disposeObject);
+    fileGroup.traverse((object) => disposeObject(object, retiredMaterials));
     scene.remove(fileGroup);
     fileGroup = new T.Group();
     scene.add(fileGroup);
@@ -1331,7 +1363,8 @@ export function createSpaceScene() {
       };
     },
     dispose() {
-      scene.traverse(disposeObject);
+      scene.traverse((object) => disposeObject(object));
+      releaseRetiredMaterials();
     },
   };
 }
