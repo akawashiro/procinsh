@@ -1,5 +1,9 @@
 # PCIe のツリー構造と Linux sysfs への対応
 
+作成者: 6.1 sol
+
+確認者: Kawata Akira
+
 通常の PCIe は、ホスト側の Root Complex を根として、Root Port・スイッチ・Endpoint を接続する階層構造を持つ。Linux は列挙した PCI デバイスの親子関係をデバイスモデルに登録し、sysfs はそれをディレクトリ階層として公開する。そのため、`/sys/bus/pci/devices/` のリンクを実体へ解決すると、上流ブリッジを辿れる。
 
 ## 観測環境
