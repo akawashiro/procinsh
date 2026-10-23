@@ -70,42 +70,23 @@ masumi の NVMe SSD は、AMD 500 Series Chipset の上流ポートと下流ポ�
 
 ## なぜ sysfs の階層から親子関係が分かるのか
 
-公式文書と Linux の実装を、次の順に組み合わせると確認できる。実装は masumi と一致する **Ubuntu `linux` ソースバージョン `7.0.0-38.38`** で確認している。上流 Linux の同じメジャーバージョンで代用せず、Ubuntu の変更を含む公式ソースパッケージを参照する。
+公式文書と Linux の実装を、次の順に組み合わせると確認できる。ソースコードは **Linus の `torvalds/linux` ツリーの Linux v7.0** を参照し、GitHub のリンクをコミット `028ef9c96e96197026887c0f092424679298aae8` に固定する。
 
-- [Ubuntu のソース公開ページ：linux 7.0.0-38.38](https://launchpad.net/ubuntu/+source/linux/7.0.0-38.38)
-- 確認に使用した [linux-source-7.0.0_7.0.0-38.38_all.deb（約193 MB）](https://archive.ubuntu.com/ubuntu/pool/main/l/linux/linux-source-7.0.0_7.0.0-38.38_all.deb)
-- パッケージの SHA-256：`997a13a0c7fd0172a93b0c1ae9a4ffc7d3cbbf91d2fdd91d85334193580687de`（APT のメタデータと照合済み）
-
-以下の行番号は、このパッケージ内の `linux-source-7.0.0.tar.bz2` を展開した `linux-source-7.0.0/drivers/pci/probe.c` の位置を示す。
+masumi の `7.0.0-38-generic` は Ubuntu ソースバージョン `7.0.0-38.38` で、対応する Makefile は `VERSION = 7`・`PATCHLEVEL = 0`・`SUBLEVEL = 14`（Linux 7.0.14 ベース）。7.0 系の stable 更新を含む実機との差を明確にするため、Linus ツリー側ではその基点の [v7.0 リリースコミット](https://github.com/torvalds/linux/commit/028ef9c96e96197026887c0f092424679298aae8) を使用する。以下の `probe.c` の3箇所は、実機と一致する Ubuntu ソースパッケージとも照合し、コードと行番号が一致することを確認している。
 
 1. **sysfs はオブジェクトの親子関係をディレクトリにする。**
    [sysfs 文書の Directory Creation](https://docs.kernel.org/filesystems/sysfs.html#directory-creation) は、登録された kobject のディレクトリを、その親 kobject のサブディレクトリとして作成すると説明している。同文書の devices の説明では、`/sys/devices` が `struct device` の階層に直接対応するとしている。
 
 2. **PCI デバイスの親は、所属バスの上流ブリッジになる。**
-   `pci_setup_device()`（`drivers/pci/probe.c:2028`） は `dev->dev.parent = dev->bus->bridge;` と設定する。
+   [`pci_setup_device()`（`drivers/pci/probe.c:2028`）](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/pci/probe.c#L2028) は `dev->dev.parent = dev->bus->bridge;` と設定する。
 
 3. **ブリッジ配下のバスは、そのブリッジを保持する。**
-   `pci_alloc_child_bus()`（`drivers/pci/probe.c:1241`） は `child->bridge = get_device(&bridge->dev);` と設定する。その子バスに列挙されたデバイスには、上の処理でこのブリッジが親として設定される。
+   [`pci_alloc_child_bus()`（`drivers/pci/probe.c:1241`）](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/pci/probe.c#L1241) は `child->bridge = get_device(&bridge->dev);` と設定する。その子バスに列挙されたデバイスには、上の処理でこのブリッジが親として設定される。
 
 4. **根の host bridge には `pci<domain>:<bus>` という名前が付く。**
-   `pci_register_host_bridge()`（`drivers/pci/probe.c:1028`） で `dev_set_name(&bridge->dev, "pci%04x:%02x", ...)` と命名している。
+   [`pci_register_host_bridge()`（`drivers/pci/probe.c:1028`）](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/pci/probe.c#L1028) で `dev_set_name(&bridge->dev, "pci%04x:%02x", ...)` と命名している。
 
 この対応が、上流ブリッジからデバイスまでの階層が sysfs の実体パスに現れる根拠となる。特定のバス番号や階層数を固定する仕様ではない。
-
-同じソースを取得して照合する手順は次のとおり。専用の作業ディレクトリで実行する。パッケージをインストールする必要はない。
-
-```sh
-apt-get download linux-source-7.0.0=7.0.0-38.38
-sha256sum linux-source-7.0.0_7.0.0-38.38_all.deb
-dpkg-deb -x linux-source-7.0.0_7.0.0-38.38_all.deb extracted
-tar -xjf extracted/usr/src/linux-source-7.0.0/linux-source-7.0.0.tar.bz2 \
-  linux-source-7.0.0/drivers/pci/probe.c \
-  linux-source-7.0.0/Documentation/filesystems/sysfs.rst
-rg -n 'dev->dev.parent =|child->bridge =|pci%04x' \
-  linux-source-7.0.0/drivers/pci/probe.c
-```
-
-APT の配信対象が更新されて該当バージョンを取得できない場合は、上記の固定バージョンの公開先を参照する。
 
 ## `/sys/bus/pci/devices` は一覧、`/sys/devices` は階層
 
