@@ -61,7 +61,7 @@ jobs:
           RUSTDOCFLAGS: "-D rustdoc::broken_intra_doc_links"
         run: cargo doc --locked --workspace --no-deps --document-private-items
 
-      - name: Build TypeScript API documentation
+      - name: Build TypeScript module documentation
         run: npm --prefix web run docs
 
       - name: Build TypeScript module dependency graphs
@@ -81,8 +81,8 @@ jobs:
           echo '<!doctype html><html lang="ja">' \
             '<meta charset="utf-8">' \
             '<meta name="viewport" content="width=device-width,initial-scale=1">' \
-            '<title>ProcInSh API Docs</title>' \
-            '<h1>ProcInSh API Docs</h1><h2>Rust API documentation</h2><ul>' \
+            '<title>procinsh developpers document</title>' \
+            '<h1>procinsh developpers document</h1><h2>Rust module documentation</h2><ul>' \
             > target/doc/index.html
 
           for file in target/doc/*/index.html; do
@@ -95,9 +95,10 @@ jobs:
               >> target/doc/index.html
           done
 
-          echo '</ul><h2>TypeScript API documentation</h2><ul><li><a href="typescript/">TypeScript API documentation</a></li></ul>' >> target/doc/index.html
+          echo '</ul><h2>TypeScript module documentation</h2><ul><li><a href="typescript/">TypeScript module documentation</a></li></ul>' >> target/doc/index.html
           echo '<h2>Architecture</h2><ul><li><a href="rust-architecture/">Rust module dependency graph</a></li><li><a href="typescript-architecture/">TypeScript module dependency graph</a></li></ul>' >> target/doc/index.html
-          echo '<h2>Demo</h2><p><a href="demo/">SPACE replay demos</a></p></html>' >> target/doc/index.html
+          echo '<h2>Demo</h2><ul><li><a href="demo/">replay demo</a></li></ul>' >> target/doc/index.html
+          echo '<h2>Development guide</h2><ul><li><a href="https://github.com/akawashiro/procinsh/blob/main/developer-docs/DEVELOPMENT.md">DEVELOPMENT.md</a></li></ul></html>' >> target/doc/index.html
           touch target/doc/.nojekyll
 
       - name: Include static replay demo

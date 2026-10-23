@@ -2,6 +2,8 @@
 
 Thank you for considering contributing to this project!
 
+See the [developer documentation](https://akawashiro.github.io/procinsh/) for module documentation, dependency graphs, replay demos, and the development guide.
+
 Issues and pull requests are welcome. Please write them in English.
 
 - Use draft pull requests proactively, and mark them as ready for review when they are review-ready.
