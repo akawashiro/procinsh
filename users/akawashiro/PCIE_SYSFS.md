@@ -139,6 +139,6 @@ $ cat /sys/bus/pci/devices/0000:03:00.0/device
            |            \-00.1
 ```
 
-属性の説明は [Accessing PCI device resources through sysfs](https://docs.kernel.org/PCI/sysfs-pci.html) と [PCI sysfs ABI 定義](https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-bus-pci) を参照する。前者には host bridge 配下の PCI function と属性ファイルの例があるが、masumi の構成そのものを掲載した文書ではない。
+属性の説明は [Accessing PCI device resources through sysfs](https://docs.kernel.org/PCI/sysfs-pci.html) と [PCI sysfs ABI 定義](https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-bus-pci) を参照する。
 
 このツリーはカーネルが列挙する PCI 階層であり、プロセスがどのデバイスを開いているか、転送量がどれくらいかを表すものではない。それらは FD や活動情報を別途観測して対応付ける。
