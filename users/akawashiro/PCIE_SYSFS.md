@@ -2,7 +2,20 @@
 
 通常の PCIe は、ホスト側の Root Complex を根として、Root Port・スイッチ・Endpoint を接続する階層構造を持つ。Linux は列挙した PCI デバイスの親子関係をデバイスモデルに登録し、sysfs はそれをディレクトリ階層として公開する。そのため、`/sys/bus/pci/devices/` のリンクを実体へ解決すると、上流ブリッジを辿れる。
 
-以下の図と PCI アドレスは**説明用の例**であり、特定の実機の観測結果や仕様書からの転載ではない。
+## 観測環境
+
+以下の PCI アドレス・機器名・sysfs パスは、**masumi で 2026-10-23 に取得した結果**に基づく。ツリー図は `readlink -f` の実体パスを整理したもので、USB・SATA など説明対象外の枝は省略している。
+
+```console
+$ hostname
+masumi
+$ uname -r
+7.0.0-38-generic
+$ dpkg-query -W -f='${Package} ${Version} ${source:Package} ${source:Version}\n' linux-modules-7.0.0-38-generic
+linux-modules-7.0.0-38-generic 7.0.0-38.38 linux 7.0.0-38.38
+```
+
+OS は Ubuntu 26.04.1 LTS。`linux-image-7.0.0-38-generic` のソースパッケージ名は `linux-signed` なので、PCI 実装の照合には `linux-modules` が示す `linux` のバージョンを使用する。
 
 ## PCIe の構成要素
 
@@ -13,16 +26,6 @@
 | PCIe Switch | 上流ポートと複数の下流ポートを持ち、接続を分岐させる |
 | Endpoint | GPU、NIC、NVMe コントローラーなどの末端デバイス |
 
-```text
-Root Complex
-├─ Root Port ─ GPU
-└─ Root Port ─ PCIe Switch
-               ├─ NVMe SSD
-               └─ PCIe Switch
-                    ├─ GPU
-                    └─ NIC
-```
-
 各外部リンクはポイントツーポイント接続で、スイッチを介して枝分かれする。Root Complex ごとの通常の階層をツリーとして扱えるが、マシン全体に根が一つしかないという意味ではない。NTB（Non-Transparent Bridge）では、独立したアドレス空間を持つ PCIe 階層同士を接続できる。
 
 根拠は [Renesas / IDT AN-510](https://www.renesas.com/document/510-use-non-transpared-bridging-idt-pci-express-ntb-gen1-switches) の Introduction・Figure 1 と、続く NTB の説明。リンクの性質や複数ホスト構成については [Microchip の PCIe Interconnect Architecture 解説](https://ww1.microchip.com/downloads/aemDocuments/documents/UNG/ProductDocuments/SupportingCollateral/PCIe-White-Paper-DS00005141.pdf) も参照できる。
@@ -31,47 +34,78 @@ Root Complex
 
 一つの PCIe スイッチは、ソフトウェアからは複数の PCI-to-PCI Bridge と内部の仮想 PCI バスとして見える。上流ポートと各下流ポートがブリッジ機能を持つため、**一つのスイッチを通る経路でも、sysfs 上では複数のブリッジ階層になる**。この対応は AN-510 の Figure 1 の挿入図に示されている。
 
-例えば次の物理構成を考える。
-
-```text
-Root Port ─ Switch の上流ポート
-             └─ Switch 内部 ─ 下流ポート ─ GPU
-```
-
-その列挙結果を、次のような sysfs 階層で表せる。
+masumi の NVMe SSD は、AMD 500 Series Chipset の上流ポートと下流ポートを経由する。一方、NVIDIA GPU は別の GPP bridge の直下にある。実体パスをまとめると次のようになる。
 
 ```text
 /sys/devices/
-└─ pci0000:00/                Linux の PCI host bridge オブジェクト
-   └─ 0000:00:01.0/           Root Port
-      └─ 0000:01:00.0/        Switch の上流ポート
-         └─ 0000:02:00.0/     同じ Switch の下流ポート
-            └─ 0000:03:00.0/  GPU の PCI function
+└─ pci0000:00/                 Linux の PCI host bridge オブジェクト
+   ├─ 0000:00:01.2/            AMD Starship/Matisse GPP Bridge
+   │  └─ 0000:01:00.2/         AMD 500 Series Chipset Switch Upstream Port
+   │     ├─ 0000:02:04.0/      同 Switch Downstream Port
+   │     │  └─ 0000:03:00.0/   SanDisk / WD Blue SN570 NVMe SSD
+   │     └─ 0000:02:08.0/      同 Switch Downstream Port
+   │        └─ 0000:04:00.0/   Realtek RTL8125 Ethernet
+   └─ 0000:00:03.1/            AMD Starship/Matisse GPP Bridge
+      ├─ 0000:05:00.0/         NVIDIA GeForce RTX 5060 Ti（VGA function）
+      └─ 0000:05:00.1/         NVIDIA GB206（Audio function）
+```
+
+機器名は `lspci -D -nn` の表示を使っている。関連する出力の抜粋は次のとおり。
+
+```text
+0000:01:00.2 PCI bridge [0604]: Advanced Micro Devices, Inc. [AMD] 500 Series Chipset Switch Upstream Port [1022:43e9]
+0000:02:04.0 PCI bridge [0604]: Advanced Micro Devices, Inc. [AMD] 500 Series Chipset Switch Downstream Port [1022:43ea]
+0000:02:08.0 PCI bridge [0604]: Advanced Micro Devices, Inc. [AMD] 500 Series Chipset Switch Downstream Port [1022:43ea]
+0000:03:00.0 Non-Volatile memory controller [0108]: Sandisk Corp SanDisk Ultra 3D / WD Blue SN570 NVMe SSD (DRAM-less) [15b7:501a]
+0000:04:00.0 Ethernet controller [0200]: Realtek Semiconductor Co., Ltd. RTL8125 2.5GbE Controller [10ec:8125] (rev 05)
+0000:05:00.0 VGA compatible controller [0300]: NVIDIA Corporation GB206 [GeForce RTX 5060 Ti] [10de:2d04] (rev a1)
+0000:05:00.1 Audio device [0403]: NVIDIA Corporation GB206 High Definition Audio Controller [10de:22eb] (rev a1)
 ```
 
 ここで、ディレクトリ間の辺すべてが独立した物理 PCIe リンクを表すわけではない。スイッチ内部の仮想バスを介する親子関係も含まれる。ブリッジのディレクトリ数をそのまま物理スイッチ数として数えることもできない。
 
 `0000:03:00.0` は `domain:bus:device.function` 形式の PCI アドレスである。末端の単位は PCI function なので、一枚のカードに複数のエントリが存在することもある。`pci0000:00` は host bridge オブジェクトの名前で、PCI function のアドレスではない。これを CPU ソケットや Root Complex 全体と一対一に対応すると仮定しない。
 
-また、この図の Root Port・上流ポート・下流ポート・GPU という種別は、例として与えたもの。**パス文字列から分かる親子関係だけで、これらの種別がすべて確定するわけではない。** PCI class や PCI Express Capability のポート種別など、別の情報が必要になる。
+**パス文字列から分かる親子関係だけで、ポートや機器の種別がすべて確定するわけではない。** 上の名前は `lspci` の PCI ID データベースによる表示であり、PCI Express Capability のポート種別を直接確認した結果とは区別する。masumi の一般ユーザーでの `lspci -vv` は `Capabilities: <access denied>` となるため、図の `00:01.2` と `00:03.1` も観測できた GPP Bridge という名前で記載している。
 
 ## なぜ sysfs の階層から親子関係が分かるのか
 
-公式文書と Linux の実装を、次の順に組み合わせると確認できる。実装へのリンクは参照位置が動かないよう Linux **v6.12** に固定している。
+公式文書と Linux の実装を、次の順に組み合わせると確認できる。実装は masumi と一致する **Ubuntu `linux` ソースバージョン `7.0.0-38.38`** で確認している。上流 Linux の同じメジャーバージョンで代用せず、Ubuntu の変更を含む公式ソースパッケージを参照する。
+
+- [Ubuntu のソース公開ページ：linux 7.0.0-38.38](https://launchpad.net/ubuntu/+source/linux/7.0.0-38.38)
+- 確認に使用した [linux-source-7.0.0_7.0.0-38.38_all.deb（約193 MB）](https://archive.ubuntu.com/ubuntu/pool/main/l/linux/linux-source-7.0.0_7.0.0-38.38_all.deb)
+- パッケージの SHA-256：`997a13a0c7fd0172a93b0c1ae9a4ffc7d3cbbf91d2fdd91d85334193580687de`（APT のメタデータと照合済み）
+
+以下の行番号は、このパッケージ内の `linux-source-7.0.0.tar.bz2` を展開した `linux-source-7.0.0/drivers/pci/probe.c` の位置を示す。
 
 1. **sysfs はオブジェクトの親子関係をディレクトリにする。**
    [sysfs 文書の Directory Creation](https://docs.kernel.org/filesystems/sysfs.html#directory-creation) は、登録された kobject のディレクトリを、その親 kobject のサブディレクトリとして作成すると説明している。同文書の devices の説明では、`/sys/devices` が `struct device` の階層に直接対応するとしている。
 
 2. **PCI デバイスの親は、所属バスの上流ブリッジになる。**
-   [`pci_setup_device()`](https://github.com/torvalds/linux/blob/v6.12/drivers/pci/probe.c#L1910) は `dev->dev.parent = dev->bus->bridge;` と設定する。
+   `pci_setup_device()`（`drivers/pci/probe.c:2028`） は `dev->dev.parent = dev->bus->bridge;` と設定する。
 
 3. **ブリッジ配下のバスは、そのブリッジを保持する。**
-   [`pci_alloc_child_bus()`](https://github.com/torvalds/linux/blob/v6.12/drivers/pci/probe.c#L1150) は `child->bridge = get_device(&bridge->dev);` と設定する。その子バスに列挙されたデバイスには、上の処理でこのブリッジが親として設定される。
+   `pci_alloc_child_bus()`（`drivers/pci/probe.c:1241`） は `child->bridge = get_device(&bridge->dev);` と設定する。その子バスに列挙されたデバイスには、上の処理でこのブリッジが親として設定される。
 
 4. **根の host bridge には `pci<domain>:<bus>` という名前が付く。**
-   [`pci_register_host_bridge()`](https://github.com/torvalds/linux/blob/v6.12/drivers/pci/probe.c#L943) で `dev_set_name(&bridge->dev, "pci%04x:%02x", ...)` と命名している。
+   `pci_register_host_bridge()`（`drivers/pci/probe.c:1028`） で `dev_set_name(&bridge->dev, "pci%04x:%02x", ...)` と命名している。
 
 この対応が、上流ブリッジからデバイスまでの階層が sysfs の実体パスに現れる根拠となる。特定のバス番号や階層数を固定する仕様ではない。
+
+同じソースを取得して照合する手順は次のとおり。専用の作業ディレクトリで実行する。パッケージをインストールする必要はない。
+
+```sh
+apt-get download linux-source-7.0.0=7.0.0-38.38
+sha256sum linux-source-7.0.0_7.0.0-38.38_all.deb
+dpkg-deb -x linux-source-7.0.0_7.0.0-38.38_all.deb extracted
+tar -xjf extracted/usr/src/linux-source-7.0.0/linux-source-7.0.0.tar.bz2 \
+  linux-source-7.0.0/drivers/pci/probe.c \
+  linux-source-7.0.0/Documentation/filesystems/sysfs.rst
+rg -n 'dev->dev.parent =|child->bridge =|pci%04x' \
+  linux-source-7.0.0/drivers/pci/probe.c
+```
+
+APT の配信対象が更新されて該当バージョンを取得できない場合は、上記の固定バージョンの公開先を参照する。
 
 ## `/sys/bus/pci/devices` は一覧、`/sys/devices` は階層
 
@@ -79,7 +113,7 @@ Root Port ─ Switch の上流ポート
 
 ```text
 /sys/bus/pci/devices/0000:03:00.0
-  → /sys/devices/pci0000:00/0000:00:01.0/0000:01:00.0/0000:02:00.0/0000:03:00.0
+  → /sys/devices/pci0000:00/0000:00:01.2/0000:01:00.2/0000:02:04.0/0000:03:00.0
 ```
 
 [sysfs のアクセス規則](https://www.kernel.org/doc/html/latest/admin-guide/sysfs-rules.html) の devpath と「Hierarchy in a single device tree」は、シンボリックリンクを実体へ解決し、階層を調べる際は `/sys/devices` 配下を使うよう説明している。
@@ -96,24 +130,34 @@ Root Port ─ Switch の上流ポート
 
 ## 実機で確認するコマンド
 
-次のコマンドはリンクと属性を読むだけで、デバイス設定を書き換えない。アドレスは実機に存在するものに置き換える。
+次は masumi で実行したコマンドと出力。NVMe SSD の経路にはスイッチの上流・下流ポートが含まれ、GPU の経路には含まれない。
 
-```sh
-# PCI function の一覧
-ls /sys/bus/pci/devices/
-
-# 対象の実体パス（上流ブリッジの階層を含む）
-readlink -f /sys/bus/pci/devices/0000:03:00.0
-
-# 対象自身の属性
-cat /sys/bus/pci/devices/0000:03:00.0/class
-cat /sys/bus/pci/devices/0000:03:00.0/vendor
-cat /sys/bus/pci/devices/0000:03:00.0/device
-
-# pciutils がある場合、列挙された階層と照合する
-lspci -D -t
+```console
+$ readlink -f /sys/bus/pci/devices/0000:03:00.0
+/sys/devices/pci0000:00/0000:00:01.2/0000:01:00.2/0000:02:04.0/0000:03:00.0
+$ readlink -f /sys/bus/pci/devices/0000:04:00.0
+/sys/devices/pci0000:00/0000:00:01.2/0000:01:00.2/0000:02:08.0/0000:04:00.0
+$ readlink -f /sys/bus/pci/devices/0000:05:00.0
+/sys/devices/pci0000:00/0000:00:03.1/0000:05:00.0
+$ cat /sys/bus/pci/devices/0000:03:00.0/class
+0x010802
+$ cat /sys/bus/pci/devices/0000:03:00.0/vendor
+0x15b7
+$ cat /sys/bus/pci/devices/0000:03:00.0/device
+0x501a
 ```
 
-属性の説明は [Accessing PCI device resources through sysfs](https://docs.kernel.org/PCI/sysfs-pci.html) と [PCI sysfs ABI 定義](https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-bus-pci) を参照する。前者には host bridge 配下の PCI function と属性ファイルの例があるが、上記の多段スイッチ構成そのものを掲載した文書ではない。
+`lspci -D -t` でもこの枝を照合できる。次はその出力の関連部分を抜粋したもの（間の無関係な行は省略）。`[01-04]` などはブリッジ配下のバス範囲で、末端の `00.0` はそのバス上の device/function を表す。
+
+```text
+           +-01.2-[01-04]--+-00.0
+           |               +-00.1
+           |               \-00.2-[02-04]--+-04.0-[03]----00.0
+           |                               \-08.0-[04]----00.0
+           +-03.1-[05]--+-00.0
+           |            \-00.1
+```
+
+属性の説明は [Accessing PCI device resources through sysfs](https://docs.kernel.org/PCI/sysfs-pci.html) と [PCI sysfs ABI 定義](https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-bus-pci) を参照する。前者には host bridge 配下の PCI function と属性ファイルの例があるが、masumi の構成そのものを掲載した文書ではない。
 
 このツリーはカーネルが列挙する PCI 階層であり、プロセスがどのデバイスを開いているか、転送量がどれくらいかを表すものではない。それらは FD や活動情報を別途観測して対応付ける。
