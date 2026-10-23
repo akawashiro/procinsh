@@ -4,7 +4,7 @@
 
 ## 観測環境
 
-以下の PCI アドレス・機器名・sysfs パスは、**masumi で 2026-10-23 に取得した結果**に基づく。ツリー図は `readlink -f` の実体パスを整理したもので、USB・SATA など説明対象外の枝は省略している。
+以下の PCI アドレス・機器名・sysfs パスは、masumi で 2026-10-23 に取得した結果に基づく。ツリー図は `readlink -f` の実体パスを整理したもので、USB・SATA など説明対象外の枝は省略している。
 
 ```console
 $ hostname
@@ -32,7 +32,7 @@ OS は Ubuntu 26.04.1 LTS。`linux-image-7.0.0-38-generic` のソースパッケ
 
 ## 物理的なスイッチと OS から見えるブリッジ
 
-一つの PCIe スイッチは、ソフトウェアからは複数の PCI-to-PCI Bridge と内部の仮想 PCI バスとして見える。上流ポートと各下流ポートがブリッジ機能を持つため、**一つのスイッチを通る経路でも、sysfs 上では複数のブリッジ階層になる**。この対応は AN-510 の Figure 1 の挿入図に示されている。
+一つの PCIe スイッチは、ソフトウェアからは複数の PCI-to-PCI Bridge と内部の仮想 PCI バスとして見える。上流ポートと各下流ポートがブリッジ機能を持つため、一つのスイッチを通る経路でも、sysfs 上では複数のブリッジ階層になる。この対応は AN-510 の Figure 1 の挿入図に示されている。
 
 masumi の NVMe SSD は、AMD 500 Series Chipset の上流ポートと下流ポートを経由する。一方、NVIDIA GPU は別の GPP bridge の直下にある。実体パスをまとめると次のようになる。
 
@@ -66,24 +66,24 @@ masumi の NVMe SSD は、AMD 500 Series Chipset の上流ポートと下流ポ�
 
 `0000:03:00.0` は `domain:bus:device.function` 形式の PCI アドレスである。末端の単位は PCI function なので、一枚のカードに複数のエントリが存在することもある。`pci0000:00` は host bridge オブジェクトの名前で、PCI function のアドレスではない。これを CPU ソケットや Root Complex 全体と一対一に対応すると仮定しない。
 
-**パス文字列から分かる親子関係だけで、ポートや機器の種別がすべて確定するわけではない。** 上の名前は `lspci` の PCI ID データベースによる表示であり、PCI Express Capability のポート種別を直接確認した結果とは区別する。masumi の一般ユーザーでの `lspci -vv` は `Capabilities: <access denied>` となるため、図の `00:01.2` と `00:03.1` も観測できた GPP Bridge という名前で記載している。
+パス文字列から分かる親子関係だけで、ポートや機器の種別がすべて確定するわけではない。 上の名前は `lspci` の PCI ID データベースによる表示であり、PCI Express Capability のポート種別を直接確認した結果とは区別する。masumi の一般ユーザーでの `lspci -vv` は `Capabilities: <access denied>` となるため、図の `00:01.2` と `00:03.1` も観測できた GPP Bridge という名前で記載している。
 
 ## なぜ sysfs の階層から親子関係が分かるのか
 
-公式文書と Linux の実装を、次の順に組み合わせると確認できる。ソースコードは **Linus の `torvalds/linux` ツリーの Linux v7.0** を参照し、GitHub のリンクをコミット `028ef9c96e96197026887c0f092424679298aae8` に固定する。
+公式文書と Linux の実装を、次の順に組み合わせると確認できる。ソースコードは Linus の `torvalds/linux` ツリーの Linux v7.0 を参照し、GitHub のリンクをコミット `028ef9c96e96197026887c0f092424679298aae8` に固定する。
 
 masumi の `7.0.0-38-generic` は Ubuntu ソースバージョン `7.0.0-38.38` で、対応する Makefile は `VERSION = 7`・`PATCHLEVEL = 0`・`SUBLEVEL = 14`（Linux 7.0.14 ベース）。7.0 系の stable 更新を含む実機との差を明確にするため、Linus ツリー側ではその基点の [v7.0 リリースコミット](https://github.com/torvalds/linux/commit/028ef9c96e96197026887c0f092424679298aae8) を使用する。以下の `probe.c` の3箇所は、実機と一致する Ubuntu ソースパッケージとも照合し、コードと行番号が一致することを確認している。
 
-1. **sysfs はオブジェクトの親子関係をディレクトリにする。**
+1. sysfs はオブジェクトの親子関係をディレクトリにする。
    [sysfs 文書の Directory Creation](https://docs.kernel.org/filesystems/sysfs.html#directory-creation) は、登録された kobject のディレクトリを、その親 kobject のサブディレクトリとして作成すると説明している。同文書の devices の説明では、`/sys/devices` が `struct device` の階層に直接対応するとしている。
 
-2. **PCI デバイスの親は、所属バスの上流ブリッジになる。**
+2. PCI デバイスの親は、所属バスの上流ブリッジになる。
    [`pci_setup_device()`（`drivers/pci/probe.c:2028`）](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/pci/probe.c#L2028) は `dev->dev.parent = dev->bus->bridge;` と設定する。
 
-3. **ブリッジ配下のバスは、そのブリッジを保持する。**
+3. ブリッジ配下のバスは、そのブリッジを保持する。
    [`pci_alloc_child_bus()`（`drivers/pci/probe.c:1241`）](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/pci/probe.c#L1241) は `child->bridge = get_device(&bridge->dev);` と設定する。その子バスに列挙されたデバイスには、上の処理でこのブリッジが親として設定される。
 
-4. **根の host bridge には `pci<domain>:<bus>` という名前が付く。**
+4. 根の host bridge には `pci<domain>:<bus>` という名前が付く。
    [`pci_register_host_bridge()`（`drivers/pci/probe.c:1028`）](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/pci/probe.c#L1028) で `dev_set_name(&bridge->dev, "pci%04x:%02x", ...)` と命名している。
 
 この対応が、上流ブリッジからデバイスまでの階層が sysfs の実体パスに現れる根拠となる。特定のバス番号や階層数を固定する仕様ではない。
