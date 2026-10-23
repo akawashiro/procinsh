@@ -483,6 +483,108 @@ SPACE は両端が表示中のシグナルを最大256件保持し、紫色の�
 | WebGL 描画、配置・選択・カメラ操作、接続管理 | [space-browser.ts](../web/tests/browser/space-browser.ts)。ネットワーク・netlink・ファイルは [space-netlink.ts](../web/tests/browser/space-netlink.ts)・[space-network.ts](../web/tests/browser/space-network.ts)・[space-files.ts](../web/tests/browser/space-files.ts) を呼び出して検証 | [ブラウザテスト](#ブラウザテスト)の準備後に `bash scripts/docker_test.sh browser` |
 | 実機の CPU・IPC・ファイル I/O センサー | [space-live.py](../tests/space-live.py)、[space-files-live.py](../tests/space-files-live.py) | [実機センサーテスト](#実機センサーテスト)を参照 |
 
+## SPACE の録画と再生
+
+ライブの `/space` 画面で **Record** を選び、観測を続けてから **Stop & Download** を選ぶと、UTF-8 の `.json` ファイルを1個ダウンロードします。録画はメモリ内で行い、アップロードやサーバーへの保存はしません。開始時点の完全なスナップショットには、それ以前の差分から保持しているマップも含まれます。
+
+録画にはプロセスの引数、ユーザー名、パス、IP アドレスが含まれる場合があるため、共有前に内容を確認してください。同梱の **Chrome**・**Firefox** デモは Ubuntu 26.04 VM 内の実際のブラウザ活動です。どちらも [`scripts/browser_sites.txt`](../scripts/browser_sites.txt) の同じ8サイトを開き、10秒ごとに再読み込みします。**Linux kernel build** は専用の Ubuntu 26.04 QEMU/KVM ゲスト内で clang による実際のコンパイルを30秒間記録したものです。
+
+ストリームの欠落、再接続、タブの非表示、ページ離脱で録画を終了します。画面には終了理由を表示し、欠落区間をまたいで録画を再開しません。保持した録画はタブを再表示すると **Download recording** から保存できます。未保存の録画がある状態でページを離れるか再読み込みすると、ブラウザの確認を表示します。メモリは永続ストレージではないため、タブを閉じる前に保存してください。128 MiB に達すると録画を停止し、それまでに完成した部分を保持します。ローカル再生も同じサイズ上限を使い、ライブ表示は独立して継続します。
+
+**Open recording** は `/replay/space/` を開きます。ダウンロードした JSON または標準の gzip で圧縮した `.json.gz` を選択するか、ドロップしてください。ブラウザの File API でストリームとして読み込み、アップロードしません。入力と展開後のデータはそれぞれ128 MiBまでで、不正な gzip や録画データは拒否します。gzip のマジックバイトで判別するため、HTTP の `Content-Encoding: gzip` による展開後に二重展開することはありません。同じページで別のファイルを選択できます。
+
+URL から開いた同梱デモを含め、読み込み後は **Loop** を有効にして自動再生します。再生・一時停止、タイムラインのシーク、0.1×・0.25×・0.5×・1×・2× の速度変更は、SPACE の活動アニメーションと共通の仮想時計を使います。一時停止中も回転・移動・ズームができます。タブを非表示にすると再生を一時停止します。末尾で停止するには **Loop** を無効にしてください。別の録画を開くとループ再生を再び有効にします。再生中のプロセス詳細へのリンクは無効です。
+
+### 録画 JSON の契約
+
+バージョン1は次のフィールドを持つ単一の JSON オブジェクトです。
+
+- `format_version: 1`、`view_type: "space"`、ISO 形式の `started_at`。
+- `duration_ms` と `end_reason`。
+- `initial_snapshot`: 完全な `SystemSnapshot`。プロセスの完全なマップと FD 関係を含み、それ以前の SSE メッセージは不要です。
+- `events`: 時刻順の `{ at_ms, type, data }`。時刻は録画開始からのミリ秒で、同じ時刻の要素は配列内の順序を維持します。`type` は `snapshot`（差分をマージした完全な `SystemSnapshot`）または `activity`（`SpaceActivity`）です。
+
+ペイロードの型は [api-types.ts](../web/src/shared/api-types.ts)、共通の実行時パーサーは [recording.ts](../web/src/space/recording.ts) にあります。未知のバージョン、別の表示種別、不正な入れ子の値、順序が逆転した時刻、録画時間外の時刻は描画前に拒否します。ローカルファイルと公開録画は同じパーサーと再生エンジンを使います。
+
+再生・シーク・ループの終点は最後のイベント時刻で、スナップショットのみの録画では0です。タイムラインは小数のミリ秒を受け付け、右端で正確な終点に到達します。`duration_ms` は実際の録画経過時間を保持し、最後のイベントから録画停止までの時間を含む場合があります。シークは初期スナップショットから状態を再構成します。形式の複雑さを抑えられる一方、大きな録画では処理に時間がかかる場合があります。
+
+### 静的再生サイトと Cloudflare Pages のサイズ制限
+
+再生サイトは Node.js 22.12以降と npm だけでビルドできます。
+
+```sh
+npm --prefix web ci
+npm --prefix web run build:replay
+```
+
+**`web/dist-replay/`** をそのまま公開します。出力には `replay/space/index.html`、共通の SPACE アセット、同梱の `.json`・`.json.gz` 録画を含み、LIST・PROCESS・LIVE 画面は含みません。ディレクトリの `index.html` により直接アクセスと再読み込みに対応します。`/replay/` は将来の選択画面用に予約しています。再生画面は SSE 接続もライブ API 呼び出しも行いません。
+
+ライブ SPACE または再生画面のメニューで録画を選び、**Open demo** を押すと自動でループ再生します。選択画面と URL の許可リストは [session-controls.ts](../web/src/space/session-controls.ts) の `bundledRecordings` を共有します。`web/replay-public/recordings/` に録画を追加するときは、ここに ID・ラベル・アセットのパスも追加してください。
+
+公開サイトの `/replay/space/?recording=chrome-ubuntu26` で Chrome のデモを開けます。`recording` は許可リスト内の ID で、利用者が指定する任意の取得先 URL ではありません。Firefox は `?recording=firefox-ubuntu26` を使います。同梱録画は通常の埋め込みビルドと静的ビルドで共有します。合成データは公開アセットの外にある非公開のテスト fixture としてのみ保持します。
+
+[Cloudflare Pages Free の制限](https://developers.cloudflare.com/pages/platform/limits/)に合わせ、公開デモを含む静的アセットが1ファイルでも25 MiBを超えるとビルドを失敗させます。分割形式への変換や付随ファイルは不要です。
+
+パスの接頭辞を付けて配置する場合は、`PROCINSH_REPLAY_BASE=/prefix/ npm --prefix web run build:replay` でビルドし、その接頭辞の下で出力を配信します。アセットの URL とデモ取得はそのベースパスに従います。
+
+通常の `npm --prefix web run build` は Rust への埋め込み用に `web/dist/` を出力し、ライブの `/space` と `/replay/space/` を別のページとして提供します。
+
+### ブラウザデモの録画
+
+VM 用スクリプトには、`/dev/kvm` を読み書きできる Linux x86-64 ホスト、QEMU（`qemu-system-x86`・`qemu-utils`）、`cloud-image-utils`、curl、Python 3 が必要です。必要に応じて `sudo usermod -aG kvm "$USER"` でユーザーを `kvm` グループに追加し、ログインし直してください。
+
+```sh
+# ゲストは現在の checkout の公開済みコミットを clone する。
+# WORKLOAD は chrome（既定値）または firefox。
+WORKLOAD=firefox VM_DIR=/tmp/space-demo scripts/recording-vm/run.sh prepare
+VM_DIR=/tmp/space-demo scripts/recording-vm/run.sh run
+```
+
+ゲストは procinsh と選択したブラウザをインストールし、collector とブラウザの負荷処理を起動します。両ブラウザとも、タブ作成・キャッシュ無効化・ページ遷移・再読み込みに同じ Puppeteer WebDriver BiDi 呼び出しを使います。新しいプロファイルと `scripts/browser_sites.txt` の共通サイト一覧を使います。
+
+`/tmp/space-demo/console.log` に `SPACE recording ready on guest port 10090` が出るまで待ち、`http://127.0.0.1:10090/space` を開いて **Record**・**Stop & Download** を使います。ホストとゲストはポート10090を共有します。別のポートを使うには `prepare` 時に `HOST_PORT` を設定してください。`run` はそのポートを維持します。`VM_CPUS`・`VM_MEMORY_MIB`・`VM_DISK_GIB` で VM のリソースを指定できます。
+
+同じブラウザ操作を使って自動録画するには次を実行します。
+
+```sh
+(cd web && WORKLOAD=firefox HOST_PORT=10090 RECORD_SECONDS=15 \
+  RECORD_OUTPUT=/tmp/firefox-vm.json.gz node --import tsx scripts/capture-vm-recording.ts)
+```
+
+ホストには Google Chrome と `npm --prefix web ci` が必要です。`CHROME` で実行ファイルのパスを指定できます。録画スクリプトは gzip 形式で保存し、活動・ファイルサイズ・再生を検証します。手動でダウンロードしたファイルは `gzip -n -9 recording.json` で圧縮できます。デモを `web/replay-public/recordings/` にコピーし、`web/src/space/session-controls.ts` に項目を追加してください。
+
+ゲストのコンソールには `VM_DIR=/tmp/space-demo python3 scripts/recording-vm/console.py` で接続します（Ctrl-] で切断）。`journalctl -u browser-demo` で負荷処理を確認できます。`browser-demo` の systemd service で `TAB_COUNT`・`INTERVAL_SECONDS`・`SITE_LIST` を設定できます。`VM_DIR=/tmp/space-demo scripts/recording-vm/run.sh stop` で VM を停止し、QEMU の終了を待ってから再起動してください。
+
+### Linux カーネルビルドデモの録画
+
+カーネルの負荷処理はブラウザの負荷処理と同じ VM ツール・ブラウザ録画機能を使います。`WORKLOAD` は `chrome`（既定値）・`firefox`・`kernel-build` を受け付けます。カーネル用ゲストにはブラウザをインストールせず、ブラウザの負荷処理も実行しません。
+
+```sh
+WORKLOAD=kernel-build VM_DIR=/tmp/kernel-demo HOST_PORT=10191 \
+  scripts/recording-vm/run.sh prepare
+VM_DIR=/tmp/kernel-demo scripts/recording-vm/run.sh run
+# /tmp/kernel-demo/console.log の準備完了メッセージを待つ。
+(cd web && WORKLOAD=kernel-build HOST_PORT=10191 \
+  RECORD_OUTPUT=/tmp/linux-build-ubuntu26.json.gz \
+  node --import tsx scripts/capture-vm-recording.ts)
+```
+
+`torvalds/linux` の固定タグ `v7.0` を shallow clone します。[参考記事](https://akawashiro.com/articles/linux-build-script)に従い、`CC=clang`、`defconfig`、`kvm_guest.config` の順に設定し、ソースと出力のツリーを分けて `max(1, nproc - 2)` 並列でコンパイルします。ソースは `/home/demo/linux`、出力は `/home/demo/linux-build` です。ゲストのカーネルバージョンでビルド対象を選択・上書きすることはありません。ビルドしたカーネルはインストールせず、そのカーネルでゲストを再起動することもありません。
+
+既定値は4 vCPU・8192 MiB RAM・40 GiBディスクです。ソースのダウンロードと設定を終えてから負荷処理の service を起動します。シリアルコンソールから `journalctl -u kernel-build-demo` または `/home/demo/kernel-build.log` でビルドを確認できます。
+
+録画コマンドは、動作中の clang プロセスとライブストリーム内の正のコンパイラ CPU 差分を待ち、既定で30秒録画します。録画内の全スナップショットを通じてコンパイラの CPU・ファイル活動を確認します。中断した録画は拒否し、保存前に gzip の再生を検証します。`RECORD_SECONDS` で録画時間を変更できます。ブラウザの負荷処理の既定値は15秒です。
+
+初回のビルド中に録画してください。再びクリーンな録画を取る場合は、出力が空になるよう新しい VM を準備します。JSON が128 MiBまたは gzip が25 MiBを超えた場合は、新しいゲストで `VM_CPUS` を減らして30秒間録画し直してください。
+
+検証済みの gzip を `web/replay-public/recordings/` にコピーします。同梱デモの ID は `linux-build-ubuntu26` で、デモメニュー・静的サイトのトップページ・`/replay/space/?recording=linux-build-ubuntu26` から開けます。録画後は `VM_DIR=/tmp/kernel-demo scripts/recording-vm/run.sh stop` で使い捨て VM を停止してください。
+
+同梱録画は Ubuntu 26.04 ゲスト内で Ubuntu clang 21.1.8 と2並列を使った upstream Linux `v7.0` のコンパイルです。実際の CPU・ファイル活動を持つ50個のコンパイラ識別子を含み、gzip アセットは約4 MiBです。
+
+### 録画・再生の検証
+
+`bash scripts/docker_test.sh ordinary`、`bash scripts/docker_test.sh checks`、`bash scripts/docker_test.sh browser` を実行します。
+
 ## 権限
 
 `process_vm_readv` は所有者、dumpable 属性、Yama、`CAP_SYS_PTRACE`、seccomp などの制約を受けます。BPF はカーネル側の対応と観測権限も必要です。権限やカーネル設定の自動変更、sudo の自動実行はしません。
