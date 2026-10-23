@@ -15,7 +15,7 @@
   - clang-format は `requirements-format.txt` の固定バージョンを使うこと。インストール手順は `developer-docs/DEVELOPMENT.md` を参照。
 - procinsh を起動するときは強めの権限が必要になるので、./scripts/dev_run.sh を利用すること
 - 実装が完了したら、空いているポートで修正版のサーバーを起動し、Tailscale IPv4 と localhost（127.0.0.1・::1）の両方で待ち受けること
-  - `./scripts/preview_bind.sh run ./scripts/dev_run.sh <PORT>` を利用できる
+  - `./users/akawashiro/scripts/preview_bind.sh run ./scripts/dev_run.sh <PORT>` を利用できる
   - サーバーはユーザーが確認できるよう起動したままにし、使用したポートとアクセス URL を報告すること
   - 変更に対応する PR がマージされたら、その変更の確認用に起動したサーバーを停止すること
 - テストは `bash scripts/docker_test.sh` で Docker 内で実行すること

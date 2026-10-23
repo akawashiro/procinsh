@@ -37,7 +37,6 @@ npm run dev
 
 Vite が表示する URL（通常 http://127.0.0.1:5173）を開きます。既存の画面 URL とプロセスの識別子クエリはそのまま利用できます。フロントエンドの変更は HMR・ページの再読み込みで反映し、Rust の再ビルドは不要です。`/api` 全体をバックエンドへ中継するため、JSON と process/system の SSE が同じオリジンから使えます。バックエンドの接続先は `PROCINSH_BACKEND_URL=http://127.0.0.1:8080 npm run dev` または `web/.env.local` で変更できます。開発画面のヘッダーは Cargo.toml のバージョンと development 表示です。本番の Git SHA は Rust が HTML のプレースホルダーを置換して挿入します。
 
-最新 main（9090）と crates.io の公開最新版（9091）を Tailscale または localhost 経由で常時見る場合は、[main・公開最新版の常設プレビュー](../users/akawashiro/PREVIEW.md)を参照してください。systemd サービスと、main は約10秒間隔・公開版は約1分間隔の自動更新を利用できます。
 
 本番では `rust-embed` が `web/dist/` 全体をバイナリに埋め込み、拡張子に応じた MIME 型で配信します。debug ビルドも埋め込みを使います。TypeScript・HTML・CSS を変更したら `npm --prefix web run build` の後に Rust バイナリを再ビルドしてください。Cargo は生成物の変更を監視しますが、ソースと生成物の鮮度は検証しません。実行時の Node.js・npm、外部 CDN は不要です。SPACE の描画には WebGL2 が必要です。
 
@@ -250,7 +249,7 @@ pidfd による種類取得と別 network namespace の Rust テストは `bash 
 
 UNIX の診断は、対象の PID と開始時刻を確認して開いた network namespace の FD を使います。別 namespace では短命の専用スレッドが `setns(CLONE_NEWNET)` を実行して診断用 Netlink ソケットを作成し、その FD を呼び元へ返して終了します。要求と応答の処理は作成先の namespace に属するソケットを通じて行い、HTTP・収集スレッドの namespace は変更しません。SPACE は走査で発見した namespace を device/inode でまとめ、一回の走査で各 namespace を一度診断します。全 namespace の診断予算は合計500ms、プロセス FD 一覧は750msと全体3秒の締切の短い方を使います。診断ができない場合は既存の procfs 情報を保持し、対象 PID と失敗理由を警告に含めます。
 
-別 network namespace への切り替えには `CAP_SYS_ADMIN` が必要です。開発・プレビュー用スクリプトはこの capability も付与します。sudoers が `setcap` の引数を固定している場合は、既存版の許可を維持したまま新しい一覧の許可を追加します。配置済みプレビューの権限更新は [PREVIEW.md](../users/akawashiro/PREVIEW.md) の手順に従います。アプリケーションから sudoers やカーネル設定を変更しません。
+別 network namespace への切り替えには `CAP_SYS_ADMIN` が必要です。[dev_run.sh](../scripts/dev_run.sh) はこの capability も付与します。sudoers が `setcap` の引数を固定している場合は、既存版の許可を維持したまま新しい一覧の許可を追加します。アプリケーションから sudoers やカーネル設定を変更しません。
 
 ### 環境変数・補助ベクトル
 

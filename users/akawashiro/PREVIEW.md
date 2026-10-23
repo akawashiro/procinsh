@@ -57,10 +57,10 @@ sudo visudo -c
 
 ```sh
 mkdir -p "$HOME/procinsh-main-preview" "$HOME/.config/systemd/user"
-install -m 0755 scripts/main_preview.sh scripts/preview_bind.sh "$HOME/procinsh-main-preview/"
-install -m 0644 scripts/systemd/procinsh-preview.service \
-  scripts/systemd/procinsh-preview-update.service \
-  scripts/systemd/procinsh-preview-update.timer "$HOME/.config/systemd/user/"
+install -m 0755 users/akawashiro/scripts/main_preview.sh users/akawashiro/scripts/preview_bind.sh "$HOME/procinsh-main-preview/"
+install -m 0644 users/akawashiro/scripts/systemd/procinsh-preview.service \
+  users/akawashiro/scripts/systemd/procinsh-preview-update.service \
+  users/akawashiro/scripts/systemd/procinsh-preview-update.timer "$HOME/.config/systemd/user/"
 mkdir -p "$HOME/.config/systemd/user/procinsh-preview.service.d"
 cat > "$HOME/.config/systemd/user/procinsh-preview.service.d/logging.conf" <<'EOF'
 [Service]
@@ -78,10 +78,10 @@ systemctl --user start procinsh-preview-update.service
 
 ```sh
 mkdir -p "$HOME/procinsh-release-preview" "$HOME/.config/systemd/user"
-install -m 0755 scripts/release_preview.sh scripts/preview_bind.sh "$HOME/procinsh-release-preview/"
-install -m 0644 scripts/systemd/procinsh-release-preview.service \
-  scripts/systemd/procinsh-release-preview-update.service \
-  scripts/systemd/procinsh-release-preview-update.timer "$HOME/.config/systemd/user/"
+install -m 0755 users/akawashiro/scripts/release_preview.sh users/akawashiro/scripts/preview_bind.sh "$HOME/procinsh-release-preview/"
+install -m 0644 users/akawashiro/scripts/systemd/procinsh-release-preview.service \
+  users/akawashiro/scripts/systemd/procinsh-release-preview-update.service \
+  users/akawashiro/scripts/systemd/procinsh-release-preview-update.timer "$HOME/.config/systemd/user/"
 mkdir -p "$HOME/.config/systemd/user/procinsh-release-preview.service.d"
 cat > "$HOME/.config/systemd/user/procinsh-release-preview.service.d/logging.conf" <<'EOF'
 [Service]
