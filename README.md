@@ -22,8 +22,6 @@ Like [Ghost in the Shell](https://en.wikipedia.org/wiki/Ghost_in_the_Shell), you
 Requires Linux x86-64. Both installation methods compile native code and require
 Rust, a C compiler, clang with the BPF backend, bpftool, pkg-config, libelf and
 zlib development files, and BTF information at `/sys/kernel/btf/vmlinux`.
-On Ubuntu, `libcap2-bin` provides the `setcap` command used below to grant
-inspection capabilities to the helper.
 
 Support on WSL2 is very limited, I recommend building procinsh from source rather than installing it from crates.io.
 
@@ -39,8 +37,11 @@ sudo apt-get install --yes --no-install-recommends \
 cargo install procinsh --locked
 ```
 
-Cargo installs two executables. Grant inspection capabilities **only to the
-helper**, then run the main executable as your ordinary user:
+Cargo installs two executables. Grant inspection capabilities only to the
+helper, then run the main executable as your ordinary user:
+
+ProcInSh should work even if you drop some capability (for example, you may want not to pass `CAP_SYS_ADMIN` because it is very strong).
+However, the appearance will be worse comparing to full capabilities.
 
 ```sh
 sudo setcap \
@@ -51,13 +52,7 @@ sudo setcap \
 
 Open http://127.0.0.1:9090. The HTTP process runs without elevated capabilities;
 its sibling helper performs inspection over private IPC. Apply capabilities
-again after rebuilding or upgrading the helper. You may omit capabilities to
-reduce inspection coverage; unavailable operations report errors.
-
-Remote access requires `--allow-non-loopback` and exposes process memory and
-environment variables without authentication. See the
-[deployment guide](DEVELOPMENT.md#privileged-helper-boundary) for upgrades, containers
-and helper configuration.
+again after rebuilding or upgrading the helper.
 
 ### Self build on Linux
 
