@@ -217,18 +217,7 @@ remove old grants once with `sudo setcap -r /path/to/old/procinsh`.
 
 `./scripts/dev_run.sh` runs `sudo -n setcap` when the debug helper has no file
 capabilities, preserves an existing capability configuration, and directly
-executes the debug main binary. No installer, protected copy or hash-named
-installation is required. Preview with
-`./users/akawashiro/scripts/preview_bind.sh run ./scripts/dev_run.sh PORT`.
-
-Preview updates stage both executables in one user-owned version directory and
-apply capabilities only to that helper. An atomically renamed launcher selects
-that pair. Keep previous directories for rollback, which reuses the previous
-helper with its capabilities. Remove unused directories after stopping any
-processes using them. Do not overwrite an active executable. Preview services
-run as the ordinary user; administrator policy must permit `sudo -n setcap` for
-the helper paths used by updates. That permission trusts the build account and
-its build inputs to choose the executable receiving inspection capabilities.
+executes the debug main binary.
 
 Container images must include both executables. Grant required file capabilities
 only to helper, with matching container bounding capabilities, BTF access and
