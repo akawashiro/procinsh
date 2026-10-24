@@ -37,9 +37,13 @@ case "${1:-}" in
     npm --prefix web ci
     npm --prefix web run build
     PROCINSH_GIT_SHA="$commit" cargo build --locked
-    helper=$(sudo -n /usr/local/sbin/procinsh-install-pair target/debug/procinsh-privileged-helper)
-    # A launcher selects an immutable main/helper pair; rename activates both.
-    printf '#!/bin/bash\nexec %q "$@"\n' "$(dirname "$helper")/procinsh" > "$state/candidate"
+    pair=$(mktemp -d "$state/pair.XXXXXXXX")
+    install -m 0755 target/debug/procinsh "$pair/procinsh"
+    install -m 0755 target/debug/procinsh-privileged-helper "$state/candidate-procinsh-privileged-helper"
+    sudo -n setcap cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search,cap_sys_admin=ep "$state/candidate-procinsh-privileged-helper"
+    mv "$state/candidate-procinsh-privileged-helper" "$pair/procinsh-privileged-helper"
+    # Rename the launcher to activate both sibling executables together.
+    printf '#!/bin/bash\nexec %q "$@"\n' "$pair/procinsh" > "$state/candidate"
     chmod 0755 "$state/candidate"
     printf '%s\n' "$commit" > "$state/candidate.commit"
     echo "Built main $commit"
@@ -50,7 +54,7 @@ case "${1:-}" in
     flock -n 9 || exit 0
     address=$(/bin/bash "$state/preview_bind.sh" address)
     if [[ -f "$state/procinsh" ]]; then
-      # Retain the launcher selecting the previous immutable pair.
+      # Retain the launcher selecting the previous pair.
       ln -f "$state/procinsh" "$state/previous"
       cp "$state/current.commit" "$state/previous.commit"
     fi

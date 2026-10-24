@@ -21,15 +21,21 @@ main 用 unit はログインユーザーのホームを基準に、開発用 ch
 
 公開版は `~/procinsh-release-preview/install` を Cargo の専用インストール先として使用します。通常の `~/.cargo/bin/procinsh` は変更しません。Rust とネイティブ・BPF のビルド依存、`curl`、`flock`、`cmp` が必要ですが、公開パッケージには生成済み JavaScript が含まれるため、Node.js・npm・GitHub 認証・開発用 checkout は不要です。Cargo は `~/.cargo/bin` から利用できる必要があります。公開版の更新は専用領域で実行するため、開発用 checkout の `rust-toolchain.toml` は適用されません。rustup の default toolchain は公開版をビルドできるバージョンに設定してください。
 
-ビルドとサービスはログインユーザーで実行し、本体と helper は root 所有の保護ディレクトリにペアで配置します。capability を持つのは helper のみです。更新スクリプトは保護されたペアを選ぶ launcher を `candidate` に書き、rename で切り替えます。復元は前の launcher を選びます。
+ビルドとサービスはログインユーザーで実行します。本体と helper を同じ `pair.XXXXXXXX` ディレクトリに置き、helper だけに `sudo -n setcap cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search,cap_sys_admin=ep` を適用します。本体は通常ユーザーで起動し、capability を付けません。専用 installer や root 所有の配置先は不要です。
 
-管理者が `scripts/install_helper.sh` を確認し、書き換え不能な場所へ配置してください。
+自動更新を使う場合は、main・公開版それぞれの `candidate-procinsh-privileged-helper` に対して `sudo -n setcap` を実行できるよう、管理者が sudo 権限を設定してください。この権限を持つビルドアカウントとビルド入力は信頼対象です。
 
-```sh
-sudo install -o root -g root -m 0755 scripts/install_helper.sh /usr/local/sbin/procinsh-install-pair
+`/usr/sbin/setcap` を使う `akira` の設定例です。`sudo visudo` で既存設定を確認し、開発用と常設プレビュー用に次のルールを追加します。新方式への切り替え後は、旧本体・`candidate` を対象とするルールを削除できます。
+
+```sudoers
+akira ALL=(root) NOPASSWD: /usr/sbin/setcap cap_sys_ptrace\,cap_bpf\,cap_perfmon\,cap_dac_read_search\,cap_sys_admin\=ep /home/akira/ghq/github.com/akawashiro/procinsh/target/debug/procinsh-privileged-helper
+akira ALL=(root) NOPASSWD: /usr/sbin/setcap cap_sys_ptrace\,cap_bpf\,cap_perfmon\,cap_dac_read_search\,cap_sys_admin\=ep /home/akira/procinsh-main-preview/candidate-procinsh-privileged-helper
+akira ALL=(root) NOPASSWD: /usr/sbin/setcap cap_sys_ptrace\,cap_bpf\,cap_perfmon\,cap_dac_read_search\,cap_sys_admin\=ep /home/akira/procinsh-release-preview/candidate-procinsh-privileged-helper
 ```
 
-自動更新を使う場合は、この root 所有の installer に対する sudo 権限を管理者が設定します。ユーザーが書き換え可能なスクリプトを NOPASSWD で実行する設定にしないでください。installer は指定した本体/helper に検査 capability を与えるため、この権限を持つユーザーとビルド入力は信頼対象です。
+helper は固定名 `candidate-procinsh-privileged-helper` にコピーして `setcap` し、同じファイルシステム内のペアへ rename することで capability を維持します。sudoers は固定パスのみで指定できます。
+
+更新スクリプトはそのペアを選ぶ launcher を `candidate` に書き、rename で切り替えます。復元は前の launcher を選ぶため、本体と helper の組み合わせと helper の capability を維持します。
 
 以前の本体に付いている capability は `sudo setcap -r <旧本体のパス>` で削除してください。移行時は timer と稼働サービスを停止し、更新処理の終了を待ち、旧 `current.commit` / `current.version` を退避してから更新を実行します。既存の capability 付き本体へロールバックしないでください。公開版は二つのバイナリを提供する版が必要です。
 
@@ -81,7 +87,7 @@ systemctl --user start procinsh-release-preview-update.service
 
 初回ビルド成功後に常設サービスが起動します。以降はユーザーマネージャー起動時に自動起動します。ログアウト後も稼働させ、OS 起動時からログインせず利用するには、一度 `loginctl enable-linger "$USER"` を実行してください。これはユーザーの linger 設定を有効にします。[systemd の説明](https://www.freedesktop.org/software/systemd/man/252/loginctl.html)を参照してください。unit と更新スクリプト自身は自動更新の対象ではありません。これらを変更したときは timer を停止して更新処理の終了を待ち、再インストールと `daemon-reload` を行ってから本体サービスを再起動し、timer を再開してください。待受アドレスの設定を反映するには、`preview_bind.sh` の配置と本体サービスの再起動が必要です。再インストールと `daemon-reload` の後に、main は `systemctl --user restart procinsh-preview.service`、公開版は `systemctl --user restart procinsh-release-preview.service` を実行してください。
 
-capability 一覧を変更したときは管理者所有の installer を更新し、新しいペアをビルド・配置してください。既存ペアは書き換えず、使用されなくなってから管理者が削除します。
+capability 一覧を変更したときは更新スクリプトの `setcap` 引数と sudo 権限を確認し、新しいペアをビルド・配置してください。既存ペアは書き換えず、使用されなくなってから削除します。
 
 以下のサービス操作では、公開版の場合は `procinsh-preview` を `procinsh-release-preview` に読み替えてください。
 
@@ -97,7 +103,7 @@ capability 一覧を変更したときは管理者所有の installer を更新�
 
 `cargo install procinsh --locked --registry crates-io --root "$HOME/procinsh-release-preview/install"` を実行し、Cargo の更新判定に従って公開最新版をインストールします。`--force` は指定しないため、同じ版は再ビルドしません。ビルドキャッシュは専用領域の `target` に保持します。毎回 crates.io の更新確認を行うため、ネットワーク接続が必要です。
 
-インストール済み version を稼働版と比較し、同一なら再起動しません。変更時だけ保護されたペアを配置し、launcher を反映します。稼働版のバージョンは `current.version` に記録します。インストール先と稼働版を分けているため、起動失敗後も Cargo のインストール記録に影響されず、次回更新で新版を再試行できます。公開版は一つのファイルロックでインストールから起動確認・復元まで多重実行を防ぎます。
+インストール済み version を稼働版と比較し、同一なら再起動しません。変更時だけペアを配置し、launcher を反映します。稼働版のバージョンは `current.version` に記録します。インストール先と稼働版を分けているため、起動失敗後も Cargo のインストール記録に影響されず、次回更新で新版を再試行できます。公開版は一つのファイルロックでインストールから起動確認・復元まで多重実行を防ぎます。
 
 ### 更新失敗と復元
 

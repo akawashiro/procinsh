@@ -27,12 +27,16 @@ if [[ -f "$state/procinsh" ]] && [[ -f "$state/current.version" && $(cat "$state
   exit 0
 fi
 
-helper=$(sudo -n /usr/local/sbin/procinsh-install-pair "$state/install/bin/procinsh-privileged-helper")
-printf '#!/bin/bash\nexec %q "$@"\n' "$(dirname "$helper")/procinsh" > "$state/candidate"
+pair=$(mktemp -d "$state/pair.XXXXXXXX")
+install -m 0755 "$state/install/bin/procinsh" "$pair/procinsh"
+install -m 0755 "$state/install/bin/procinsh-privileged-helper" "$state/candidate-procinsh-privileged-helper"
+sudo -n setcap cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search,cap_sys_admin=ep "$state/candidate-procinsh-privileged-helper"
+mv "$state/candidate-procinsh-privileged-helper" "$pair/procinsh-privileged-helper"
+printf '#!/bin/bash\nexec %q "$@"\n' "$pair/procinsh" > "$state/candidate"
 chmod 0755 "$state/candidate"
 printf '%s\n' "$version" > "$state/candidate.version"
 if [[ -f "$state/procinsh" ]]; then
-  # Retain the launcher selecting the previous immutable pair.
+  # Retain the launcher selecting the previous pair.
   ln -f "$state/procinsh" "$state/previous"
   cp "$state/current.version" "$state/previous.version"
 else

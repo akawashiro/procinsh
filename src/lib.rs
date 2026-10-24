@@ -1,7 +1,5 @@
-//! Structured protocol shared by the application and its separately executed helper.
+//! Shared data-only IPC for the HTTP server and privileged helper.
 //!
 //! # Interface
-//! [`protocol`] defines closed requests, responses, events, and process identities.
-//! [`transport`] provides bounded Unix stream framing; it never transfers descriptors.
-pub mod protocol;
-pub mod transport;
+//! [`ipc`] exposes the validated message schema and bounded Unix stream transport.
+pub mod ipc;

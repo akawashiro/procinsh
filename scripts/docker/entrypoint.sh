@@ -21,8 +21,10 @@ case "$suite" in
   ordinary)
     npm --prefix web run build:replay
     cargo build --locked --all-targets
-    export PROCINSH_HELPER
-    PROCINSH_HELPER=$(bash scripts/install_helper.sh target/debug/procinsh-privileged-helper)
+    cargo test --locked --no-run
+    export PROCINSH_HELPER="$PWD/target/debug/procinsh-privileged-helper"
+    chown 65534:65534 "$PROCINSH_HELPER"
+    setcap cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search,cap_sys_admin=ep "$PROCINSH_HELPER"
     cargo test --locked
     npm --prefix web test
     python3 tests/listen-policy.py
@@ -33,7 +35,7 @@ case "$suite" in
   checks)
     python3 scripts/check_privilege_boundary.py
     bash -n scripts/docker_test.sh scripts/docker/entrypoint.sh scripts/recording-vm/*.sh \
-      scripts/dev_run.sh scripts/install_helper.sh users/akawashiro/scripts/{main_preview,release_preview}.sh
+      scripts/dev_run.sh users/akawashiro/scripts/{main_preview,release_preview}.sh
     node --check scripts/chrome_load.mjs
     node --check scripts/browser_workload.mjs
     node --check web/scripts/browser-workload.mjs
@@ -49,8 +51,9 @@ case "$suite" in
     ;;
   kernel)
     cargo build --locked
-    export PROCINSH_HELPER
-    PROCINSH_HELPER=$(bash scripts/install_helper.sh target/debug/procinsh-privileged-helper)
+    export PROCINSH_HELPER="$PWD/target/debug/procinsh-privileged-helper"
+    chown 65534:65534 "$PROCINSH_HELPER"
+    setcap cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search,cap_sys_admin=ep "$PROCINSH_HELPER"
     sh tests/targets/build.sh
     log=$(mktemp)
     target/debug/procinsh --listen 127.0.0.1:0 >"$log" 2>&1 &
@@ -121,16 +124,19 @@ PYTHON
     ;;
   browser)
     cargo build --locked
-    export PROCINSH_HELPER
-    PROCINSH_HELPER=$(bash scripts/install_helper.sh target/debug/procinsh-privileged-helper)
+    export PROCINSH_HELPER="$PWD/target/debug/procinsh-privileged-helper"
+    chown 65534:65534 "$PROCINSH_HELPER"
+    setcap cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search,cap_sys_admin=ep "$PROCINSH_HELPER"
     sh tests/targets/build.sh
     export CHROME=/usr/bin/google-chrome
     npm --prefix web run test:browser
     ;;
   rust)
     cargo build --locked
-    export PROCINSH_HELPER
-    PROCINSH_HELPER=$(bash scripts/install_helper.sh target/debug/procinsh-privileged-helper)
+    cargo test --locked --no-run
+    export PROCINSH_HELPER="$PWD/target/debug/procinsh-privileged-helper"
+    chown 65534:65534 "$PROCINSH_HELPER"
+    setcap cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search,cap_sys_admin=ep "$PROCINSH_HELPER"
     cargo test --locked -- "$@" ;;
   web) npm --prefix web test -- "$@" ;;
   *) echo "Unknown container test suite: $suite" >&2; exit 2 ;;

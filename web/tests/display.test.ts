@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 const socketProtocols = JSON.parse(
   readFileSync(
     new URL(
-      "../../src/http_server/test_support/socket-protocols.json",
+      "../../src/privileged_helper/test_support/socket-protocols.json",
       import.meta.url,
     ),
     "utf8",

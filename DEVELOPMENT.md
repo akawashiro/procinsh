@@ -79,22 +79,24 @@ The script verifies the crates.io publication, pushes the version tag, and creat
 | Location | Responsibility |
 |---|---|
 | `src/main.rs` | CLI, logger initialization, startup configuration validation |
-| `src/http_server/` | Server startup/shutdown, router/middleware, worker shutdown and joining |
+| `src/http_server/` | Unprivileged HTTP, helper supervision, IPC client and SSE formatting |
+| `src/privileged_helper/` | Privileged acquisition, collectors and IPC request dispatch |
+| `src/ipc/` | Message schema and bounded transport shared by both executables |
 | `src/http_server/api/` | HTTP input/responses, domain error to status conversion, JSON and SSE (Server-Sent Events) |
 | `src/http_server/web.rs` | Static web UI serving |
-| `src/http_server/process/monitoring/` | Independent observations per connection, 60-second history, latest-state delivery |
-| `src/http_server/process/` | `/proc` parsing, PID identity, process/thread/memory/FD/socket information |
-| `src/http_server/process/snapshot/` | Registers/stacks from initial and 10-second ptrace captures and continuous perf sampling, DWARF CFI unwinding with framehop, disassembly |
-| `src/http_server/process/snapshot/symbol/` | ELF retrieval/caching, address conversion, symbol/source location resolution using ELF/DWARF |
-| `src/http_server/process/snapshot/stack.rs` | Frame types shared by sampling and symbol resolution |
-| `src/http_server/system/` | Structure of all processes, subscriptions, BPF collection, name resolution |
-| `src/http_server/system/hardware/` | GPUs, RDMA NICs, accelerators, NVSwitches, PCIe bridges, inter-device paths, and processes holding devices open, using sysfs/procfs |
-| `src/http_server/netlink.rs` | Netlink dumps with deadlines and attribute parsing shared by UNIX socket diagnostics and other users |
+| `src/privileged_helper/process/monitoring/` | Independent observations per connection, 60-second history, latest-state delivery |
+| `src/privileged_helper/process/` | `/proc` parsing, PID identity, process/thread/memory/FD/socket information |
+| `src/privileged_helper/process/snapshot/` | Registers/stacks from initial and 10-second ptrace captures and continuous perf sampling, DWARF CFI unwinding with framehop, disassembly |
+| `src/privileged_helper/process/snapshot/symbol/` | ELF retrieval/caching, address conversion, symbol/source location resolution using ELF/DWARF |
+| `src/privileged_helper/process/snapshot/stack.rs` | Frame types shared by sampling and symbol resolution |
+| `src/privileged_helper/system/` | Structure of all processes, subscriptions, BPF collection, name resolution |
+| `src/privileged_helper/system/hardware/` | GPUs, RDMA NICs, accelerators, NVSwitches, PCIe bridges, inter-device paths, and processes holding devices open, using sysfs/procfs |
+| `src/privileged_helper/netlink.rs` | Netlink dumps with deadlines and attribute parsing shared by UNIX socket diagnostics and other users |
 | `web/src/` | TypeScript pages, SPACE, rendering models, and CSS (HTML entry points: `web/{list,process,space}/index.html`) |
 | `tests/` | Rust, browser, log, and live sensor tests, plus C fixtures |
 
-`main.rs` starts the unprivileged `application` module tree. The separate
-`procinsh-privileged-helper` target owns `http_server/helper_root.rs` and all
+`main.rs` starts the unprivileged `http_server` module tree. The separate
+`procinsh-privileged-helper` target owns `privileged_helper/root.rs` and all
 inspection modules. The small library exposes only protocol definitions and
 bounded transport. See [privilege separation](#privileged-helper-boundary)
 for the ownership inventory, deployment, IPC limits and boundary checks. Modules live at the lowest common ancestor of their direct consumers. Child module declarations are private; items needed by parents generally use `pub(super)`.
@@ -103,13 +105,13 @@ Rust type names express responsibilities. Data and values describe their content
 
 Hierarchical modules use `foo.rs` plus `foo/`, without `mod.rs`. `foo.rs` contains only module documentation, child module declarations, and re-exports. Implementations of types, functions, and constants live in child files named for their responsibilities.
 
-HTTP startup/shutdown lives in `http_server/server.rs`, shared state in `state.rs`, router assembly in `router.rs` and `api/router.rs`, and HTTP guards/access logs in `middleware.rs`. The process façade is implemented in `process/identity.rs` and `process/resources.rs`, observation lifecycle in `monitoring/service.rs`, and snapshot orchestration in `snapshot/capture.rs`. Symbol handling is split into `symbol/cache.rs` and `symbol/resolve.rs`; system monitoring uses `system/service.rs` and state logging in `status.rs`. `activity.rs` owns BPF sensors and manages collection, status, and loss counts. Dependency diagrams include these child modules; overview diagrams group them by subsystem.
+HTTP startup/shutdown lives in `http_server/server.rs`, shared state in `http_server/state.rs`, router assembly in `http_server/router.rs` and `http_server/api/router.rs`, and HTTP guards/access logs in `http_server/middleware.rs`. The process façade is implemented in `process/identity.rs` and `process/resources.rs`, observation lifecycle in `monitoring/service.rs`, and snapshot orchestration in `snapshot/capture.rs`. Symbol handling is split into `symbol/cache.rs` and `symbol/resolve.rs`; system monitoring uses `system/service.rs` and state logging in `status.rs`. `activity.rs` owns BPF sensors and manages collection, status, and loss counts. Dependency diagrams include these child modules; overview diagrams group them by subsystem.
 
-HTTP handlers and system monitoring use only the `process.rs` façade. Within `process`, `monitoring` handles continuous observation; `snapshot` handles stopped-state capture with ptrace initially and every 10 seconds, plus continuous perf sampling without stopping the target. Each collector's sampler owns perf FDs, mmap mappings, and an ELF cache. `process` and `system` do not depend on Axum types.
+HTTP handlers use the shared IPC schema in `ipc/schema.rs` and the client in `http_server/client.rs`. Helper-side system monitoring uses the `privileged_helper/process.rs` façade. Within `process`, `monitoring` handles continuous observation; `snapshot` handles stopped-state capture with ptrace initially and every 10 seconds, plus continuous perf sampling without stopping the target. Each collector's sampler owns perf FDs, mmap mappings, and an ELF cache. `process` and `system` do not depend on Axum types.
 
-As an exception, domain types and subscription operations re-exported through façades use `pub(in crate::http_server)`. This visibility allows parents to re-export items from private children; it does not expose them outside the crate. Internal tests live in their respective modules. `tests/http.rs` starts the binary to verify HTTP, SSE, and SIGTERM shutdown.
+As an exception, domain types and subscription operations re-exported through façades use `pub(in crate::privileged_helper)`. This visibility allows parents to re-export items from private children; it does not expose them outside the crate. Internal tests live in their respective modules. `tests/http.rs` starts the binary to verify HTTP, SSE, and SIGTERM shutdown.
 
-Tokio/Axum handles HTTP and SSE; blocking detail APIs use `spawn_blocking`. Periodic process observation and system-wide structure/activity collection run on OS threads. Process detail monitoring has independent state per connection. `AppState` holds the process list scanner and subsystems. Process monitoring manages connection counts and collectors; each collector manages its perf lifecycle and symbol cache.
+Tokio/Axum handles HTTP and SSE. Detail APIs send bounded IPC requests to the helper. Periodic process observation and system-wide structure/activity collection run on helper OS threads. Process detail monitoring has independent state per connection. HTTP `AppState` holds the IPC client and shutdown state; helper `MonitorState` owns the process scanner and collection subsystems. Process monitoring manages connection counts and collectors; each collector manages its perf lifecycle and symbol cache.
 
 Web UI API types live in `web/src/shared/api-types.ts` and are maintained alongside Rust JSON responses. The contract includes null handling and hexadecimal address strings. These are compile-time types, not runtime input validation. Vite bundles Three.js as an npm dependency; TypeScript and type definitions are build-only npm dependencies.
 
@@ -141,7 +143,7 @@ before exec would suppress the helper's file capabilities. Both disable dumps.
 | --- | --- |
 | `process/{identity,procfs,discovery,details,threads,maps}` | Protected procfs, PID/start-time checks, summaries/environment |
 | `process/{fds,socket_metadata,socket_namespace,sockets}`, `netlink` | pidfds, pidfd_getfd duplicates, namespace handles, setns and complete diagnostic socket queries |
-| `process/snapshot/{ptrace,memory,registers,capture}` | Ptrace guards, process_vm_readv, bounded register/stack/code capture |
+| `process/snapshot/{ptrace,registers,capture}`, `process/memory` | Ptrace guards, process_vm_readv, bounded register/stack/code capture |
 | `process/snapshot/{perf,sample,unwind*,symbol}` | Perf FDs/mmaps, unwinding, identity-verified ELF descriptors and bounded in-memory DWARF |
 | `process/monitoring` | Per-viewer samplers, histories, cancellation/cleanup |
 | `system/{activity,ipc,sched,files,signals}` | BPF loading/attachment, links/maps and polling |
@@ -158,9 +160,9 @@ unwinding and disassembly finish in the helper before results cross IPC.
 ### Launch, protocol and lifetime
 
 The default helper is next to `current_exe()`. Absolute `PROCINSH_HELPER` can
-select a managed installation. PATH is never searched. Every path component
-must be root-owned, without group/world write access or symlinks, and the helper
-must be a regular file. An administrator able to replace protected files is
+select another helper location. PATH is never searched. The configured path
+must be absolute and identify a regular file; user-owned build/install
+directories are supported. The invoking user and the selected executable are
 trusted. Command clears the environment and uses null stdin. Only stdio and a
 private socketpair endpoint at FD 3 survive exec; no acquisition FDs exist in
 main. The helper requires non-root IDs and validates SO_PEERCRED against its parent PID/real UID, sets
@@ -195,43 +197,46 @@ remain essential.
 
 ### Installation, upgrades and containers
 
-Never grant capabilities to main or user-writable Cargo output. Remove old
-main grants with `sudo setcap -r /path/to/old/procinsh`. Build/install Cargo as
-an ordinary user and put both executables in a protected directory. In a
-checkout:
+Cargo builds and installs both executables next to each other. Apply file
+capabilities only to the helper, then launch the main executable as an ordinary
+user. In a checkout:
 
 ```sh
 cargo build --release --locked
-helper=$(sudo bash scripts/install_helper.sh target/release/procinsh-privileged-helper)
-"$(dirname "$helper")/procinsh" --listen 127.0.0.1:9090
+sudo setcap \
+  cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search,cap_sys_admin=ep \
+  target/release/procinsh-privileged-helper
+./target/release/procinsh --listen 127.0.0.1:9090
 ```
 
-For Cargo installation pass `~/.cargo/bin/procinsh-privileged-helper` instead.
-The installer hashes both binaries, stages root-owned copies, grants only the
-helper capabilities and renames the directory into
-`/usr/local/libexec/procinsh/<pair hash>/`. Both executables live together.
-Existing pairs remain immutable. Switch a launcher to the new main after
-installation succeeds; rollback selects the previous pair. Retain old pairs
-until unused; administrator maintenance can remove them. Never overwrite an
-active pair.
+For Cargo installation use `~/.cargo/bin/procinsh-privileged-helper` and
+`~/.cargo/bin/procinsh` instead. Replacing/rebuilding the helper clears its file
+capabilities, so apply `setcap` after each build/install. The selected executable
+and its build/install account are trusted. Main never needs file capabilities;
+remove old grants once with `sudo setcap -r /path/to/old/procinsh`.
 
-Review the script before running it with sudo. Automatic deployment uses an
-administrator-owned copy at `/usr/local/sbin/procinsh-install-pair` and a reviewed
-sudo policy. Never allow passwordless root execution of a user-writable script.
-Preview scripts atomically replace launchers selecting protected pairs, retaining
-the previous launcher for rollback. Their services run as the ordinary user.
-
-`./scripts/dev_run.sh` installs a protected debug pair and runs its ordinary
-main. It requires administrator provisioning rights. Preview with
+`./scripts/dev_run.sh` runs `sudo -n setcap` when the debug helper has no file
+capabilities, preserves an existing capability configuration, and directly
+executes the debug main binary. No installer, protected copy or hash-named
+installation is required. Preview with
 `./users/akawashiro/scripts/preview_bind.sh run ./scripts/dev_run.sh PORT`.
 
-Container images must include both binaries, root-owned and unwritable by the
-runtime user. Grant required file capabilities only to helper, with matching
-container bounding capabilities, BTF access and security policy. Container
-`no-new-privileges` before exec prevents file-capability acquisition; main sets
-its own restriction after helper startup. Tests retain default seccomp/AppArmor,
-provision the pair inside Docker and directly execute the built main. Do not
-weaken kernel security settings to enable inspection.
+Preview updates stage both executables in one user-owned version directory and
+apply capabilities only to that helper. An atomically renamed launcher selects
+that pair. Keep previous directories for rollback, which reuses the previous
+helper with its capabilities. Remove unused directories after stopping any
+processes using them. Do not overwrite an active executable. Preview services
+run as the ordinary user; administrator policy must permit `sudo -n setcap` for
+the helper paths used by updates. That permission trusts the build account and
+its build inputs to choose the executable receiving inspection capabilities.
+
+Container images must include both executables. Grant required file capabilities
+only to helper, with matching container bounding capabilities, BTF access and
+security policy. Container `no-new-privileges` before exec prevents
+file-capability acquisition; main sets its own restriction after helper startup.
+Tests retain default seccomp/AppArmor, configure the built helper with `setcap`
+inside Docker and directly execute the built main. Do not weaken kernel security
+settings to enable inspection.
 
 ### Architectural guard and verification
 
@@ -378,9 +383,9 @@ Use SSE for continuous CPU usage, per-second increments, and history. Ordinary `
 
 `GET /api/processes/fds` verifies identity and liveness, then collects pipe/FIFO/socket FDs, access direction, candidate peers, and owners sharing the same resource. UNIX domain socket peers are discovered with socket diagnostics. TCP/UDP candidates are found using information from the target process's network namespace. Shared owners and communication peers are distinct; no reads consume data. Scans are limited to three seconds, 100,000 FDs, and 8,192 matching FDs; results report truncation and similar conditions.
 
-See [fds.rs](src/http_server/process/fds.rs) for FD collection, candidate matching, and searches for processes/FDs owning candidates. UNIX domain socket peer inode retrieval is in [socket diagnostics](src/http_server/process/sockets.rs).
+See [fds.rs](src/privileged_helper/process/fds.rs) for FD collection, candidate matching, and searches for processes/FDs owning candidates. UNIX domain socket peer inode retrieval is in [socket diagnostics](src/privileged_helper/process/sockets.rs).
 
-Socket types are collected independently of peer identification and shown in SPACE connection details and process FD lists. Collection uses Netlink, RAW, and packet procfs tables as well as TCP, UDP, and UNIX tables. [SocketMetadataReader](src/http_server/process/socket_metadata.rs) temporarily duplicates socket FDs with `pidfd_open`/`pidfd_getfd` and reads `SO_DOMAIN`, `SO_TYPE`, `SO_PROTOCOL`, `SO_ACCEPTCONN`, and `getpeername`. Type, listening status, and peer presence are handled separately. Successful direct observations are shared within each collection by device/inode. Process start times and socket device/inode are validated; pidfds are retained per process during a scan. Duplicated FDs are closed immediately. Collection does not send/receive data, alter socket settings, or stop targets. Pidfd duplication requires ptrace permission; on insufficient permission or unsupported kernels, types obtained through procfs are retained.
+Socket types are collected independently of peer identification and shown in SPACE connection details and process FD lists. Collection uses Netlink, RAW, and packet procfs tables as well as TCP, UDP, and UNIX tables. [SocketMetadataReader](src/privileged_helper/process/socket_metadata.rs) temporarily duplicates socket FDs with `pidfd_open`/`pidfd_getfd` and reads `SO_DOMAIN`, `SO_TYPE`, `SO_PROTOCOL`, `SO_ACCEPTCONN`, and `getpeername`. Type, listening status, and peer presence are handled separately. Successful direct observations are shared within each collection by device/inode. Process start times and socket device/inode are validated; pidfds are retained per process during a scan. Duplicated FDs are closed immediately. Collection does not send/receive data, alter socket settings, or stop targets. Pidfd duplication requires ptrace permission; on insufficient permission or unsupported kernels, types obtained through procfs are retained.
 
 The process FD list shows known types even for unconnected sockets, such as `TCP`, `NETLINK KOBJECT_UEVENT`, or `VSOCK STREAM`. API protocols other than TCP, UDP, and UNIX use `kind: "other"` and Linux `family`, `socket_type`, and `protocol` numbers, retaining unrecognized values. The Netlink procfs table alone does not identify socket type, so `socket_type` is null in that case. Unknown connection state is `state: null`; neither state nor peer PID is inferred from type. A socket with unknown type appears as `Socket · Type unavailable` and is included in scan warnings.
 
@@ -392,11 +397,11 @@ Rust tests for pidfd type retrieval and separate network namespaces run with `ba
 
 UNIX diagnostics use a network namespace FD opened after checking the target PID and start time. For a different namespace, a short-lived dedicated thread calls `setns(CLONE_NEWNET)`, creates a diagnostic Netlink socket, returns its FD to the caller, and exits. Requests and responses use the socket belonging to that namespace; HTTP and collection threads keep their own namespaces. SPACE groups discovered namespaces by device/inode and diagnoses each once per scan. The total diagnostic budget across namespaces is 500 ms. The process FD list uses the shorter of 750 ms and its overall three-second deadline. If diagnostics fail, existing procfs information is retained and warnings include the target PID and failure reason.
 
-Switching network namespaces requires `CAP_SYS_ADMIN`. [dev_run.sh](scripts/dev_run.sh) also grants this capability. Only the protected helper receives capabilities; see the [deployment guide](#privileged-helper-boundary). The application does not modify sudoers or kernel settings.
+Switching network namespaces requires `CAP_SYS_ADMIN`. [dev_run.sh](scripts/dev_run.sh) also grants this capability. Only the helper receives capabilities; see the [deployment guide](#privileged-helper-boundary). The application does not modify sudoers or kernel settings.
 
 ### Hardware
 
-The system snapshot uses [system/hardware](src/http_server/system/hardware.rs) to read GPUs, RDMA NICs, accelerators, NVSwitches, and their upstream PCIe bridges up to host bridges from sysfs. This requires no privileges.
+The system snapshot uses [system/hardware](src/privileged_helper/system/hardware.rs) to read GPUs, RDMA NICs, accelerators, NVSwitches, and their upstream PCIe bridges up to host bridges from sysfs. This requires no privileges.
 
 - Discovery: upstream chains come from each device's real path under `/sys/bus/pci/devices`, such as `/sys/devices/pci0000:80/0000:80:03.4/0000:85:00.0`. Devices with `infiniband/` or class 0x0c06 are RDMA NICs; classes 0x0300/0x0302 are GPUs (excluding ASPEED/Matrox BMCs); class 0x12 denotes accelerators; NVIDIA class 0x0680 denotes NVSwitch. Only their upstream bridges are included.
 - Attributes: reads class, vendor, device, driver, numa_node, `current/max_link_speed`, `current/max_link_width`, power_state, `power/runtime_status`, iommu_group, and BARs from `resource`. It does not open `config` or BAR resize files, which could trigger runtime resume. Link speeds are not read for runtime-suspended devices. NVIDIA GPU model, UUID, and device minor come from `/proc/driver/nvidia/gpus/<address>/information`; vendor libraries such as NVML are not used.
@@ -410,8 +415,8 @@ Both are retrieved on demand after identity/liveness checks, rather than recolle
 
 These APIs read files exposed by procfs. Only auxv string references additionally read target process memory with `process_vm_readv`.
 
-- `GET /api/processes/environment`: reads up to 1 MiB from procfs [`/proc/<pid>/environ`](https://man7.org/linux/man-pages/man5/proc_pid_environ.5.html), splitting NUL-delimited entries at the first `=` into names and values. Duplicate names, empty values, and `=` within values are preserved. This usually reflects the environment region at exec time, not every subsequent change. See [file reading](src/http_server/process/details.rs) and [environment parsing](src/http_server/process/details.rs).
-- `GET /api/processes/auxv`: determines 32/64-bit mode from the ELF header of `/proc/<pid>/exe` and reads up to 64 KiB from procfs [`/proc/<pid>/auxv`](https://man7.org/linux/man-pages/man5/proc_pid_auxv.5.html). It parses tag/value pairs, handling known and unknown tags. String references for `AT_EXECFN`, `AT_PLATFORM`, and `AT_BASE_PLATFORM` are resolved with `process_vm_readv`, up to 4,096 bytes each. Numeric values remain when references cannot be read. Big-endian ELF is unsupported. See [ELF header and auxv reading](src/http_server/process/details.rs), [string reference resolution](src/http_server/process/details.rs), and [memory reading](src/http_server/process/memory.rs).
+- `GET /api/processes/environment`: reads up to 1 MiB from procfs [`/proc/<pid>/environ`](https://man7.org/linux/man-pages/man5/proc_pid_environ.5.html), splitting NUL-delimited entries at the first `=` into names and values. Duplicate names, empty values, and `=` within values are preserved. This usually reflects the environment region at exec time, not every subsequent change. See [file reading](src/privileged_helper/process/details.rs) and [environment parsing](src/privileged_helper/process/details.rs).
+- `GET /api/processes/auxv`: determines 32/64-bit mode from the ELF header of `/proc/<pid>/exe` and reads up to 64 KiB from procfs [`/proc/<pid>/auxv`](https://man7.org/linux/man-pages/man5/proc_pid_auxv.5.html). It parses tag/value pairs, handling known and unknown tags. String references for `AT_EXECFN`, `AT_PLATFORM`, and `AT_BASE_PLATFORM` are resolved with `process_vm_readv`, up to 4,096 bytes each. Numeric values remain when references cannot be read. Big-endian ELF is unsupported. See [ELF header and auxv reading](src/privileged_helper/process/details.rs), [string reference resolution](src/privileged_helper/process/details.rs), and [memory reading](src/privileged_helper/process/memory.rs).
 
 ### Initial/periodic snapshots and live sampling without stopping the target
 
@@ -454,9 +459,9 @@ All sensors use CO-RE eBPF. CPU scheduling, IPC, and file I/O use independent eB
 
 | Sensor | Backend observations and limits | eBPF source |
 |---|---|---|
-| CPU | Aggregates runtime and running CPUs with `sched_switch` | [sched.bpf.c](src/http_server/system/sched.bpf.c) |
-| IPC | Observes pipe read/write and socket send/receive results; no payload reads or MSG_PEEK counts; excludes splice/sendfile, some io_uring, and workers without known attribution | [ipc.bpf.c](src/http_server/system/ipc.bpf.c) |
-| File I/O | Observes successful byte/count results of VFS read/write and vectored I/O, including page-cache access; excludes mmap, io_uring, splice/sendfile, and physical disk transfer volume | [files.bpf.c](src/http_server/system/files.bpf.c) |
+| CPU | Aggregates runtime and running CPUs with `sched_switch` | [sched.bpf.c](src/privileged_helper/system/sched.bpf.c) |
+| IPC | Observes pipe read/write and socket send/receive results; no payload reads or MSG_PEEK counts; excludes splice/sendfile, some io_uring, and workers without known attribution | [ipc.bpf.c](src/privileged_helper/system/ipc.bpf.c) |
+| File I/O | Observes successful byte/count results of VFS read/write and vectored I/O, including page-cache access; excludes mmap, io_uring, splice/sendfile, and physical disk transfer volume | [files.bpf.c](src/privileged_helper/system/files.bpf.c) |
 
 File paths are captured at operation time; unavailable paths use identifiers such as device/inode. Unavailable BPF hooks produce per-sensor reasons in the status API and logs while collection of available information continues. Required kernel features and permissions vary by sensor.
 
@@ -756,7 +761,7 @@ There is no authentication or TLS. Anyone who can connect can access process mem
 
 ## Logging
 
-Logging uses `log` and `env_logger`, writing timestamps, levels, source file paths, and line numbers (for example, `src/http_server/system/service.rs:123`) to stderr. Default level is `info`. `RUST_LOG` filters still use module names.
+Logging uses `log` and `env_logger`, writing timestamps, levels, source file paths, and line numbers (for example, `src/privileged_helper/system/service.rs:123`) to stderr. Default level is `info`. `RUST_LOG` filters still use module names.
 
 - `info`: startup/shutdown, observation start/stop, target exit, collection state/recovery.
 - `warn`: observation failures, unavailable sensors; repeated identical states/errors are suppressed.
@@ -765,7 +770,7 @@ Logging uses `log` and `env_logger`, writing timestamps, levels, source file pat
 
 ```sh
 RUST_LOG=debug ./scripts/dev_run.sh --listen 127.0.0.1:9090
-RUST_LOG=info,procinsh_privileged_helper::http_server::system=debug ./scripts/dev_run.sh --listen 127.0.0.1:9090
+RUST_LOG=info,procinsh_privileged_helper::privileged_helper::system=debug ./scripts/dev_run.sh --listen 127.0.0.1:9090
 ```
 
 To filter only HTTP access logs, use `RUST_LOG=info,procinsh::http_server::middleware=debug`. Existing subsystem filters also apply to child modules.

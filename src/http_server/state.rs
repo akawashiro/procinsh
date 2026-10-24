@@ -1,34 +1,26 @@
-use super::{process, system};
-use anyhow::Result;
+use super::client::MonitorClient;
 use std::{
-    sync::{Arc, Mutex},
+    sync::atomic::{AtomicBool, Ordering},
     time::Duration,
 };
 
 pub(super) struct AppState {
-    pub(super) system_monitor: Arc<system::SystemMonitor>,
-    pub(super) discovery: Mutex<process::ProcessScanner>,
-    pub(super) monitoring: Arc<process::ProcessMonitor>,
+    pub(super) client: MonitorClient,
     pub(super) interval: Duration,
+    stopped: AtomicBool,
 }
 impl AppState {
-    pub(super) fn new(interval: Duration) -> Self {
+    pub(super) fn remote(interval: Duration, client: MonitorClient) -> Self {
         Self {
-            system_monitor: Arc::new(system::SystemMonitor::default()),
-            discovery: Mutex::new(process::ProcessScanner::default()),
-            monitoring: Arc::new(process::ProcessMonitor::new(interval)),
+            client,
             interval,
+            stopped: AtomicBool::new(false),
         }
     }
-
-    pub(super) fn stop(&self) {
-        self.monitoring.stop();
-        self.system_monitor.stop();
+    pub(super) fn stopped(&self) -> bool {
+        self.stopped.load(Ordering::Relaxed)
     }
-
-    pub(super) fn join_collectors(&self) -> Result<()> {
-        let process_result = self.monitoring.join_collectors();
-        let system_result = self.system_monitor.join_workers();
-        process_result.and(system_result)
+    pub(super) fn stop(&self) {
+        self.stopped.store(true, Ordering::Relaxed);
     }
 }

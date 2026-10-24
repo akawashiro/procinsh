@@ -18,7 +18,7 @@
     "test:browser": "npm run test:browser:list && npm run test:browser:space && npm run test:browser:replay",
     "test:browser:list": "tsx tests/browser/browser.ts",
     "build:browser-test": "npm run typecheck && vite build --config vite.browser-test.config.ts",
-    "test:browser:space": "npm run build:browser-test && cargo build --locked --manifest-path ../Cargo.toml && tsx tests/browser/space-browser.ts",
+    "test:browser:space": "npm run build:browser-test && cargo build --locked --manifest-path ../Cargo.toml && setcap cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search,cap_sys_admin=ep ../target/debug/procinsh-privileged-helper && tsx tests/browser/space-browser.ts",
     "test:dev": "tsx tests/integration/dev-server.ts",
     "build:replay": "npm run typecheck && vite build --config vite.replay.config.ts",
     "test:browser:replay": "npm run build:replay && tsx tests/browser/space-replay-static.ts"

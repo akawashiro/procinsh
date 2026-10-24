@@ -457,8 +457,14 @@ fn parent_crash_releases_helper() {
 }
 
 #[test]
-fn trusted_sibling_discovery_and_missing_helper_degrade_cleanly() {
-    let helper = std::env::var_os("PROCINSH_HELPER").expect("Docker provisions a protected helper");
+fn sibling_discovery_and_missing_helper_degrade_cleanly() {
+    let helper = std::env::var_os("PROCINSH_HELPER").expect("Docker configures the helper");
+    use std::os::unix::fs::MetadataExt;
+    assert_ne!(
+        std::fs::metadata(&helper).unwrap().uid(),
+        0,
+        "test setup must cover a user-owned helper executable"
+    );
     let main = std::path::Path::new(&helper).with_file_name("procinsh");
     let mut command = Command::new(main);
     command.env_remove("PROCINSH_HELPER");

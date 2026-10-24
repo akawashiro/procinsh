@@ -8,5 +8,6 @@
 //!
 mod process;
 mod router;
+mod stream;
 mod system;
 pub(super) use router::router;

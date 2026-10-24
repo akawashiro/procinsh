@@ -6,7 +6,7 @@ use tokio::{sync::watch, task::JoinSet};
 /// Bind every address before serving, then share collectors across listeners.
 /// Each listener validates requests against its own bound address. A shutdown
 /// signal or a listener failure stops all listeners and joins the collectors.
-pub(crate) async fn run(listen: &[SocketAddr]) -> Result<()> {
+pub(crate) async fn run(listen: &[SocketAddr], client: super::client::MonitorClient) -> Result<()> {
     ensure!(!listen.is_empty(), "no HTTP listen addresses specified");
     let mut listeners = Vec::with_capacity(listen.len());
     for address in listen {
@@ -19,7 +19,7 @@ pub(crate) async fn run(listen: &[SocketAddr]) -> Result<()> {
     let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
         .context("could not install SIGTERM handler")?;
     let interval = Duration::from_secs(1);
-    let state = Arc::new(AppState::new(interval));
+    let state = Arc::new(AppState::remote(interval, client));
     let (shutdown, _) = watch::channel(false);
     let mut servers = JoinSet::new();
     for (listener, address) in listeners {
@@ -71,7 +71,6 @@ pub(crate) async fn run(listen: &[SocketAddr]) -> Result<()> {
             Err(error) => Err(error).context("HTTP server task failed"),
         });
     }
-    result = result.and(state.join_collectors());
     log::info!("procinsh stopped");
     result
 }

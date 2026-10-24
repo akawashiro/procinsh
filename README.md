@@ -37,24 +37,20 @@ sudo apt-get install --yes --no-install-recommends \
 cargo install procinsh --locked
 ```
 
-Cargo installs two executables. Place both in a root-owned directory and grant
-inspection capabilities **only to the helper**:
+Cargo installs two executables. Grant inspection capabilities **only to the
+helper**, then run the main executable as your ordinary user:
 
 ```sh
-sudo install -d -o root -g root -m 0755 /usr/local/libexec/procinsh/installed
-sudo install -o root -g root -m 0755 "$HOME/.cargo/bin/procinsh" \
-  "$HOME/.cargo/bin/procinsh-privileged-helper" /usr/local/libexec/procinsh/installed/
 sudo setcap \
   cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search,cap_sys_admin=ep \
-  /usr/local/libexec/procinsh/installed/procinsh-privileged-helper
-/usr/local/libexec/procinsh/installed/procinsh --listen 127.0.0.1:9090
+  "$HOME/.cargo/bin/procinsh-privileged-helper"
+"$HOME/.cargo/bin/procinsh" --listen 127.0.0.1:9090
 ```
 
 Open http://127.0.0.1:9090. The HTTP process runs without elevated capabilities;
-its sibling helper performs inspection over private IPC. Keep the helper and
-all its parent directories root-owned and unwritable by ordinary users. Never
-apply capabilities in `~/.cargo/bin` or to `procinsh`. You may omit capabilities
-to reduce inspection coverage; unavailable operations report errors.
+its sibling helper performs inspection over private IPC. Apply capabilities
+again after rebuilding or upgrading the helper. You may omit capabilities to
+reduce inspection coverage; unavailable operations report errors.
 
 Remote access requires `--allow-non-loopback` and exposes process memory and
 environment variables without authentication. See the
@@ -83,8 +79,10 @@ cargo build --release --locked
 Then run:
 
 ```sh
-helper=$(sudo bash scripts/install_helper.sh target/release/procinsh-privileged-helper)
-"$(dirname "$helper")/procinsh" --listen 127.0.0.1:9090
+sudo setcap \
+  cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search,cap_sys_admin=ep \
+  ./target/release/procinsh-privileged-helper
+./target/release/procinsh --listen 127.0.0.1:9090
 ```
 
 #### NixOS
@@ -115,8 +113,10 @@ nix-build shell.nix -A inputDerivation -o .nix-gcroot
 Keep `.nix-gcroot` while using the binary. Then run:
 
 ```sh
-helper=$(sudo bash scripts/install_helper.sh target/release/procinsh-privileged-helper)
-"$(dirname "$helper")/procinsh" --listen 127.0.0.1:9090
+sudo setcap \
+  cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search,cap_sys_admin=ep \
+  ./target/release/procinsh-privileged-helper
+./target/release/procinsh --listen 127.0.0.1:9090
 ```
 
 ### Building on WSL2 (Ubuntu)
@@ -146,8 +146,10 @@ cargo build --release --locked
 Then run:
 
 ```sh
-helper=$(sudo bash scripts/install_helper.sh target/release/procinsh-privileged-helper)
-"$(dirname "$helper")/procinsh" --listen 127.0.0.1:9090
+sudo setcap \
+  cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search,cap_sys_admin=ep \
+  ./target/release/procinsh-privileged-helper
+./target/release/procinsh --listen 127.0.0.1:9090
 ```
 
 _Now, where shall I go? The process space is vast._

@@ -6,20 +6,20 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 ALLOWED = {
-    'src/main.rs', 'src/lib.rs', 'src/protocol.rs', 'src/transport.rs',
-    'src/application.rs', 'src/application/api.rs',
-    'src/application/api/process.rs', 'src/application/api/system.rs',
-    'src/application/api/router.rs', 'src/application/api/stream.rs',
-    'src/application/client.rs', 'src/application/delivery.rs',
-    'src/application/launch.rs', 'src/application/privileges.rs',
-    'src/application/server.rs', 'src/application/state.rs',
+    'src/main.rs', 'src/lib.rs', 'src/ipc.rs', 'src/ipc/schema.rs', 'src/ipc/transport.rs',
+    'src/http_server.rs', 'src/http_server/api.rs',
+    'src/http_server/api/process.rs', 'src/http_server/api/system.rs',
+    'src/http_server/api/router.rs', 'src/http_server/api/stream.rs',
+    'src/http_server/client.rs', 'src/http_server/delivery.rs',
+    'src/http_server/launch.rs', 'src/http_server/privileges.rs',
+    'src/http_server/server.rs', 'src/http_server/state.rs',
     'src/http_server/middleware.rs', 'src/http_server/router.rs',
     'src/http_server/web.rs',
 }
 # These two files may manipulate only their own credentials and exec endpoint.
 LIBC = {
-    'src/application/launch.rs': {'dup2', 'fcntl', 'F_SETFD', 'syscall', 'SYS_close_range'},
-    'src/application/privileges.rs': {
+    'src/http_server/launch.rs': {'dup2', 'fcntl', 'F_SETFD', 'syscall', 'SYS_close_range'},
+    'src/http_server/privileges.rs': {
         'c_long', 'c_ulong', 'syscall', 'SYS_capget', 'SYS_capset', 'SYS_close_range',
         'prctl', 'PR_SET_NO_NEW_PRIVS', 'PR_SET_DUMPABLE', 'PR_CAP_AMBIENT',
         'PR_CAP_AMBIENT_CLEAR_ALL', 'close', 'getuid', 'getgid', 'geteuid',
@@ -83,17 +83,17 @@ def self_test():
                'extern "C" { fn inspect(); }']
     for source in attacks:
         try:
-            check_source('src/application/launch.rs', source)
+            check_source('src/http_server/launch.rs', source)
         except AssertionError:
             continue
         raise AssertionError(f'Guard accepted {source}')
 
     with tempfile.TemporaryDirectory(prefix='procinsh-boundary-') as directory:
         root = Path(directory)
-        (root / 'src/http_server').mkdir(parents=True)
+        (root / 'src/privileged_helper').mkdir(parents=True)
         (root / 'src/main.rs').write_text(
-            '#[path = "http_server/helper_root.rs"] mod http_server;')
-        (root / 'src/http_server/helper_root.rs').write_text('')
+            '#[path = "privileged_helper/root.rs"] mod privileged_helper;')
+        (root / 'src/privileged_helper/root.rs').write_text('')
         try:
             check_tree(root)
         except AssertionError as error:

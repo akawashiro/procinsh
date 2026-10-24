@@ -1,10 +1,10 @@
 //! Process inspector for Linux.
 //!
-//! Start with the [HTTP application interface](application). Each subsystem's
+//! Start with the [HTTP application interface](http_server). Each subsystem's
 //! **Interface** section lists its re-exported types and function signatures,
 //! with links to the defining items and their source.
 
-mod application;
+mod http_server;
 
 #[cfg(not(all(target_os = "linux", target_arch = "x86_64")))]
 compile_error!("procinsh supports Linux x86-64 only");
@@ -57,5 +57,5 @@ fn run() -> Result<()> {
             address
         );
     }
-    application::run(&cli.listen)
+    http_server::run(&cli.listen)
 }
