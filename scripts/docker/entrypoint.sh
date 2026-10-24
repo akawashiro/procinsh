@@ -22,9 +22,9 @@ case "$suite" in
     npm --prefix web run build:replay
     cargo build --locked --all-targets
     cargo test --locked --no-run
-    export PROCINSH_HELPER="$PWD/target/debug/procinsh-privileged-helper"
-    chown 65534:65534 "$PROCINSH_HELPER"
-    setcap cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search,cap_sys_admin=ep "$PROCINSH_HELPER"
+    # Use nobody (UID/GID 65534) so root-launched tests exercise a user-owned helper.
+    chown 65534:65534 target/debug/procinsh-privileged-helper
+    setcap cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search,cap_sys_admin=ep target/debug/procinsh-privileged-helper
     cargo test --locked
     npm --prefix web test
     python3 tests/listen-policy.py
@@ -51,9 +51,9 @@ case "$suite" in
     ;;
   kernel)
     cargo build --locked
-    export PROCINSH_HELPER="$PWD/target/debug/procinsh-privileged-helper"
-    chown 65534:65534 "$PROCINSH_HELPER"
-    setcap cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search,cap_sys_admin=ep "$PROCINSH_HELPER"
+    # Use nobody (UID/GID 65534) so root-launched tests exercise a user-owned helper.
+    chown 65534:65534 target/debug/procinsh-privileged-helper
+    setcap cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search,cap_sys_admin=ep target/debug/procinsh-privileged-helper
     sh tests/targets/build.sh
     log=$(mktemp)
     target/debug/procinsh --listen 127.0.0.1:0 >"$log" 2>&1 &
@@ -124,9 +124,9 @@ PYTHON
     ;;
   browser)
     cargo build --locked
-    export PROCINSH_HELPER="$PWD/target/debug/procinsh-privileged-helper"
-    chown 65534:65534 "$PROCINSH_HELPER"
-    setcap cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search,cap_sys_admin=ep "$PROCINSH_HELPER"
+    # Use nobody (UID/GID 65534) so root-launched tests exercise a user-owned helper.
+    chown 65534:65534 target/debug/procinsh-privileged-helper
+    setcap cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search,cap_sys_admin=ep target/debug/procinsh-privileged-helper
     sh tests/targets/build.sh
     export CHROME=/usr/bin/google-chrome
     npm --prefix web run test:browser
@@ -134,9 +134,9 @@ PYTHON
   rust)
     cargo build --locked
     cargo test --locked --no-run
-    export PROCINSH_HELPER="$PWD/target/debug/procinsh-privileged-helper"
-    chown 65534:65534 "$PROCINSH_HELPER"
-    setcap cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search,cap_sys_admin=ep "$PROCINSH_HELPER"
+    # Use nobody (UID/GID 65534) so root-launched tests exercise a user-owned helper.
+    chown 65534:65534 target/debug/procinsh-privileged-helper
+    setcap cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search,cap_sys_admin=ep target/debug/procinsh-privileged-helper
     cargo test --locked -- "$@" ;;
   web) npm --prefix web test -- "$@" ;;
   *) echo "Unknown container test suite: $suite" >&2; exit 2 ;;

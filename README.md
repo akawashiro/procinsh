@@ -22,6 +22,8 @@ Like [Ghost in the Shell](https://en.wikipedia.org/wiki/Ghost_in_the_Shell), you
 Requires Linux x86-64. Both installation methods compile native code and require
 Rust, a C compiler, clang with the BPF backend, bpftool, pkg-config, libelf and
 zlib development files, and BTF information at `/sys/kernel/btf/vmlinux`.
+On Ubuntu, `libcap2-bin` provides the `setcap` command used below to grant
+inspection capabilities to the helper.
 
 Support on WSL2 is very limited, I recommend building procinsh from source rather than installing it from crates.io.
 
