@@ -215,9 +215,8 @@ capabilities, so apply `setcap` after each build/install. The selected executabl
 and its build/install account are trusted. Main never needs file capabilities;
 remove old grants once with `sudo setcap -r /path/to/old/procinsh`.
 
-`./scripts/dev_run.sh` runs `sudo -n setcap` when the debug helper has no file
-capabilities, preserves an existing capability configuration, and directly
-executes the debug main binary.
+`./scripts/dev_run.sh` runs `sudo -n setcap` on the debug helper at every startup,
+then directly executes the debug main binary.
 
 Container images must include both executables. Grant required file capabilities
 only to helper, with matching container bounding capabilities, BTF access and

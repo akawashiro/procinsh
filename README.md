@@ -50,10 +50,6 @@ sudo setcap \
 "$HOME/.cargo/bin/procinsh" --listen 127.0.0.1:9090
 ```
 
-Open http://127.0.0.1:9090. The HTTP process runs without elevated capabilities;
-its sibling helper performs inspection over private IPC. Apply capabilities
-again after rebuilding or upgrading the helper.
-
 ### Self build on Linux
 
 #### Ubuntu
