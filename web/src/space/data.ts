@@ -96,7 +96,7 @@ function networkLayout(
         const p = {
           x: Math.round(origin.x / 3) * 3 + ((slot % 3) - 1) * 3,
           y: Math.round(origin.y / 3) * 3 + (Math.floor(slot / 3) - 1) * 3,
-          z: 12 + layer * 3,
+          z: 18 + layer * 3,
         };
         if (occupied.has(cell(p))) continue;
         result.set(id, p);

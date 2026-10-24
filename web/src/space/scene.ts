@@ -582,11 +582,9 @@ export function createSpaceScene() {
         visible.has(key(g.endpoint.process_id)) && networkPositions.has(g.id),
     );
     const markers = new T.InstancedMesh(
-      new T.OctahedronGeometry(0.75),
+      new T.OctahedronGeometry(0.5),
       new T.MeshBasicMaterial({
         color: 0x68baff,
-        transparent: true,
-        opacity: 0.2,
       }),
       Math.max(1, visibleGroups.length),
     );
@@ -594,7 +592,7 @@ export function createSpaceScene() {
     markers.userData.network = visibleGroups;
     geometryGroup.add(markers);
     const markerEdges = new T.InstancedMesh(
-      new T.OctahedronGeometry(0.75),
+      new T.OctahedronGeometry(0.5),
       new T.MeshBasicMaterial({
         color: 0x8dd4ff,
         wireframe: true,
