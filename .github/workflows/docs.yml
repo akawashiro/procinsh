@@ -98,7 +98,7 @@ jobs:
           echo '<li><a href="rust-architecture/">module dependency graph</a></li></ul>' >> target/doc/index.html
           echo '<h2>TypeScript</h2><ul><li><a href="typescript/">module document</a></li><li><a href="typescript-architecture/">module dependency graph</a></li></ul>' >> target/doc/index.html
           echo '<h2>Demo</h2><ul><li><a href="demo/">replay demo</a></li></ul>' >> target/doc/index.html
-          echo '<h2>Development guide</h2><ul><li><a href="https://github.com/akawashiro/procinsh/blob/main/developer-docs/DEVELOPMENT.md">DEVELOPMENT.md</a></li></ul></html>' >> target/doc/index.html
+          echo '<h2>Development guide</h2><ul><li><a href="https://github.com/akawashiro/procinsh/blob/main/DEVELOPMENT.md">DEVELOPMENT.md</a></li></ul></html>' >> target/doc/index.html
           touch target/doc/.nojekyll
 
       - name: Include static replay demo
