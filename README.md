@@ -47,8 +47,6 @@ sudo install -o root -g root -m 0755 "$HOME/.cargo/bin/procinsh" \
 sudo setcap \
   cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search,cap_sys_admin=ep \
   /usr/local/libexec/procinsh/installed/procinsh-privileged-helper
-# Remove capabilities from an older installation of the main executable.
-sudo setcap -r "$HOME/.cargo/bin/procinsh" 2>/dev/null || true
 /usr/local/libexec/procinsh/installed/procinsh --listen 127.0.0.1:9090
 ```
 
@@ -60,7 +58,7 @@ to reduce inspection coverage; unavailable operations report errors.
 
 Remote access requires `--allow-non-loopback` and exposes process memory and
 environment variables without authentication. See the
-[deployment guide](developer-docs/PRIVILEGE_SEPARATION.md) for upgrades, containers
+[deployment guide](DEVELOPMENT.md#privileged-helper-boundary) for upgrades, containers
 and helper configuration.
 
 ### Self build on Linux

@@ -33,7 +33,7 @@ sudo install -o root -g root -m 0755 scripts/install_helper.sh /usr/local/sbin/p
 
 以前の本体に付いている capability は `sudo setcap -r <旧本体のパス>` で削除してください。移行時は timer と稼働サービスを停止し、更新処理の終了を待ち、旧 `current.commit` / `current.version` を退避してから更新を実行します。既存の capability 付き本体へロールバックしないでください。公開版は二つのバイナリを提供する版が必要です。
 
-詳しい配置・コンテナ・ロールバックの条件は [privilege separation](../../developer-docs/PRIVILEGE_SEPARATION.md) を参照してください。
+詳しい配置・コンテナ・ロールバックの条件は [privilege separation](../../DEVELOPMENT.md#privileged-helper-boundary) を参照してください。
 
 ### main の user service の登録
 
