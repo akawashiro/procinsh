@@ -1,198 +1,171 @@
 # ProcInSh の観測処理と権限に関するセキュリティ分析
 
-分析日: 2026-10-03
+分析日: 2026-10-24（JST）
 
 著者: OpenAI Codex（AI による分析・執筆）
 
-モデル・推論設定: GPT-6.1-Sol / medium（ユーザー申告。実行時の設定は著者側では確認していない）
+モデル・推論設定: 実行時の詳細設定は未確認
 
-対象: `99c0483194459e6c3c3e2e7151e1202d31de18a7`（PR 作成時に取得した最新 main、バージョン 0.1.6）
+対象: `e3f6431b5db1f0c1718dad0d789e82f9e6381c25`（診断開始時のローカル HEAD、Cargo バージョン 0.1.20）。リモート main や稼働中バイナリとの一致は確認していない。
 
 ## 結論
 
-現実的にまず心配すべきなのは、**ptrace による停止・再開が観測対象の実行を変えること**と、**perf/eBPF の収集負荷によってホストや対象プロセスの可用性が下がること**である。「read-only」は対象メモリへの書き込み API がないという意味では成立するが、対象の動作に影響しないという意味では成立しない。
+**HTTP と特権観測は別プロセスになっているが、観測対象への停止の影響、観測サービス全体の可用性、認証なしでの機密情報公開が主要なリスクである。** 「read-only」は対象メモリへの書き戻し API がないという意味では成立するが、対象の実行やホストの負荷に影響しないという意味では成立しない。
 
-本番コードには、対象メモリ・レジスタ・ファイル内容へ直接書き込む処理や、BPF から対象のユーザーメモリを変更する処理は見つからなかった。通常の実装バグだけで対象のメモリ内容を上書きする経路よりも、一時停止、シグナル処理の変化、資源不足を通じて、対象がタイムアウトしたり異常終了したりする経路のほうが具体的である。対象アプリケーションの設計によっては、その結果として処理中のデータや外部システムとの整合性を損なう可能性がある。
+HTTP 本体は capability を落とし、専用 socketpair から限定された操作を helper に要求する。任意パス・任意メモリアドレス・任意 syscall を IPC で指定する仕組みはなく、helper は PID と開始時刻を独立に検証する。ELF の同一 FD による読み取り、展開サイズ制限、procfs の読み取り上限も実装されている。これらは有効な防御である。
 
-eBPF はカーネル内で実行されるが、この実装の書き込み先は自身の map とイベントバッファであり、VFS の書き込み引数やスケジューラの設定を変更していない。カーネル破壊の具体的な不具合は今回の静的調査では確認していない。ただし、verifier・JIT・helper・tracing/perf 実装自体の不具合まで安全性を保証できるものではなく、負荷によるホスト全体への影響は別途存在する。
+ただし、helper は広い権限を保ったまま ptrace、perf、BPF、ELF/DWARF 解析を行う。ptrace の停止待ちに期限はなく、同期的な初回観測が唯一の IPC 処理を塞ぎうる。クライアントの30秒タイムアウトは共有接続を閉じるため、ひとつの遅い要求が全利用者の観測を停止させる経路になる。メモリやレジスタへの直接書き込み、任意コード実行、カーネル破壊を実証したわけではない。
 
 ## 調査の範囲と確度
 
-Rust の本番コード、3種類の BPF C コード、起動・テスト・常設プレビュー用スクリプト、既存テストを読み、Linux の仕様資料と照合した。既知の非 loopback 公開による情報漏えいは前提とし、停止状態、メモリ取得、カーネルフック、資源管理、権限の境界を中心に調査した。
+HTTP の起動・権限・middleware、IPC schema/transport/client/helper、process monitoring、ptrace/perf、メモリ読み取り、ELF/DWARF/unwind、4種類の BPF C、system monitoring、関連テスト、開発・プレビュー起動スクリプトを静的に確認した。Web の DOM 生成と危険な HTML 挿入 API の検索も行ったが、UI 全体を網羅するブラウザ診断ではない。Linux の仕様は本文中の一次資料と照合した。
 
-以下では「確認済み」はコードから確認できる実装上の事実、「要再現」はその実装から導かれるが、発生条件・結果を実機で確かめていない懸念を示す。攻撃の成立やデータ破壊を実証したという意味ではない。今回はサーバーの起動、権限付きテスト、負荷試験、カーネル障害の再現を行っていない。稼働ホストのカーネル版・修正状況・sudoers・ファイル権限も監査対象に含めていない。
+「確認済み」はコード上の構造・条件を確認したことを意味する。「要再現」は実際の停止時間、資源消費、攻撃成立を今回の実機試験では確認していないという意味である。優先度は対策・検証の順番であり、CVSS や実証済み脆弱性の重大度ではない。
+
+稼働ホストの sudoers、所有権、ACL、capability、Tailscale ACL、カーネルの修正状況は監査していない。依存関係の最新 advisory との網羅的照合、ファジング、侵入試験、負荷試験は実施していないため、既知脆弱性がないとの判定は含まない。テストの実行状況は末尾に記す。
 
 ## 優先度一覧
 
-優先度は対策・追加検証の順番であり、CVSS や実証済み脆弱性の重大度ではない。
-
 | 優先度 | 懸念 | 実装の確認 / 影響の確度 | 主な影響 |
 |---|---|---|---|
-| 高 | ptrace 待機・停止中の読み取りに期限がない | 期限なしは確認済み、長時間停止は要再現 | 対象停止の長期化、観測・終了処理の停滞 |
-| 高 | group-stop と割り込み停止を区別しない | 区別しない実装は確認済み、停止状態の変化は要再現 | SIGSTOP 等で停止した対象の意図しない再開など |
-| 高 | 接続ごと・全 TID に perf と ptrace を設定する | 構造は確認済み、負荷量は未測定 | FD・メモリ・CPU の消費、対象のタイムアウト |
-| 高 | HTTP と解析処理が強い capability を持つ同じプロセスで動く | 確認済み、侵害経路は未実証 | 侵害時に他プロセスの変更へ拡大 |
-| 中〜高 | 全システムの BPF フックと大きな map | サイズ・フックは確認済み、影響量は未測定 | ホストの遅延・メモリ圧迫、観測欠落 |
-| 中 | PID/TID 検証と実操作の間の競合 | 数値 ID を使う構造は確認済み、誤対象操作は要再現 | 別のスレッドへの一時停止・観測 |
-| 中 | ELF/DWARF の取得・展開の資源制限とファイル検証に隙間 | 確認済み、DoS・侵害は未実証 | 観測側のメモリ消費・I/O 停滞、依存ライブラリへの攻撃面 |
-| 残存リスク | カーネルの BPF/perf/ptrace 実装の不具合 | procinsh 起因の破壊は未確認 | 条件次第でホスト全体の障害 |
+| 高 | 認証なしで観測と環境変数等の取得を許す | 確認済み、到達範囲は配備依存 | 機密漏えい、他者による観測開始 |
+| 高 | ptrace の停止待ち・停止中の読み取りに期限がない | 確認済み、長時間停止は要再現 | 対象の停止、タイムアウト |
+| 高 | group-stop と割り込み停止を区別しない | 確認済み、停止状態の変化は要再現 | 意図しない再開など |
+| 高 | 遅い要求が単一 IPC を塞ぎ、timeout が接続全体を閉じる | 経路は確認済み、実負荷での発生は要再現 | 全クライアントの観測停止 |
+| 高 | セッション数と実稼働 collector・TID・perf 資源の総量が一致しない | 確認済み、蓄積量は要再現 | FD・メモリ・CPU の枯渇 |
+| 中〜高 | ELF キャッシュと unwinder の保持量に共有バイト予算がない | 確認済み、OOM は未実証 | 特権 helper のメモリ圧迫 |
+| 中〜高 | helper・起動アカウント・setcap 配備経路に広い信頼が必要 | 確認済み、侵害は未実証 | 侵害時の影響拡大 |
+| 中 | 全システム BPF フックと CPU 数依存の map | 確認済み、負荷量は未測定 | ホストの遅延、メモリ消費、観測欠落 |
+| 中 | 数値 PID/TID の検査と実操作の間の競合 | 確認済み、誤対象操作は要再現 | 別対象の一時停止・観測 |
+| 残存リスク | カーネル・FFI・依存解析器の欠陥 | 具体的な侵害は未確認 | helper またはホスト全体への影響 |
 
-## 1. 対象のデータを直接書き換える経路
+## 1. 対象データを直接変更する経路
 
-[memory.rs](../../src/http_server/process/memory.rs) の `read_raw` は `process_vm_readv` を使い、1回の読み取りを最大 65,536 bytes に制限し、アドレス加算の overflow を検査する。ローカルの出力バッファとリモートの入力アドレスは正しい方向に渡されている。`process_vm_writev` は使っていない。これは他プロセスから呼び出し側へデータを転送する API である。[process_vm_readv(2)](https://man7.org/linux/man-pages/man2/process_vm_readv.2.html)
+[memory.rs](../../src/privileged_helper/process/memory.rs) は `process_vm_readv` を使い、1回のサイズを65,536 bytesまでに制限し、アドレス加算を検査する。調査した本番コードに `process_vm_writev`、`PTRACE_POKEDATA`、`PTRACE_SETREGSET` はない。[ptrace.rs](../../src/privileged_helper/process/snapshot/ptrace.rs) の要求は SEIZE、INTERRUPT、GETREGSET、DETACH で、レジスタ取得先は helper 自身のバッファである。
 
-[ptrace.rs](../../src/http_server/process/snapshot/ptrace.rs) の本番コードが使う要求は `PTRACE_SEIZE`、`PTRACE_INTERRUPT`、`PTRACE_GETREGSET`、`PTRACE_DETACH` である。`PTRACE_POKEDATA`、`PTRACE_SETREGSET`、命令の注入、ブレークポイントの書き込みはない。`NT_PRSTATUS` の取得先は procinsh 自身の `user_regs_struct` で、返されたサイズも検査する。対象へのシグナル送信 API は HTTP router に存在せず、テスト fixture 用の `kill` は本番処理とは別である。
+[unwind.rs](../../src/privileged_helper/process/snapshot/unwind.rs) は取得済みスタックの範囲を検査し、最大256フレームで打ち切る。命令の逆アセンブルは読み取った bytes の解析であり、対象内でその命令を実行する処理ではない。perf の writable mmap は共有 ring の消費位置を更新するためで、対象のメモリを writable に map するものではない。
 
-スタックは ptrace/perf で取得したコピーを使い、[unwind.rs](../../src/http_server/process/snapshot/unwind.rs) はそのスライスの範囲内を読む。最大256フレームの上限もある。[disasm.rs](../../src/http_server/process/snapshot/disasm.rs) は命令を最大256 bytes 読んで解析するが、その命令を実行しない。
+4種類の BPF は自身の map とイベント領域を更新する。signal センサーも `signal_generate` の通知を観測するだけで、シグナルを送信しない。対象への書き込み helper や戻り値の強制変更は見つからなかった。ただし読み取りに伴うページ取得や、一時停止と負荷による間接的なデータ整合性への影響は別問題である。
 
-したがって、壊れたスタックや不正な RIP/RSP を観測しただけで、それを対象へ書き戻す仕組みはない。ただし、読み取りでもページ取得や I/O、キャッシュ状態などに影響しうるため、「書き込みがない」と「実行への影響がない」は別である。
+## 2. ptrace の停止と停止状態
 
-## 2. ptrace: 一時停止と停止状態の扱い
+### 2.1 停止時間に上限がない
 
-### 2.1 短時間停止は必ず発生し、停止時間の上限はない
+[capture.rs](../../src/privileged_helper/process/snapshot/capture.rs) は初回、および前回完了から10秒後以降に TID ごとに `SEIZE → INTERRUPT → waitpid → GETREGSET → stack read → DETACH` を行う。スタックは最大16 KiBで、ELF 解析は capture から戻って detach した後に行われる。
 
-[capture.rs](../../src/http_server/process/snapshot/capture.rs) の `bootstrap` と `capture_ptrace` は観測対象の各 TID を順に捕捉する。初回と、完了から10秒後以降の定期観測で実行される。各 TID は `SEIZE → INTERRUPT → waitpid → GETREGSET → スタック読み取り → DETACH` の間停止する。
+`PtraceGuard::wait` は `waitpid(..., __WALL)` のブロッキング呼び出しであり、deadline、WNOHANG、キャンセル確認がない。停止中の `process_vm_readv` にも時間制限がない。対象が停止可能になるまでの待機やページ取得が遅延すると、観測側も進めない。ロックを保有する対象スレッドを停止すれば、他のスレッド・プロセスも待たされうる。
 
-ロックを持つスレッドを停止すると、他スレッドや別プロセスもそのロック待ちになりうる。リアルタイム処理、heartbeat、短い deadline を持つ通信やトランザクションには、メモリを変更しなくても影響する。全スレッドを同時停止していないため、共有メモリや maps を含む観測がプロセス全体の一貫した snapshot になるわけでもない。
+`Drop` は通常のエラー時にも detach を試み、EINTR を再試行するが、停止未確認なら `INTERRUPT → wait` を再実行する。Drop 自体も待機しうるため、RAII は停止時間の保証ではない。detach のその他の失敗はログのみである。`PTRACE_O_EXITKILL` は設定しないが、helper 終了時の対象状態は悪条件の実機検証が必要である。
 
-`PtraceGuard::wait` は `waitpid(tid, ..., __WALL)` をブロッキングで呼ぶ。期限、キャンセルの確認、`WNOHANG` による監視がない。対象がカーネル内の長い待ちから停止可能な状態へ戻らない場合、観測側は待ち続けうる。また、停止後の `process_vm_readv` にも時間の上限がない。ページ取得などで読み取りが遅れる場合、16 KiB というサイズ制限だけでは停止時間を制限できない。
+**対策:** perf のみのモード、停止時間の計測、停止待ちの期限、キャンセルと detach の回復設計を優先する。ブロッキング syscall は Rust の timeout だけで中断できるとは限らず、停止操作を担う worker の分離と対象状態の確認を含める。
 
-この待機中は [monitoring/service.rs](../../src/http_server/process/monitoring/service.rs) のキャンセル・停止フラグを確認できない。接続が切れても `spawn_blocking` 内の初期化を直ちに止める仕組みはなく、collector の `join` にも期限がない。停止時間を含む悪条件での再現確認が必要である。
+### 2.2 group-stop の意味を保存することを確認できない
 
-**対策:** ptrace を既定では使わない perf 中心のモードを設け、停止が必要な場合は明示的に選択する。停止待ちの deadline と停止時間の計測を導入し、停止中の読み取りを縮小する。単にタイムアウトで関数を抜けるだけでは不十分で、以下の detach まで含めて回復方法を設計する必要がある。読み取り中のブロッキング syscall は Rust 側の timeout だけで中断できるとは限らないため、観測 worker のプロセス分離も検討する。
+wait の結果は `status >> 16 == 0` のときだけシグナルを保持し、それ以外は signal=0 で detach する。SEIZE による group-stop も `PTRACE_EVENT_STOP` となるため、この条件では通常の割り込み停止と区別できない。停止イベントと WSTOPSIG を合わせて扱う必要がある。[ptrace(2): Group-stop](https://man7.org/linux/man-pages/man2/ptrace.2.html)
 
-### 2.2 group-stop を「合成停止」とまとめて扱っている
+既に SIGSTOP で停止している対象、SIGSTOP/SIGCONT と capture が競合する対象について、意図しない再開や停止状態の変化は要再現である。コード内の通常 capture・エラー時 detach テストだけではこの性質を保証できない。
 
-`PtraceGuard::wait` は `status >> 16 == 0` の場合だけ `WSTOPSIG` を保存し、それ以外では `signal = 0` のまま detach する。コメントは `PTRACE_EVENT_STOP` を合成停止として説明しているが、`PTRACE_SEIZE` では SIGSTOP/SIGTSTP 等による **group-stop も `PTRACE_EVENT_STOP` として通知される**。`WSTOPSIG` とイベント種別を合わせた分類が必要であり、再開操作は停止状態を変えうる。[ptrace(2): Group-stop / PTRACE_DETACH](https://man7.org/linux/man-pages/man2/ptrace.2.html)
+**対策:** stop 種別を保持し、SIGSTOP、SIGTSTP、SIGCONT、通常シグナル、exec、終了の組合せで状態と `TracerPid` を検証する。SIGSTOP の一律再注入は別の停止を生むため、無条件の対策にしない。
 
-現実装は通常の割り込み停止と group-stop を区別しないため、既に停止している対象や、捕捉と SIGSTOP/SIGCONT が競合した対象で、停止・再開の意味を保存できるかが懸念となる。実機で意図しない再開が起きることを確認したわけではないが、ユーザーが気にしている「観測だけで対象の挙動を変える」経路として優先的に検証すべきである。
+## 3. 単一 IPC の停止が観測サービス全体へ波及する
 
-**対策:** stop の種類を明示的に保持し、group-stop を保存したまま観測・detach する設計を検証する。`PTRACE_LISTEN` は停止状態を扱うための仕組みだが、これを追加するだけで detach の問題が解決するとは限らない。SIGSTOP を一律再注入する方法も、新しいシグナルやプロセス全体の停止を生むため、無条件には使えない。
+[helper_service.rs](../../src/privileged_helper/helper_service.rs) の dispatch は直列である。通常 API の同時取得をひとつに制限できる一方、`ObserveProcess` は [ProcessMonitor::observe](../../src/privileged_helper/process/monitoring/service.rs) 内で maps 取得と `sampler.bootstrap` を同期実行してから応答する。ELF の I/O や初回 ptrace が遅い間、他の Process、Poll、Close も進まない。
 
-### 2.3 エラー時の detach は配慮されているが、回復を保証しない
+[client.rs](../../src/http_server/client.rs) は64件の queue と単一 I/O worker を使い、各 request は enqueue 後から30秒で timeout する。timeout すると共有 socket を `Shutdown::Both` で閉じる。queue 待ちも期限に含まれるため、ひとつの処理が30秒を超えなくても、待ちの累積によって接続を閉じうる。
 
-`SEIZE` 成功後すぐに `PtraceGuard` を作るため、通常の早期 return と panic unwind では `Drop` が detach を試みる。`waitpid` と `DETACH` の `EINTR` は再試行し、通常の signal-delivery-stop は保存したシグナルを detach 時に渡す。この配慮は有効である。
+接続切断を検知した [helper.rs](../../src/privileged_helper/helper.rs) は停止処理へ進む。collector join の待機は5秒、親の HelperGuard による終了待機は10秒に制限されている。ただしこれは**対象の安全な detach 完了の保証ではない**。HTTP プロセスが動き続けても MonitorClient は再接続せず、supervisor に helper 再起動のループもないため、観測復旧にはアプリケーションの再起動が必要になる。
 
-一方、停止していない場合の `Drop` 自体も `INTERRUPT → wait` を行い、そこでブロックしうる。detach が `EINTR` 以外で失敗すると警告だけを出して終了し、attachment の回復を追跡しない。対象終了による `ESRCH` は問題のない場合もあるので、すべての失敗を対象の取り残しと断定してはいけない。しかし、生存中の対象について回復できたことの確認もない。
+**対策:** 重い初期化を直列 dispatcher から分離し、受付・実行・取消の期限を分ける。IPC フレームの対応関係を壊さず、個別処理の失敗を局所化する。helper の異常終了と復旧を明示的に管理し、遅い初期観測と同時 Poll の試験を追加する。
 
-`PTRACE_O_EXITKILL` は設定していないため、観測側の終了で対象を意図的に殺す設定ではない。tracer 終了時には通常はカーネルが detach を処理するが、group-stop は別扱いである。[ptrace(2): Attaching and detaching](https://man7.org/linux/man-pages/man2/ptrace.2.html) 観測側が生きたまま待機するケースを、この終了時処理だけで解決できるわけではない。
+## 4. セッション上限と実際の資源使用量
 
-**対策:** 生存・終了・exec/TID 変化と detach エラーを分けて記録し、回復失敗した観測を正常として継続しない。回復目的で対象を `SIGKILL` する設計はデータ損失につながるため避ける。
+process 観測は32セッションまでだが、同一 PID の collector は共有されず、接続ごとに Sampler と ElfCache を持つ。各 TID は最大2本の perf event と各17 pagesの mapping を使う。4 KiB pageなら約136 KiB/TID、1,000 TID × 32セッションで約4.15 GiB、64,000 FD相当となる。全 open が成功した場合の概算であり、実際は OS の FD・perf メモリ制限等で先に失敗する場合がある。[Linux kernel: Perf events and tool security](https://docs.kernel.org/admin-guide/perf-security.html)
 
-### 2.4 シグナルや exec との競合は追加検証が必要
+CPU-clock は約100 Hzだが、context-switch event は period=1であり、その負荷は100 Hzに固定されない。アプリケーションに全 TID 数・全 FD 数・全 mapping 容量の共有予算はない。
 
-通常シグナルの再注入は実装されているが、捕捉中の SIGCONT、停止シグナル、スレッド終了、非 leader スレッドからの exec との競合を網羅したテストは確認できなかった。`PTRACE_SEIZE` を採用しているため、`PTRACE_ATTACH` が送る SIGSTOP に固有の問題を、そのままこの実装の不具合として扱うべきではない。[ptrace(2): PTRACE_SEIZE](https://man7.org/linux/man-pages/man2/ptrace.2.html)
+さらに ObservationPermit の Drop はキャンセルフラグを立て、直ちに viewers を減らす。worker が `sampler.poll` 内の ptrace や I/O から戻ることは待たない。32という上限は登録中セッションの上限であって、停止できていない worker の上限ではない。**定期観測中の worker が詰まったまま Close と再接続を繰り返す条件では、未終了 worker が32を超えて残る経路がある。** 初回 bootstrap が詰まる場合は第3節の共有 IPC 停止が先に問題になる。蓄積の実機再現は未実施である。
 
-既存の [ptrace.rs のテスト](../../src/http_server/process/snapshot/ptrace.rs) は取得失敗時の detach と既に traced な対象を、[capture.rs の live tests](../../src/http_server/process/snapshot/capture.rs) は定期捕捉や perf との切り替え等を検査する。これらは有用だが、停止状態やシグナル意味の保存まで保証しない。
+15秒の lease は未 polling セッションを回収するが、実行中 syscall を中断しない。また expire は dispatch と serve のループで実行されるため、同期要求が詰まっている間に期限どおり回収する保証はない。
 
-## 3. PID/TID の再利用と snapshot の競合
+**対策:** 実 worker の終了まで資源 permit を保持し、PID ごとの共有 collector、全 TID/FD/bytes 予算、再接続頻度制限を設ける。キャンセル済み worker と稼働中 worker を別々に数え、停止しない worker を含めて受付を制限する。
 
-[identity.rs](../../src/http_server/process/identity.rs) は PID と `start_time_ticks` を検査し、`Sampler::poll` もスレッドの開始時刻が変われば古い perf event を破棄する。誤対象の結果を返すリスクを減らす実装である。
+## 5. ELF/DWARF と procfs の防御と残る制限
 
-ただし、検査と `ptrace(tid)` / `perf_event_open(tid)` / `process_vm_readv(pid)` は別操作である。`capture_ptrace` は保持している TID に対して捕捉を始め、全 TID の処理後にプロセス識別子を再検査する。直前にその TID が終了・再利用されると、別の TID を一時停止する可能性を数値 ID と事後検査だけでは除外できない。開始時刻は tick 単位であり、exec によるアドレス空間変更も、同一 PID・開始時刻のまま起きうる。
+[symbol/cache.rs](../../src/privileged_helper/process/snapshot/symbol/cache.rs) は O_PATH で inode を固定し、regular file と device/inode を確認した後に `/proc/self/fd/...` から開く。同じ descriptor から最大128 MiB+1を読み、前後の identity を検査する。pathname を確認後にそのまま開き直す設計ではなく、FIFO・device の読み取りも拒否する。
 
-**対策:** 操作直前の TID 所属・開始時刻検証と、捕捉後の対象確認を追加する。これは競合の窓を狭める対策であり、原子的な識別の代用にはならない。pidfd は生存監視に役立つが、この実装の ptrace/perf の数値 TID 引数を単純に pidfd に置き換えられるわけではない。停止操作を減らすことも、誤対象操作の影響を小さくする。
+ELF は展開前に1 section 32 MiB、全 section 64 MiBを検査し、圧縮方式を無圧縮と zlib に限定する。symbol 数262,144、名前総量8 MiB、DWARF unit 数16,384にも上限がある。これらは入力由来の無制限割当てを減らす。ただし metadata の一致は、同時更新されたファイルの内容が完全に一貫する保証ではない。
 
-## 4. eBPF: カーネル内の書き込み先と残る影響
+cache は64件・128 MiBを目安に clear するが、バイト計算は `entries.keys().map(|key| key.2)`、つまり**元ファイルのサイズ**である。展開済み section、symbol、addr2line の解析結果、allocator overhead の実保持量ではない。小さい圧縮 ELF が大きい section に展開される場合、この差は大きい。
 
-### 4.1 観測対象や VFS のデータを直接変更する BPF ではない
+さらに [StackUnwinder::refresh](../../src/privileged_helper/process/snapshot/unwind.rs) は全 executable mapping を巡回し、`elf.unwind.clone()` を module として保持する。Arc の共有データは cache の clear 後も module 側から参照されうる。したがって64件という cache 件数も、unwinder が保持する全 module 数や bytes の上限にはならない。圧縮 ELF を多数 map する対象などで、大きな保持量となる可能性がある。OOM は未実証である。
 
-| BPF | 接続点 | 読むもの | 書き込み先 |
-|---|---|---|---|
-| [sched.bpf.c](../../src/http_server/system/sched.bpf.c) | `tp_btf/sched_switch`、`sched_process_exit` | task の識別・開始時刻、時刻 | CPU ごとの現在状態と集計 map |
-| [ipc.bpf.c](../../src/http_server/system/ipc.bpf.c) | pipe の `fexit`、socket の `tp_btf` | file/inode の識別、元処理の返り値 | ring buffer、欠落数 map |
-| [files.bpf.c](../../src/http_server/system/files.bpf.c) | VFS の `fentry/fexit`、`security_file_permission` の `fentry`、終了 tracepoint | file/inode/path、元処理の返り値 | pending map、ring buffer、欠落数 map |
+[procfs.rs](../../src/privileged_helper/process/procfs.rs) は text を16 MiBに制限し、maps/smaps もこの経路を使う。environment は1 MiB、auxv は64 KiBまでである。一方、これらは入力単位の上限であり、全解析結果・セッション・履歴・JSON Value の合計 RSS 上限ではない。IPC の32 MiB response 上限も、`to_value` や snapshot 作成の**後**の framing に適用される。
 
-`bpf_probe_write_user`、`bpf_override_return`、シグナル送信、LSM の許可・拒否判定、XDP/TC のパケット変更は使っていない。`security_file_permission` に接続しているのも LSM policy の置換ではなく、path を取得する tracing hook である。BPF 関数の `return 0` を VFS の元の返り値を書き換える処理と解釈してはいけない。
+**対策:** cache と unwinder をまたぐ保持 bytes/module 数の予算を導入し、展開後の容量を計上する。procfs・ELF の遅い filesystem I/O と解析時間を制限できる worker 設計を検討する。ELF/DWARF 解析を低権限プロセスへ移すと、解析器欠陥の影響も小さくできる。
 
-verifier はアクセス範囲、ポインタ種別、helper 引数などを検査する。そのため、通常の BPF C の不正なポインタ操作は、ロード拒否になるべきもので、ネイティブなカーネルモジュールの任意書き込みとは異なる。ただし verifier が正常に動作することを前提とする。[Linux kernel: eBPF verifier](https://docs.kernel.org/bpf/verifier.html)
+## 6. 権限分離の保証範囲と配備の信頼境界
 
-### 4.2 全システムの hot path に追加処理が入る
+### 6.1 HTTP 本体と helper
 
-PID allowlist や cgroup によるフック内フィルタはない。システム観測が有効な間、scheduler、pipe/socket、対象 VFS 処理のたびに map 操作やイベント生成が走る。ファイルイベントは成功した I/O ごとに **4,144 bytes** を ring buffer にコピーする。短い I/O が非常に多い workload では、実データ量に対して観測処理の比率が大きくなりうる。path の解決や map が満杯の場合の欠落処理にもコストがある。
+[launch.rs](../../src/http_server/launch.rs) は runtime の生成前に継承 FD を閉じ、HTTP 本体の effective/permitted/inheritable/ambient capability を消す。dumpable を無効にし、helper の exec 後に `no_new_privs` を設定する。helper 起動は環境変数を消去し、必要な RUST_LOG と private endpoint を渡す。
 
-map / buffer は上限付きだが、小さいとは限らない。
+helper は SO_PEERCRED の PID/UID と実親 PID を検証する。通常の他プロセスが接続できる公開 Unix socket はない。helper 側も dumpable を無効にし、権限を `CAP_SYS_PTRACE`、`CAP_BPF`、`CAP_PERFMON`、`CAP_DAC_READ_SEARCH`、`CAP_SYS_ADMIN` の集合内に絞る。CAP_SETPCAP がある起動経路では NOROOT と bounding set の制限も行う。
 
-- IPC と file の ring buffer はそれぞれ 8 MiB、合計 16 MiB。
-- file の pending map は最大4,096件。構造体サイズから値部分だけで約16 MiB規模になり、管理領域は別途必要。
-- scheduler は最大65,536件の `LRU_PERCPU_HASH`。値16 bytes × 65,536 × possible CPU 数だけで、CPU 1個あたり約1 MiB、256個なら約256 MiBとなる概算。これは map 管理領域等を含まない設計上の計算で、実測値ではない。
-- [sched.rs](../../src/http_server/system/sched.rs) は約100 msごとの集計で最大65,536 keyを列挙し、CPU ごとの値を取得する。CPU 数と登録数の増加は user space の収集負荷も増やす。
+この分離により、HTTP 内の欠陥から直接 ptrace や BPF の FD を利用する経路は狭まる。一方、侵害された HTTP は既存 IPC から全ての許可済み観測操作を要求できる。helper の PID/開始時刻検証は対象の同一性検証であり、利用者ごとのアクセス制御や対象 allowlist ではない。
 
-負荷はカーネルメモリ破壊とは別問題だが、ホストの latency、メモリ圧迫、サービスの timeout に結びつく。ring の飽和や pending の不足は通常は観測欠落として処理される。file の入れ子深度・entry/exit の対応が崩れた場合も、まず集計ミスや pending の残留を疑うべきで、対象ファイルへの上書きと同一視できない。
+また UID/GID・補助グループ・ファイルシステムは起動者のものを保ち、アプリ独自の seccomp や filesystem sandbox は設定しない。capability=0 は別 OS ユーザーへの移行を意味しない。root 起動を含め、起動アカウントが所有するファイルや同一 UID の資源への通常のアクセスは別に考える必要がある。
 
-**対策:** BPF 内での PID/cgroup フィルタ、file センサーの独立した無効化、path の送信頻度削減・集約、CPU 数に応じた map サイズを導入する。kernel map のメモリ会計が利用する制限と、user space の cgroup/FD 制限を実機で確認し、CPU の多いホストでも測定する。
+helper 内の解析器が侵害されれば、SYS_PTRACE は書き込みにも利用可能であり、SYS_ADMIN も network namespace だけに限定されない。DAC_READ_SEARCH はファイルの読取・探索制限を広く迂回する。これらの意味は capability の仕様に基づくもので、今回その侵害経路を見つけたわけではない。[capabilities(7)](https://man7.org/linux/man-pages/man7/capabilities.7.html)
 
-### 4.3 attach/detach とエラー処理
+**対策:** 非 root の専用実行アカウント、対象 allowlist、低権限解析 worker、用途ごとの helper 分割を検討する。起動者のファイルへの権限も含めてサービス隔離を設計する。
 
-[sched.rs](../../src/http_server/system/sched.rs)、[ipc.rs](../../src/http_server/system/ipc.rs)、[files.rs](../../src/http_server/system/files.rs) は組み込みの BPF オブジェクトをロードし、`Link` と `Object` を所有する。HTTP 入力から任意の BPF ソースや object をロードする API はない。pin や永続的なリンク配置も見つからず、通常の drop/プロセス終了で所有するリソースを解放する構造である。途中の attach 失敗も、ローカルの `Vec<Link>` の drop で既に接続した分を解放する構造になっている。
+### 6.2 file capability と更新経路
 
-[system/service.rs](../../src/http_server/system/service.rs) はシステム購読者がいないと collector を drop する。初期化失敗は [activity.rs](../../src/http_server/system/activity.rs) でセンサー単位の unavailable 状態になる。一方、poll/collect のエラーは状態を変更するだけで、生きているセンサーを自動 detach しない。異常表示や観測欠落が出ても、kernel hook の負荷が止まったとは限らない。
+[dev_run.sh](../../scripts/dev_run.sh) と [プレビュー手順](PREVIEW.md) は helper にだけ file capability を設定する。main/release の配備スクリプトは mode 0755の helper candidate に setcap し、同一 filesystem 内でペア用ディレクトリへ移動する。
 
-**対策:** 継続エラーや過負荷で対象センサーを停止する仕組みと、フックが解放されたことを確認する終了テストを追加する。通常の capability で十分かをカーネル別に確認し、ロード失敗を避けるために権限を無制限に広げない。
+文書の sudoers 例はユーザーが書ける固定 candidate パスへの setcap を許す。ファイル内容の検証は行わないため、ビルドアカウントとその入力を信頼する必要がある。helper の親確認も、同じ条件で socketpair を作る任意のランチャーを識別するものではない。実行可能な他ユーザーの範囲は祖先ディレクトリのアクセス権にも依存する。
 
-### 4.4 カーネル自体の不具合は別の残存リスク
+[validate_helper_path](../../src/http_server/launch.rs) は絶対パスと regular file を確認するが、owner/mode、署名、ハッシュは検証しない。これは配備経路を信頼する設計である。file capability はサービス終了だけで消えず、旧ペアに残る可能性もある。稼働ホストに危険な設定が実在するかは未確認である。
 
-CO-RE と BTF は構造体配置の違いに対応するが、接続先の意味や workload に対する安全性まで保証しない。正常な verifier が拒否するコードと、verifier/JIT/helper/trampoline 自体の不具合で通ってしまうコードは区別する必要がある。後者の影響は procinsh の Rust の型安全性では防げない。
+**対策:** 実行者・ビルドアカウント・更新入力を信頼範囲として明記し、必要なら root 管理の成果物検証と配備経路を用いる。旧 capability 付き成果物と sudoers を含めてアクセス権を監査する。
 
-今回、特定の CVE がこのバイナリや稼働ホストに成立するかは評価していない。カーネル更新の管理と、サポートする kernel/BTF の組み合わせごとの load/attach/負荷試験が必要である。カーネル障害の検証は本番ホストではなく使い捨て VM で行う。コンテナだけではカーネルをホストと共有するので、この種の障害を隔離できない。
+## 7. BPF のホスト負荷と数値 ID の競合
 
-## 5. perf: 対象の書き換えよりも資源と負荷
+[system/service.rs](../../src/privileged_helper/system/service.rs) は system 観測を共有し、viewer がなくなると activity collector を解放する。system の32購読ごとに BPF map 一式を増やす構造ではない。一方、購読中のフックは全ホストの sched switch、file I/O、pipe/socket I/O、signal に及ぶ。
 
-[perf.rs](../../src/http_server/process/snapshot/perf.rs) は TID ごとに CPU-clock event と context-switch event を作る。CPU-clock は実行中の user CPU 時間に対して約100 Hz、context-switch 側は切り替えイベントに応じてユーザーレジスタと最大16 KiBのスタックを収集する。後者の負荷は100 Hzに固定されていない。
+[sched.bpf.c](../../src/privileged_helper/system/sched.bpf.c) の LRU_PERCPU_HASH は65,536件で、値16 bytesを possible CPU ごとに持つ。値領域だけでも概算 `65,536 × 16 × possible CPU数`、64 CPUなら64 MiBとなり、管理構造は別である。[files.bpf.c](../../src/privileged_helper/system/files.bpf.c) は4096件の pending mapに4096 bytesの path等を保持する。file/IPC ringは各8 MiB、[signals.bpf.c](../../src/privileged_helper/system/signals.bpf.c) は256 KiBである。map や ring が満杯のときの欠落集計はあるが、イベント頻度そのものを制限するものではない。
 
-`mmap(PROT_READ | PROT_WRITE)` は **perf の共有 ring と metadata** を map するもので、対象のメモリを writable に map するものではない。`data_tail` を書くのは消費位置を知らせるためである。ring の配置・record 長・stack 長を検査し、head/tail に Acquire/Release を使い、失敗時はその ring のデータを捨てる。破損 record を対象メモリへ書き戻す経路はない。FD は `OwnedFd`、mapping は `Drop` で解放する。
+kernel verifier はプログラムの検査を行うが、フック頻度に伴う負荷や kernel/JIT/helper の欠陥まで本診断で排除できない。ホストを破壊する具体的な BPF バグは確認していない。
 
-ただし、4 KiB page の環境では、17 pages × 2 events = **TID あたり約136 KiB** の mapping が必要となる。1,000 TID なら1接続でも約133 MiBであり、32接続なら約4.15 GiB、FD は最大64,000個相当となる。これは全 event の作成に成功した場合の概算で、その他のメモリを含まない。実際は RLIMIT、perf のメモリ制限やカーネル設定によって先に失敗する場合もある。[Linux kernel: Perf events and tool security](https://docs.kernel.org/admin-guide/perf-security.html)
+PID/開始時刻は helper と取得処理で繰り返し検証され、TID の開始時刻も perf 管理に使われる。ただし最終的な ptrace/perf 呼び出しは数値 TID であり、検査と操作の間の終了・再利用を原子的に防ぐものではない。事後の PID 検査は誤ったレスポンスの抑止には役立つが、既に発生した停止を取り消せない。
 
-[monitoring/service.rs](../../src/http_server/process/monitoring/service.rs) は同時接続を32に制限するが、接続ごとに独立した `Sampler` を作る。全 TID 数、全 perf FD 数、全 mapping 容量にはアプリケーション独自の総量上限がない。同一 PID を複数のブラウザ・接続で開いても重複する。ptrace の競合はエラーとして扱うが、perf は独立して動きうる。
+**対策:** CPU 数とイベント量に応じた map/負荷予算、センサー単位の無効化、重要な workload の遅延測定を行う。短命スレッド、exec、PID 再利用と観測が競合する場合も使い捨て環境で検証する。
 
-**対策:** TID/FD/メモリの総量制限、PID ごとの collector 共有、context-switch event の無効化・頻度制御を設ける。32という接続数だけでは資源予算を表せない。接続を繰り返すと初回 ptrace が再実行されるので、PID ごとの停止頻度制限も必要である。
+## 8. HTTP 公開と機密情報
 
-## 6. 強い権限を持つプロセスの攻撃面
+[main.rs](../../src/main.rs) の既定待受は127.0.0.1で、非 loopback は `--allow-non-loopback` が必要である。[middleware.rs](../../src/http_server/middleware.rs) は Host、Origin、Sec-Fetch-Site を検査し、CSP、no-store、nosniff を付ける。Web の共通 DOM helper は textContent を使用し、今回検索した `web/src` に innerHTML、insertAdjacentHTML、eval の直接使用は見つからなかった。これは XSS 全般の不在を証明するものではない。
 
-### 6.1 「読取専用 API」は OS の権限制限ではない
+アプリケーション認証と TLS はない。Origin や Fetch Metadata を省略し正しい Host を送れる通常の HTTP クライアントに対し、これらの middleware は利用者認証として機能しない。loopback でもローカルの別ユーザーからの利用を区別しない。環境変数、cmdline、FD、maps、レジスタ等は機密情報になりうる。任意アドレスの raw memory read API がないことだけで、漏えいを防げるわけではない。
 
-[dev_run.sh](../../scripts/dev_run.sh) は実行ファイルに `cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search,cap_sys_admin=ep` を付ける。これらを持つ HTTP サーバーが侵害されると、現在の router に書き込み API がなくても、別の syscall を呼ぶことで対象メモリやレジスタを変更できる可能性がある。特に `CAP_SYS_PTRACE` は読み取り専用の capability ではない。`CAP_DAC_READ_SEARCH` は通常のファイル読み取り・ディレクトリの読み取りと探索に対する DAC の権限検査を迂回するので、侵害時の機密ファイル読み取りの影響も広がる。ただし、この権限単独で通常のファイル書き込み権限を迂回するものではなく、LSM 等の別の制約がなくなるわけでもない。root 起動は、さらに広い権限を与える。[capabilities(7)](https://man7.org/linux/man-pages/man7/capabilities.7.html)
+[preview_bind.sh](scripts/preview_bind.sh) は Tailscale IPv4、127.0.0.1、::1で待ち受ける。Tailscale の経路・ACL は別の防御だが、到達可能な利用者をアプリ内部でさらに区別する機能はない。詳細 SSE の開始は観測だけでなく ptrace/perf の起動にもつながる。
 
-`CAP_SYS_ADMIN` は別 network namespace に診断用ソケットを作るために使いますが、namespace の操作に限定された権限ではなく、マウントなどにも使える広い capability です。namespace の切り替えは短命の専用スレッドだけで行います。HTTP スレッドの namespace は維持されますが、プロセス全体がこの capability を持つことによる侵害時の影響は残ります。
-
-HTTP、`/proc` の解析、libbpf の FFI、perf の unsafe、ELF/DWARF の解析を同じプロセスで行う。Rust は多くのメモリ破壊を防ぐが、unsafe・ネイティブライブラリ・依存クレートの欠陥まで自動的に排除しない。観測対象が作る実行ファイルや mapping の情報も、強い権限を持つ解析器に入る信頼できない入力である。今回、そこからコード実行できる具体的な欠陥を見つけたわけではない。
-
-**対策:** HTTP/UI と特権 collector を別プロセスに分け、対象と操作を限定した IPC にする。ptrace が必要な worker と BPF worker の権限を分け、不要になった capability を落とす。継続的な再 attach/open が必要なので、現構造のまま起動直後にすべて落とせるとは限らない。seccomp を併用する場合も、汎用 `ptrace` / `bpf` を許可しただけで読取専用になると考えない。
-
-### 6.2 setcap と自動更新も権限境界になる
-
-file capability は一度付けると、通常の終了で消えない。実行ファイル・祖先ディレクトリのアクセス権によっては、他ユーザーも強い権限付きのバイナリを起動できる。loopback の HTTP にも OS ユーザーの認証はないので、ローカルの別ユーザーからの利用を禁止するものではない。
-
-[main_preview.sh](scripts/main_preview.sh) と [release_preview.sh](scripts/release_preview.sh) は候補を mode `0755` で配置し、capability を付けて更新する。[PREVIEW.md](PREVIEW.md) の sudoers 例はユーザー所有の candidate パスへの `NOPASSWD setcap` を許す。そのパスに別の実行ファイルを置けるユーザーは、文書通りのルールならそれにも同じ capability を付与できる。これはルールが procinsh の内容・ハッシュを検証しないことから導かれる権限上の意味であり、稼働ホストにそのルールが存在することを確認したわけではない。
-
-**対策:** バイナリと配置ディレクトリの owner/mode、capability、sudoers を確認し、実行ユーザーを限定する。特権を付ける成果物を root 管理の配備経路で検証する。最新 main の自動ビルドへそのまま権限を付ける運用は、リポジトリ・ビルド依存・更新経路まで信頼することを意味する。常設する場合はレビュー済みの版を固定する。
-
-## 7. ELF/DWARF と通常 HTTP API の DoS
-
-[symbol/cache.rs](../../src/http_server/process/snapshot/symbol/cache.rs) はファイルサイズを512 MiB、cache 件数を64に制限するが、**解析後の総メモリ量**を制限しない。多数の大きな ELF、展開された debug section、複数接続分の cache が重なると、大きなメモリ消費となりうる。件数上限だけではバイト数の上限にならない。
-
-さらに `matching_file` は pathname の metadata で inode/device を確認した後、`ElfSymbols::load` がその pathname を再度開く。確認した FD を使い続ける方式ではないので、ファイルの増大・置換・対象の exec との TOCTOU が残る。`fs::read` は確認済みサイズを上限として読むものではない。fallback の `/proc/PID/root/...` などでファイルが置換されると、確認とは異なるファイルへの I/O になる可能性がある。成立条件は未再現だが、対象が管理する filesystem、FUSE、ネットワーク filesystem の遅い I/O も timeout なしの解析には問題となりうる。
-
-通常の詳細 API も `spawn_blocking` を利用し、SSE の32接続制限とは独立している。[api/process.rs](../../src/http_server/api/process.rs) に共通の同時実行数・頻度制限はない。[maps.rs](../../src/http_server/process/maps.rs) の maps/smaps 読み取りは `read_to_string` でサイズ上限を設けていない。大量の mapping を持つ対象への繰り返し要求は追加負荷になる。環境変数1 MiB、auxv 64 KiB、FD探索の件数・時間制限など、個別の防御はあるが全 API の総量を制限するものではない。
-
-**対策:** 同じ FD 上で file type・identity・size を検査し、読み取りと debug 展開にもバイト上限を付ける。cache の総容量と解析の同時実行数を制限し、重い解析を低権限 worker に分離する。通常 API にも共有 semaphore・頻度制限・実行期限を設ける。
-
-## 8. 既知の公開リスクとの関係
-
-`0.0.0.0` 公開時の環境変数漏えいに加え、到達できるクライアントは SSE の GET 要求で上述の ptrace/perf を開始できる。したがって、非 loopback 公開の問題は情報漏えいだけではなく、**強い権限を持つ観測操作を他者が起動できること**でもある。任意アドレスのメモリ読み取り HTTP API があるわけではないが、レジスタ・スタックフレーム・命令 bytes・maps 等の情報は返る。
-
-[middleware.rs](../../src/http_server/middleware.rs) の Host/Origin/Fetch Metadata 検査はブラウザ経由の攻撃に対する防御になるが、任意の header を付けられる HTTP クライアントの認証ではない。既定 loopback と `--allow-non-loopback` の明示要求は有効な防御である一方、[main の常設プレビュー service](scripts/systemd/procinsh-preview.service) と [公開版の service](scripts/systemd/procinsh-release-preview.service) は [preview_bind.sh](scripts/preview_bind.sh) 経由で Tailscale IPv4 のみに bind する。待受範囲は限定されるが、Tailscale 経由で到達できるクライアントに対するアプリケーション側の認証はない。リバースプロキシを置く場合は認証/TLSに加え、裏側ポートへ直接到達できない配置にする必要がある。
+**対策:** 利用者と対象を信頼できる範囲に限定する。リモート公開には到達制限と認証を設け、リバースプロキシを使うなら裏側ポートへの直接到達を防ぐ。保存・共有する観測データも、実際に含まれるプロセス情報に応じて機密性を管理する。
 
 ## 9. 対策と追加検証の順番
 
-1. **対象を止めない選択肢を用意する。** ptrace の有無を分離し、重要なプロセスは perf のみ、または軽い `/proc` 観測だけにする。現 CLI にこの無効化オプションはない。
-2. **停止状態の保存を検証する。** 使い捨て fixture で、観測前の SIGSTOP、捕捉中の SIGSTOP/SIGCONT、SIGTSTP、通常シグナル、exec、スレッド終了を試す。観測後の停止状態、実際のシグナル受信、アプリの進行、`TracerPid` を確認する。
-3. **待機と回復を検証する。** 長い停止待ち・遅いメモリ取得・取得失敗・detach 失敗・接続切断・観測側終了を対象に、待機時間と停止時間を計測する。関数の終了だけでなく、対象が元の状態に戻ったことを確認する。
-4. **総資源を制限する。** 多数の TID、同一 PID の複数接続、再接続、短い file/socket I/O、高 context-switch、CPU 数の多い VM で、対象の処理時間・ホスト latency・FD・RSS・kernel map の量・lost を測定する。上限超過時に新規観測を拒否する。
-5. **強い権限を持つ部分を小さくする。** 特権 collector の分離、対象 allowlist、低権限での ELF/DWARF 解析、配備パスと sudoers の監査を行う。
-6. **kernel ごとの試験を行う。** ロード失敗だけでなく、部分 attach 失敗、購読終了、センサー異常、プロセス終了後の link/map 解放を確認する。
+1. **公開範囲と対象を制限する。** 接続者・観測対象・起動アカウント・配備入力の信頼境界を確認する。
+2. **ptrace による停止を選択可能にする。** 停止状態の保存、停止時間、detach の回復を fixture で検証する。
+3. **ひとつの要求によるサービス全体停止を防ぐ。** 遅い bootstrap、IPC queue の待ち、timeout、helper 終了後の復旧を検証する。
+4. **実資源の総量を制限する。** 未終了 worker、TID、perf FD/mmap、ELF 展開量、unwinder module の保持量を合算する。キャンセルと再接続も負荷試験に含める。
+5. **特権のある解析面を減らす。** 低権限 worker と専用アカウントを検討し、setcap 配備経路と旧成果物の権限を監査する。
+6. **kernel ごとの実機検証と依存監査を行う。** BPF の部分 attach 失敗・終了時解放、CPU 数とイベント量による負荷、依存 advisory を確認する。
 
-このリポジトリのテストは `bash scripts/docker_test.sh` でコンテナ内実行する。すべての Rust テストは `ordinary` または `rust` suite の明示的な capability を持つコンテナで実行し、権限不足では失敗する。live eBPF の `kernel` suite は同じ capability に加えて host PID namespace を使用する。checkout は読み取り専用とし、ビルドと fixture の生成物はコンテナと Docker volume 内に置く。Docker の既定 seccomp・AppArmor profile を維持する。障害・負荷系の追加検証は、重要なプロセスのない使い捨て VM で行う。
+### 今回の検証記録
 
-対策実装前の運用では、観測対象と接続者を信頼できる範囲に絞り、短い停止でも困るプロセスの詳細 SSE を開かない。loopback は外部からの到達を減らすが、ptrace の意味や eBPF の負荷を変えない。
+`bash scripts/docker_test.sh --network host ordinary` を実行し、終了コード0を確認した。Rust は135件成功、失敗・ignore・filter は0。Web は24ファイル・163件成功。listen policy、Python テスト（21件と3件）、Vite development integration も成功した。最初の既定 bridge network ではイメージビルド中に Ubuntu リポジトリの DNS 解決に失敗したため、同じスクリプトの host network 指定で実行した。テスト対象や権限不足のスキップは追加していない。
+
+関連する既存テストには、HTTP/helper の各 thread の capability と起動 UID/GID、HTTP 側の FD 分離、IPC の不正フレーム・期限・対象 identity、購読終了と lease、ptrace のエラー時 detach、ELF 入力制限がある。通常テストの成功は、今回指摘した悪条件のすべてを再現したことを意味しない。
+
+`kernel`、`browser`、`checks` suite は今回実行していない。live eBPF の全センサー検証、group-stop の専用再現、長時間停止・再接続蓄積・メモリ枯渇の負荷試験も未実施である。負荷・障害系の追加試験は重要なプロセスのない使い捨て VM で実施する。
+
+変更はレポートのみである。旧レポートは本文の分析日を suffix とした [SECURITY_ANALYSIS_2026-10-03.md](SECURITY_ANALYSIS_2026-10-03.md) に、内容を変更せず保存した。旧レポート内のコードリンクは旧構成のため、当時の対象 commit で参照する。本レポートのローカルリンクの存在と、旧レポートのバイト単位の一致を確認した。
