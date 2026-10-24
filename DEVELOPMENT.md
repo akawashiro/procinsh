@@ -159,12 +159,12 @@ unwinding and disassembly finish in the helper before results cross IPC.
 
 ### Launch, protocol and lifetime
 
-The default helper is next to `current_exe()`. Absolute `PROCINSH_HELPER` can
-select another helper location. PATH is never searched. The configured path
-must be absolute and identify a regular file; user-owned build/install
-directories are supported. The invoking user and the selected executable are
-trusted. Command clears the environment and uses null stdin. Only stdio and a
-private socketpair endpoint at FD 3 survive exec; no acquisition FDs exist in
+The helper is always resolved next to `current_exe()` as
+`procinsh-privileged-helper`. PATH is never searched. The sibling path must
+identify a regular file; user-owned build/install directories are supported.
+The invoking user and the sibling executable are trusted. Command clears the
+environment and uses null stdin. Only stdio and a private socketpair endpoint
+at FD 3 survive exec; no acquisition FDs exist in
 main. The helper requires non-root IDs and validates SO_PEERCRED against its parent PID/real UID, sets
 PDEATHSIG, checks its parent again and reports PID/package version; main matches
 these against its Command child. There is no public IPC socket or SCM_RIGHTS.

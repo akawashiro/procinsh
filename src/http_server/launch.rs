@@ -7,7 +7,7 @@ use std::{
         fd::AsRawFd,
         unix::{net::UnixStream, process::CommandExt},
     },
-    path::{Path, PathBuf},
+    path::Path,
     process::{Child, Command, Stdio},
     time::Duration,
 };
@@ -86,9 +86,7 @@ impl Drop for HelperSupervisor {
 }
 
 pub(crate) fn run(listen: &[SocketAddr]) -> Result<()> {
-    let path = std::env::var_os("PROCINSH_HELPER")
-        .map(PathBuf::from)
-        .unwrap_or(std::env::current_exe()?.with_file_name("procinsh-privileged-helper"));
+    let path = std::env::current_exe()?.with_file_name("procinsh-privileged-helper");
     let identity = privileges::application_identity()?;
     privileges::close_inherited()?;
     // This runs before Tokio creates any threads. Keep no_new_privs unset until

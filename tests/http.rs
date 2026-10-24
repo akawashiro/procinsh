@@ -16,6 +16,13 @@ impl Drop for Target {
     }
 }
 
+struct DirectoryGuard(std::path::PathBuf);
+impl Drop for DirectoryGuard {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
 struct Server {
     child: Child,
     address: SocketAddr,
@@ -459,23 +466,33 @@ fn parent_crash_releases_helper() {
 #[test]
 fn sibling_discovery_and_missing_helper_degrade_cleanly() {
     let helper = std::path::Path::new(env!("CARGO_BIN_EXE_procinsh-privileged-helper"));
-    use std::os::unix::fs::MetadataExt;
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
     assert_ne!(
         std::fs::metadata(helper).unwrap().uid(),
         0,
         "test setup must cover a user-owned helper executable"
     );
     let main = helper.with_file_name("procinsh");
-    let mut command = Command::new(main);
-    command.env_remove("PROCINSH_HELPER");
-    let mut server = Server::start_command(command);
+    let mut server = Server::start_command(Command::new(main));
     helper_pid(&server);
     assert_eq!(server.get("/api/processes").0, 200);
     server.shutdown();
 
-    let mut command = Command::new(env!("CARGO_BIN_EXE_procinsh"));
-    command.env("PROCINSH_HELPER", "/missing/procinsh-privileged-helper");
-    let mut server = Server::start_command(command);
+    let path = std::env::temp_dir().join(format!(
+        "procinsh-missing-helper-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir(&path).unwrap();
+    let directory = DirectoryGuard(path);
+    // Root-launched main drops to nobody and must still traverse its directory.
+    std::fs::set_permissions(&directory.0, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let isolated_main = directory.0.join("procinsh");
+    std::fs::copy(env!("CARGO_BIN_EXE_procinsh"), &isolated_main).unwrap();
+    let mut server = Server::start_command(Command::new(isolated_main));
     check_thread_capabilities(server.child.id(), 0);
     assert_eq!(server.get("/api/config").0, 200);
     assert_eq!(server.get("/api/processes").0, 503);
