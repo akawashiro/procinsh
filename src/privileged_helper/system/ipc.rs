@@ -53,10 +53,32 @@ pub(super) struct IpcActivityCollector {
     >,
 }
 
+/// Kernels before the anonymous pipe split, such as 6.8, name the pipe
+/// handlers `pipe_read`/`pipe_write` with the same arguments. Without vmlinux
+/// BTF the targets stay unchanged so loading reports the BTF requirement.
+fn pipe_attach_target(program: &str) -> Option<&'static str> {
+    let fallback = match program {
+        "anon_pipe_read" => "pipe_read",
+        "anon_pipe_write" => "pipe_write",
+        _ => return None,
+    };
+    let btf = libbpf_rs::btf::Btf::from_vmlinux().ok()?;
+    btf.type_by_name::<libbpf_rs::btf::types::Func>(program)
+        .is_none()
+        .then_some(fallback)
+}
+
 impl IpcActivityCollector {
     pub(super) fn new() -> Result<Self> {
-        let open = ObjectBuilder::default()
+        let mut open = ObjectBuilder::default()
             .open_memory(include_bytes!(concat!(env!("OUT_DIR"), "/ipc.bpf.o")))?;
+        for mut prog in open.progs_mut() {
+            let Some(target) = prog.name().to_str().and_then(pipe_attach_target) else {
+                continue;
+            };
+            prog.set_attach_target(0, Some(target.into()))
+                .with_context(|| format!("retarget pipe tracing to {target}"))?;
+        }
         let obj = open
             .load()
             .context("CAP_BPF / CAP_PERFMON and compatible BTF required")?;

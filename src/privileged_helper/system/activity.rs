@@ -211,11 +211,8 @@ mod tests {
         }
         let sched_hooks: Vec<_> = sched.progs().map(|prog| prog.name().to_owned()).collect();
         let ipc_hooks: Vec<_> = ipc.progs().map(|prog| prog.name().to_owned()).collect();
-        assert_eq!(sched_hooks.len(), 2);
-        for name in ["schedule", "process_exit"] {
-            assert!(sched_hooks.iter().any(|hook| hook == name));
-            assert!(!ipc_hooks.iter().any(|hook| hook == name));
-        }
+        assert_eq!(sched_hooks, ["schedule"]);
+        assert!(!ipc_hooks.iter().any(|hook| hook == "schedule"));
         assert_eq!(ipc_hooks.len(), 4);
         for name in ["anon_pipe_read", "anon_pipe_write", "send", "recv"] {
             assert!(ipc_hooks.iter().any(|hook| hook == name));

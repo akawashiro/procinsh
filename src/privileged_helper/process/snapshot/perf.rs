@@ -1,4 +1,5 @@
-//! Linux x86-64 perf ABI. Events follow a TID across CPU migration.
+//! Linux perf ABI with the native register layout from `arch::native`. Events
+//! follow a TID across CPU migration.
 use super::{
     registers::RegisterSet,
     sample::{RawSample as Sample, SampleSource},
@@ -9,8 +10,7 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
-// AX/BX/CX/DX/SI/DI/BP/SP/IP/FLAGS and R8–R15, in kernel register order.
-pub(super) const REGS_MASK: u64 = 0x3ff | (0xff << 16);
+use super::arch::native::PERF_REGS_MASK as REGS_MASK;
 const SAMPLE_TYPE: u64 = (1 << 1) | (1 << 2) | (1 << 7) | (1 << 12) | (1 << 13);
 
 // Linux UAPI include/uapi/linux/perf_event.h: sizeof(struct perf_event_header).
@@ -99,6 +99,10 @@ impl PerfEventReader {
         )
     }
     fn open_attr(tid: i32, attr: Attr, context_switch: bool) -> Result<Self> {
+        ensure!(
+            REGS_MASK != 0,
+            "perf register sampling is not implemented for this architecture yet"
+        );
         let fd = unsafe { libc::syscall(libc::SYS_perf_event_open, &attr, tid, -1, -1, 8) };
         if fd < 0 {
             return Err(std::io::Error::last_os_error())

@@ -129,6 +129,7 @@ export function cpuActivity(extra: Partial<CpuActivity> = {}): CpuActivity {
 export function threadSample(extra: Partial<ThreadSample> = {}): ThreadSample {
   return {
     tid: 1,
+    architecture: "x86_64",
     sampled_at: null,
     sample_age_ms: null,
     cpu: null,

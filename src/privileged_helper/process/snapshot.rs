@@ -8,6 +8,7 @@
 //! | [`Sampler`] | `pub(super)` | `struct `[`Sampler`] |
 //! | [`ThreadSample`] | `pub(super)` | `struct `[`ThreadSample`] |
 
+mod arch;
 mod capture;
 mod disasm;
 mod perf;

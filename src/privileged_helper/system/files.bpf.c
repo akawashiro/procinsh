@@ -118,8 +118,9 @@ SCALAR(vfs_read, 0)
 SCALAR(vfs_write, 1)
 VECTOR(vfs_readv, 0)
 VECTOR(vfs_writev, 1)
+// Linux 6.8 passes only the task; newer kernels add group_dead.
 SEC("tp_btf/sched_process_exit")
-int BPF_PROG(file_exit, struct task_struct *task, bool group_dead) {
+int BPF_PROG(file_exit, struct task_struct *task) {
     __u64 tid = bpf_get_current_pid_tgid();
     bpf_map_delete_elem(&pending, &tid);
     return 0;

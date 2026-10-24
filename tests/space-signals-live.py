@@ -2,6 +2,7 @@
 import ctypes
 import json
 import os
+import platform
 import signal
 import subprocess
 import sys
@@ -72,8 +73,10 @@ try:
     def send():
         os.kill(target.pid, signal.SIGUSR1)
         os.kill(target.pid, signal.SIGUSR2)
-        # x86-64 tgkill targets a non-leader thread; the event must still use TGID.
-        assert ctypes.CDLL(None).syscall(234, target.pid, tid, signal.SIGUSR1) == 0
+        # tgkill targets a non-leader thread; the event must still use TGID.
+        # Syscall numbers differ: x86-64 uses its own table, AArch64 the generic one.
+        tgkill = {"x86_64": 234, "aarch64": 131}[platform.machine()]
+        assert ctypes.CDLL(None).syscall(tgkill, target.pid, tid, signal.SIGUSR1) == 0
 
     sender = threading.Thread(target=send)
     sender.start()

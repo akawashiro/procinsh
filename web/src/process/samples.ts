@@ -2,9 +2,18 @@
 import { Display } from "../shared/display.js";
 import { node, cell } from "../shared/dom.js";
 import type { ThreadSample } from "../shared/api-types.js";
+import {
+  architectureLabel,
+  processArchitecture,
+  programCounterName,
+} from "./architecture.js";
 import type { ProcessDataStore } from "./data.js";
 import type { ThreadSelection } from "./selection.js";
 import { processElement as $ } from "./dom-types.js";
+function caption(prefix: string, architecture: ThreadSample["architecture"]) {
+  const label = architectureLabel(architecture);
+  return label ? `${prefix} · ${label}` : prefix;
+}
 export function createProcessSamples(
   data: ProcessDataStore,
   selection: ThreadSelection,
@@ -14,6 +23,7 @@ export function createProcessSamples(
     $("disasm-error").hidden = true;
     const code = thread?.disassembly;
     if (!thread || !code) return;
+    const marker = `→ ${programCounterName(thread)}`;
     if (code.error) {
       $("disasm-error").textContent = code.error;
       $("disasm-error").hidden = false;
@@ -26,7 +36,7 @@ export function createProcessSamples(
           instruction.current ? "current-instruction" : "",
         );
         if (instruction.current) row.setAttribute("aria-current", "true");
-        cell(row, instruction.current ? "→ RIP" : "", "mono");
+        cell(row, instruction.current ? marker : "", "mono");
         cell(row, instruction.address, "mono");
         cell(
           row,
@@ -45,9 +55,11 @@ export function createProcessSamples(
     if (!target) return;
     const selectedTid = selection.tid,
       liveSamples = target.live_samples;
-    $("disasm-time").textContent =
-      `TID ${selectedTid} · Live best-effort · x86-64 / Intel`;
     const thread = liveSamples.find((t) => t.tid === selectedTid);
+    $("disasm-time").textContent = caption(
+      `TID ${selectedTid} · Live best-effort`,
+      thread?.architecture ?? processArchitecture(liveSamples),
+    );
     renderDisassembly(thread);
     $("registers").replaceChildren();
     $("call-stack").replaceChildren();
@@ -101,7 +113,7 @@ export function createProcessSamples(
       $("call-stack").replaceChildren(node("p", "Waiting for sample", "muted"));
       $("disassembly").replaceChildren();
       $("disasm-error").hidden = true;
-      $("disasm-time").textContent = "Live best-effort · x86-64 / Intel";
+      $("disasm-time").textContent = "Live best-effort";
     },
   };
 }

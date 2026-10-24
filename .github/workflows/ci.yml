@@ -49,3 +49,16 @@ jobs:
         # and SYS_ADMIN, host PIDs for BPF identity, and a read-only BTF mount.
         # Docker's default seccomp and AppArmor profiles remain enabled.
         run: bash scripts/docker_test.sh kernel
+
+  arm64-kernel-test:
+    name: Live eBPF tests (arm64)
+    # Google Chrome has no Linux arm64 build, so browser suites stay on x86-64.
+    # AArch64 snapshots are not implemented yet; this job covers the build and BPF.
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run tests with explicit kernel capabilities
+        run: bash scripts/docker_test.sh kernel

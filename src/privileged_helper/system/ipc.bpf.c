@@ -52,6 +52,7 @@ static __always_inline int emit(struct file *file, long ret, __u32 kind, __u32 w
 PIPE(anon_pipe_read, 0)
 PIPE(anon_pipe_write, 1)
 // FIFO wrappers invoke anon_pipe_* too; attaching both would double count.
+// Kernels without anon_pipe_* retarget these programs to pipe_read/pipe_write.
 // Tracepoints also cover __sock_sendmsg's inlined userspace write/send paths.
 SEC("tp_btf/sock_send_length") int BPF_PROG(send, struct sock *sk, int ret, int flags) {
     return emit(BPF_CORE_READ(sk, sk_socket, file), ret, 2, 1);

@@ -6,15 +6,25 @@
 
 mod http_server;
 
-#[cfg(not(all(target_os = "linux", target_arch = "x86_64")))]
-compile_error!("procinsh supports Linux x86-64 only");
+#[cfg(not(all(
+    target_os = "linux",
+    any(target_arch = "x86_64", target_arch = "aarch64")
+)))]
+compile_error!("procinsh supports Linux x86-64 and AArch64 only");
 
 use anyhow::{Result, ensure};
 use clap::Parser;
 use std::{io::Write, net::SocketAddr};
 
 #[derive(Parser)]
-#[command(version, about = "Read-only Linux x86-64 process inspector")]
+#[cfg_attr(
+    target_arch = "x86_64",
+    command(version, about = "Read-only Linux x86-64 process inspector")
+)]
+#[cfg_attr(
+    target_arch = "aarch64",
+    command(version, about = "Read-only Linux AArch64 process inspector")
+)]
 struct Cli {
     /// Listen address (repeat for multiple listeners); non-loopback addresses require --allow-non-loopback
     #[arg(long, default_value = "127.0.0.1:8080")]

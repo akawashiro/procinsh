@@ -188,7 +188,13 @@ export interface Target {
   live_samples: ThreadSample[];
   sampling_error: string | null;
 }
+/** Instruction set of the inspected process. */
+export type Architecture = "x86_64" | "aarch64";
+/** Architecture-independent register purpose; `kind` describes the value's mapping. */
+export type RegisterRole = "pc" | "sp" | "fp" | "lr" | "flags" | "general";
 export interface ThreadSample {
+  /** `null` when the target's instruction set is unknown or unsupported. */
+  architecture: Architecture | null;
   sampled_at: number | null;
   sample_age_ms: number | null;
   cpu: number | null;
@@ -198,6 +204,7 @@ export interface ThreadSample {
   unwind_stop: string;
   registers: {
     name: string;
+    role: RegisterRole;
     value: string;
     decimal: string;
     kind: MemoryKind;

@@ -1,3 +1,4 @@
+use super::arch::native;
 use crate::privileged_helper::process::maps::{MemoryKind, MemoryMap};
 use serde::Serialize;
 
@@ -19,10 +20,24 @@ fn optional_hex<S: serde::Serializer>(
         None => serializer.serialize_none(),
     }
 }
+/// Architecture-independent purpose of a register, separate from the mapping `kind`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum RegisterRole {
+    Pc,
+    Sp,
+    Fp,
+    /// AArch64 X30; x86-64 has no link register.
+    #[cfg_attr(not(target_arch = "aarch64"), allow(dead_code))]
+    Lr,
+    Flags,
+    General,
+}
 /// Classified register value; its mapping-relative offset serializes as hex or null.
 #[derive(Clone, Debug, Serialize)]
 pub(super) struct Register {
     pub(super) name: String,
+    pub(super) role: RegisterRole,
     #[serde(serialize_with = "crate::privileged_helper::process::maps::hex")]
     pub(super) value: u64,
     pub(super) decimal: String,
@@ -32,10 +47,11 @@ pub(super) struct Register {
     pub(super) offset: Option<u64>,
 }
 
-pub(super) fn classify(name: &str, value: u64, maps: &[MemoryMap]) -> Register {
+pub(super) fn classify(name: &str, role: RegisterRole, value: u64, maps: &[MemoryMap]) -> Register {
     let map = maps.iter().find(|m| m.contains(value));
     Register {
         name: name.into(),
+        role,
         value,
         decimal: value.to_string(),
         kind: map.map_or(MemoryKind::Integer, MemoryMap::kind),
@@ -50,33 +66,15 @@ pub(super) fn classify(name: &str, value: u64, maps: &[MemoryMap]) -> Register {
     }
 }
 
-/// Values indexed by Linux PERF_REG_X86_* (unused segment registers are zero).
+/// Values indexed by the native PERF_REG_* numbering (on x86-64, unused segment
+/// registers are zero); see `arch::native`.
 #[derive(Clone, Debug)]
 pub(super) struct RegisterSet(pub(super) [u64; 24]);
 pub(super) fn from_sample(r: &RegisterSet, maps: &[MemoryMap]) -> Vec<Register> {
-    [
-        ("RIP", 8),
-        ("RSP", 7),
-        ("RBP", 6),
-        ("RAX", 0),
-        ("RBX", 1),
-        ("RCX", 2),
-        ("RDX", 3),
-        ("RSI", 4),
-        ("RDI", 5),
-        ("R8", 16),
-        ("R9", 17),
-        ("R10", 18),
-        ("R11", 19),
-        ("R12", 20),
-        ("R13", 21),
-        ("R14", 22),
-        ("R15", 23),
-        ("RFLAGS", 9),
-    ]
-    .into_iter()
-    .map(|(name, index)| classify(name, r.0[index], maps))
-    .collect()
+    native::REGISTERS
+        .iter()
+        .map(|&(name, role, index)| classify(name, role, r.0[index], maps))
+        .collect()
 }
 
 #[cfg(test)]
@@ -89,7 +87,7 @@ mod tests {
             "1000-2000 rw-p 00000000 08:01 42 /tmp/a [b]",
         )
         .unwrap();
-        let register = classify("RAX", 0x1008, &[map]);
+        let register = classify("RAX", RegisterRole::General, 0x1008, &[map]);
         assert_eq!(register.kind, MemoryKind::File);
         assert_eq!(register.offset, Some(8));
         let json = serde_json::to_value(register).unwrap();
@@ -98,12 +96,36 @@ mod tests {
             serde_json::json!({"pathname":"/tmp/a [b]","readable":true,"writable":true,"executable":false,"private":true})
         );
         assert_eq!(json["offset"], "0x8");
-        let integer = classify("RAX", u64::MAX, &[]);
+        assert_eq!(json["role"], "general");
+        let integer = classify("RAX", RegisterRole::General, u64::MAX, &[]);
         assert_eq!(integer.kind, MemoryKind::Integer);
         assert!(integer.mapping.is_none() && integer.offset.is_none());
         assert_eq!(
             serde_json::to_value(integer).unwrap()["offset"],
             serde_json::Value::Null
         );
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    #[test]
+    fn x86_64_sample_keeps_order_and_marks_pc_sp_fp_and_flags() {
+        let registers = from_sample(&RegisterSet([0; 24]), &[]);
+        let roles: Vec<_> = registers
+            .iter()
+            .filter(|r| r.role != RegisterRole::General)
+            .map(|r| (r.name.as_str(), r.role))
+            .collect();
+        assert_eq!(
+            roles,
+            [
+                ("RIP", RegisterRole::Pc),
+                ("RSP", RegisterRole::Sp),
+                ("RBP", RegisterRole::Fp),
+                ("RFLAGS", RegisterRole::Flags),
+            ]
+        );
+        assert_eq!(registers.len(), 18);
+        assert_eq!(registers[0].name, "RIP");
+        assert_eq!(registers[17].name, "RFLAGS");
     }
 }

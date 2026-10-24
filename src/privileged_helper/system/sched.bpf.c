@@ -40,6 +40,9 @@ static __always_inline struct process_key process_key(struct task_struct *task) 
     return key;
 }
 
+// include/linux/sched.h; preprocessor constants are not part of BTF.
+#define TASK_DEAD 0x00000080
+
 SEC("tp_btf/sched_switch")
 int BPF_PROG(schedule, bool preempt, struct task_struct *prev, struct task_struct *next,
              unsigned int prev_state) {
@@ -50,8 +53,13 @@ int BPF_PROG(schedule, bool preempt, struct task_struct *prev, struct task_struc
         return 0;
 
     struct process_key previous = process_key(prev);
-    if (previous.pid && slot->process.pid == previous.pid &&
-        slot->process.start == previous.start && now >= slot->since) {
+    // The final switch away from the group's last thread. Removing the entry
+    // at sched_process_exit is not enough, because this switch would add it
+    // back. do_exit has already decremented signal->live to zero by now.
+    if ((prev_state & TASK_DEAD) && BPF_CORE_READ(prev, signal, live.counter) == 0) {
+        bpf_map_delete_elem(&cpu_totals, &previous);
+    } else if (previous.pid && slot->process.pid == previous.pid &&
+               slot->process.start == previous.start && now >= slot->since) {
         struct cpu_total initial = {};
         struct cpu_total *total = bpf_map_lookup_elem(&cpu_totals, &previous);
         if (!total) {
@@ -67,14 +75,5 @@ int BPF_PROG(schedule, bool preempt, struct task_struct *prev, struct task_struc
     slot->process = process_key(next);
     slot->since = now;
     slot->tid = BPF_CORE_READ(next, pid);
-    return 0;
-}
-
-SEC("tp_btf/sched_process_exit")
-int BPF_PROG(process_exit, struct task_struct *task, bool group_dead) {
-    if (group_dead) {
-        struct process_key key = process_key(task);
-        bpf_map_delete_elem(&cpu_totals, &key);
-    }
     return 0;
 }

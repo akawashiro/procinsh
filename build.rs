@@ -49,10 +49,19 @@ fn main() {
         String::from_utf8_lossy(&btf.stderr)
     );
     std::fs::write(out.join("vmlinux.h"), btf.stdout).unwrap();
+    // libbpf's bpf_tracing.h selects the target's pt_regs layout from this macro.
+    let target_arch = match env::var("CARGO_CFG_TARGET_ARCH").unwrap().as_str() {
+        "x86_64" => "x86",
+        "aarch64" => "arm64",
+        other => panic!("Unsupported BPF target architecture {other}"),
+    };
     for name in ["sched", "ipc", "files", "signals"] {
         libbpf_cargo::SkeletonBuilder::new()
             .source(format!("src/privileged_helper/system/{name}.bpf.c"))
-            .clang_args([format!("-I{}", out.display()), "-D__TARGET_ARCH_x86".into()])
+            .clang_args([
+                format!("-I{}", out.display()),
+                format!("-D__TARGET_ARCH_{target_arch}"),
+            ])
             .obj(out.join(format!("{name}.bpf.o")))
             .build()
             .expect("BPF compile");

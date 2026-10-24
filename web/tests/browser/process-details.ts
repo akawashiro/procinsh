@@ -101,11 +101,11 @@ export async function checkProcessDetails({
     "window.detailTest.calls.environment >= 2 && window.detailTest.calls.auxv >= 2",
     "open panels automatically refresh",
   );
-  assert.match(
-    await evaluate<string>(
-      "document.getElementById('environment-info').textContent",
-    ),
-    /auto 5s/,
+  // The count rises when a refresh starts, while the status reads "Reading…"
+  // until its response arrives.
+  await waitFor(
+    "document.getElementById('environment-info').textContent.includes('auto 5s')",
+    "automatic refresh completes",
   );
   await evaluate("document.querySelector('#auxv-panel summary').click()");
   await delay(200);

@@ -1,13 +1,18 @@
 //! Stopped-thread capture for initial and periodic sampling. The guard owns the attachment on every error path.
 use super::{
+    arch::native,
     registers::RegisterSet,
     sample::{RawSample, SampleSource, monotonic_ns},
 };
 use crate::privileged_helper::process::{maps::MemoryMap, memory};
 use anyhow::{Result, ensure};
-use std::ptr;
 
-fn request(operation: libc::c_uint, tid: i32, address: usize, data: usize) -> Result<()> {
+pub(super) fn request(
+    operation: libc::c_uint,
+    tid: i32,
+    address: usize,
+    data: usize,
+) -> Result<()> {
     let result = unsafe {
         libc::ptrace(
             operation,
@@ -89,39 +94,10 @@ pub(super) fn capture(tid: i32, maps: &[MemoryMap]) -> Result<RawSample> {
     request(libc::PTRACE_INTERRUPT, tid, 0, 0)?;
     attachment.wait()?;
     let time_ns = monotonic_ns();
-    let mut regs: libc::user_regs_struct = unsafe { std::mem::zeroed() };
-    let mut iov = libc::iovec {
-        iov_base: ptr::from_mut(&mut regs).cast(),
-        iov_len: std::mem::size_of_val(&regs),
-    };
-    request(
-        libc::PTRACE_GETREGSET,
-        tid,
-        libc::NT_PRSTATUS as usize,
-        ptr::from_mut(&mut iov) as usize,
-    )?;
-    ensure!(
-        iov.iov_len == std::mem::size_of_val(&regs),
-        "Incomplete register set"
-    );
-    let mut values = [0; 24];
-    values[..10].copy_from_slice(&[
-        regs.rax,
-        regs.rbx,
-        regs.rcx,
-        regs.rdx,
-        regs.rsi,
-        regs.rdi,
-        regs.rbp,
-        regs.rsp,
-        regs.rip,
-        regs.eflags,
-    ]);
-    values[16..].copy_from_slice(&[
-        regs.r8, regs.r9, regs.r10, regs.r11, regs.r12, regs.r13, regs.r14, regs.r15,
-    ]);
-    let stack = match maps.iter().find(|map| map.contains(regs.rsp)) {
-        Some(map) => memory::read_raw(tid, regs.rsp, (map.end - regs.rsp).min(16 * 1024) as usize)?,
+    let values = native::read_registers(tid)?;
+    let sp = values[native::SP];
+    let stack = match maps.iter().find(|map| map.contains(sp)) {
+        Some(map) => memory::read_raw(tid, sp, (map.end - sp).min(16 * 1024) as usize)?,
         None => Vec::new(),
     };
     Ok(RawSample {

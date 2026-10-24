@@ -70,7 +70,7 @@ impl ReverseDnsResolver {
 }
 
 fn reverse(ip: IpAddr) -> Option<String> {
-    let mut host = [0i8; 1025];
+    let mut host = [0 as libc::c_char; 1025];
     let addr = SocketAddr::new(ip, 0);
     let result = match addr {
         SocketAddr::V4(a) => {
