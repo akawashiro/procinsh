@@ -46,6 +46,8 @@ sudo "$HOME/.cargo/bin/procinsh" --listen 127.0.0.1:9090
 ```
 
 If you don't want to use `sudo`, please use setcap instead of it.
+ProcInSh should work even if you drop some capability (for example, you may want not to pass `CAP_SYS_ADMIN` because it is very strong).
+However, the appearance will be worse comparing to full capabilities.
 
 ```
 sudo setcap \
@@ -53,17 +55,6 @@ sudo setcap \
   "$HOME/.cargo/bin/procinsh"
 "$HOME/.cargo/bin/procinsh" --listen 127.0.0.1:9090
 ```
-
-`CAP_SYS_ADMIN` enables UNIX socket peer diagnostics in other network namespaces.
-Without it, ProcInSh keeps available socket information and reports missing
-peer diagnostics as warnings; an unknown peer does not mean an unconnected socket.
-
-The space view also shows a hardware bay next to systemd: GPUs, RDMA
-NICs and accelerators with the PCIe bridges between them, their link speed and
-the PCIe path class between devices (like `nvidia-smi topo -m`). Select a device
-to see its paths and the processes holding it. This reads sysfs only and needs no
-extra privileges. Network destinations reached over IPoIB also show the remote
-InfiniBand port GID.
 
 ### Self build on Linux
 
