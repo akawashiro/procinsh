@@ -59,17 +59,8 @@ fn clear_ambient() -> Result<()> {
     )
 }
 
-pub(crate) fn restrict_monitor_privileges(uid: u32) -> Result<()> {
+pub(crate) fn restrict_monitor_privileges() -> Result<()> {
     clear_ambient()?;
-    // Matching the worker's real UID permits lifecycle signals after dropping
-    // CAP_KILL. Keep the effective UID unchanged so PDEATHSIG is not triggered
-    // by a parent credential transition during worker startup.
-    if unsafe { libc::getuid() } == 0 {
-        check(
-            unsafe { libc::setresuid(uid, u32::MAX, u32::MAX) } as _,
-            "set monitor real UID",
-        )?;
-    }
     let mut data = capabilities()?;
     if data[0].effective & (1 << 8) != 0 {
         // Disable UID-0's special exec capability rules while CAP_SETPCAP is

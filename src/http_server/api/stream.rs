@@ -11,7 +11,7 @@ use std::{
 };
 
 // HTTP formatting, JSON output, delta selection and SSE recovery all happen
-// in the unprivileged worker. IPC carries complete structured observations.
+// in the HTTP worker. IPC carries complete structured observations.
 fn encode(event: MonitorEvent, delivery: &mut SnapshotEncoder) -> Vec<(&'static str, String)> {
     match event {
         MonitorEvent::Observation(data) => vec![("observation", data.to_string())],

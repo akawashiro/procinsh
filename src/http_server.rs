@@ -1,4 +1,4 @@
-//! Unprivileged HTTP application and helper supervision.
+//! HTTP application with cleared capabilities and helper supervision.
 //!
 //! # Interface
 //! [`run`] (`pub(crate)`): `fn run(listen: &[std::net::SocketAddr]) -> anyhow::Result<()>`.

@@ -43,8 +43,6 @@ pub(crate) fn run() -> Result<()> {
                 &mut size,
             )
         } == 0
-            && peer.uid != 0
-            && unsafe { libc::geteuid() } != 0
             && peer.pid == parent
             && parent == unsafe { libc::getppid() }
             && peer.uid == unsafe { libc::getuid() },
@@ -55,7 +53,7 @@ pub(crate) fn run() -> Result<()> {
         unsafe { libc::fcntl(3, libc::F_SETFD, libc::FD_CLOEXEC) } == 0,
         "seal inherited endpoint"
     );
-    super::privileges::restrict_monitor_privileges(peer.uid)?;
+    super::privileges::restrict_monitor_privileges()?;
     let mut action: libc::sigaction = unsafe { std::mem::zeroed() };
     action.sa_sigaction = stop as *const () as libc::sighandler_t;
     unsafe {

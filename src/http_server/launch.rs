@@ -87,11 +87,10 @@ impl Drop for HelperSupervisor {
 
 pub(crate) fn run(listen: &[SocketAddr]) -> Result<()> {
     let path = std::env::current_exe()?.with_file_name("procinsh-privileged-helper");
-    let identity = privileges::application_identity()?;
     privileges::close_inherited()?;
     // This runs before Tokio creates any threads. Keep no_new_privs unset until
     // after helper exec, otherwise Linux suppresses its file capabilities.
-    privileges::drop_application_privileges(identity.0, identity.1)?;
+    privileges::drop_application_capabilities()?;
     let connection = (|| -> Result<(UnixStream, HelperGuard)> {
         validate_helper_path(&path)?;
         let (mut application, helper) = UnixStream::pair()?;

@@ -131,9 +131,10 @@ The sibling helper is separately executed with Command, never a forked copy.
 
 The main executable owns HTTP, routing, middleware, SSE, JSON formatting and
 per-viewer system snapshot delta encoding. Its module closure excludes all
-acquisition modules. Before starting any threads, it drops real/effective/saved
-UID/GID, supplementary groups and all effective/permitted/inheritable/ambient
-capabilities. Sudo launches use SUDO_UID/GID; direct root launches use 65534.
+acquisition modules. Before starting any threads, it clears all
+effective/permitted/inheritable/ambient capabilities. Both executables retain
+the launching process's UID/GID and supplementary groups, including when launched
+as root. `SUDO_UID` and `SUDO_GID` are not interpreted.
 `no_new_privs` is set after helper exec and before Tokio/HTTP startup: setting it
 before exec would suppress the helper's file capabilities. Both disable dumps.
 
@@ -165,7 +166,7 @@ identify a regular file; user-owned build/install directories are supported.
 The invoking user and the sibling executable are trusted. Command clears the
 environment and uses null stdin. Only stdio and a private socketpair endpoint
 at FD 3 survive exec; no acquisition FDs exist in
-main. The helper requires non-root IDs and validates SO_PEERCRED against its parent PID/real UID, sets
+main. The helper validates SO_PEERCRED against its parent PID/real UID, sets
 PDEATHSIG, checks its parent again and reports PID/package version; main matches
 these against its Command child. There is no public IPC socket or SCM_RIGHTS.
 

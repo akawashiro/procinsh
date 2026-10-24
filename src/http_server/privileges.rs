@@ -65,33 +65,6 @@ pub(super) fn close_inherited() -> Result<()> {
     Ok(())
 }
 
-/// Resolve credentials while still single-threaded. A direct root launch uses
-/// nobody; sudo launches use the invoking user's UID/GID. Invalid sudo IDs fail
-/// closed rather than leaving a root HTTP worker.
-pub(super) fn application_identity() -> Result<(u32, u32)> {
-    let uid = unsafe { libc::getuid() };
-    let gid = unsafe { libc::getgid() };
-    let identity = if uid != 0 {
-        (uid, gid)
-    } else {
-        match (std::env::var("SUDO_UID"), std::env::var("SUDO_GID")) {
-            (Ok(uid), Ok(gid)) => (
-                uid.parse().context("invalid SUDO_UID")?,
-                gid.parse().context("invalid SUDO_GID")?,
-            ),
-            (Err(std::env::VarError::NotPresent), Err(std::env::VarError::NotPresent)) => {
-                (65534, 65534)
-            }
-            _ => anyhow::bail!("SUDO_UID and SUDO_GID must both be valid non-root IDs"),
-        }
-    };
-    ensure!(
-        identity.0 != 0 && identity.1 != 0 && identity.0 != u32::MAX && identity.1 != u32::MAX,
-        "HTTP worker requires a non-root UID and GID"
-    );
-    Ok(identity)
-}
-
 fn clear_ambient() -> Result<()> {
     prctl(
         libc::PR_CAP_AMBIENT,
@@ -100,33 +73,9 @@ fn clear_ambient() -> Result<()> {
     )
 }
 
-pub(super) fn drop_application_privileges(uid: u32, gid: u32) -> Result<()> {
+pub(super) fn drop_application_capabilities() -> Result<()> {
     clear_ambient()?;
-    let data = capabilities()?;
-    if unsafe { libc::geteuid() } == 0 || data[0].effective & (1 << 6) != 0 {
-        check(
-            unsafe { libc::setgroups(0, std::ptr::null()) } as _,
-            "clear supplementary groups",
-        )?;
-    }
-    check(unsafe { libc::setresgid(gid, gid, gid) } as _, "drop GIDs")?;
-    check(unsafe { libc::setresuid(uid, uid, uid) } as _, "drop UIDs")?;
     set_capabilities(&[CapabilitySet::default(); 2])?;
-    let (mut real_uid, mut effective_uid, mut saved_uid) = (0, 0, 0);
-    let (mut real_gid, mut effective_gid, mut saved_gid) = (0, 0, 0);
-    check(
-        unsafe { libc::getresuid(&mut real_uid, &mut effective_uid, &mut saved_uid) } as _,
-        "verify UIDs",
-    )?;
-    check(
-        unsafe { libc::getresgid(&mut real_gid, &mut effective_gid, &mut saved_gid) } as _,
-        "verify GIDs",
-    )?;
-    ensure!(
-        [real_uid, effective_uid, saved_uid] == [uid; 3]
-            && [real_gid, effective_gid, saved_gid] == [gid; 3],
-        "HTTP worker retained elevated IDs"
-    );
     // Do not let ordinary same-UID processes inspect or tamper with the IPC
     // client. This also closes the /proc/PID/fd access route to the socketpair.
     prctl(libc::PR_SET_DUMPABLE, 0, "disable HTTP worker dumps")?;

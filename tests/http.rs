@@ -309,27 +309,56 @@ fn check_thread_capabilities(pid: u32, expected: u64) {
                 .lines()
                 .any(|line| line.starts_with("NoNewPrivs:") && line.ends_with('1'))
         );
-        if expected == 0 {
-            for field in ["Uid:", "Gid:"] {
-                assert!(
-                    status
-                        .lines()
-                        .find(|line| line.starts_with(field))
-                        .unwrap()
-                        .split_whitespace()
-                        .skip(1)
-                        .all(|id| id != "0")
-                );
+    }
+}
+
+fn check_process_identity(pid: u32, uid: u32, gid: u32) {
+    for thread in std::fs::read_dir(format!("/proc/{pid}/task")).unwrap() {
+        let status = std::fs::read_to_string(thread.unwrap().path().join("status")).unwrap();
+        for (field, expected) in [("Uid:", uid), ("Gid:", gid)] {
+            for id in status
+                .lines()
+                .find(|line| line.starts_with(field))
+                .unwrap()
+                .split_whitespace()
+                .skip(1)
+            {
+                assert_eq!(id.parse::<u32>().unwrap(), expected, "{pid} {field}");
             }
         }
     }
 }
 
 #[test]
+fn ordinary_user_identity_is_preserved() {
+    use std::os::unix::process::CommandExt;
+    let mut command = Command::new(env!("CARGO_BIN_EXE_procinsh"));
+    command.uid(65534).gid(65534);
+    let mut server = Server::start_command(command);
+    let helper = helper_pid(&server);
+    check_process_identity(server.child.id(), 65534, 65534);
+    check_process_identity(helper, 65534, 65534);
+    check_thread_capabilities(server.child.id(), 0);
+    check_thread_capabilities(
+        helper,
+        (1 << 2) | (1 << 19) | (1 << 21) | (1 << 38) | (1 << 39),
+    );
+    assert_eq!(server.get("/api/processes").0, 200);
+    server.shutdown();
+}
+
+#[test]
 fn capabilities_and_resource_ownership_stay_in_separate_helper() {
-    let mut server = Server::start();
+    let mut command = Command::new(env!("CARGO_BIN_EXE_procinsh"));
+    command
+        .env("SUDO_UID", "invalid")
+        .env("SUDO_GID", "invalid");
+    let mut server = Server::start_command(command);
     let helper = helper_pid(&server);
     let stream = server.events("/api/system/events", "snapshot");
+    for pid in [server.child.id(), helper] {
+        check_process_identity(pid, unsafe { libc::getuid() }, unsafe { libc::getgid() });
+    }
     check_thread_capabilities(server.child.id(), 0);
     check_thread_capabilities(
         helper,
@@ -466,7 +495,7 @@ fn parent_crash_releases_helper() {
 #[test]
 fn sibling_discovery_and_missing_helper_degrade_cleanly() {
     let helper = std::path::Path::new(env!("CARGO_BIN_EXE_procinsh-privileged-helper"));
-    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+    use std::os::unix::fs::MetadataExt;
     assert_ne!(
         std::fs::metadata(helper).unwrap().uid(),
         0,
@@ -488,8 +517,6 @@ fn sibling_discovery_and_missing_helper_degrade_cleanly() {
     ));
     std::fs::create_dir(&path).unwrap();
     let directory = DirectoryGuard(path);
-    // Root-launched main drops to nobody and must still traverse its directory.
-    std::fs::set_permissions(&directory.0, std::fs::Permissions::from_mode(0o755)).unwrap();
     let isolated_main = directory.0.join("procinsh");
     std::fs::copy(env!("CARGO_BIN_EXE_procinsh"), &isolated_main).unwrap();
     let mut server = Server::start_command(Command::new(isolated_main));
