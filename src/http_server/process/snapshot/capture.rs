@@ -121,15 +121,7 @@ impl Sampler {
         process::validate_process_identity(self.id)?;
         self.unwind.refresh(self.id.pid, maps, &mut self.symbols);
         let mut alive = BTreeSet::new();
-        for entry in std::fs::read_dir(format!("/proc/{}/task", self.id.pid))? {
-            let entry = entry?;
-            let Some(tid) = entry
-                .file_name()
-                .to_str()
-                .and_then(|s| s.parse::<i32>().ok())
-            else {
-                continue;
-            };
+        for tid in super::super::threads::tids(self.id.pid)? {
             let Ok(stat) = procfs::read_stat(&format!("/proc/{}/task/{tid}/stat", self.id.pid))
             else {
                 continue;

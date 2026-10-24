@@ -1,12 +1,6 @@
 # ProcInSh の観測処理と権限に関するセキュリティ分析
 
-分析日: 2026-10-03
-
-著者: OpenAI Codex（AI による分析・執筆）
-
-モデル・推論設定: GPT-6.1-Sol / medium（ユーザー申告。実行時の設定は著者側では確認していない）
-
-対象: `99c0483194459e6c3c3e2e7151e1202d31de18a7`（PR 作成時に取得した最新 main、バージョン 0.1.6）
+対象: 本体と `procinsh-privileged-helper` のプロセス境界、および観測処理の残存リスク。配置と IPC の契約は [privilege separation](../../developer-docs/PRIVILEGE_SEPARATION.md) を参照してください。
 
 ## 結論
 
@@ -31,7 +25,7 @@ Rust の本番コード、3種類の BPF C コード、起動・テスト・常�
 | 高 | ptrace 待機・停止中の読み取りに期限がない | 期限なしは確認済み、長時間停止は要再現 | 対象停止の長期化、観測・終了処理の停滞 |
 | 高 | group-stop と割り込み停止を区別しない | 区別しない実装は確認済み、停止状態の変化は要再現 | SIGSTOP 等で停止した対象の意図しない再開など |
 | 高 | 接続ごと・全 TID に perf と ptrace を設定する | 構造は確認済み、負荷量は未測定 | FD・メモリ・CPU の消費、対象のタイムアウト |
-| 高 | HTTP と解析処理が強い capability を持つ同じプロセスで動く | 確認済み、侵害経路は未実証 | 侵害時に他プロセスの変更へ拡大 |
+| 高 | 特権 helper 内の解析器・収集器が侵害される | helper の権限は必要、侵害経路は未実証 | helper 侵害時に他プロセスの変更へ拡大 |
 | 中〜高 | 全システムの BPF フックと大きな map | サイズ・フックは確認済み、影響量は未測定 | ホストの遅延・メモリ圧迫、観測欠落 |
 | 中 | PID/TID 検証と実操作の間の競合 | 数値 ID を使う構造は確認済み、誤対象操作は要再現 | 別のスレッドへの一時停止・観測 |
 | 中 | ELF/DWARF の取得・展開の資源制限とファイル検証に隙間 | 確認済み、DoS・侵害は未実証 | 観測側のメモリ消費・I/O 停滞、依存ライブラリへの攻撃面 |
@@ -57,7 +51,7 @@ Rust の本番コード、3種類の BPF C コード、起動・テスト・常�
 
 `PtraceGuard::wait` は `waitpid(tid, ..., __WALL)` をブロッキングで呼ぶ。期限、キャンセルの確認、`WNOHANG` による監視がない。対象がカーネル内の長い待ちから停止可能な状態へ戻らない場合、観測側は待ち続けうる。また、停止後の `process_vm_readv` にも時間の上限がない。ページ取得などで読み取りが遅れる場合、16 KiB というサイズ制限だけでは停止時間を制限できない。
 
-この待機中は [monitoring/service.rs](../../src/http_server/process/monitoring/service.rs) のキャンセル・停止フラグを確認できない。接続が切れても `spawn_blocking` 内の初期化を直ちに止める仕組みはなく、collector の `join` にも期限がない。停止時間を含む悪条件での再現確認が必要である。
+この待機中は [monitoring/service.rs](../../src/http_server/process/monitoring/service.rs) のキャンセル・停止フラグを確認できない。接続が切れても helper 内の初期化を直ちに中断できるとは限らない。IPC と親の終了監視には期限があるが、collector 自身の `join` は syscall の終了に依存する。停止時間を含む悪条件での再現確認が必要である。
 
 **対策:** ptrace を既定では使わない perf 中心のモードを設け、停止が必要な場合は明示的に選択する。停止待ちの deadline と停止時間の計測を導入し、停止中の読み取りを縮小する。単にタイムアウトで関数を抜けるだけでは不十分で、以下の detach まで含めて回復方法を設計する必要がある。読み取り中のブロッキング syscall は Rust 側の timeout だけで中断できるとは限らないため、観測 worker のプロセス分離も検討する。
 
@@ -144,39 +138,25 @@ CO-RE と BTF は構造体配置の違いに対応するが、接続先の意味
 
 ただし、4 KiB page の環境では、17 pages × 2 events = **TID あたり約136 KiB** の mapping が必要となる。1,000 TID なら1接続でも約133 MiBであり、32接続なら約4.15 GiB、FD は最大64,000個相当となる。これは全 event の作成に成功した場合の概算で、その他のメモリを含まない。実際は RLIMIT、perf のメモリ制限やカーネル設定によって先に失敗する場合もある。[Linux kernel: Perf events and tool security](https://docs.kernel.org/admin-guide/perf-security.html)
 
-[monitoring/service.rs](../../src/http_server/process/monitoring/service.rs) は同時接続を32に制限するが、接続ごとに独立した `Sampler` を作る。全 TID 数、全 perf FD 数、全 mapping 容量にはアプリケーション独自の総量上限がない。同一 PID を複数のブラウザ・接続で開いても重複する。ptrace の競合はエラーとして扱うが、perf は独立して動きうる。
+[monitoring/service.rs](../../src/http_server/process/monitoring/service.rs) は同時接続を32に制限するが、接続ごとに独立した `Sampler` を作る。1プロセスは1024 TIDまで検査する。32接続分を合わせた perf FD・mapping 容量の予算は別途考える必要がある。同一 PID を複数のブラウザ・接続で開いても重複する。ptrace の競合はエラーとして扱うが、perf は独立して動きうる。
 
 **対策:** TID/FD/メモリの総量制限、PID ごとの collector 共有、context-switch event の無効化・頻度制御を設ける。32という接続数だけでは資源予算を表せない。接続を繰り返すと初回 ptrace が再実行されるので、PID ごとの停止頻度制限も必要である。
 
-## 6. 強い権限を持つプロセスの攻撃面
+## 6. 強い権限を持つ helper の攻撃面
 
-### 6.1 「読取専用 API」は OS の権限制限ではない
+本体は HTTP と SSE を扱い、全スレッドで effective/permitted/inheritable/ambient capability を空にする。root 起動時も UID/GID を落とし、helper exec 後・スレッド作成前に no_new_privs を設定する。特権収集コードは別の crate root で helper のみにコンパイルされる。
 
-[dev_run.sh](../../scripts/dev_run.sh) は実行ファイルに `cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search,cap_sys_admin=ep` を付ける。これらを持つ HTTP サーバーが侵害されると、現在の router に書き込み API がなくても、別の syscall を呼ぶことで対象メモリやレジスタを変更できる可能性がある。特に `CAP_SYS_PTRACE` は読み取り専用の capability ではない。`CAP_DAC_READ_SEARCH` は通常のファイル読み取り・ディレクトリの読み取りと探索に対する DAC の権限検査を迂回するので、侵害時の機密ファイル読み取りの影響も広がる。ただし、この権限単独で通常のファイル書き込み権限を迂回するものではなく、LSM 等の別の制約がなくなるわけでもない。root 起動は、さらに広い権限を与える。[capabilities(7)](https://man7.org/linux/man-pages/man7/capabilities.7.html)
+helper は SYS_PTRACE、BPF、PERFMON、DAC_READ_SEARCH、SYS_ADMIN の利用可能な部分集合を保持する。読取専用の IPC API は capability 自体を読取専用にはしない。helper の解析器や unsafe/FFI が侵害されれば、他の syscall を通じた書き換え・機密ファイル取得へ影響が広がりうる。HTTP 本体が侵害された場合も、許された IPC 操作を繰り返して観測・負荷を発生させられる。分離は HTTP 認証の代わりにはならない。
 
-`CAP_SYS_ADMIN` は別 network namespace に診断用ソケットを作るために使いますが、namespace の操作に限定された権限ではなく、マウントなどにも使える広い capability です。namespace の切り替えは短命の専用スレッドだけで行います。HTTP スレッドの namespace は維持されますが、プロセス全体がこの capability を持つことによる侵害時の影響は残ります。
+本体は root 所有・一般ユーザー書き込み不可の helper と祖先ディレクトリのみ受け入れる。PATH は探索せず、専用 socketpair と親 PID/UID の検証を使う。IPC は長さ・キュー・購読数・期限を制限し、FD を転送しない。setns と診断ソケットの問い合わせ、ELF/DWARF の取得・解析も helper で完結する。
 
-HTTP、`/proc` の解析、libbpf の FFI、perf の unsafe、ELF/DWARF の解析を同じプロセスで行う。Rust は多くのメモリ破壊を防ぐが、unsafe・ネイティブライブラリ・依存クレートの欠陥まで自動的に排除しない。観測対象が作る実行ファイルや mapping の情報も、強い権限を持つ解析器に入る信頼できない入力である。今回、そこからコード実行できる具体的な欠陥を見つけたわけではない。
+自動更新は root 所有の保護されたペアを配置し、launcher の rename で切り替える。旧ペアは rollback 用に保持する。管理者所有の installer に付与する sudo 権限は、指定する実行ファイルに検査 capability を与える権限でもある。実行者、ソース、依存、更新経路を信頼する必要がある。ユーザーが書き換え可能なスクリプトへの NOPASSWD root 実行を許可してはいけない。
 
-**対策:** HTTP/UI と特権 collector を別プロセスに分け、対象と操作を限定した IPC にする。ptrace が必要な worker と BPF worker の権限を分け、不要になった capability を落とす。継続的な再 attach/open が必要なので、現構造のまま起動直後にすべて落とせるとは限らない。seccomp を併用する場合も、汎用 `ptrace` / `bpf` を許可しただけで読取専用になると考えない。
+## 7. ELF/DWARF と API の資源制限
 
-### 6.2 setcap と自動更新も権限境界になる
+ELF は mapping の device/inode と一致する開いた FD を保持し、読み取り前後に同じ FD の metadata を確認する。入力ファイルは128 MiB、展開 section は32 MiB、展開合計は64 MiB、symbol は262,144件、unit は16,384件に制限する。cache の入力ファイル容量合計は128 MiB、件数は64に制限する。DWARF はメモリ上の Context を使い、外部 DWO/DWP を開かない。これらは parser の全 CPU 時間や解析後の総メモリ量を厳密に保証するものではない。対象が管理する filesystem の I/O も停止しうる。
 
-file capability は一度付けると、通常の終了で消えない。実行ファイル・祖先ディレクトリのアクセス権によっては、他ユーザーも強い権限付きのバイナリを起動できる。loopback の HTTP にも OS ユーザーの認証はないので、ローカルの別ユーザーからの利用を禁止するものではない。
-
-[main_preview.sh](scripts/main_preview.sh) と [release_preview.sh](scripts/release_preview.sh) は候補を mode `0755` で配置し、capability を付けて更新する。[PREVIEW.md](PREVIEW.md) の sudoers 例はユーザー所有の candidate パスへの `NOPASSWD setcap` を許す。そのパスに別の実行ファイルを置けるユーザーは、文書通りのルールならそれにも同じ capability を付与できる。これはルールが procinsh の内容・ハッシュを検証しないことから導かれる権限上の意味であり、稼働ホストにそのルールが存在することを確認したわけではない。
-
-**対策:** バイナリと配置ディレクトリの owner/mode、capability、sudoers を確認し、実行ユーザーを限定する。特権を付ける成果物を root 管理の配備経路で検証する。最新 main の自動ビルドへそのまま権限を付ける運用は、リポジトリ・ビルド依存・更新経路まで信頼することを意味する。常設する場合はレビュー済みの版を固定する。
-
-## 7. ELF/DWARF と通常 HTTP API の DoS
-
-[symbol/cache.rs](../../src/http_server/process/snapshot/symbol/cache.rs) はファイルサイズを512 MiB、cache 件数を64に制限するが、**解析後の総メモリ量**を制限しない。多数の大きな ELF、展開された debug section、複数接続分の cache が重なると、大きなメモリ消費となりうる。件数上限だけではバイト数の上限にならない。
-
-さらに `matching_file` は pathname の metadata で inode/device を確認した後、`ElfSymbols::load` がその pathname を再度開く。確認した FD を使い続ける方式ではないので、ファイルの増大・置換・対象の exec との TOCTOU が残る。`fs::read` は確認済みサイズを上限として読むものではない。fallback の `/proc/PID/root/...` などでファイルが置換されると、確認とは異なるファイルへの I/O になる可能性がある。成立条件は未再現だが、対象が管理する filesystem、FUSE、ネットワーク filesystem の遅い I/O も timeout なしの解析には問題となりうる。
-
-通常の詳細 API も `spawn_blocking` を利用し、SSE の32接続制限とは独立している。[api/process.rs](../../src/http_server/api/process.rs) に共通の同時実行数・頻度制限はない。[maps.rs](../../src/http_server/process/maps.rs) の maps/smaps 読み取りは `read_to_string` でサイズ上限を設けていない。大量の mapping を持つ対象への繰り返し要求は追加負荷になる。環境変数1 MiB、auxv 64 KiB、FD探索の件数・時間制限など、個別の防御はあるが全 API の総量を制限するものではない。
-
-**対策:** 同じ FD 上で file type・identity・size を検査し、読み取りと debug 展開にもバイト上限を付ける。cache の総容量と解析の同時実行数を制限し、重い解析を低権限 worker に分離する。通常 API にも共有 semaphore・頻度制限・実行期限を設ける。
+IPC は1 KiB要求・32 MiB応答・64待機要求・30秒期限で制限し、特権要求を直列化する。購読は無通信15秒で期限切れとなり、切断とプロセス終了で collector を解放する。重い syscall の内部実行を Rust の timeout だけで中断できるわけではない。大量 TID、巨大 procfs、複数の購読・cache の合計負荷は別途測定が必要である。
 
 ## 8. 既知の公開リスクとの関係
 
@@ -190,7 +170,7 @@ file capability は一度付けると、通常の終了で消えない。実行�
 2. **停止状態の保存を検証する。** 使い捨て fixture で、観測前の SIGSTOP、捕捉中の SIGSTOP/SIGCONT、SIGTSTP、通常シグナル、exec、スレッド終了を試す。観測後の停止状態、実際のシグナル受信、アプリの進行、`TracerPid` を確認する。
 3. **待機と回復を検証する。** 長い停止待ち・遅いメモリ取得・取得失敗・detach 失敗・接続切断・観測側終了を対象に、待機時間と停止時間を計測する。関数の終了だけでなく、対象が元の状態に戻ったことを確認する。
 4. **総資源を制限する。** 多数の TID、同一 PID の複数接続、再接続、短い file/socket I/O、高 context-switch、CPU 数の多い VM で、対象の処理時間・ホスト latency・FD・RSS・kernel map の量・lost を測定する。上限超過時に新規観測を拒否する。
-5. **強い権限を持つ部分を小さくする。** 特権 collector の分離、対象 allowlist、低権限での ELF/DWARF 解析、配備パスと sudoers の監査を行う。
+5. **強い権限を持つ部分を小さくする。** 特権 helper の境界を維持し、対象 allowlist、配備パスと sudoers の監査を行う。ELF/DWARF parser も helper の信頼境界に含まれる。
 6. **kernel ごとの試験を行う。** ロード失敗だけでなく、部分 attach 失敗、購読終了、センサー異常、プロセス終了後の link/map 解放を確認する。
 
 このリポジトリのテストは `bash scripts/docker_test.sh` でコンテナ内実行する。すべての Rust テストは `ordinary` または `rust` suite の明示的な capability を持つコンテナで実行し、権限不足では失敗する。live eBPF の `kernel` suite は同じ capability に加えて host PID namespace を使用する。checkout は読み取り専用とし、ビルドと fixture の生成物はコンテナと Docker volume 内に置く。Docker の既定 seccomp・AppArmor profile を維持する。障害・負荷系の追加検証は、重要なプロセスのない使い捨て VM で行う。

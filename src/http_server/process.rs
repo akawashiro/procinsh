@@ -10,6 +10,7 @@
 //! | [`ProcessSummary`] | `pub(super)` | `struct `[`ProcessSummary`] |
 //! | [`ProcessId`] | `pub(super)` | `struct `[`ProcessId`] |
 //! | [`MemoryMap`] | `pub(super)` | `struct `[`MemoryMap`] |
+//! | [`ObservationSession`] | `pub(super)` | `struct ObservationSession` |
 //! | [`ProcessMonitor`] | `pub(super)` | `struct `[`ProcessMonitor`] |
 //! | [`SubscribeError`] | `pub(super)` | `enum `[`SubscribeError`] |
 //! | [`SocketInfo`] | `pub(super)` | `struct `[`SocketInfo`] |
@@ -38,6 +39,7 @@
 //! | [`additional_sockets`] | `pub(super)` | `fn additional_sockets(pid: `[`i32`]`) -> `[`HashMap`](std::collections::HashMap)`<`[`u64`]`, `[`SocketInfo`]`>` |
 //! | [`timestamp_ms`] | `pub(super)` | `fn timestamp_ms() -> `[`u64`] |
 //!
+pub(super) use monitoring::ObservationSession;
 mod details;
 mod discovery;
 mod fds;

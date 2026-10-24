@@ -1,6 +1,6 @@
 use anyhow::{Context, Result, anyhow, ensure};
 use serde::Serialize;
-use std::{collections::HashMap, fs};
+use std::{collections::HashMap, fs, io::Read};
 
 #[derive(Debug, Clone)]
 pub(super) struct Stat {
@@ -65,12 +65,26 @@ pub(super) fn parse_stat(text: &str) -> Result<Stat> {
     })
 }
 
+/// Bounds procfs text allocation even when a target creates very large maps.
+pub(super) fn read_text(path: &str) -> Result<String> {
+    const MAX_TEXT: u64 = 16 * 1024 * 1024;
+    let mut text = String::new();
+    fs::File::open(path)?
+        .take(MAX_TEXT + 1)
+        .read_to_string(&mut text)?;
+    ensure!(
+        text.len() as u64 <= MAX_TEXT,
+        "procfs text exceeds 16 MiB limit"
+    );
+    Ok(text)
+}
+
 pub(super) fn read_stat(path: &str) -> Result<Stat> {
-    parse_stat(&fs::read_to_string(path).with_context(|| format!("read {path}"))?)
+    parse_stat(&read_text(path).with_context(|| format!("read {path}"))?)
 }
 
 pub(super) fn fields(path: &str) -> Result<HashMap<String, String>> {
-    Ok(fs::read_to_string(path)?
+    Ok(read_text(path)?
         .lines()
         .filter_map(|line| line.split_once(':'))
         .map(|(k, v)| (k.to_owned(), v.trim().to_owned()))
@@ -117,5 +131,20 @@ mod tests {
         assert_eq!(stat.start_time, 918);
         assert_eq!(stat.rss, 0);
         assert!(parse_stat("42 (bad) S").is_err());
+    }
+}
+
+#[cfg(test)]
+mod limit_tests {
+    use super::*;
+    #[test]
+    fn rejects_oversized_procfs_text_before_parsing() {
+        let path =
+            std::env::temp_dir().join(format!("procinsh-procfs-limit-{}", std::process::id()));
+        let file = fs::File::create(&path).unwrap();
+        file.set_len(16 * 1024 * 1024 + 1).unwrap();
+        let result = read_text(path.to_str().unwrap());
+        fs::remove_file(path).unwrap();
+        assert!(result.unwrap_err().to_string().contains("16 MiB limit"));
     }
 }

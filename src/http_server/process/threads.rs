@@ -1,5 +1,5 @@
 use super::procfs::{self, Stat};
-use anyhow::Result;
+use anyhow::{Result, ensure};
 use serde::Serialize;
 use std::fs;
 
@@ -100,7 +100,12 @@ pub(super) fn tids(pid: i32) -> Result<Vec<i32>> {
     let mut tids: Vec<_> = fs::read_dir(format!("/proc/{pid}/task"))?
         .flatten()
         .filter_map(|e| e.file_name().to_str()?.parse().ok())
+        .take(1025)
         .collect();
+    ensure!(
+        tids.len() <= 1024,
+        "Process exceeds 1024-thread inspection limit"
+    );
     tids.sort_unstable();
     Ok(tids)
 }

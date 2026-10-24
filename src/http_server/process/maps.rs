@@ -1,8 +1,8 @@
 // Visibility is scoped to the consumers of the parent process façade.
+use super::procfs::read_text;
 use crate::http_server::resource::{DeviceId, decimal};
 use anyhow::{Context, Result, ensure};
 use serde::Serialize;
-use std::fs;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -138,7 +138,7 @@ pub(super) fn parse_smaps(text: &str) -> Result<Vec<SmapsEntry>> {
 }
 
 pub(super) fn read_maps(pid: i32) -> Result<Vec<MemoryMap>> {
-    fs::read_to_string(format!("/proc/{pid}/maps"))?
+    read_text(&format!("/proc/{pid}/maps"))?
         .lines()
         .map(parse_map)
         .collect()
@@ -146,7 +146,7 @@ pub(super) fn read_maps(pid: i32) -> Result<Vec<MemoryMap>> {
 
 /// Reads smaps, falling back to maps without usage measurements if smaps cannot be read.
 pub(super) fn read_smaps(pid: i32) -> Result<Vec<SmapsEntry>> {
-    if let Ok(text) = fs::read_to_string(format!("/proc/{pid}/smaps")) {
+    if let Ok(text) = read_text(&format!("/proc/{pid}/smaps")) {
         return parse_smaps(&text);
     }
     Ok(read_maps(pid)?.into_iter().map(SmapsEntry::from).collect())

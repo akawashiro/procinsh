@@ -37,9 +37,10 @@ case "${1:-}" in
     npm --prefix web ci
     npm --prefix web run build
     PROCINSH_GIT_SHA="$commit" cargo build --locked
-    install -m 0755 target/debug/procinsh "$state/candidate"
-    # Apply privileges before touching the running version; no password prompt.
-    sudo -n setcap cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search,cap_sys_admin=ep "$state/candidate"
+    helper=$(sudo -n /usr/local/sbin/procinsh-install-pair target/debug/procinsh-privileged-helper)
+    # A launcher selects an immutable main/helper pair; rename activates both.
+    printf '#!/bin/bash\nexec %q "$@"\n' "$(dirname "$helper")/procinsh" > "$state/candidate"
+    chmod 0755 "$state/candidate"
     printf '%s\n' "$commit" > "$state/candidate.commit"
     echo "Built main $commit"
     ;;
@@ -49,7 +50,7 @@ case "${1:-}" in
     flock -n 9 || exit 0
     address=$(/bin/bash "$state/preview_bind.sh" address)
     if [[ -f "$state/procinsh" ]]; then
-      # A hard link retains file capabilities for rollback without another sudo.
+      # Retain the launcher selecting the previous immutable pair.
       ln -f "$state/procinsh" "$state/previous"
       cp "$state/current.commit" "$state/previous.commit"
     fi

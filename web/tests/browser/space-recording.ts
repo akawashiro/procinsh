@@ -16,11 +16,17 @@ export async function checkSpaceRecording(
     "recording baseline ready",
   );
   await evaluate(`window.downloads=[]; window.downloadBlobs=[];
+    window.recordingWireEvents=0;
+    for (const name of ['snapshot','activity'])
+      window.spaceTestSources.at(-1).addEventListener(name,()=>window.recordingWireEvents++);
     const create=URL.createObjectURL.bind(URL);
     URL.createObjectURL=blob=>{window.downloadBlobs.push(blob);return create(blob)};
     HTMLAnchorElement.prototype.click=function(){window.downloads.push({name:this.download,href:this.href})};
     document.querySelector('#record').click()`);
-  await delay(600);
+  await waitFor(
+    "window.recordingWireEvents>0",
+    "live event captured during recording",
+  );
   assert.match(
     await evaluate<string>(
       "document.querySelector('#recording-status').textContent",

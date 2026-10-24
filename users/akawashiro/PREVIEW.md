@@ -21,35 +21,19 @@ main 用 unit はログインユーザーのホームを基準に、開発用 ch
 
 公開版は `~/procinsh-release-preview/install` を Cargo の専用インストール先として使用します。通常の `~/.cargo/bin/procinsh` は変更しません。Rust とネイティブ・BPF のビルド依存、`curl`、`flock`、`cmp` が必要ですが、公開パッケージには生成済み JavaScript が含まれるため、Node.js・npm・GitHub 認証・開発用 checkout は不要です。Cargo は `~/.cargo/bin` から利用できる必要があります。公開版の更新は専用領域で実行するため、開発用 checkout の `rust-toolchain.toml` は適用されません。rustup の default toolchain は公開版をビルドできるバージョンに設定してください。
 
-ビルド・配置・サービス管理はすべてログインユーザーで行います。ビルド後の候補バイナリに対して `sudo -n setcap cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search,cap_sys_admin=ep` を実行し、観測用の権限を付与します。このコマンドを候補ファイル `~/procinsh-main-preview/candidate` と `~/procinsh-release-preview/candidate` に対してパスワード入力なしで実行できることが前提です。権限付与に失敗した場合は更新を中止し、稼働版を維持します。
+ビルドとサービスはログインユーザーで実行し、本体と helper は root 所有の保護ディレクトリにペアで配置します。capability を持つのは helper のみです。更新スクリプトは保護されたペアを選ぶ launcher を `candidate` に書き、rename で切り替えます。復元は前の launcher を選びます。
 
-## 登録
-
-### sudoers の設定
-
-自動更新を開始する前に、候補バイナリへの `setcap` を `NOPASSWD` で許可してください。`dev_run.sh` 用の設定が開発用バイナリのパスに限定されている場合は、常設版の候補パスを追加する必要があります。既存の設定はそのまま残します。
-
-UNIX ソケットの別 network namespace の診断には `CAP_SYS_ADMIN` を付与します。既存版を使うルールは残し、以下の capability 一覧を持つルールを追加してください。配置済みバイナリの権限も、この文書の capability 更新手順に従って反映します。
-
-`command -v setcap` で実行ファイルのパスを確認し、`visudo` で設定を追加します。
+管理者が `scripts/install_helper.sh` を確認し、書き換え不能な場所へ配置してください。
 
 ```sh
-command -v setcap
-sudo visudo -f /etc/sudoers.d/procinsh
+sudo install -o root -g root -m 0755 scripts/install_helper.sh /usr/local/sbin/procinsh-install-pair
 ```
 
-ユーザーが `akira`、`setcap` が `/usr/sbin/setcap` にある場合の設定例です。ユーザー名・ホーム・実行ファイルのパスは実際の環境に合わせ、絶対パスで記載してください。
+自動更新を使う場合は、この root 所有の installer に対する sudo 権限を管理者が設定します。ユーザーが書き換え可能なスクリプトを NOPASSWD で実行する設定にしないでください。installer は指定した本体/helper に検査 capability を与えるため、この権限を持つユーザーとビルド入力は信頼対象です。
 
-```sudoers
-akira ALL=(root) NOPASSWD: /usr/sbin/setcap cap_sys_ptrace\,cap_bpf\,cap_perfmon\,cap_dac_read_search\,cap_sys_admin\=ep /home/akira/procinsh-main-preview/candidate
-akira ALL=(root) NOPASSWD: /usr/sbin/setcap cap_sys_ptrace\,cap_bpf\,cap_perfmon\,cap_dac_read_search\,cap_sys_admin\=ep /home/akira/procinsh-release-preview/candidate
-```
+以前の本体に付いている capability は `sudo setcap -r <旧本体のパス>` で削除してください。移行時は timer と稼働サービスを停止し、更新処理の終了を待ち、旧 `current.commit` / `current.version` を退避してから更新を実行します。既存の capability 付き本体へロールバックしないでください。公開版は二つのバイナリを提供する版が必要です。
 
-sudoers では capability の区切りのカンマを `\,`、等号を `\=` としてエスケープします。このルールはコマンド・引数・対象パスを指定して許可します。[sudoers の説明](https://www.sudo.ws/docs/man/1.9.14/sudoers.man.pdf)を参照してください。保存後に構文を確認します。
-
-```sh
-sudo visudo -c
-```
+詳しい配置・コンテナ・ロールバックの条件は [privilege separation](../../developer-docs/PRIVILEGE_SEPARATION.md) を参照してください。
 
 ### main の user service の登録
 
@@ -97,7 +81,7 @@ systemctl --user start procinsh-release-preview-update.service
 
 初回ビルド成功後に常設サービスが起動します。以降はユーザーマネージャー起動時に自動起動します。ログアウト後も稼働させ、OS 起動時からログインせず利用するには、一度 `loginctl enable-linger "$USER"` を実行してください。これはユーザーの linger 設定を有効にします。[systemd の説明](https://www.freedesktop.org/software/systemd/man/252/loginctl.html)を参照してください。unit と更新スクリプト自身は自動更新の対象ではありません。これらを変更したときは timer を停止して更新処理の終了を待ち、再インストールと `daemon-reload` を行ってから本体サービスを再起動し、timer を再開してください。待受アドレスの設定を反映するには、`preview_bind.sh` の配置と本体サービスの再起動が必要です。再インストールと `daemon-reload` の後に、main は `systemctl --user restart procinsh-preview.service`、公開版は `systemctl --user restart procinsh-release-preview.service` を実行してください。
 
-capability 一覧を変更した場合は、sudoers の許可する引数も新しい一覧に合わせてください。配置済みの更新スクリプトを再インストールするだけでは、既存バイナリの権限は変わりません。同じ commit や同じ公開版バイナリでは更新を省略するため、timer を停止して進行中の更新が終了した後、既存バイナリを `candidate` にコピーし、上記の `sudo -n setcap` をその候補に実行してから `procinsh` に置き換え、サービスを再起動してください。稼働 commit または version の記録は維持し、起動と権限を確認してから timer を再開します。置き換え前のバイナリは hard link で退避すると capability を保持したまま復元できます。未反映の候補が残っている場合は、候補と `candidate.commit`（公開版は `candidate.version`）を先に退避してください。
+capability 一覧を変更したときは管理者所有の installer を更新し、新しいペアをビルド・配置してください。既存ペアは書き換えず、使用されなくなってから管理者が削除します。
 
 以下のサービス操作では、公開版の場合は `procinsh-preview` を `procinsh-release-preview` に読み替えてください。
 
@@ -113,11 +97,11 @@ capability 一覧を変更した場合は、sudoers の許可する引数も新�
 
 `cargo install procinsh --locked --registry crates-io --root "$HOME/procinsh-release-preview/install"` を実行し、Cargo の更新判定に従って公開最新版をインストールします。`--force` は指定しないため、同じ版は再ビルドしません。ビルドキャッシュは専用領域の `target` に保持します。毎回 crates.io の更新確認を行うため、ネットワーク接続が必要です。
 
-インストール済みバイナリを稼働版と比較し、同一なら再起動しません。変更時だけ候補を配置して capability を付与し、反映します。稼働版のバージョンは `current.version` に記録します。インストール先と稼働版を分けているため、起動失敗後も Cargo のインストール記録に影響されず、次回更新で新版を再試行できます。公開版は一つのファイルロックでインストールから起動確認・復元まで多重実行を防ぎます。
+インストール済み version を稼働版と比較し、同一なら再起動しません。変更時だけ保護されたペアを配置し、launcher を反映します。稼働版のバージョンは `current.version` に記録します。インストール先と稼働版を分けているため、起動失敗後も Cargo のインストール記録に影響されず、次回更新で新版を再試行できます。公開版は一つのファイルロックでインストールから起動確認・復元まで多重実行を防ぎます。
 
 ### 更新失敗と復元
 
-ビルド・インストール・権限付与失敗時は稼働版を維持します。成功時は同じ専用領域内でバイナリを原子的に入れ替えて再起動し、約10秒を目安に Tailscale IPv4・IPv4/IPv6 localhost の HTTP 応答とサービス状態を確認します。起動失敗時は直前のバイナリと commit または version に戻します。初回起動が失敗した場合は候補を撤去してサービスを停止します。失敗した版は次回の更新で再試行します。更新時には短い切断が発生し、観測履歴がリセットされます。
+ビルド・インストール・権限付与失敗時は稼働版を維持します。成功時は同じ専用領域内で launcher を原子的に入れ替えて再起動し、約10秒を目安に Tailscale IPv4・IPv4/IPv6 localhost の HTTP 応答とサービス状態を確認します。起動失敗時は直前のペアを選ぶ launcher と commit または version に戻します。初回起動が失敗した場合は候補を撤去してサービスを停止します。失敗した版は次回の更新で再試行します。更新時には短い切断が発生し、観測履歴がリセットされます。
 
 ```sh
 # main: 稼働中の commit とログ

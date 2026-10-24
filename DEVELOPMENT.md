@@ -93,7 +93,11 @@ The script verifies the crates.io publication, pushes the version tag, and creat
 | `web/src/` | TypeScript pages, SPACE, rendering models, and CSS (HTML entry points: `web/{list,process,space}/index.html`) |
 | `tests/` | Rust, browser, log, and live sensor tests, plus C fixtures |
 
-`main.rs` is the only crate root. After CLI validation it calls only `http_server::run`. There is no Rust library API. Modules live at the lowest common ancestor of their direct consumers. Child module declarations are private; items needed by parents generally use `pub(super)`.
+`main.rs` starts the unprivileged `application` module tree. The separate
+`procinsh-privileged-helper` target owns `http_server/helper_root.rs` and all
+inspection modules. The small library exposes only protocol definitions and
+bounded transport. See [privilege separation](developer-docs/PRIVILEGE_SEPARATION.md)
+for the ownership inventory, deployment, IPC limits and boundary checks. Modules live at the lowest common ancestor of their direct consumers. Child module declarations are private; items needed by parents generally use `pub(super)`.
 
 Rust type names express responsibilities. Data and values describe their contents (`ProcessId`, `ProcessSummary`, `ProcessSnapshot`); types managing operations, state, or resources describe their roles (`ProcessScanner`, `ProcessMonitor`, `FileActivityCollector`, `PerfEventReader`, `PtraceGuard`). Helper methods alone do not determine this distinction, and types do not all require mechanical suffixes.
 
@@ -254,7 +258,7 @@ Rust tests for pidfd type retrieval and separate network namespaces run with `ba
 
 UNIX diagnostics use a network namespace FD opened after checking the target PID and start time. For a different namespace, a short-lived dedicated thread calls `setns(CLONE_NEWNET)`, creates a diagnostic Netlink socket, returns its FD to the caller, and exits. Requests and responses use the socket belonging to that namespace; HTTP and collection threads keep their own namespaces. SPACE groups discovered namespaces by device/inode and diagnoses each once per scan. The total diagnostic budget across namespaces is 500 ms. The process FD list uses the shorter of 750 ms and its overall three-second deadline. If diagnostics fail, existing procfs information is retained and warnings include the target PID and failure reason.
 
-Switching network namespaces requires `CAP_SYS_ADMIN`. [dev_run.sh](scripts/dev_run.sh) also grants this capability. If sudoers pins `setcap` arguments, add permission for the new list while retaining permission for the existing one. The application does not modify sudoers or kernel settings.
+Switching network namespaces requires `CAP_SYS_ADMIN`. [dev_run.sh](scripts/dev_run.sh) also grants this capability. Only the protected helper receives capabilities; see the [deployment guide](developer-docs/PRIVILEGE_SEPARATION.md). The application does not modify sudoers or kernel settings.
 
 ### Hardware
 
@@ -626,8 +630,8 @@ Logging uses `log` and `env_logger`, writing timestamps, levels, source file pat
 - `debug`: HTTP method/path/status/response-generation time, API error details, structure collection counts, SSE event emission. SSE logs API path/event name per connection; `/api/system/events` also logs `payload_bytes` (UTF-8 JSON body bytes, excluding SSE line framing and HTTP headers). Process observations include identity; delivery gaps include dropped counts. Payloads and keep-alives are not logged. Emission logs mean the server handed an event to the stream, not that a client finished receiving it.
 
 ```sh
-sudo env RUST_LOG=procinsh=debug ./target/debug/procinsh --listen 127.0.0.1:9090
-sudo env RUST_LOG=info,procinsh::http_server::system=debug ./target/debug/procinsh --listen 127.0.0.1:9090
+RUST_LOG=debug ./scripts/dev_run.sh --listen 127.0.0.1:9090
+RUST_LOG=info,procinsh_privileged_helper::http_server::system=debug ./scripts/dev_run.sh --listen 127.0.0.1:9090
 ```
 
 To filter only HTTP access logs, use `RUST_LOG=info,procinsh::http_server::middleware=debug`. Existing subsystem filters also apply to child modules.

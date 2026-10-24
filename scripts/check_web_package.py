@@ -2,6 +2,7 @@
 """Check packaged assets, excluded tests, and builds without Node/npm."""
 
 import os
+import json
 from pathlib import Path
 import subprocess
 import tempfile
@@ -9,6 +10,16 @@ import tempfile
 
 def main():
     root = Path(__file__).resolve().parents[1]
+    metadata = json.loads(subprocess.check_output(
+        ["cargo", "metadata", "--locked", "--no-deps", "--format-version", "1"],
+        cwd=root, text=True,
+    ))
+    assert len(metadata["packages"]) == 1, "Keep one publishable Cargo package"
+    package = metadata["packages"][0]
+    assert package["default_run"] == "procinsh"
+    assert {t["name"] for t in package["targets"] if t["kind"] == ["bin"]} == {
+        "procinsh", "procinsh-privileged-helper"
+    }
     artifacts = {
         path.relative_to(root).as_posix()
         for path in (root / "web/dist").rglob("*")

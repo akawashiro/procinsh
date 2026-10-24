@@ -1,26 +1,30 @@
-//! HTTP server wiring and shared API.
+//! Helper-private inspection modules and acquisition service.
 //!
 //! # Interface
 //!
 //! | Definition | Visibility | Signature |
 //! | --- | --- | --- |
-//! | [`run`] | `pub(super)` | `async fn run(listen: &[`[`SocketAddr`](std::net::SocketAddr)`]) -> `[`anyhow::Result`]`<()>` |
+//! | [`helper::run`] | `pub(crate)` | `fn run() -> anyhow::Result<()>` |
 //!
 //! Shared resource identities live in [`resource`]; socket metadata and descriptor
 //! capabilities live in [`socket_types`]; bounded netlink dumps live in [`netlink`].
 //!
+#[cfg(test)]
 mod api;
+pub(crate) mod helper;
+mod helper_service;
+#[cfg(test)]
 mod middleware;
 mod netlink;
 mod process;
 mod resource;
+#[cfg(test)]
 mod router;
-mod server;
 mod socket_types;
+#[cfg(test)]
 mod state;
 mod system;
-mod web;
-pub(super) use server::run;
+#[cfg(test)]
 use state::AppState;
 #[cfg(test)]
 mod process_api_tests;
@@ -30,3 +34,12 @@ mod system_api_tests;
 mod test_support;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod web;
+
+#[cfg(test)]
+mod helper_tests;
+
+#[cfg(test)]
+#[path = "../application/delivery.rs"]
+mod application_delivery;

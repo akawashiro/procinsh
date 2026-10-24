@@ -2,6 +2,7 @@
 name = "procinsh"
 version = "0.1.20"
 edition = "2024"
+default-run = "procinsh"
 description = "Explore Linux processes in 3D. A real-time process inspector powered by Rust, eBPF and Three.js."
 license = "MIT"
 repository = "https://github.com/akawashiro/procinsh"
@@ -26,7 +27,8 @@ axum = "0.8"
 clap = { version = "4", features = ["derive"] }
 libc = "0.2"
 object = { version = "0.36", features = ["read"] }
-addr2line = "0.24"
+addr2line = { version = "0.24", default-features = false, features = ["std", "rustc-demangle", "cpp_demangle"] }
+gimli = { version = "0.31", default-features = false, features = ["read", "std", "endian-reader"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal", "sync", "time"] }

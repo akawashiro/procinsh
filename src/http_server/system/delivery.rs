@@ -276,6 +276,48 @@ mod tests {
         serde_json::from_str(&delivery.encode(data, full, now).unwrap()).unwrap()
     }
     #[test]
+    fn application_json_encoder_preserves_typed_full_and_delta_contracts() {
+        let now = Instant::now();
+        let mut typed = SnapshotEncoder::default();
+        let mut application = crate::http_server::application_delivery::SnapshotEncoder::default();
+        let mut first = (*fixture(1, true, 1)).clone();
+        first.processes[0].maps = (0..100)
+            .map(|i| {
+                let mut map = first.processes[0].maps[0].clone();
+                map.start += i * 8192;
+                map.end += i * 8192;
+                map
+            })
+            .collect();
+        let mut changed = first.clone();
+        changed.processes[0].maps[1].writable = true;
+        changed.processes[0].maps.remove(2);
+        changed.processes[0].maps_epoch = 2;
+        let mut reused = changed.clone();
+        reused.processes[0].identity.start_time_ticks = 2;
+        for (index, data) in [
+            first.clone(),
+            first,
+            changed.clone(),
+            reused,
+            changed.clone(),
+            changed,
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let force = index == 4;
+            let time = now + Duration::from_secs(if index == 5 { 70 } else { index as u64 });
+            let value = Arc::new(serde_json::to_value(&data).unwrap());
+            let expected: serde_json::Value =
+                serde_json::from_str(&typed.encode(Arc::new(data), force, time).unwrap()).unwrap();
+            let actual: serde_json::Value =
+                serde_json::from_str(&application.encode(value, force, time).unwrap()).unwrap();
+            assert_eq!(actual, expected, "snapshot {index}");
+        }
+    }
+
+    #[test]
     fn command_line_is_included_in_full_and_delta_snapshots() {
         let now = Instant::now();
         let mut delivery = SnapshotEncoder::default();

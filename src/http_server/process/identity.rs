@@ -1,12 +1,6 @@
 use super::procfs;
 use anyhow::{Result, bail, ensure};
-use serde::{Deserialize, Serialize};
-
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
-pub(in crate::http_server) struct ProcessId {
-    pub(in crate::http_server) pid: i32,
-    pub(in crate::http_server) start_time_ticks: u64,
-}
+pub(in crate::http_server) use procinsh::protocol::ProcessId;
 
 #[cfg(test)]
 pub(in crate::http_server) fn identity(pid: i32) -> Result<ProcessId> {

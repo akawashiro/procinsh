@@ -11,7 +11,7 @@ RUN set -eu; ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && if command -v apt-get >/dev/null; then \
          apt-get update -o APT::Update::Error-Mode=any; apt-get install -y --no-install-recommends \
            ca-certificates curl git tar gzip build-essential clang llvm pkg-config \
-           libelf-dev zlib1g-dev python3 python3-venv graphviz; \
+           libelf-dev zlib1g-dev libcap2-bin python3 python3-venv graphviz; \
          if [ "$(. /etc/os-release; echo "$VERSION_ID")" != 24.04 ]; then \
            apt-get install -y --no-install-recommends bpftool; \
          else \
@@ -23,7 +23,7 @@ RUN set -eu; ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
          rm -rf /var/lib/apt/lists/*; \
        else \
          dnf install -y ca-certificates curl git tar gzip gcc gcc-c++ make clang llvm \
-           pkgconf-pkg-config elfutils-libelf-devel zlib-devel python3 python3-pip bpftool graphviz; \
+           pkgconf-pkg-config elfutils-libelf-devel zlib-devel libcap python3 python3-pip bpftool graphviz; \
          dnf install -y https://dl.google.com/linux/direct/google-chrome-stable_current_x86_64.rpm; \
          dnf clean all; \
        fi

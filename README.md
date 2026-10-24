@@ -32,29 +32,36 @@ Install [procinsh from crates.io](https://crates.io/crates/procinsh) and run it:
 (Sorry, we assume you are using Ubuntu, please reinterpret not so)
 ```sh
 sudo apt-get install --yes --no-install-recommends \
-         build-essential clang llvm pkg-config libelf-dev zlib1g-dev python3 \
+         build-essential clang llvm pkg-config libelf-dev zlib1g-dev libcap2-bin python3 \
          linux-tools-common linux-tools-generic
 cargo install procinsh --locked
 ```
 
-Then run and open http://127.0.0.1:9090 in your browser. To allow remote
-access, use `--allow-non-loopback`, but be careful: this exposes process memory
-and environment variables without any authentication.
+Cargo installs two executables. Place both in a root-owned directory and grant
+inspection capabilities **only to the helper**:
 
-```
-sudo "$HOME/.cargo/bin/procinsh" --listen 127.0.0.1:9090
-```
-
-If you don't want to use `sudo`, please use setcap instead of it.
-ProcInSh should work even if you drop some capability (for example, you may want not to pass `CAP_SYS_ADMIN` because it is very strong).
-However, the appearance will be worse comparing to full capabilities.
-
-```
+```sh
+sudo install -d -o root -g root -m 0755 /usr/local/libexec/procinsh/installed
+sudo install -o root -g root -m 0755 "$HOME/.cargo/bin/procinsh" \
+  "$HOME/.cargo/bin/procinsh-privileged-helper" /usr/local/libexec/procinsh/installed/
 sudo setcap \
   cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search,cap_sys_admin=ep \
-  "$HOME/.cargo/bin/procinsh"
-"$HOME/.cargo/bin/procinsh" --listen 127.0.0.1:9090
+  /usr/local/libexec/procinsh/installed/procinsh-privileged-helper
+# Remove capabilities from an older installation of the main executable.
+sudo setcap -r "$HOME/.cargo/bin/procinsh" 2>/dev/null || true
+/usr/local/libexec/procinsh/installed/procinsh --listen 127.0.0.1:9090
 ```
+
+Open http://127.0.0.1:9090. The HTTP process runs without elevated capabilities;
+its sibling helper performs inspection over private IPC. Keep the helper and
+all its parent directories root-owned and unwritable by ordinary users. Never
+apply capabilities in `~/.cargo/bin` or to `procinsh`. You may omit capabilities
+to reduce inspection coverage; unavailable operations report errors.
+
+Remote access requires `--allow-non-loopback` and exposes process memory and
+environment variables without authentication. See the
+[deployment guide](developer-docs/PRIVILEGE_SEPARATION.md) for upgrades, containers
+and helper configuration.
 
 ### Self build on Linux
 
@@ -68,7 +75,7 @@ Clone this repository and run the following from its root:
 
 ```sh
 sudo apt-get install --yes --no-install-recommends \
-         build-essential clang llvm pkg-config libelf-dev zlib1g-dev python3 \
+         build-essential clang llvm pkg-config libelf-dev zlib1g-dev libcap2-bin python3 \
          linux-tools-common linux-tools-generic
 npm --prefix web ci
 npm --prefix web run build
@@ -78,7 +85,8 @@ cargo build --release --locked
 Then run:
 
 ```sh
-sudo ./target/release/procinsh --listen 127.0.0.1:9090
+helper=$(sudo bash scripts/install_helper.sh target/release/procinsh-privileged-helper)
+"$(dirname "$helper")/procinsh" --listen 127.0.0.1:9090
 ```
 
 #### NixOS
@@ -88,7 +96,7 @@ With Rust installed via rustup, create `shell.nix` in the repository root:
 ```nix
 { pkgs ? import <nixpkgs> { } }:
 pkgs.mkShell {
-  packages = with pkgs; [ nodejs_22 clang llvm pkg-config elfutils zlib bpftools gnumake ];
+  packages = with pkgs; [ nodejs_22 clang llvm pkg-config elfutils zlib libcap bpftools gnumake ];
   hardeningDisable = [ "all" ];
 }
 ```
@@ -109,7 +117,8 @@ nix-build shell.nix -A inputDerivation -o .nix-gcroot
 Keep `.nix-gcroot` while using the binary. Then run:
 
 ```sh
-sudo ./target/release/procinsh --listen 127.0.0.1:9090
+helper=$(sudo bash scripts/install_helper.sh target/release/procinsh-privileged-helper)
+"$(dirname "$helper")/procinsh" --listen 127.0.0.1:9090
 ```
 
 ### Building on WSL2 (Ubuntu)
@@ -121,7 +130,7 @@ because the WSL2 kernel version differs from the Ubuntu tools package. Set
 ```sh
 sudo apt-get update
 sudo apt-get install --yes --no-install-recommends \
-         build-essential clang llvm pkg-config libelf-dev zlib1g-dev python3 \
+         build-essential clang llvm pkg-config libelf-dev zlib1g-dev libcap2-bin python3 \
          linux-tools-common linux-tools-generic
 for tool in /usr/lib/linux-tools/*/bpftool; do
     if [ -x "$tool" ]; then
@@ -139,7 +148,8 @@ cargo build --release --locked
 Then run:
 
 ```sh
-sudo ./target/release/procinsh --listen 127.0.0.1:9090
+helper=$(sudo bash scripts/install_helper.sh target/release/procinsh-privileged-helper)
+"$(dirname "$helper")/procinsh" --listen 127.0.0.1:9090
 ```
 
 _Now, where shall I go? The process space is vast._
