@@ -22,7 +22,8 @@ CARGO_TARGET_DIR="$state/target" cargo install procinsh --locked \
   --registry crates-io --root "$state/install"
 version=$(cargo install --list --root "$state/install" | sed -n 's/^procinsh v\(.*\):$/\1/p')
 [[ -n "$version" ]] || { echo "Could not determine installed procinsh version" >&2; exit 1; }
-if [[ -f "$state/procinsh" ]] && [[ -f "$state/current.version" && $(cat "$state/current.version") == "$version" ]]; then
+if [[ -f "$state/procinsh" ]] && [[ -f "$state/current.version" && $(cat "$state/current.version") == "$version" ]] && \
+  curl --noproxy '*' --fail --silent --max-time 1 "http://127.0.0.1:9091/api/processes" >/dev/null; then
   echo "Already running release $version"
   exit 0
 fi
@@ -49,7 +50,10 @@ if systemctl --user restart "$service"; then
     if systemctl --user is-active --quiet "$service" && \
       curl --noproxy '*' --fail --silent --max-time 1 "http://$address:9091/" >/dev/null && \
       curl --noproxy '*' --fail --silent --max-time 1 "http://127.0.0.1:9091/" >/dev/null && \
-      curl --noproxy '*' --fail --silent --max-time 1 "http://[::1]:9091/" >/dev/null; then
+      curl --noproxy '*' --fail --silent --max-time 1 "http://[::1]:9091/" >/dev/null && \
+      curl --noproxy '*' --fail --silent --max-time 1 "http://$address:9091/api/processes" >/dev/null && \
+      curl --noproxy '*' --fail --silent --max-time 1 "http://127.0.0.1:9091/api/processes" >/dev/null && \
+      curl --noproxy '*' --fail --silent --max-time 1 "http://[::1]:9091/api/processes" >/dev/null; then
       echo "Activated release $version"
       exit 0
     fi

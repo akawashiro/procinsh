@@ -97,17 +97,17 @@ capability 一覧を変更したときは更新スクリプトの `setcap` 引�
 
 ### main の更新
 
-`origin/main` に相当する GitHub の main を専用 ref に取得し、`current.commit` と異なる場合だけ `npm --prefix web ci`、`npm --prefix web run build`、`PROCINSH_GIT_SHA="$commit" cargo build --locked` を実行します。作業ブランチや未コミット変更は公開しません。ビルド対象の SHA をバイナリに埋め込み、各画面のバージョンの隣に表示します。timer の `OnUnitInactiveSec` は main が `10s`、公開版が `1min` で、両方とも `AccuracySec=1s` を使います。更新処理の終了を基準にするため、長いビルド中に次の更新は重なりません。スクリプトもファイルロックで多重実行を防ぎます。
+`origin/main` に相当する GitHub の main を専用 ref に取得し、`current.commit` と異なる場合、または稼働中の検査 API が失敗する場合に `npm --prefix web ci`、`npm --prefix web run build`、`PROCINSH_GIT_SHA="$commit" cargo build --locked` を実行します。作業ブランチや未コミット変更は公開しません。ビルド対象の SHA をバイナリに埋め込み、各画面のバージョンの隣に表示します。timer の `OnUnitInactiveSec` は main が `10s`、公開版が `1min` で、両方とも `AccuracySec=1s` を使います。更新処理の終了を基準にするため、長いビルド中に次の更新は重なりません。スクリプトもファイルロックで多重実行を防ぎます。
 
 ### 公開最新版の更新
 
-`cargo install procinsh --locked --registry crates-io --root "$HOME/procinsh-release-preview/install"` を実行し、Cargo の更新判定に従って公開最新版をインストールします。`--force` は指定しないため、同じ版は再ビルドしません。ビルドキャッシュは専用領域の `target` に保持します。毎回 crates.io の更新確認を行うため、ネットワーク接続が必要です。
+`cargo install procinsh --locked --registry crates-io --root "$HOME/procinsh-release-preview/install"` を実行し、Cargo の更新判定に従って公開最新版をインストールします。`--force` は指定しないため、同じ版は再ビルドしません。稼働中の検査 API が失敗する場合は、同じ版でもインストール済みの本体・helper を再配備します。ビルドキャッシュは専用領域の `target` に保持します。毎回 crates.io の更新確認を行うため、ネットワーク接続が必要です。
 
-インストール済み version を稼働版と比較し、同一なら再起動しません。変更時だけペアを配置し、launcher を反映します。稼働版のバージョンは `current.version` に記録します。インストール先と稼働版を分けているため、起動失敗後も Cargo のインストール記録に影響されず、次回更新で新版を再試行できます。公開版は一つのファイルロックでインストールから起動確認・復元まで多重実行を防ぎます。
+インストール済み version を稼働版と比較し、同一かつ検査 API が正常なら再起動しません。版が変わった場合、または検査 API が失敗する場合にペアを配置し、launcher を反映します。稼働版のバージョンは `current.version` に記録します。インストール先と稼働版を分けているため、起動失敗後も Cargo のインストール記録に影響されず、次回更新で新版を再試行できます。公開版は一つのファイルロックでインストールから起動確認・復元まで多重実行を防ぎます。
 
 ### 更新失敗と復元
 
-ビルド・インストール・権限付与失敗時は稼働版を維持します。成功時は同じ専用領域内で launcher を原子的に入れ替えて再起動し、約10秒を目安に Tailscale IPv4・IPv4/IPv6 localhost の HTTP 応答とサービス状態を確認します。起動失敗時は直前のペアを選ぶ launcher と commit または version に戻します。初回起動が失敗した場合は候補を撤去してサービスを停止します。失敗した版は次回の更新で再試行します。更新時には短い切断が発生し、観測履歴がリセットされます。
+ビルド・インストール・権限付与失敗時は稼働版を維持します。成功時は同じ専用領域内で launcher を原子的に入れ替えて再起動し、約10秒を目安に Tailscale IPv4・IPv4/IPv6 localhost の画面と `/api/processes` の HTTP 成功応答、およびサービス状態を確認します。画面だけが成功しても、helper を使う検査 API が失敗した候補は有効化しません。起動失敗時は直前のペアを選ぶ launcher と commit または version に戻します。初回起動が失敗した場合は候補を撤去してサービスを停止します。失敗した版は次回の更新で再試行します。更新時には短い切断が発生し、観測履歴がリセットされます。
 
 ```sh
 # main: 稼働中の commit とログ
