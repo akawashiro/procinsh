@@ -1,6 +1,6 @@
 use super::helper_service::{MonitorService, MonitorState};
 use crate::http_server::process::{self, ProcessId};
-use procinsh::{protocol::*, transport};
+use procinsh_protocol::{protocol::*, transport};
 use std::{io::Write, os::unix::net::UnixStream, sync::Arc, time::Duration};
 
 #[test]

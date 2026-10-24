@@ -4,7 +4,7 @@
 //! [`run`] (`pub(crate)`): `fn run() -> anyhow::Result<()>`.
 use super::helper_service::{MonitorService, MonitorState};
 use anyhow::{Result, ensure};
-use procinsh::{protocol::*, transport};
+use procinsh_protocol::{protocol::*, transport};
 use std::{
     net::Shutdown,
     os::{

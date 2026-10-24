@@ -1,5 +1,5 @@
 use anyhow::{Context, Result, bail};
-use procinsh::{protocol::*, transport};
+use procinsh_protocol::{protocol::*, transport};
 use std::{net::Shutdown, os::unix::net::UnixStream, sync::Arc};
 use tokio::sync::{mpsc, oneshot};
 

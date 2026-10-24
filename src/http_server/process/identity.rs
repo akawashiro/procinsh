@@ -1,6 +1,6 @@
 use super::procfs;
 use anyhow::{Result, bail, ensure};
-pub(in crate::http_server) use procinsh::protocol::ProcessId;
+pub(in crate::http_server) use procinsh_protocol::protocol::ProcessId;
 
 #[cfg(test)]
 pub(in crate::http_server) fn identity(pid: i32) -> Result<ProcessId> {

@@ -1,6 +1,6 @@
 use crate::http_server::{process, system};
 use anyhow::{Result, ensure};
-use procinsh::{protocol::*, transport};
+use procinsh_protocol::{protocol::*, transport};
 use serde_json::to_value;
 use std::{
     collections::HashMap,

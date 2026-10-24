@@ -3,7 +3,7 @@ use axum::response::{
     IntoResponse, Response, Sse,
     sse::{Event, KeepAlive},
 };
-use procinsh::protocol::MonitorEvent;
+use procinsh_protocol::protocol::MonitorEvent;
 use std::{
     convert::Infallible,
     sync::Arc,

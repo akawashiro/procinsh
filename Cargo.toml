@@ -19,6 +19,9 @@ include = [
     "/web/dist/**",
 ]
 
+[lib]
+name = "procinsh_protocol"
+
 [dependencies]
 log = "0.4"
 env_logger = "0.11"

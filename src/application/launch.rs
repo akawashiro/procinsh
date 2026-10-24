@@ -1,6 +1,6 @@
 use super::{client::MonitorClient, privileges};
 use anyhow::{Context, Result, ensure};
-use procinsh::{protocol::*, transport};
+use procinsh_protocol::{protocol::*, transport};
 use std::{
     net::{Shutdown, SocketAddr},
     os::{

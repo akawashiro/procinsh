@@ -5,7 +5,7 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use procinsh::protocol::{MonitorRequest, MonitorResponse, ProcessId, ProcessResource};
+use procinsh_protocol::protocol::{MonitorRequest, MonitorResponse, ProcessId, ProcessResource};
 use serde_json::{Value, json};
 use std::sync::Arc;
 
