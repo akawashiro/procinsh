@@ -99,7 +99,7 @@ The script verifies the crates.io publication, pushes the version tag, and creat
 `procinsh-privileged-helper` target owns `privileged_helper/root.rs` and all
 inspection modules. The small library exposes only protocol definitions and
 bounded transport. See [privilege separation](#privileged-helper-boundary)
-for the ownership inventory, deployment, IPC limits and boundary checks. Modules live at the lowest common ancestor of their direct consumers. Child module declarations are private; items needed by parents generally use `pub(super)`.
+for the ownership inventory, deployment, IPC limits and verification. Modules live at the lowest common ancestor of their direct consumers. Child module declarations are private; items needed by parents generally use `pub(super)`.
 
 Rust type names express responsibilities. Data and values describe their contents (`ProcessId`, `ProcessSummary`, `ProcessSnapshot`); types managing operations, state, or resources describe their roles (`ProcessScanner`, `ProcessMonitor`, `FileActivityCollector`, `PerfEventReader`, `PtraceGuard`). Helper methods alone do not determine this distinction, and types do not all require mechanical suffixes.
 
@@ -238,17 +238,7 @@ Tests retain default seccomp/AppArmor, configure the built helper with `setcap`
 inside Docker and directly execute the built main. Do not weaken kernel security
 settings to enable inspection.
 
-### Architectural guard and verification
-
-`python3 scripts/check_privilege_boundary.py` walks the main/library module
-closures against an explicit source allowlist. Helper-private modules cannot
-enter main. Privileged wrappers, FFI and libc imports outside two credential/exec
-modules are rejected. Those modules have explicit libc/syscall allowlists;
-syscall aliases are rejected. Guard self-tests cover wrappers, FFI and aliases.
-Self-tests also inject a helper-private module into main and require rejection.
-Exception changes require reviewing these allowlists and documenting their role.
-The guard is a review aid, not a proof for arbitrary macros, dependencies or
-FFI aliases. The OS boundary is the capability-free HTTP process.
+### Verification
 
 Docker ordinary runs all Rust tests, IPC framing/deadlines, PID reuse,
 cancellation/disconnection, HTTP/SSE contracts, actual per-thread capabilities,

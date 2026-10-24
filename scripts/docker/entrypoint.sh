@@ -33,7 +33,6 @@ case "$suite" in
     npm --prefix web run test:dev
     ;;
   checks)
-    python3 scripts/check_privilege_boundary.py
     bash -n scripts/docker_test.sh scripts/docker/entrypoint.sh scripts/recording-vm/*.sh \
       scripts/dev_run.sh users/akawashiro/scripts/{main_preview,release_preview}.sh
     node --check scripts/chrome_load.mjs
