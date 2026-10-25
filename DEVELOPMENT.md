@@ -115,7 +115,7 @@ Tokio/Axum handles HTTP and SSE. Detail APIs send bounded IPC requests to the he
 
 Web UI API types live in `web/src/shared/api-types.ts` and are maintained alongside Rust JSON responses. The contract includes null handling and hexadecimal address strings. These are compile-time types, not runtime input validation. Vite bundles Three.js as an npm dependency; TypeScript and type definitions are build-only npm dependencies.
 
-[API Documentation](https://akawashiro.github.io/procinsh/) links to the Rust API, [TypeScript API](https://akawashiro.github.io/procinsh/typescript/), [Rust dependency graph](https://akawashiro.github.io/procinsh/rust-architecture/), and [TypeScript dependency graph](https://akawashiro.github.io/procinsh/typescript-architecture/).
+[API Documentation](https://akawashiro.github.io/procinsh/) links to the Rust API, [TypeScript API](https://akawashiro.github.io/procinsh/main/typescript/), [Rust dependency graph](https://akawashiro.github.io/procinsh/main/rust-architecture/), and [TypeScript dependency graph](https://akawashiro.github.io/procinsh/main/typescript-architecture/).
 Each module root's `//!` documentation explains its responsibility and entry points used outside that module, including interfaces for parents and siblings as well as any external interfaces.
 `//! # Interface` lists the types and functions the root exposes or re-exports in normal builds, including types, visibility, function signatures, and definition links. Update it whenever an entry point changes. Link to definitions of supporting types used in signatures where necessary.
 Do not exhaustively copy child module internals, fields, enum variants, or test-only items. Document public type methods, JSON representation and fallback contracts, and ownership, locking, or ordering requirements at their definitions. Comments describe current behavior rather than change history.
@@ -808,12 +808,56 @@ CLANG_FORMAT="$PWD/.venv-format/bin/clang-format" python3 scripts/format_c.py --
 
 CI runs Rust/C/TypeScript formatting checks, TypeScript type checking/Vite builds, Vitest, crate asset inclusion and builds without Node, all-target Rust builds, Clippy, rustdoc link validation, Rust tests, log checks, list/detail data and history graphs, and SPACE model/data verification. Live sensors run in the kernel job; browser tests run separately through Docker's browser suite.
 
-The [Publish documentation and replay demo](.github/workflows/docs.yml) workflow runs on pushes to `main` and manual dispatch, generating rustdoc, TypeDoc, and Rust/TypeScript module dependency graphs and publishing `target/doc/` as a single GitHub Pages artifact. Rust docs use `/procinsh/`, TypeScript `/typescript/`, Rust graphs `/rust-architecture/`, and TypeScript graphs `/typescript-architecture/`, all linked from the landing page. PR `CI` checks rustdoc links and TypeDoc/TypeScript graph generation. Rust graph generation and `cargo-modules` installation run in the publishing workflow.
+Documentation is published at [main](https://akawashiro.github.io/procinsh/main/)
+and at `/procinsh/pr/<number>/` for open, same-repository pull requests, including
+drafts. [The version index](https://akawashiro.github.io/procinsh/) lists published
+versions. Each version contains rustdoc (including private items), TypeDoc and
+Rust/TypeScript dependency graphs. Source links and the version heading identify
+the exact commit; navigation stays within that version.
 
-The same Pages artifact includes a browser-only [SPACE replay demo](https://akawashiro.github.io/procinsh/demo/) under `/demo/` for Chrome, Firefox, and Linux kernel build recordings. The publishing workflow runs `npm --prefix web run build:replay` and copies `web/dist-replay/` to `target/doc/demo/`. The `/demo/` entry page links to automatic looping playback of each recording. Documentation and demos publish together in one workflow; the PR `Static SPACE replay build` workflow checks only the build. JS/CSS and recording references use relative URLs, so `web/dist-replay/` can deploy to any path such as `/software/procinsh/` without rebuilding. Use an entry URL ending in `/` or specifying `index.html`, and copy all output preserving directory structure. Browser tests place the same output under `/`, `/procinsh/demo/`, and `/software/procinsh/` in turn and verify all recordings. To publish, merge the PR to `main` and check demo links after the publishing workflow succeeds. For manual republication, run that workflow against `main`.
+[Build documentation](.github/workflows/docs-build.yml) runs on main pushes and
+PR creation/updates with read-only permissions. It checks out the resolved head
+SHA. Manual dispatch accepts an optional positive PR number; empty means main.
+This also builds PRs that predate the workflow, using build helpers from main.
+Fork PRs are excluded. The main build includes the static SPACE replay at
+`/procinsh/main/demo/`; PR documentation links to that shared main demo. Relative
+replay assets support this deployment prefix.
 
-Vitest runs unit tests in `web/tests/` and in-source tests inside `if (import.meta.vitest)` in `web/src/`. In-source tests access internal helpers directly rather than exporting solely for tests. `includeSource` in `vitest.config.ts` discovers these tests; regular Vite builds replace `import.meta.vitest` with `undefined`, removing tests and test imports. Tests normally use Node; only DOM component tests use jsdom. Unit, browser, development-server tests, and shared helpers all fall under `npm --prefix web run typecheck`.
+[Publish documentation and replay demo](.github/workflows/docs.yml) runs trusted
+main code after build completion or PR closure. It never executes PR code or
+artifact scripts. Only this workflow receives Pages, snapshot-write and PR-comment
+permissions. The `github-pages` environment remains restricted to main. Publication
+is serialized; each run reconciles all current versions so concurrent builds do
+not discard another PR. Artifact paths, regular-file types and the total
+1,000,000,000-byte site limit are checked before deployment.
 
+The generated `docs-site` branch stores `site/main/`, `site/pr/<number>/` and a
+non-public `state.json`. It holds one snapshot commit, replaced with a lease to
+avoid accumulating generated-file history. Only `site/` is uploaded to Pages.
+Successful snapshots survive build-artifact expiry. A failed build retains the
+previous preview and its commit label. PR closure removes that preview; stale
+builds cannot restore it. One bot comment per PR reports the public URL, commit
+and build/publication status. No private preview address is posted.
+
+Legacy HTML documentation and demo entry points redirect to `/main/`, preserving
+query parameters and fragments. The top-level index is the version selector.
+
+To rebuild main or an older PR after these workflows are installed on main:
+
+```bash
+gh workflow run docs-build.yml --ref main
+gh workflow run docs-build.yml --ref main -f pr=288
+```
+
+To reconcile existing artifacts or retry publication without rebuilding:
+
+```bash
+gh workflow run docs.yml --ref main
+```
+
+`python3 tests/docs_preview.py` covers multiple-version retention, stale/failed
+builds, closed PR cleanup, archive boundaries, redirects and comment idempotency.
+It also runs in the Docker `ordinary` suite.
 TypeScript docs use [typedoc.json](web/typedoc.json) to recursively expand `web/src/` as entry points. They cover exported types/functions in list, details, SPACE, and shared modules, excluding external library docs. Locally, run `npm --prefix web ci` then `npm --prefix web run docs` and open `target/doc/typescript/index.html`.
 
 [module-dependencies.ts](web/scripts/module-dependencies.ts) uses the TypeScript compiler API to analyze imports/re-exports in `web/src/` and draws SVG dependency graphs with Graphviz. This includes type-only imports, `import("...")` type references, and string-literal dynamic imports. External packages, `web/tests/`, and test blocks inside `if (import.meta.vitest)` are excluded. Arrows point from consumers to dependencies; the overview groups by directories directly under the source root, and detail diagrams show files.
@@ -890,6 +934,6 @@ tests/targets/bin/recursive --allow-inspector
 
 ## Related links
 
-- [Rust module dependencies](https://akawashiro.github.io/procinsh/rust-architecture/)
-- [TypeScript module dependencies](https://akawashiro.github.io/procinsh/typescript-architecture/)
-- [Rust doc](https://akawashiro.github.io/procinsh/procinsh/index.html)
+- [Rust module dependencies](https://akawashiro.github.io/procinsh/main/rust-architecture/)
+- [TypeScript module dependencies](https://akawashiro.github.io/procinsh/main/typescript-architecture/)
+- [Rust doc](https://akawashiro.github.io/procinsh/main/procinsh/index.html)

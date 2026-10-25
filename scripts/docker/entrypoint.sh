@@ -30,6 +30,7 @@ case "$suite" in
     python3 tests/listen-policy.py
     python3 tests/release.py
     python3 tests/recording-vm.py
+    python3 tests/docs_preview.py
     npm --prefix web run test:dev
     ;;
   checks)

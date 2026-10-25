@@ -1,0 +1,73 @@
+name: Build documentation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: 'Open PR number (empty builds main)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: docs-build-${{ github.event.pull_request.number || inputs.pr || 'main' }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      # A merge ref includes newly introduced build helpers; manual dispatch uses
+      # main's helpers even when the requested PR predates this workflow.
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.sha || github.event.repository.default_branch }}
+          path: tools
+          persist-credentials: false
+      - name: Resolve source commit
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_PR: ${{ inputs.pr }}
+        run: python3 tools/scripts/build_docs.py resolve --pr "$INPUT_PR" --artifact "$RUNNER_TEMP/documentation"
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.source.outputs.sha }}
+          path: source
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: source/web/package-lock.json
+      - name: Install documentation dependencies
+        run: |
+          rustup show active-toolchain
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends build-essential clang llvm pkg-config libelf-dev zlib1g-dev python3 linux-tools-common linux-tools-generic graphviz
+          shopt -s nullglob
+          bpftools=(/usr/lib/linux-tools/*/bpftool)
+          test ${#bpftools[@]} -gt 0
+          echo "BPFTOOL=${bpftools[0]}" >> "$GITHUB_ENV"
+          test -r /sys/kernel/btf/vmlinux
+          cargo install cargo-modules --version 0.27.0 --locked
+        working-directory: source
+      - name: Build versioned documentation
+        run: python3 tools/scripts/build_docs.py build --source source --artifact "$RUNNER_TEMP/documentation"
+      # Metadata is retained for failed builds so the publisher can report them.
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.source.outcome == 'success'
+        with:
+          name: docs-${{ steps.source.outputs.key }}-${{ steps.source.outputs.sha }}
+          path: ${{ runner.temp }}/documentation
+          retention-days: 7
+          overwrite: true

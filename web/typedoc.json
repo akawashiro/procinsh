@@ -13,9 +13,9 @@
   "out": "../target/doc/typescript",
   "readme": "none",
   "navigationLinks": {
-    "All API documentation": "https://akawashiro.github.io/procinsh/",
-    "TypeScript architecture": "https://akawashiro.github.io/procinsh/typescript-architecture/",
-    "Rust architecture": "https://akawashiro.github.io/procinsh/rust-architecture/"
+    "All API documentation": "https://akawashiro.github.io/procinsh/main/",
+    "TypeScript architecture": "https://akawashiro.github.io/procinsh/main/typescript-architecture/",
+    "Rust architecture": "https://akawashiro.github.io/procinsh/main/rust-architecture/"
   },
   "treatWarningsAsErrors": true
 }
