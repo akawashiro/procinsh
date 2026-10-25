@@ -52,7 +52,6 @@ jobs:
 
   arm64-kernel-test:
     name: Live eBPF tests (arm64)
-    # Google Chrome has no Linux arm64 build, so browser suites stay on x86-64.
     # AArch64 snapshots are not implemented yet; this job covers the build and BPF.
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
@@ -62,3 +61,23 @@ jobs:
           persist-credentials: false
       - name: Run tests with explicit kernel capabilities
         run: bash scripts/docker_test.sh kernel
+
+  browser-test:
+    name: Chromium browser tests (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            suite: browser
+          # Replay exercises Chromium on arm64 without requiring register capture.
+          - runner: ubuntu-24.04-arm
+            suite: browser-replay
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run Chromium tests in Docker
+        run: bash scripts/docker_test.sh '${{ matrix.suite }}'

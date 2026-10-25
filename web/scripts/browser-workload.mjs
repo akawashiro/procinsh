@@ -19,8 +19,8 @@ if (!Number.isInteger(tabCount) || tabCount < 1 || tabCount > 1000) throw new Er
 const tabUrls = Array.from({length: tabCount}, (_, index) => urls[index % urls.length]);
 const interval = Number(process.env.INTERVAL_SECONDS ?? 10) * 1000;
 if (!Number.isFinite(interval) || interval < 1000) throw new Error('INTERVAL_SECONDS must be at least 1');
-const browser = process.env.WORKLOAD ?? 'chrome';
-if (!['chrome', 'firefox'].includes(browser)) throw new Error('WORKLOAD must be chrome or firefox');
+const browser = process.env.WORKLOAD ?? 'chromium';
+if (!['chromium', 'firefox'].includes(browser)) throw new Error('WORKLOAD must be chromium or firefox');
 const profile = await mkdtemp(join(tmpdir(), `${browser}-reload-profile-`));
 const pidFile = process.env.PID_FILE;
 let ownsPidFile = false;
@@ -35,11 +35,12 @@ try {
     ownsPidFile = true;
   }
   instance = await puppeteer.launch({
-    browser,
+    // Puppeteer's Chrome launcher also controls Chromium.
+    browser: browser === 'chromium' ? 'chrome' : 'firefox',
     protocol: 'webDriverBiDi',
     executablePath: browser === 'firefox'
       ? (process.env.FIREFOX || '/opt/firefox/firefox')
-      : (process.env.CHROME || '/usr/bin/google-chrome'),
+      : (process.env.CHROMIUM || '/usr/bin/chromium'),
     headless: !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY,
     userDataDir: profile,
     handleSIGINT: false,

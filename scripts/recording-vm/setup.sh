@@ -32,8 +32,7 @@ if expected != [actual]:
 PYTHON
   tar -xJf /tmp/firefox.tar.xz -C /opt
 else
-  curl -fL https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o /tmp/chrome.deb
-  apt-get install -y /tmp/chrome.deb
+  bash scripts/install_chromium.sh
 fi
 cat >/etc/systemd/system/space-demo.service <<UNIT
 [Unit]
@@ -68,7 +67,7 @@ After=network.target
 [Service]
 User=demo
 WorkingDirectory=/opt/procinsh
-Environment=WORKLOAD=$workload TAB_COUNT=8 INTERVAL_SECONDS=10
+Environment=WORKLOAD=$workload CHROMIUM=/usr/bin/chromium TAB_COUNT=8 INTERVAL_SECONDS=10
 ExecStart=/usr/bin/node scripts/browser_workload.mjs
 Restart=on-failure
 [Install]

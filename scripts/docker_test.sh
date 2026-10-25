@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: bash scripts/docker_test.sh [--distro ubuntu:24.04|ubuntu:26.04|fedora:44] [--network NETWORK] [all|ordinary|kernel|checks|browser|rust|web] [test filters...]"
+  echo "Usage: bash scripts/docker_test.sh [--distro ubuntu:24.04|ubuntu:26.04|fedora:44] [--network NETWORK] [all|ordinary|kernel|checks|browser|browser-replay|rust|web] [test filters...]"
 }
 distro=ubuntu:24.04
 network=bridge
@@ -24,7 +24,7 @@ esac
 suite=${1:-all}
 if [[ $# -gt 0 ]]; then shift; fi
 case "$suite" in
-  all|ordinary|kernel|checks|browser) [[ $# == 0 ]] || { usage >&2; exit 2; } ;;
+  all|ordinary|kernel|checks|browser|browser-replay) [[ $# == 0 ]] || { usage >&2; exit 2; } ;;
   rust|web) ;;
   -h|--help) usage; exit 0 ;;
   *) usage >&2; exit 2 ;;

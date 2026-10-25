@@ -673,7 +673,7 @@ VM scripts require a Linux x86-64 host with read/write access to `/dev/kvm`, QEM
 
 ```sh
 # The guest clones the current checkout's published commit.
-# WORKLOAD is chrome (default) or firefox.
+# WORKLOAD is chromium (default) or firefox.
 WORKLOAD=firefox VM_DIR=/tmp/space-demo scripts/recording-vm/run.sh prepare
 VM_DIR=/tmp/space-demo scripts/recording-vm/run.sh run
 ```
@@ -689,13 +689,13 @@ To record automatically using the same browser interactions:
   RECORD_OUTPUT=/tmp/firefox-vm.json.gz node --import tsx scripts/capture-vm-recording.ts)
 ```
 
-The host needs Google Chrome and `npm --prefix web ci`. `CHROME` sets the executable path. The capture script saves gzip and verifies activity, file size, and replay. Compress manual downloads with `gzip -n -9 recording.json`. Copy demos to `web/replay-public/recordings/` and add entries in `web/src/space/session-controls.ts`.
+The host needs Chromium and `npm --prefix web ci`. `CHROMIUM` sets the executable path. The capture script saves gzip and verifies activity, file size, and replay. Compress manual downloads with `gzip -n -9 recording.json`. Copy demos to `web/replay-public/recordings/` and add entries in `web/src/space/session-controls.ts`.
 
 Connect to the guest console with `VM_DIR=/tmp/space-demo python3 scripts/recording-vm/console.py` (Ctrl-] disconnects). Inspect the workload with `journalctl -u browser-demo`. The `browser-demo` systemd service accepts `TAB_COUNT`, `INTERVAL_SECONDS`, and `SITE_LIST`. Stop the VM with `VM_DIR=/tmp/space-demo scripts/recording-vm/run.sh stop` and wait for QEMU to exit before restarting.
 
 ### Recording the Linux kernel build demo
 
-The kernel workload uses the same VM tools and browser recording features as browser workloads. `WORKLOAD` accepts `chrome` (default), `firefox`, or `kernel-build`. Kernel guests neither install browsers nor run browser workloads.
+The kernel workload uses the same VM tools and browser recording features as browser workloads. `WORKLOAD` accepts `chromium` (default), `firefox`, or `kernel-build`. Kernel guests neither install browsers nor run browser workloads.
 
 ```sh
 WORKLOAD=kernel-build VM_DIR=/tmp/kernel-demo HOST_PORT=10191 \
@@ -880,40 +880,40 @@ Rust tests cover identities, SSE, procfs, PID reuse, memory reading, perf sample
 bash scripts/docker_test.sh browser
 ```
 
-Docker images used by every suite include Google Chrome. `browser` verifies both list/details and SPACE inside containers. Browsers use temporary profiles and are cleaned up with test servers on exit. SPACE builds the test web fixture through [vite.browser-test.config.ts](web/vite.browser-test.config.ts), embeds it in the Cargo binary, then runs it. Generated files stay inside the container.
+Docker images include native Chromium packages on Ubuntu and Fedora. See [Chromium setup](developer-docs/chromium.md) for installation and architecture coverage. `browser` verifies both list/details and SPACE inside containers. Browsers use temporary profiles and are cleaned up with test servers on exit. SPACE builds the test web fixture through [vite.browser-test.config.ts](web/vite.browser-test.config.ts), embeds it in the Cargo binary, then runs it. Generated files stay inside the container.
 
 [dev-server.ts](web/tests/integration/dev-server.ts) is part of `ordinary`. It starts the built binary and Vite and checks page routes, CSS-edit HMR, Origin validation, and proxying of JSON and both SSE streams.
 
-### Generating communication/IPC load with Chrome
+### Generating communication/IPC load with Chromium
 
-`scripts/chrome_load.mjs` reloads Google Chrome tabs about every 10 seconds, bypassing cache. It requires Node.js 22.12 or later and Chrome, with no additional npm packages. By default, it opens the first 20 sites in `scripts/chrome_sites.txt`. GPU is disabled; without a graphical session (`DISPLAY`/`WAYLAND_DISPLAY`), it runs headless.
+`scripts/chromium_load.mjs` reloads Chromium tabs about every 10 seconds, bypassing cache. It requires Node.js 22.12 or later, Chromium, and `npm --prefix web ci`. By default, it opens the first 20 sites in `scripts/chromium_sites.txt`. Without a graphical session (`DISPLAY`/`WAYLAND_DISPLAY`), it runs headless.
 
 ```sh
-node scripts/chrome_load.mjs
+node scripts/chromium_load.mjs
 
 # 100 sites, 10-second interval
-TAB_COUNT=100 INTERVAL_SECONDS=10 node scripts/chrome_load.mjs
+TAB_COUNT=100 INTERVAL_SECONDS=10 node scripts/chromium_load.mjs
 
-# Specify Chrome executable and URL to observe
-CHROME=/usr/bin/chromium node scripts/chrome_load.mjs http://127.0.0.1:8080/
+# Specify Chromium executable and URL to observe
+CHROMIUM=/usr/bin/chromium node scripts/chromium_load.mjs http://127.0.0.1:8080/
 
 # Custom site list (one URL per line; ignore blank lines and lines starting with #)
-SITE_LIST=/path/to/sites.txt TAB_COUNT=5 node scripts/chrome_load.mjs
+SITE_LIST=/path/to/sites.txt TAB_COUNT=5 node scripts/chromium_load.mjs
 ```
 
 `TAB_COUNT` ranges from 1 to 1,000; `INTERVAL_SECONDS` must be at least one second. The list repeats if there are more tabs than URLs. Loading times, redirects, and access restrictions vary by site; logged reload completion means a DevTools command succeeded, not that all content finished loading.
 
-Chrome uses a separate temporary profile and loopback DevTools port; controller/Chrome PIDs are logged. Ctrl+C or SIGTERM to the controller stops Chrome and removes the profile. `PID_FILE=/path/to/load.pid` saves the controller PID and removes it on exit. Existing PID files are not overwritten.
+Chromium uses a separate temporary profile and loopback DevTools port; controller/Chromium PIDs are logged. Ctrl+C or SIGTERM to the controller stops Chromium and removes the profile. `PID_FILE=/path/to/load.pid` saves the controller PID and removes it on exit. Existing PID files are not overwritten.
 
 Use tmux to keep running after an interactive session ends. Run from the repository root:
 
 ```sh
 tmux new-session -d -s procinsh-load \
-  "exec env PID_FILE=/tmp/procinsh-chrome-load.pid node '$PWD/scripts/chrome_load.mjs' >> /tmp/procinsh-chrome-load.log 2>&1"
-tail -f /tmp/procinsh-chrome-load.log
+  "exec env PID_FILE=/tmp/procinsh-chromium-load.pid node '$PWD/scripts/chromium_load.mjs' >> /tmp/procinsh-chromium-load.log 2>&1"
+tail -f /tmp/procinsh-chromium-load.log
 
 # Stop load generation
-kill -TERM "$(cat /tmp/procinsh-chrome-load.pid)"
+kill -TERM "$(cat /tmp/procinsh-chromium-load.pid)"
 ```
 
 ### Live sensor tests

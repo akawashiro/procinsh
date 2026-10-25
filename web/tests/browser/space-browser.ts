@@ -1,7 +1,7 @@
 import type { SystemSnapshot } from "../../src/shared/api-types.js";
 import type { createSpaceCamera } from "../../src/space/camera.js";
 type CameraView = ReturnType<ReturnType<typeof createSpaceCamera>["view"]>;
-// Browser integration via tsx and DevTools Protocol. Requires Chrome or Chromium.
+// Browser integration via tsx and DevTools Protocol. Requires Chromium.
 import {
   launch as spawnCaptured,
   delay,
@@ -54,31 +54,28 @@ try {
     () => app.output.match(/http:\/\/127\.0\.0\.1:\d+/)?.[0],
     "HTTP server",
   );
-  const chrome = launch(
-    process.env.CHROME || "/opt/google/chrome/google-chrome",
-    [
-      "--headless=new",
-      "--no-sandbox",
-      "--use-gl=angle",
-      "--use-angle=swiftshader",
-      "--enable-unsafe-swiftshader",
-      "--disable-dev-shm-usage",
-      "--no-first-run",
-      "--remote-debugging-port=0",
-      `--user-data-dir=${profile}`,
-      "about:blank",
-    ],
-  );
+  const chromium = launch(process.env.CHROMIUM || "/usr/bin/chromium", [
+    "--headless=new",
+    "--no-sandbox",
+    "--use-gl=angle",
+    "--use-angle=swiftshader",
+    "--enable-unsafe-swiftshader",
+    "--disable-dev-shm-usage",
+    "--no-first-run",
+    "--remote-debugging-port=0",
+    `--user-data-dir=${profile}`,
+    "about:blank",
+  ]);
   const debugUrl = await until(
     () =>
-      chrome.output.match(
+      chromium.output.match(
         /ws:\/\/127\.0\.0\.1:(\d+)\/devtools\/browser\/[\w-]+/,
       )?.[0],
-    "Chrome DevTools",
+    "Chromium DevTools",
   );
   const debugPort = new URL(debugUrl).port;
   const page = (await pages(debugPort)).find((page) => page.type === "page");
-  assert.ok(page, "Chrome exposes a browser page");
+  assert.ok(page, "Chromium exposes a browser page");
   const connection = await connectPage(page.webSocketDebuggerUrl, errors);
   socket = connection.socket;
   const { cdp, evaluate, waitFor } = connection;

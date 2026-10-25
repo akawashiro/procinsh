@@ -34,9 +34,9 @@ case "$suite" in
     npm --prefix web run test:dev
     ;;
   checks)
-    bash -n scripts/docker_test.sh scripts/docker/entrypoint.sh scripts/recording-vm/*.sh \
+    bash -n scripts/docker_test.sh scripts/docker/entrypoint.sh scripts/install_chromium.sh scripts/recording-vm/*.sh \
       scripts/dev_run.sh users/akawashiro/scripts/{main_preview,release_preview}.sh
-    node --check scripts/chrome_load.mjs
+    node --check scripts/chromium_load.mjs
     node --check scripts/browser_workload.mjs
     node --check web/scripts/browser-workload.mjs
     npm --prefix web run format:check
@@ -128,8 +128,14 @@ PYTHON
     chown 65534:65534 target/debug/procinsh-privileged-helper
     setcap cap_sys_ptrace,cap_bpf,cap_perfmon,cap_dac_read_search,cap_sys_admin=ep target/debug/procinsh-privileged-helper
     sh tests/targets/build.sh
-    export CHROME=/usr/bin/google-chrome
+    CHROMIUM=$(command -v chromium || command -v chromium-browser)
+    export CHROMIUM
     npm --prefix web run test:browser
+    ;;
+  browser-replay)
+    CHROMIUM=$(command -v chromium || command -v chromium-browser)
+    export CHROMIUM
+    npm --prefix web run test:browser:replay
     ;;
   rust)
     cargo build --locked

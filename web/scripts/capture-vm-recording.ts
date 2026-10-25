@@ -10,14 +10,14 @@ import { parseRecording, MAX_RECORDING_BYTES } from "../src/space/recording.js";
 import type { ProcessId } from "../src/shared/api-types.js";
 import { PAGES_MAX_ASSET_BYTES } from "../vite.replay.config.js";
 
-const workload = process.env.WORKLOAD ?? "chrome";
-assert.ok(["chrome", "firefox", "kernel-build"].includes(workload));
+const workload = process.env.WORKLOAD ?? "chromium";
+assert.ok(["chromium", "firefox", "kernel-build"].includes(workload));
 const kernelBuild = workload === "kernel-build";
 const workloadName = kernelBuild
   ? "Linux kernel build"
   : workload === "firefox"
     ? "Firefox"
-    : "Chrome";
+    : "Chromium";
 function isWorkloadProcess(process: {
   name: string;
   command_line?: string[] | null;
@@ -81,7 +81,7 @@ const output = process.env.RECORD_OUTPUT ?? `/tmp/${workload}-vm.json.gz`;
 const base = `http://127.0.0.1:${port}`;
 const profile = await mkdtemp(join(tmpdir(), "space-vm-capture-"));
 const errors: string[] = [];
-const chrome = launch(process.env.CHROME || "/usr/bin/google-chrome", [
+const chromium = launch(process.env.CHROMIUM || "/usr/bin/chromium", [
   "--headless=new",
   "--use-gl=angle",
   "--use-angle=swiftshader",
@@ -96,10 +96,10 @@ let socket: WebSocket | undefined;
 try {
   const endpoint = await until(
     () =>
-      chrome.output.match(
+      chromium.output.match(
         /ws:\/\/127\.0\.0\.1:\d+\/devtools\/browser\/[\w-]+/,
       )?.[0],
-    "Chrome debugger",
+    "Chromium debugger",
   );
   const page = (await pages(new URL(endpoint).port)).find(
     (p) => p.type === "page",
@@ -241,10 +241,10 @@ try {
   );
 } finally {
   socket?.close();
-  chrome.kill("SIGTERM");
+  chromium.kill("SIGTERM");
   await until(
-    () => chrome.exitCode !== null || chrome.signalCode !== null,
-    "capture Chrome exit",
+    () => chromium.exitCode !== null || chromium.signalCode !== null,
+    "capture Chromium exit",
   );
   await rm(profile, { recursive: true, force: true });
 }

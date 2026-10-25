@@ -25,11 +25,11 @@ class RecordingVmTests(unittest.TestCase):
             return result, config
 
     def test_browser_workloads(self):
-        for browser in (None, "chrome", "firefox"):
+        for browser in (None, "chromium", "firefox"):
             with self.subTest(browser=browser):
                 result, config = self.seed(**({"WORKLOAD": browser} if browser else {}))
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual(config["runcmd"][0][2:], ["a" * 40, "10191", browser or "chrome"])
+                self.assertEqual(config["runcmd"][0][2:], ["a" * 40, "10191", browser or "chromium"])
                 self.assertNotIn("ccache", config["packages"])
                 self.assertEqual(len(config["write_files"]), 1)
 

@@ -64,7 +64,7 @@ const address = server.address();
 assert.ok(address && typeof address !== "string");
 const profile = await mkdtemp(join(tmpdir(), "procinsh-static-browser-"));
 const errors: string[] = [];
-const chrome = launch(process.env.CHROME || "/usr/bin/google-chrome", [
+const chromium = launch(process.env.CHROMIUM || "/usr/bin/chromium", [
   "--headless=new",
   "--no-sandbox",
   "--use-gl=angle",
@@ -79,10 +79,10 @@ let socket: WebSocket | undefined;
 try {
   const debug = await until(
     () =>
-      chrome.output.match(
+      chromium.output.match(
         /ws:\/\/127\.0\.0\.1:\d+\/devtools\/browser\/[\w-]+/,
       )?.[0],
-    "static Chrome",
+    "static Chromium",
   );
   const page = (await pages(new URL(debug).port)).find(
     (p) => p.type === "page",
@@ -347,9 +347,9 @@ try {
   }
 } finally {
   socket?.close();
-  chrome.kill("SIGTERM");
+  chromium.kill("SIGTERM");
   await delay(300);
-  if (chrome.exitCode === null) chrome.kill("SIGKILL");
+  if (chromium.exitCode === null) chromium.kill("SIGKILL");
   server.closeAllConnections();
   server.close();
   await rm(profile, { recursive: true, force: true });

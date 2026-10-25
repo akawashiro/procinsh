@@ -6,6 +6,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PATH=/opt/cargo/bin:/opt/format/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
+COPY scripts/install_chromium.sh /usr/local/bin/install-procinsh-chromium
 RUN set -eu; ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
     && if command -v apt-get >/dev/null; then \
@@ -18,19 +19,12 @@ RUN set -eu; ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
            apt-get install -y --no-install-recommends linux-tools-generic; \
            ln -sf /usr/lib/linux-tools/*/bpftool /usr/local/bin/bpftool; \
          fi; \
-         if [ "$(dpkg --print-architecture)" = amd64 ]; then \
-           curl -fsSL https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o /tmp/chrome.deb; \
-           apt-get install -y /tmp/chrome.deb; rm /tmp/chrome.deb; \
-         fi; \
-         rm -rf /var/lib/apt/lists/*; \
        else \
          dnf install -y ca-certificates curl git tar gzip gcc gcc-c++ make clang llvm \
            pkgconf-pkg-config elfutils-libelf-devel zlib-devel libcap python3 python3-pip bpftool graphviz; \
-         if [ "$(uname -m)" = x86_64 ]; then \
-           dnf install -y https://dl.google.com/linux/direct/google-chrome-stable_current_x86_64.rpm; \
-         fi; \
-         dnf clean all; \
-       fi
+       fi \
+    && bash /usr/local/bin/install-procinsh-chromium \
+    && if command -v apt-get >/dev/null; then rm -rf /var/lib/apt/lists/*; else dnf clean all; fi
 COPY rust-toolchain.toml /opt/toolchain/rust-toolchain.toml
 COPY requirements-format.txt /opt/toolchain/requirements-format.txt
 RUN curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs -o /tmp/rustup-init.sh \

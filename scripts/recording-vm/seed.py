@@ -12,9 +12,9 @@ if not 1 <= port <= 65535:
     raise SystemExit("HOST_PORT must be between 1 and 65535")
 if not re.fullmatch(r"[0-9a-f]{40}", revision):
     raise SystemExit("PROCINSH_REF must be a full, published commit SHA")
-workload = os.environ.get("WORKLOAD", "chrome")
-if workload not in ("chrome", "firefox", "kernel-build"):
-    raise SystemExit("WORKLOAD must be chrome, firefox or kernel-build")
+workload = os.environ.get("WORKLOAD", "chromium")
+if workload not in ("chromium", "firefox", "kernel-build"):
+    raise SystemExit("WORKLOAD must be chromium, firefox or kernel-build")
 setup = Path(__file__).with_name("setup.sh").read_text()
 config = {
     "hostname": "space-demo",
