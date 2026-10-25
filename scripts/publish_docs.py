@@ -248,7 +248,7 @@ def prepare(api, work):
                     or not eligible(run, key, sha, prs, main_sha, api.repository)):
                 continue
             if run["conclusion"] != "success":
-                results[key] = f"failed ([build log]({run['html_url']})); previous preview retained"
+                results[key] = "build failed; previous preview retained"
                 break
             results[key] = "publication pending"
             save_context()
@@ -257,7 +257,7 @@ def prepare(api, work):
             extracted = work / f"artifact-{artifact['id']}"
             safe_extract(archive, extracted)
             replace_version(site, state, key, sha, extracted / "site", run["html_url"])
-            results[key] = f"published ([build log]({run['html_url']}))"
+            results[key] = "published"
             break
     # Recheck after downloads so close events and newer commits cannot resurrect
     # closed previews or publish a build that became stale during preparation.
@@ -303,12 +303,11 @@ def report_error(api, work):
     if not path.exists():
         return
     context = json.loads(path.read_text())
-    url = f"https://github.com/{api.repository}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
     for key in context["results"]:
         if key.startswith("pr-"):
             number = int(key[3:])
             upsert_comment(api, number, comment_body(number, context["prs"][str(number)], context["previous_versions"].get(key),
-                           f"publication failed ([log]({url})); previous preview retained"))
+                           "publication failed; previous preview retained"))
 
 
 def main():

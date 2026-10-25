@@ -143,6 +143,7 @@ class PublicationTests(unittest.TestCase):
         self.assertIn("failed", body)
         self.assertIn(A, body)
         self.assertIn(C, body)
+        self.assertNotIn("https://github.com/", body)
 
     def test_closed_pr_is_removed_and_delayed_build_cannot_restore_it(self):
         self.retained(288, B)
