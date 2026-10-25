@@ -25,7 +25,7 @@ zlib development files, and BTF information at `/sys/kernel/btf/vmlinux`.
 
 Support on WSL2 is very limited, I recommend building procinsh from source rather than installing it from crates.io.
 
-**Security warning: ProcInSh makes sensitive information on your machine, including process memory and environment variables from all processes it can inspect, accessible through your browser. Use extreme caution when exposing the service beyond localhost with `--allow-non-loopback`: anyone who can access the service can view this information without authentication or TLS.**
+**Security warning: ProcInSh makes sensitive information on your machine, including process memory and environment variables accessible through your browser. Use extreme caution when exposing the service beyond localhost with `--allow-non-loopback`**
 
 ### Install from crates.io
 
