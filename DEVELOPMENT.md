@@ -880,7 +880,7 @@ Rust tests cover identities, SSE, procfs, PID reuse, memory reading, perf sample
 bash scripts/docker_test.sh browser
 ```
 
-Docker images include native Chromium packages on Ubuntu and Fedora. See [Chromium setup](developer-docs/chromium.md) for installation and architecture coverage. `browser` verifies both list/details and SPACE inside containers. Browsers use temporary profiles and are cleaned up with test servers on exit. SPACE builds the test web fixture through [vite.browser-test.config.ts](web/vite.browser-test.config.ts), embeds it in the Cargo binary, then runs it. Generated files stay inside the container.
+Docker images include native Chromium packages on Ubuntu and Fedora. `browser` verifies both list/details and SPACE inside containers. Browsers use temporary profiles and are cleaned up with test servers on exit. SPACE builds the test web fixture through [vite.browser-test.config.ts](web/vite.browser-test.config.ts), embeds it in the Cargo binary, then runs it. Generated files stay inside the container.
 
 [dev-server.ts](web/tests/integration/dev-server.ts) is part of `ordinary`. It starts the built binary and Vite and checks page routes, CSS-edit HMR, Origin validation, and proxying of JSON and both SSE streams.
 

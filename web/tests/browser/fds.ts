@@ -65,7 +65,7 @@ export async function checkDescriptors({
     `document.querySelector('#fds-entries tr[data-fd="61"] [data-relation="peer"] a[data-pid="${peerPid}"]').click()`,
   );
   await waitFor(
-    `document.getElementById('identity').textContent.includes('PID ${peerPid} /')`,
+    `document.getElementById('identity')?.textContent.includes('PID ${peerPid} /')`,
     "click peer PID to inspect",
   );
   assert.equal(await evaluate("location.pathname"), `/process/${peerPid}`);
@@ -86,7 +86,7 @@ export async function checkDescriptors({
     `document.querySelector('#fds-entries tr[data-fd="60"] [data-relation="peer"] a[data-pid="${ipcPid}"]').click()`,
   );
   await waitFor(
-    `document.getElementById('identity').textContent.includes('PID ${ipcPid} /')`,
+    `document.getElementById('identity')?.textContent.includes('PID ${ipcPid} /')`,
     "reverse PID navigation",
   );
   await evaluate(`
