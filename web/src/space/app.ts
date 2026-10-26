@@ -78,6 +78,7 @@ const search = createSpaceSearch(
 const scene = createSpaceScene();
 const camera = createSpaceCamera($("world"));
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+let prefersReducedMotion = reducedMotion.matches;
 const tour = new TourCamera(
   camera.camera,
   camera.controls,
@@ -313,7 +314,7 @@ function stopTour() {
 function syncTourFromUrl() {
   if (new URL(location.href).searchParams.get("tour") !== "1") {
     tour.stop();
-  } else if (reducedMotion.matches) {
+  } else if (prefersReducedMotion) {
     stopTour();
   } else if (data.nodes.size && !document.hidden) {
     tour.start();
@@ -324,12 +325,14 @@ $("world").addEventListener("pointerdown", stopTour);
 $("world").addEventListener("wheel", stopTour, { passive: true });
 $("tour").onclick = () => {
   if (tour.active) stopTour();
-  else tour.start(reducedMotion.matches);
+  else tour.start(prefersReducedMotion);
 };
-function syncMotionPreference() {
-  if (reducedMotion.matches) stopTour();
-  $("tour").disabled = reducedMotion.matches;
-  $("tour").title = reducedMotion.matches
+function syncMotionPreference(event?: MediaQueryListEvent) {
+  // URL synchronization and input handlers share the preference from the event.
+  prefersReducedMotion = event?.matches ?? reducedMotion.matches;
+  if (prefersReducedMotion) stopTour();
+  $("tour").disabled = prefersReducedMotion;
+  $("tour").title = prefersReducedMotion
     ? "Tour motion is disabled by your reduced-motion preference"
     : "Cinematic camera tour · Esc or drag to exit · occasionally rearranges the layout";
 }
