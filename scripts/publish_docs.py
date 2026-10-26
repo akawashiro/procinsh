@@ -173,7 +173,7 @@ def render_site(root, state, open_prs):
                               f'<a href="{html.escape(url)}">Documentation moved</a>'
                               '<script>location.replace(' + json.dumps(url)
                               + '+location.search+location.hash)</script>')
-    links = ['<li><a href="main/">main documentation and replay demo</a></li>']
+    links = ['<li><a href="main/">main</a></li>']
     for key, value in sorted(state["versions"].items()):
         if key == "main":
             continue
