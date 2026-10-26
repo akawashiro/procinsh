@@ -5,6 +5,11 @@ Browser tests, capture automation, and browser workloads use Chromium. Set
 Browser workloads accept `WORKLOAD=chromium` (the default) or `WORKLOAD=firefox`.
 The capture script and recording VM also accept `WORKLOAD=kernel-build`.
 
+The bundled `chromium-ubuntu26` demo is a 20-second recording of Chromium
+156.0.8078.47 in an Ubuntu 26.04 ARM64 KVM guest. It contains 18 Chromium process
+identities with measured CPU, IPC, and file I/O activity. Both browser demos use
+the eight sites in `scripts/browser_sites.txt`, reloading every ten seconds.
+
 ## Installation
 
 Docker images and recording VMs use `scripts/install_chromium.sh`. On Ubuntu,

@@ -383,7 +383,7 @@ test("tour favors the systemd tree and excludes kthreadd descendants and their c
     { pid: 3, name: "kworker", parent: 2 },
     { pid: 4, name: "nested-worker", parent: 3 },
     { pid: 5, name: "service", parent: 1 },
-    { pid: 6, name: "chrome", parent: 5 },
+    { pid: 6, name: "chromium", parent: 5 },
     { pid: 7, name: "orphan", parent: null },
   ];
   const identity = (pid: number) => ({ pid, start_time_ticks: 1 });

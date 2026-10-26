@@ -35,8 +35,8 @@ try {
     ownsPidFile = true;
   }
   instance = await puppeteer.launch({
-    // Puppeteer's Chrome launcher also controls Chromium.
-    browser: browser === 'chromium' ? 'chrome' : 'firefox',
+    // Chromium uses Puppeteer's default launcher.
+    browser: browser === 'firefox' ? 'firefox' : undefined,
     protocol: 'webDriverBiDi',
     executablePath: browser === 'firefox'
       ? (process.env.FIREFOX || '/opt/firefox/firefox')

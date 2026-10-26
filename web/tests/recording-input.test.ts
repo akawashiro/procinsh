@@ -8,7 +8,7 @@ const json = readFileSync(
   new URL("./fixtures/space-recording.json", import.meta.url),
   "utf8",
 );
-test.each(["chrome", "firefox"])(
+test.each(["chromium", "firefox"])(
   "published real %s gzip passes the shared schema and retains activity",
   async (browser) => {
     const gzip = readFileSync(

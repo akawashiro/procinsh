@@ -7,9 +7,9 @@ import type { SystemSnapshot } from "../shared/api-types.js";
 // IDs are shared by the picker and the URL allowlist.
 const bundledRecordings = [
   {
-    id: "chrome-ubuntu26",
-    label: "Chrome",
-    path: "recordings/chrome-ubuntu26.json.gz",
+    id: "chromium-ubuntu26",
+    label: "Chromium",
+    path: "recordings/chromium-ubuntu26.json.gz",
   },
   {
     id: "firefox-ubuntu26",

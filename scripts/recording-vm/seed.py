@@ -24,7 +24,7 @@ config = {
     "users": [{"name": "demo", "lock_passwd": True, "shell": "/bin/bash", "groups": "sudo", "sudo": "ALL=(ALL) NOPASSWD:ALL"}],
     "package_update": True,
     "packages": ["git", "curl", "ca-certificates", "build-essential", "clang", "llvm",
-                 "pkg-config", "libelf-dev", "zlib1g-dev", "bpftool", "nodejs", "npm", "python3"],
+                 "pkg-config", "libelf-dev", "zlib1g-dev", "libcap2-bin", "bpftool", "nodejs", "npm", "python3"],
     "write_files": [
         {"path": "/opt/setup-recording.sh", "permissions": "0755", "content": setup},
     ],

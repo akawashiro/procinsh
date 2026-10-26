@@ -205,10 +205,10 @@ export async function checkSpaceRecording(
     "live demo picker",
   );
   await evaluate(
-    "document.querySelector('#demo-recording').value='chrome-ubuntu26';document.querySelector('#demo-recording').dispatchEvent(new Event('change'))",
+    "document.querySelector('#demo-recording').value='chromium-ubuntu26';document.querySelector('#demo-recording').dispatchEvent(new Event('change'))",
   );
   await waitFor(
-    "location.search==='?recording=chrome-ubuntu26' && document.querySelector('#replay-status')?.hidden && document.querySelector('#loop').checked && document.querySelector('#play').textContent==='Pause'",
+    "location.search==='?recording=chromium-ubuntu26' && document.querySelector('#replay-status')?.hidden && document.querySelector('#loop').checked && document.querySelector('#play').textContent==='Pause'",
     "live Open demo navigates to looping demo playback",
   );
 }

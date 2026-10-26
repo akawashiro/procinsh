@@ -138,6 +138,21 @@ try {
   if (kernelBuild) {
     console.log("Waiting for measurable compiler CPU activity");
     await waitForCompilerCpu(base);
+  } else {
+    // A retained idle snapshot can be empty until the first live refresh arrives.
+    await until(
+      () =>
+        evaluate<boolean>(`(() => {
+          const search = document.querySelector('#search');
+          search.value = ${JSON.stringify(workload)};
+          search.dispatchEvent(new Event('input'));
+          search.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter'}));
+          return !document.querySelector('#details').hidden &&
+            document.querySelector('#name').textContent.toLowerCase().includes(${JSON.stringify(workload)});
+        })()`),
+      `${workloadName} live snapshot`,
+      45000,
+    );
   }
   console.log(`Recording ${seconds} seconds of VM activity`);
   await evaluate(`window.recordingBlob=null;
@@ -158,6 +173,10 @@ try {
   const text = await evaluate<string>("window.recordingBlob.text()");
   assert.ok(Buffer.byteLength(text) <= MAX_RECORDING_BYTES);
   const recording = parseRecording(text);
+  assert.ok(
+    recording.initial_snapshot.processes.length > 0,
+    "Nonempty recording baseline required",
+  );
   assert.equal(
     recording.end_reason,
     "Stopped by user",

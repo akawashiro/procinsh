@@ -3,7 +3,7 @@
 ProcInSh (pronounced "proc-in-shell") is a web-based process inspector for Linux.
 Like [Ghost in the Shell](https://en.wikipedia.org/wiki/Ghost_in_the_Shell), you can wander through process space with your ghost.
 
-[Interactive demo](https://akawashiro.github.io/procinsh/main/demo/replay/space/?recording=chrome-ubuntu26&tour=1), [Blog post](https://akawashiro.com/articles/procinsh-en), [Discord](https://discord.gg/aQuNSczpw)
+[Interactive demo](https://akawashiro.github.io/procinsh/main/demo/replay/space/?recording=chromium-ubuntu26&tour=1), [Blog post](https://akawashiro.com/articles/procinsh-en), [Discord](https://discord.gg/aQuNSczpw)
 
 ## Screenshot
 
@@ -11,9 +11,9 @@ Like [Ghost in the Shell](https://en.wikipedia.org/wiki/Ghost_in_the_Shell), you
 
 <img src="./images/procinsh_space.png" alt="Screenshot of space view" width="800">
 
-<img src="./images/procinsh_space_chrome.png" alt="Screenshot of a process in 3D" width="800">
+<img src="./images/procinsh_space_chromium.png" alt="Screenshot of a process in 3D" width="800">
 
-<img src="./images/procinsh_process_chrome.png" alt="Screenshot of process details" width="800">
+<img src="./images/procinsh_process_chromium.png" alt="Screenshot of process details" width="800">
 
 <img src="./images/procinsh_list.png" alt="Screenshot of the process list" width="800">
 

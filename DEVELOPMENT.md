@@ -625,7 +625,7 @@ See [`SpaceDataStore.start`](web/src/space/data.ts) for connection startup, [`Sp
 
 On live `/space`, choose **Record**, continue observing, then choose **Stop & Download** to download one UTF-8 `.json` file. Recording stays in memory; nothing is uploaded or saved on the server. The initial full snapshot includes maps retained from earlier deltas.
 
-Recordings can contain process arguments, usernames, paths, and IP addresses; review them before sharing. Bundled **Chrome** and **Firefox** demos show real browser activity in Ubuntu 26.04 VMs. Both open the same eight sites in [`scripts/browser_sites.txt`](scripts/browser_sites.txt) and reload every 10 seconds. **Linux kernel build** records 30 seconds of actual clang compilation in a dedicated Ubuntu 26.04 QEMU/KVM guest.
+Recordings can contain process arguments, usernames, paths, and IP addresses; review them before sharing. Bundled **Chromium** and **Firefox** demos show real browser activity in Ubuntu 26.04 VMs. Both open the same eight sites in [`scripts/browser_sites.txt`](scripts/browser_sites.txt) and reload every 10 seconds. **Linux kernel build** records 30 seconds of actual clang compilation in a dedicated Ubuntu 26.04 QEMU/KVM guest.
 
 A stream gap, reconnection, hidden tab, or page departure ends recording. The UI shows the reason and does not resume recording across gaps. Retained recordings can be saved with **Download recording** after redisplaying the tab. Navigating away or reloading with an unsaved recording triggers a browser confirmation. Memory is not persistent storage; save before closing the tab. Recording stops at 128 MiB and retains the completed portion. Local replay uses the same size limit; live display continues independently.
 
@@ -659,7 +659,7 @@ Publish **`web/dist-replay/`** as-is. Output includes `replay/space/index.html`,
 
 Choose a recording in the live SPACE or replay menu and press **Open demo** for automatic looping playback. The selector and URL allowlist share `bundledRecordings` in [session-controls.ts](web/src/space/session-controls.ts). When adding recordings to `web/replay-public/recordings/`, also add their IDs, labels, and asset paths there.
 
-Open the Chrome demo at `/replay/space/?recording=chrome-ubuntu26` on the published site. `recording` is an allowlisted ID, not an arbitrary user-supplied fetch URL. Firefox uses `?recording=firefox-ubuntu26`. Embedded and static builds share bundled recordings. Synthetic data exists only in private test fixtures outside published assets.
+Open the Chromium demo at `/replay/space/?recording=chromium-ubuntu26` on the published site. `recording` is an allowlisted ID, not an arbitrary user-supplied fetch URL. Firefox uses `?recording=firefox-ubuntu26`. Embedded and static builds share bundled recordings. Synthetic data exists only in private test fixtures outside published assets.
 
 To meet [Cloudflare Pages Free limits](https://developers.cloudflare.com/pages/platform/limits/), the build fails if any static asset, including a published demo, exceeds 25 MiB. No conversion into a split format or sidecar files is required.
 

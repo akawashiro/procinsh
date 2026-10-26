@@ -140,7 +140,7 @@ const handles: DeviceHandle[] = [
   },
 ];
 const snapshot: SystemSnapshot = {
-  processes: [processInfo({ identity: pid, name: "chrome" })],
+  processes: [processInfo({ identity: pid, name: "chromium" })],
   fd_relations: [],
   hardware_devices: devices,
   hardware_paths: paths,
@@ -374,7 +374,7 @@ describe("hardware bay", () => {
     expect(text).toContain(
       "via 0000:00:01.1 → pci0000:00 → pci0000:80 → 0000:80:03.4",
     );
-    expect(text).toContain("chrome");
+    expect(text).toContain("chromium");
     expect(text).toContain(
       "PID 42 · nvidia ×23 (FD 19), drm_render ×4 (FD 20)",
     );

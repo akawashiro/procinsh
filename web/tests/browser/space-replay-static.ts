@@ -32,7 +32,7 @@ const server = createServer(async (request, response) => {
   }
   try {
     const useFixture =
-      path.endsWith("/recordings/chrome-ubuntu26.json.gz") &&
+      path.endsWith("/recordings/chromium-ubuntu26.json.gz") &&
       demoEncoding !== "asset";
     const body = await readFile(
       useFixture
@@ -108,7 +108,7 @@ try {
     deploymentBase = base;
     demoEncoding = "plain";
     requests.length = 0;
-    const url: string = `http://127.0.0.1:${address.port}${deploymentBase}replay/space/?recording=chrome-ubuntu26`;
+    const url: string = `http://127.0.0.1:${address.port}${deploymentBase}replay/space/?recording=chromium-ubuntu26`;
     await cdp("Page.navigate", {
       url: `http://127.0.0.1:${address.port}${deploymentBase}`,
     });
@@ -121,7 +121,7 @@ try {
         "Array.from(document.querySelectorAll('main a'), a => new URL(a.href).pathname + new URL(a.href).search)",
       ),
       [
-        `${deploymentBase}replay/space/?recording=chrome-ubuntu26`,
+        `${deploymentBase}replay/space/?recording=chromium-ubuntu26`,
         `${deploymentBase}replay/space/?recording=firefox-ubuntu26`,
         `${deploymentBase}replay/space/?recording=linux-build-ubuntu26`,
       ],
@@ -144,7 +144,7 @@ try {
       await evaluate(
         "Array.from(document.querySelectorAll('#demo-recording option'), option => option.textContent)",
       ),
-      ["Open demo", "Chrome", "Firefox", "Linux kernel build"],
+      ["Open demo", "Chromium", "Firefox", "Linux kernel build"],
     );
     assert.equal(await evaluate("location.search"), "");
     for (const width of [1280, 390]) {
@@ -174,7 +174,7 @@ try {
       mobile: false,
     });
     await evaluate(
-      "document.querySelector('#demo-recording').value='chrome-ubuntu26';document.querySelector('#demo-recording').dispatchEvent(new Event('change'))",
+      "document.querySelector('#demo-recording').value='chromium-ubuntu26';document.querySelector('#demo-recording').dispatchEvent(new Event('change'))",
     );
     await waitFor(
       "document.querySelector('#replay-status')?.hidden && document.querySelector('#play').textContent==='Pause'",
@@ -254,7 +254,7 @@ try {
     );
     await cdp("Page.navigate", {
       url: url.replace(
-        "recording=chrome-ubuntu26",
+        "recording=chromium-ubuntu26",
         "recording=https://example.com",
       ),
     });
@@ -263,7 +263,7 @@ try {
       "query ID is allowlisted",
     );
     await evaluate(
-      "document.querySelector('#demo-recording').value='chrome-ubuntu26';document.querySelector('#demo-recording').dispatchEvent(new Event('change'))",
+      "document.querySelector('#demo-recording').value='chromium-ubuntu26';document.querySelector('#demo-recording').dispatchEvent(new Event('change'))",
     );
     await waitFor(
       "document.querySelector('#replay-status')?.hidden && document.querySelector('#loop').checked && document.querySelector('#play').textContent==='Pause'",
@@ -280,7 +280,7 @@ try {
     }
     demoEncoding = "asset";
     for (const id of [
-      "chrome-ubuntu26",
+      "chromium-ubuntu26",
       "firefox-ubuntu26",
       "linux-build-ubuntu26",
     ]) {
