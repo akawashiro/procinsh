@@ -67,7 +67,7 @@ After=network.target
 [Service]
 User=demo
 WorkingDirectory=/opt/procinsh
-Environment=WORKLOAD=$workload CHROMIUM=/usr/bin/chromium TAB_COUNT=8 INTERVAL_SECONDS=10
+Environment=WORKLOAD=$workload TAB_COUNT=8 INTERVAL_SECONDS=10
 ExecStart=/usr/bin/node scripts/browser_workload.mjs
 Restart=on-failure
 [Install]
