@@ -612,7 +612,7 @@ See [`SpaceDataStore.start`](web/src/space/data.ts) for connection startup, [`Sp
 
 | Coverage | Test source | Command |
 |---|---|---|
-| Component import boundaries, scene inputs, hit testing/selection, camera bounds, detail links/actions, render notifications/stop/resume | [space-components.test.ts](web/tests/space-components.test.ts) | `bash scripts/docker_test.sh web` |
+| Scene inputs, hit testing/selection, camera bounds, detail links/actions, render notifications/stop/resume | [space-components.test.ts](web/tests/space-components.test.ts) | `bash scripts/docker_test.sh web` |
 | Process layout | In-source tests in [process-layout.ts](web/src/space/process-layout.ts) and socket-peer/layout-stability regressions in [process-layout.test.ts](web/tests/process-layout.test.ts) | `bash scripts/docker_test.sh web src/space/process-layout.ts tests/process-layout.test.ts` |
 | Data merging, peer/file layout, activity model, resolution adjustment, label placement/fading | In-source tests in [data.ts](web/src/space/data.ts) and [renderer.ts](web/src/space/renderer.ts) | `bash scripts/docker_test.sh web` |
 | Persistent Netlink display, classification, shared FDs, exit/state changes, layout | [space-netlink.test.ts](web/tests/space-netlink.test.ts) | `bash scripts/docker_test.sh web` |
@@ -784,7 +784,7 @@ On hosts restricting Docker bridge DNS or outbound traffic, `bash scripts/docker
 
 The kernel needs BTF (`CONFIG_DEBUG_INFO_BTF=y` and `/sys/kernel/btf/vmlinux`), eBPF, perf, ptrace, network namespaces, pidfd_getfd, and the application's BPF hooks. Docker Desktop VM kernels, rootless Docker, user namespace remapping, and daemons with strong LSM restrictions may not provide the required access. `ordinary`, `kernel`, `rust`, and `browser` explicitly add `BPF`, `PERFMON`, `SYS_PTRACE`, `DAC_READ_SEARCH`, and `SYS_ADMIN`. Only `kernel` and `browser`, which verify live eBPF, use `--pid=host` to align BPF event PIDs with procfs PIDs. Every suite mounts kernel BTF read-only and retains Docker's default seccomp and AppArmor. Neither `--privileged` nor unrestricted profiles are used.
 
-The checkout is mounted read-only and source copied to `/work` inside the container. Fixtures, web output, and HMR edits operate on that copy. Rust build caches use per-distro Docker volumes named `procinsh-test-target-*`; dependencies use `procinsh-test-registry`. No root-owned output is written to the checkout. Suites for the same distro share build caches and must run sequentially. Caches survive container exit; remove them with `docker volume rm <volume-name>` when no longer needed.
+The checkout is mounted read-only and source copied to `/work` inside the container. Fixtures and web output operate on that copy. Rust build caches use per-distro Docker volumes named `procinsh-test-target-*`; dependencies use `procinsh-test-registry`. No root-owned output is written to the checkout. Suites for the same distro share build caches and must run sequentially. Caches survive container exit; remove them with `docker volume rm <volume-name>` when no longer needed.
 
 TypeScript sources, tests, and configuration (`web/src/**/*.ts`, `web/tests/**/*.ts`, `web/*.ts`) use [Prettier](https://prettier.io/docs/install). The version is pinned in [package.json](web/package.json); [.prettierrc.json](web/.prettierrc.json) specifies standard formatting and LF line endings. [.prettierignore](web/.prettierignore) excludes generated files and node_modules. Local development and CI use the same check commands.
 
@@ -855,9 +855,6 @@ To reconcile existing artifacts or retry publication without rebuilding:
 gh workflow run docs.yml --ref main
 ```
 
-`python3 tests/docs_preview.py` covers multiple-version retention, stale/failed
-builds, closed PR cleanup, archive boundaries, redirects and comment idempotency.
-It also runs in the Docker `ordinary` suite.
 TypeScript docs use [typedoc.json](web/typedoc.json) to recursively expand `web/src/` as entry points. They cover exported types/functions in list, details, SPACE, and shared modules, excluding external library docs. Locally, run `npm --prefix web ci` then `npm --prefix web run docs` and open `target/doc/typescript/index.html`.
 
 [module-dependencies.ts](web/scripts/module-dependencies.ts) uses the TypeScript compiler API to analyze imports/re-exports in `web/src/` and draws SVG dependency graphs with Graphviz. This includes type-only imports, `import("...")` type references, and string-literal dynamic imports. External packages, `web/tests/`, and test blocks inside `if (import.meta.vitest)` are excluded. Arrows point from consumers to dependencies; the overview groups by directories directly under the source root, and detail diagrams show files.
@@ -881,8 +878,6 @@ bash scripts/docker_test.sh browser
 ```
 
 Docker images include native Chromium packages on Ubuntu and Fedora. `browser` verifies both list/details and SPACE inside containers. Browsers use temporary profiles and are cleaned up with test servers on exit. SPACE builds the test web fixture through [vite.browser-test.config.ts](web/vite.browser-test.config.ts), embeds it in the Cargo binary, then runs it. Generated files stay inside the container.
-
-[dev-server.ts](web/tests/integration/dev-server.ts) is part of `ordinary`. It starts the built binary and Vite and checks page routes, CSS-edit HMR, Origin validation, and proxying of JSON and both SSE streams.
 
 ### Generating communication/IPC load with Chromium
 

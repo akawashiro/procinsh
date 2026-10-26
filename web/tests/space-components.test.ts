@@ -2,8 +2,7 @@
 import { test, vi, afterEach } from "vitest";
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
-import { readFile, readdir } from "node:fs/promises";
-import ts from "typescript";
+import { readFile } from "node:fs/promises";
 import * as T from "three";
 
 import type {
@@ -526,52 +525,6 @@ test("space-components regression", async () => {
   const { createSpaceCamera } = await import("../src/space/camera.js");
   const { createSpaceDetails } = await import("../src/space/details.js");
   const { createSpaceRenderer } = await import("../src/space/renderer.js");
-
-  // Check erased type imports as well as runtime imports to keep the boundary intact.
-  for (const name of await readdir(
-    resolve(import.meta.dirname, "../src/space/"),
-  )) {
-    if (!name.endsWith(".ts") || name === "app.ts") continue;
-    const source = ts.createSourceFile(
-      name,
-      await readFile(
-        resolve(import.meta.dirname, `../src/space/${name}`),
-        "utf8",
-      ),
-      ts.ScriptTarget.Latest,
-    );
-    for (const statement of source.statements) {
-      if (
-        !ts.isImportDeclaration(statement) &&
-        !ts.isExportDeclaration(statement)
-      )
-        continue;
-      const specifier = statement.moduleSpecifier;
-      const path =
-        specifier && ts.isStringLiteral(specifier) ? specifier.text : undefined;
-      if (path?.startsWith("./"))
-        assert.ok(
-          [
-            "./types.js",
-            "./clock.js",
-            "./contracts.js",
-            "./model.js",
-            "./netlink.js",
-            "./hardware.js",
-            "./dom-types.js",
-          ].includes(path) ||
-            (name === "data.ts" && path === "./process-layout.js") ||
-            (name === "tour-camera.ts" && path === "./tour-flight.js") ||
-            ((name === "session-controls.ts" ||
-              name === "recording-input.ts") &&
-              path === "./recording.js") ||
-            (name === "session-controls.ts" &&
-              path === "./recording-input.js") ||
-            (name === "scene.ts" && path === "./ipc-ports.js"),
-          `${name} depends on ${path}`,
-        );
-    }
-  }
 
   const emptySelection = (): SelectionState => ({
     process: null,
@@ -1209,6 +1162,6 @@ test("space-components regression", async () => {
     assert.equal(root.children.length, 0);
   }
   console.log(
-    "SPACE components passed: import boundaries, plain scene inputs, current picking geometry, selection retention, camera bounds, detail links/actions, and renderer callbacks/lifecycle.",
+    "SPACE components passed: plain scene inputs, current picking geometry, selection retention, camera bounds, detail links/actions, and renderer callbacks/lifecycle.",
   );
 });

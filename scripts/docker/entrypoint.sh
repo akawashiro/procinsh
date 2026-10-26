@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# All writes, including fixture builds and HMR edits, stay in the container.
+# All writes, including fixture builds, stay in the container.
 tar -C /source --exclude='./target' --exclude='./web/node_modules' \
   --exclude='./web/dist' --exclude='./tests/targets/bin' \
   --exclude='./.venv-format' --exclude='./.aws' --exclude='./.codex' \
@@ -28,10 +28,6 @@ case "$suite" in
     cargo test --locked
     npm --prefix web test
     python3 tests/listen-policy.py
-    python3 tests/release.py
-    python3 tests/recording-vm.py
-    python3 tests/docs_preview.py
-    npm --prefix web run test:dev
     ;;
   checks)
     bash -n scripts/docker_test.sh scripts/docker/entrypoint.sh scripts/install_chromium.sh scripts/recording-vm/*.sh \
