@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   checks:
-    name: Format, lint, documentation and packaging
+    name: Format, lint, documentation and packaging (x86-64)
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -22,7 +22,7 @@ jobs:
         run: bash scripts/docker_test.sh checks
 
   distro-test:
-    name: Build and test (${{ matrix.distro }})
+    name: Build and test (x86-64, ${{ matrix.distro }})
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     strategy:
@@ -37,7 +37,7 @@ jobs:
         run: bash scripts/docker_test.sh --distro '${{ matrix.distro }}' ordinary
 
   kernel-test:
-    name: Live eBPF tests
+    name: Live eBPF tests (x86-64)
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -63,7 +63,7 @@ jobs:
         run: bash scripts/docker_test.sh kernel
 
   browser-test:
-    name: Chromium browser tests (${{ matrix.runner }})
+    name: Chromium browser tests (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     strategy:
@@ -71,9 +71,11 @@ jobs:
       matrix:
         include:
           - runner: ubuntu-24.04
+            arch: x86-64
             suite: browser
           # Replay exercises Chromium on arm64 without requiring register capture.
           - runner: ubuntu-24.04-arm
+            arch: arm64
             suite: browser-replay
     steps:
       - uses: actions/checkout@v7.0.1
