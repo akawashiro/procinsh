@@ -79,19 +79,30 @@ def build(source, artifact, metadata):
         shutil.copytree(source / "web/dist-replay", out / "demo")
     source_link = f"https://github.com/{repo}/tree/{sha}"
     label = "main" if key == "main" else f"PR #{metadata['number']}"
-    links = []
+    groups = {"cargo doc": [], "module dependency": [], "TypeDoc": [], "Other": []}
     for directory in sorted(out.iterdir()):
         if directory.is_dir() and (directory / "index.html").is_file():
-            links.append(f'<li><a href="{html.escape(directory.name)}/">{html.escape(directory.name)}</a></li>')
-    if key != "main":
-        links.append(f'<li><a href="{SITE}main/demo/">Main replay demo</a></li>')
-    links.append(f'<li><a href="https://github.com/{repo}/blob/{sha}/DEVELOPMENT.md">Development guide</a></li>')
+            name = directory.name
+            if name in {"rust-architecture", "typescript-architecture"}:
+                group = "module dependency"
+            elif name == "typescript":
+                group = "TypeDoc"
+            elif (directory / "sidebar-items.js").is_file():
+                group = "cargo doc"
+            else:
+                group = "Other"
+            groups[group].append(f'<li><a href="{html.escape(name)}/">{html.escape(name)}</a></li>')
+    groups["Other"].append(f'<li><a href="https://github.com/{repo}/blob/{sha}/DEVELOPMENT.md">Development guide</a></li>')
+    sections = "".join(
+        f'<h2>{heading}</h2><ul>' + "".join(links) + '</ul>'
+        for heading, links in groups.items() if links
+    )
     (out / "index.html").write_text(
         '<!doctype html><html lang="en"><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
         f'<title>procinsh documentation — {label}</title><h1>procinsh documentation — {label}</h1>'
         f'<p>Commit <a href="{source_link}">{sha}</a></p>'
-        f'<p><a href="{SITE}">All documentation versions</a></p><ul>' + "".join(links) + '</ul></html>')
+        f'<p><a href="{SITE}">All documentation versions</a></p>' + sections + '</html>')
     artifact.mkdir(parents=True, exist_ok=True)
     # Reject links before upload as well as at the publication boundary.
     if any(path.is_symlink() for path in out.rglob("*")):
