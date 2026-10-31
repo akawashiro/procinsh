@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DeviceHandleKind","HardwareKind","HardwareRole","PathClass"],"struct":["BarInfo","DeviceHandle","GpuInfo","HardwareDevice","HardwareFiles","HardwarePath","PcieLink","PcieLinkInfo","RdmaDeviceInfo"]};

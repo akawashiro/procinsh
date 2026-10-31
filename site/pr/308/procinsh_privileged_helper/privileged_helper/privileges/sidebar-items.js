@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["REQUIRED"],"fn":["capabilities","check","clear_ambient","effective_capabilities","prctl","restrict_monitor_privileges","set_capabilities"],"struct":["CapabilityHeader","CapabilitySet"]};

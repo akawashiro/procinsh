@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["devices","names","read_ports","text"]};

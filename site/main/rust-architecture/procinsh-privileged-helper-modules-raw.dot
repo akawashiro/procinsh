@@ -1,0 +1,396 @@
+digraph {
+
+    graph [
+        label="procinsh_privileged_helper",
+        labelloc=t,
+
+        pad=0.4,
+
+        // Consider rendering the graph using a different layout algorithm, such as:
+        // [dot, neato, twopi, circo, fdp, sfdp]
+        layout=neato,
+        overlap=false,
+        splines="line",
+        rankdir=LR,
+
+        fontname="Helvetica", 
+        fontsize="36",
+    ];
+
+    node [
+        fontname="monospace",
+        fontsize="10",
+        shape="record",
+        style="filled",
+    ];
+
+    edge [
+        fontname="monospace",
+        fontsize="10",
+    ];
+
+    "procinsh_privileged_helper" [label="crate|procinsh_privileged_helper", fillcolor="#5397c8"]; // "crate" node
+    "procinsh_privileged_helper::ipc" [label="pub(crate) mod|ipc", fillcolor="#f8c04c"]; // "mod" node
+    "procinsh_privileged_helper::ipc::acquisition" [label="pub(crate) mod|ipc::acquisition", fillcolor="#f8c04c"]; // "mod" node
+    "procinsh_privileged_helper::ipc::activity" [label="pub(crate) mod|ipc::activity", fillcolor="#f8c04c"]; // "mod" node
+    "procinsh_privileged_helper::ipc::codec" [label="pub(crate) mod|ipc::codec", fillcolor="#f8c04c"]; // "mod" node
+    "procinsh_privileged_helper::ipc::descriptors" [label="pub(crate) mod|ipc::descriptors", fillcolor="#f8c04c"]; // "mod" node
+    "procinsh_privileged_helper::ipc::elf" [label="pub(crate) mod|ipc::elf", fillcolor="#f8c04c"]; // "mod" node
+    "procinsh_privileged_helper::ipc::hardware" [label="pub(crate) mod|ipc::hardware", fillcolor="#f8c04c"]; // "mod" node
+    "procinsh_privileged_helper::ipc::history" [label="pub(crate) mod|ipc::history", fillcolor="#f8c04c"]; // "mod" node
+    "procinsh_privileged_helper::ipc::model" [label="pub(crate) mod|ipc::model", fillcolor="#f8c04c"]; // "mod" node
+    "procinsh_privileged_helper::ipc::model::memory" [label="pub mod|ipc::model::memory", fillcolor="#81c169"]; // "mod" node
+    "procinsh_privileged_helper::ipc::model::process" [label="pub mod|ipc::model::process", fillcolor="#81c169"]; // "mod" node
+    "procinsh_privileged_helper::ipc::model::resource" [label="pub mod|ipc::model::resource", fillcolor="#81c169"]; // "mod" node
+    "procinsh_privileged_helper::ipc::model::socket_types" [label="pub mod|ipc::model::socket_types", fillcolor="#81c169"]; // "mod" node
+    "procinsh_privileged_helper::ipc::model::sockets" [label="pub mod|ipc::model::sockets", fillcolor="#81c169"]; // "mod" node
+    "procinsh_privileged_helper::ipc::model::system" [label="pub mod|ipc::model::system", fillcolor="#81c169"]; // "mod" node
+    "procinsh_privileged_helper::ipc::model::threads" [label="pub mod|ipc::model::threads", fillcolor="#81c169"]; // "mod" node
+    "procinsh_privileged_helper::ipc::rdma" [label="pub(crate) mod|ipc::rdma", fillcolor="#f8c04c"]; // "mod" node
+    "procinsh_privileged_helper::ipc::registers" [label="pub(crate) mod|ipc::registers", fillcolor="#f8c04c"]; // "mod" node
+    "procinsh_privileged_helper::ipc::schema" [label="pub(crate) mod|ipc::schema", fillcolor="#f8c04c"]; // "mod" node
+    "procinsh_privileged_helper::ipc::stack" [label="pub(crate) mod|ipc::stack", fillcolor="#f8c04c"]; // "mod" node
+    "procinsh_privileged_helper::ipc::transport" [label="pub(crate) mod|ipc::transport", fillcolor="#f8c04c"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper" [label="pub(crate) mod|privileged_helper", fillcolor="#f8c04c"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::abi" [label="pub(crate) mod|privileged_helper::abi", fillcolor="#f8c04c"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::helper_service" [label="pub(self) mod|privileged_helper::helper_service", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::launch" [label="pub(self) mod|privileged_helper::launch", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::netlink" [label="pub(self) mod|privileged_helper::netlink", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::privileges" [label="pub(self) mod|privileged_helper::privileges", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::process" [label="pub(self) mod|privileged_helper::process", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::process::details" [label="pub(self) mod|privileged_helper::process::details", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::process::discovery" [label="pub(self) mod|privileged_helper::process::discovery", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::process::elf" [label="pub(self) mod|privileged_helper::process::elf", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::process::fds" [label="pub(self) mod|privileged_helper::process::fds", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::process::identity" [label="pub(self) mod|privileged_helper::process::identity", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::process::maps" [label="pub(self) mod|privileged_helper::process::maps", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::process::memory" [label="pub(self) mod|privileged_helper::process::memory", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::process::monitoring" [label="pub(self) mod|privileged_helper::process::monitoring", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::process::monitoring::sampling" [label="pub(self) mod|privileged_helper::process::monitoring::sampling", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::process::monitoring::service" [label="pub(self) mod|privileged_helper::process::monitoring::service", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::process::procfs" [label="pub(self) mod|privileged_helper::process::procfs", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::process::resources" [label="pub(self) mod|privileged_helper::process::resources", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::process::snapshot" [label="pub(self) mod|privileged_helper::process::snapshot", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::arch" [label="pub(self) mod|privileged_helper::process::snapshot::arch", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::arch::x86_64" [label="pub(super) mod|privileged_helper::process::snapshot::arch::x86_64", fillcolor="#fe9454"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::capture" [label="pub(self) mod|privileged_helper::process::snapshot::capture", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::instruction_bytes" [label="pub(self) mod|privileged_helper::process::snapshot::instruction_bytes", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::perf" [label="pub(self) mod|privileged_helper::process::snapshot::perf", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::ptrace" [label="pub(self) mod|privileged_helper::process::snapshot::ptrace", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::registers" [label="pub(self) mod|privileged_helper::process::snapshot::registers", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::sample" [label="pub(self) mod|privileged_helper::process::snapshot::sample", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::process::socket_metadata" [label="pub(self) mod|privileged_helper::process::socket_metadata", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::process::socket_namespace" [label="pub(self) mod|privileged_helper::process::socket_namespace", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::process::sockets" [label="pub(self) mod|privileged_helper::process::sockets", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::process::threads" [label="pub(self) mod|privileged_helper::process::threads", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::resource" [label="pub(self) mod|privileged_helper::resource", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::socket_types" [label="pub(self) mod|privileged_helper::socket_types", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::system" [label="pub(self) mod|privileged_helper::system", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::system::activity" [label="pub(self) mod|privileged_helper::system::activity", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::system::files" [label="pub(self) mod|privileged_helper::system::files", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::system::hardware" [label="pub(self) mod|privileged_helper::system::hardware", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::system::hardware_capture" [label="pub(self) mod|privileged_helper::system::hardware_capture", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::system::ipc" [label="pub(self) mod|privileged_helper::system::ipc", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::system::ipoib" [label="pub(self) mod|privileged_helper::system::ipoib", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::system::model" [label="pub(self) mod|privileged_helper::system::model", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::system::rdma" [label="pub(self) mod|privileged_helper::system::rdma", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::system::rdma::codes" [label="pub(self) mod|privileged_helper::system::rdma::codes", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::system::rdma::nldev" [label="pub(self) mod|privileged_helper::system::rdma::nldev", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::system::rdma::observation" [label="pub(self) mod|privileged_helper::system::rdma::observation", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::system::rdma::ports" [label="pub(self) mod|privileged_helper::system::rdma::ports", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::system::rdma::relations" [label="pub(self) mod|privileged_helper::system::rdma::relations", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::system::resolver" [label="pub(self) mod|privileged_helper::system::resolver", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::system::sched" [label="pub(self) mod|privileged_helper::system::sched", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::system::service" [label="pub(self) mod|privileged_helper::system::service", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::system::signals" [label="pub(self) mod|privileged_helper::system::signals", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::system::snapshot" [label="pub(self) mod|privileged_helper::system::snapshot", fillcolor="#db5367"]; // "mod" node
+    "procinsh_privileged_helper::privileged_helper::system::status" [label="pub(self) mod|privileged_helper::system::status", fillcolor="#db5367"]; // "mod" node
+
+    "procinsh_privileged_helper" -> "procinsh_privileged_helper::ipc" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper" -> "procinsh_privileged_helper::privileged_helper" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::ipc" -> "procinsh_privileged_helper::ipc::acquisition" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::ipc" -> "procinsh_privileged_helper::ipc::activity" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::ipc" -> "procinsh_privileged_helper::ipc::codec" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::ipc" -> "procinsh_privileged_helper::ipc::descriptors" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::ipc" -> "procinsh_privileged_helper::ipc::elf" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::ipc" -> "procinsh_privileged_helper::ipc::hardware" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::ipc" -> "procinsh_privileged_helper::ipc::history" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::ipc" -> "procinsh_privileged_helper::ipc::model" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::ipc" -> "procinsh_privileged_helper::ipc::rdma" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::ipc" -> "procinsh_privileged_helper::ipc::registers" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::ipc" -> "procinsh_privileged_helper::ipc::schema" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::ipc" -> "procinsh_privileged_helper::ipc::stack" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::ipc" -> "procinsh_privileged_helper::ipc::transport" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::ipc::acquisition" -> "procinsh_privileged_helper::ipc::activity" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::acquisition" -> "procinsh_privileged_helper::ipc::codec" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::acquisition" -> "procinsh_privileged_helper::ipc::model::memory" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::acquisition" -> "procinsh_privileged_helper::ipc::model::process" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::acquisition" -> "procinsh_privileged_helper::ipc::registers" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::acquisition" -> "procinsh_privileged_helper::ipc::schema" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::acquisition" -> "procinsh_privileged_helper::ipc::stack" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::activity" -> "procinsh_privileged_helper::ipc::codec" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::activity" -> "procinsh_privileged_helper::ipc::model::resource" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::activity" -> "procinsh_privileged_helper::ipc::schema" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::descriptors" -> "procinsh_privileged_helper::ipc::codec" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::descriptors" -> "procinsh_privileged_helper::ipc::model::socket_types" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::descriptors" -> "procinsh_privileged_helper::ipc::schema" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::elf" -> "procinsh_privileged_helper::ipc::codec" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::hardware" -> "procinsh_privileged_helper::ipc::codec" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::hardware" -> "procinsh_privileged_helper::ipc::schema" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::history" -> "procinsh_privileged_helper::ipc::codec" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::model" -> "procinsh_privileged_helper::ipc::model::memory" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::ipc::model" -> "procinsh_privileged_helper::ipc::model::process" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::ipc::model" -> "procinsh_privileged_helper::ipc::model::resource" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::ipc::model" -> "procinsh_privileged_helper::ipc::model::socket_types" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::ipc::model" -> "procinsh_privileged_helper::ipc::model::sockets" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::ipc::model" -> "procinsh_privileged_helper::ipc::model::system" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::ipc::model" -> "procinsh_privileged_helper::ipc::model::threads" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::ipc::model::memory" -> "procinsh_privileged_helper::ipc::codec" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::model::memory" -> "procinsh_privileged_helper::ipc::model::resource" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::model::process" -> "procinsh_privileged_helper::ipc::codec" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::model::process" -> "procinsh_privileged_helper::ipc::model::threads" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::model::process" -> "procinsh_privileged_helper::ipc::schema" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::model::resource" -> "procinsh_privileged_helper::ipc::codec" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::model::socket_types" -> "procinsh_privileged_helper::ipc::codec" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::model::sockets" -> "procinsh_privileged_helper::ipc::codec" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::model::sockets" -> "procinsh_privileged_helper::ipc::model::socket_types" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::model::system" -> "procinsh_privileged_helper::ipc::codec" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::model::system" -> "procinsh_privileged_helper::ipc::hardware" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::model::system" -> "procinsh_privileged_helper::ipc::model::memory" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::model::system" -> "procinsh_privileged_helper::ipc::model::resource" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::model::system" -> "procinsh_privileged_helper::ipc::model::socket_types" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::model::system" -> "procinsh_privileged_helper::ipc::model::sockets" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::model::system" -> "procinsh_privileged_helper::ipc::schema" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::model::threads" -> "procinsh_privileged_helper::ipc::codec" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::rdma" -> "procinsh_privileged_helper::ipc::codec" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::rdma" -> "procinsh_privileged_helper::ipc::schema" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::registers" -> "procinsh_privileged_helper::ipc::codec" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::registers" -> "procinsh_privileged_helper::ipc::model::memory" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::schema" -> "procinsh_privileged_helper::ipc::acquisition" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::schema" -> "procinsh_privileged_helper::ipc::codec" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::schema" -> "procinsh_privileged_helper::ipc::descriptors" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::stack" -> "procinsh_privileged_helper::ipc::codec" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::ipc::transport" -> "procinsh_privileged_helper::ipc::codec" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper" -> "procinsh_privileged_helper::privileged_helper::abi" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper" -> "procinsh_privileged_helper::privileged_helper::helper_service" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper" -> "procinsh_privileged_helper::privileged_helper::launch" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper" -> "procinsh_privileged_helper::privileged_helper::launch" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper" -> "procinsh_privileged_helper::privileged_helper::netlink" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper" -> "procinsh_privileged_helper::privileged_helper::privileges" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper" -> "procinsh_privileged_helper::privileged_helper::process" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper" -> "procinsh_privileged_helper::privileged_helper::resource" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper" -> "procinsh_privileged_helper::privileged_helper::socket_types" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper" -> "procinsh_privileged_helper::privileged_helper::system" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::abi" -> "procinsh_privileged_helper::ipc::activity" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::abi" -> "procinsh_privileged_helper::ipc::model::resource" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::abi" -> "procinsh_privileged_helper::ipc::schema" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::helper_service" -> "procinsh_privileged_helper::ipc::schema" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::helper_service" -> "procinsh_privileged_helper::ipc::transport" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::helper_service" -> "procinsh_privileged_helper::privileged_helper::process" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::helper_service" -> "procinsh_privileged_helper::privileged_helper::process::monitoring::service" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::helper_service" -> "procinsh_privileged_helper::privileged_helper::system" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::helper_service" -> "procinsh_privileged_helper::privileged_helper::system::service" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::launch" -> "procinsh_privileged_helper::ipc::schema" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::launch" -> "procinsh_privileged_helper::ipc::transport" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::launch" -> "procinsh_privileged_helper::privileged_helper::helper_service" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process" -> "procinsh_privileged_helper::ipc::acquisition" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process" -> "procinsh_privileged_helper::ipc::model::memory" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process" -> "procinsh_privileged_helper::ipc::model::sockets" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process" -> "procinsh_privileged_helper::ipc::schema" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process" -> "procinsh_privileged_helper::privileged_helper::process::details" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::process" -> "procinsh_privileged_helper::privileged_helper::process::discovery" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::process" -> "procinsh_privileged_helper::privileged_helper::process::discovery" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process" -> "procinsh_privileged_helper::privileged_helper::process::elf" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::process" -> "procinsh_privileged_helper::privileged_helper::process::fds" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::process" -> "procinsh_privileged_helper::privileged_helper::process::identity" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::process" -> "procinsh_privileged_helper::privileged_helper::process::identity" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process" -> "procinsh_privileged_helper::privileged_helper::process::maps" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::process" -> "procinsh_privileged_helper::privileged_helper::process::memory" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::process" -> "procinsh_privileged_helper::privileged_helper::process::monitoring" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::process" -> "procinsh_privileged_helper::privileged_helper::process::monitoring::service" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process" -> "procinsh_privileged_helper::privileged_helper::process::procfs" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::process" -> "procinsh_privileged_helper::privileged_helper::process::resources" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::process" -> "procinsh_privileged_helper::privileged_helper::process::resources" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process" -> "procinsh_privileged_helper::privileged_helper::process::snapshot" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::process" -> "procinsh_privileged_helper::privileged_helper::process::socket_metadata" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::process" -> "procinsh_privileged_helper::privileged_helper::process::socket_metadata" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process" -> "procinsh_privileged_helper::privileged_helper::process::socket_namespace" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::process" -> "procinsh_privileged_helper::privileged_helper::process::socket_namespace" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process" -> "procinsh_privileged_helper::privileged_helper::process::sockets" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::process" -> "procinsh_privileged_helper::privileged_helper::process::threads" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::process::details" -> "procinsh_privileged_helper::ipc::schema" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::details" -> "procinsh_privileged_helper::privileged_helper::process::identity" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::details" -> "procinsh_privileged_helper::privileged_helper::process::memory" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::details" -> "procinsh_privileged_helper::privileged_helper::process::resources" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::discovery" -> "procinsh_privileged_helper::ipc::acquisition" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::discovery" -> "procinsh_privileged_helper::ipc::schema" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::discovery" -> "procinsh_privileged_helper::privileged_helper::process::procfs" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::elf" -> "procinsh_privileged_helper::ipc::elf" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::elf" -> "procinsh_privileged_helper::ipc::model::memory" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::fds" -> "procinsh_privileged_helper::ipc::descriptors" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::fds" -> "procinsh_privileged_helper::ipc::model::socket_types" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::fds" -> "procinsh_privileged_helper::ipc::model::sockets" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::fds" -> "procinsh_privileged_helper::ipc::schema" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::fds" -> "procinsh_privileged_helper::privileged_helper::process::identity" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::fds" -> "procinsh_privileged_helper::privileged_helper::process::procfs" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::fds" -> "procinsh_privileged_helper::privileged_helper::process::resources" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::fds" -> "procinsh_privileged_helper::privileged_helper::process::sockets" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::identity" -> "procinsh_privileged_helper::ipc::schema" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::identity" -> "procinsh_privileged_helper::privileged_helper::process::procfs" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::maps" -> "procinsh_privileged_helper::ipc::acquisition" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::maps" -> "procinsh_privileged_helper::ipc::model::memory" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::maps" -> "procinsh_privileged_helper::privileged_helper::process::procfs" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::memory" -> "procinsh_privileged_helper::privileged_helper::process::resources" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::monitoring" -> "procinsh_privileged_helper::privileged_helper::process::monitoring::sampling" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::process::monitoring" -> "procinsh_privileged_helper::privileged_helper::process::monitoring::sampling" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::monitoring" -> "procinsh_privileged_helper::privileged_helper::process::monitoring::service" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::process::monitoring" -> "procinsh_privileged_helper::privileged_helper::process::monitoring::service" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::monitoring::sampling" -> "procinsh_privileged_helper::ipc::model::process" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::monitoring::sampling" -> "procinsh_privileged_helper::ipc::schema" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::monitoring::sampling" -> "procinsh_privileged_helper::privileged_helper::process" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::monitoring::sampling" -> "procinsh_privileged_helper::privileged_helper::process::procfs" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::monitoring::sampling" -> "procinsh_privileged_helper::privileged_helper::process::resources" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::monitoring::sampling" -> "procinsh_privileged_helper::privileged_helper::process::threads" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::monitoring::service" -> "procinsh_privileged_helper::ipc::acquisition" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::monitoring::service" -> "procinsh_privileged_helper::ipc::model::memory" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::monitoring::service" -> "procinsh_privileged_helper::ipc::model::process" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::monitoring::service" -> "procinsh_privileged_helper::ipc::schema" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::monitoring::service" -> "procinsh_privileged_helper::privileged_helper::process" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::monitoring::service" -> "procinsh_privileged_helper::privileged_helper::process::maps" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::monitoring::service" -> "procinsh_privileged_helper::privileged_helper::process::monitoring::sampling" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::monitoring::service" -> "procinsh_privileged_helper::privileged_helper::process::procfs" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::monitoring::service" -> "procinsh_privileged_helper::privileged_helper::process::resources" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::procfs" -> "procinsh_privileged_helper::ipc::model::process" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::resources" -> "procinsh_privileged_helper::ipc::acquisition" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::resources" -> "procinsh_privileged_helper::ipc::model::memory" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::resources" -> "procinsh_privileged_helper::ipc::model::socket_types" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::resources" -> "procinsh_privileged_helper::ipc::model::sockets" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::resources" -> "procinsh_privileged_helper::ipc::schema" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::resources" -> "procinsh_privileged_helper::privileged_helper::process::details" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::resources" -> "procinsh_privileged_helper::privileged_helper::process::identity" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::resources" -> "procinsh_privileged_helper::privileged_helper::process::maps" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::resources" -> "procinsh_privileged_helper::privileged_helper::process::monitoring" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::resources" -> "procinsh_privileged_helper::privileged_helper::process::procfs" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::resources" -> "procinsh_privileged_helper::privileged_helper::process::socket_namespace" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::resources" -> "procinsh_privileged_helper::privileged_helper::process::sockets" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot" -> "procinsh_privileged_helper::privileged_helper::process::snapshot::arch" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot" -> "procinsh_privileged_helper::privileged_helper::process::snapshot::capture" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot" -> "procinsh_privileged_helper::privileged_helper::process::snapshot::capture" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot" -> "procinsh_privileged_helper::privileged_helper::process::snapshot::instruction_bytes" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot" -> "procinsh_privileged_helper::privileged_helper::process::snapshot::perf" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot" -> "procinsh_privileged_helper::privileged_helper::process::snapshot::ptrace" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot" -> "procinsh_privileged_helper::privileged_helper::process::snapshot::registers" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot" -> "procinsh_privileged_helper::privileged_helper::process::snapshot::sample" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::arch" -> "procinsh_privileged_helper::privileged_helper::process::snapshot::arch::x86_64" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::arch::x86_64" -> "procinsh_privileged_helper::privileged_helper::process::snapshot::ptrace" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::capture" -> "procinsh_privileged_helper::ipc::acquisition" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::capture" -> "procinsh_privileged_helper::ipc::model::memory" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::capture" -> "procinsh_privileged_helper::ipc::schema" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::capture" -> "procinsh_privileged_helper::privileged_helper::process" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::capture" -> "procinsh_privileged_helper::privileged_helper::process::procfs" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::capture" -> "procinsh_privileged_helper::privileged_helper::process::snapshot::arch::x86_64" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::capture" -> "procinsh_privileged_helper::privileged_helper::process::snapshot::perf" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::capture" -> "procinsh_privileged_helper::privileged_helper::process::snapshot::sample" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::instruction_bytes" -> "procinsh_privileged_helper::ipc::acquisition" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::instruction_bytes" -> "procinsh_privileged_helper::ipc::model::memory" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::instruction_bytes" -> "procinsh_privileged_helper::privileged_helper::process::memory" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::perf" -> "procinsh_privileged_helper::ipc::acquisition" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::perf" -> "procinsh_privileged_helper::ipc::registers" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::perf" -> "procinsh_privileged_helper::privileged_helper::process::snapshot::sample" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::ptrace" -> "procinsh_privileged_helper::ipc::acquisition" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::ptrace" -> "procinsh_privileged_helper::ipc::model::memory" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::ptrace" -> "procinsh_privileged_helper::ipc::registers" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::ptrace" -> "procinsh_privileged_helper::privileged_helper::process::memory" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::ptrace" -> "procinsh_privileged_helper::privileged_helper::process::snapshot::arch::x86_64" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::ptrace" -> "procinsh_privileged_helper::privileged_helper::process::snapshot::sample" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::registers" -> "procinsh_privileged_helper::ipc::registers" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::sample" -> "procinsh_privileged_helper::ipc::acquisition" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::snapshot::sample" -> "procinsh_privileged_helper::ipc::registers" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::socket_metadata" -> "procinsh_privileged_helper::ipc::model::socket_types" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::socket_metadata" -> "procinsh_privileged_helper::ipc::model::sockets" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::socket_metadata" -> "procinsh_privileged_helper::ipc::schema" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::socket_metadata" -> "procinsh_privileged_helper::privileged_helper::process::identity" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::socket_metadata" -> "procinsh_privileged_helper::privileged_helper::process::sockets" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::socket_namespace" -> "procinsh_privileged_helper::ipc::schema" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::socket_namespace" -> "procinsh_privileged_helper::privileged_helper::process::identity" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::sockets" -> "procinsh_privileged_helper::ipc::model::socket_types" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::sockets" -> "procinsh_privileged_helper::ipc::model::sockets" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::sockets" -> "procinsh_privileged_helper::privileged_helper::netlink" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::sockets" -> "procinsh_privileged_helper::privileged_helper::process::socket_namespace" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::threads" -> "procinsh_privileged_helper::ipc::model::threads" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::process::threads" -> "procinsh_privileged_helper::privileged_helper::process::procfs" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::resource" -> "procinsh_privileged_helper::ipc::model::resource" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::socket_types" -> "procinsh_privileged_helper::ipc::model::socket_types" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system" -> "procinsh_privileged_helper::ipc::model::system" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system" -> "procinsh_privileged_helper::privileged_helper::system::activity" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::system" -> "procinsh_privileged_helper::privileged_helper::system::files" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::system" -> "procinsh_privileged_helper::privileged_helper::system::hardware" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::system" -> "procinsh_privileged_helper::privileged_helper::system::hardware_capture" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::system" -> "procinsh_privileged_helper::privileged_helper::system::ipc" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::system" -> "procinsh_privileged_helper::privileged_helper::system::ipoib" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::system" -> "procinsh_privileged_helper::privileged_helper::system::model" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::system" -> "procinsh_privileged_helper::privileged_helper::system::rdma" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::system" -> "procinsh_privileged_helper::privileged_helper::system::resolver" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::system" -> "procinsh_privileged_helper::privileged_helper::system::sched" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::system" -> "procinsh_privileged_helper::privileged_helper::system::service" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::system" -> "procinsh_privileged_helper::privileged_helper::system::service" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system" -> "procinsh_privileged_helper::privileged_helper::system::signals" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::system" -> "procinsh_privileged_helper::privileged_helper::system::snapshot" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::system" -> "procinsh_privileged_helper::privileged_helper::system::status" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::system" -> "procinsh_privileged_helper::privileged_helper::system::status" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::activity" -> "procinsh_privileged_helper::ipc::acquisition" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::activity" -> "procinsh_privileged_helper::ipc::activity" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::activity" -> "procinsh_privileged_helper::ipc::model::system" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::activity" -> "procinsh_privileged_helper::privileged_helper::system::files" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::activity" -> "procinsh_privileged_helper::privileged_helper::system::ipc" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::activity" -> "procinsh_privileged_helper::privileged_helper::system::sched" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::activity" -> "procinsh_privileged_helper::privileged_helper::system::signals" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::files" -> "procinsh_privileged_helper::ipc::activity" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::files" -> "procinsh_privileged_helper::privileged_helper::abi" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::hardware_capture" -> "procinsh_privileged_helper::ipc::hardware" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::ipc" -> "procinsh_privileged_helper::ipc::activity" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::ipc" -> "procinsh_privileged_helper::ipc::model::system" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::ipc" -> "procinsh_privileged_helper::privileged_helper::abi" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::ipoib" -> "procinsh_privileged_helper::privileged_helper::netlink" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::model" -> "procinsh_privileged_helper::ipc::acquisition" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::rdma" -> "procinsh_privileged_helper::ipc::rdma" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::rdma" -> "procinsh_privileged_helper::privileged_helper::system::rdma::codes" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::system::rdma" -> "procinsh_privileged_helper::privileged_helper::system::rdma::nldev" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::system::rdma" -> "procinsh_privileged_helper::privileged_helper::system::rdma::observation" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::system::rdma" -> "procinsh_privileged_helper::privileged_helper::system::rdma::observation" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::rdma" -> "procinsh_privileged_helper::privileged_helper::system::rdma::ports" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::system::rdma" -> "procinsh_privileged_helper::privileged_helper::system::rdma::relations" [label="owns", color="#000000", style="solid"] [constraint=true]; // "owns" edge
+    "procinsh_privileged_helper::privileged_helper::system::rdma::codes" -> "procinsh_privileged_helper::ipc::rdma" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::rdma::nldev" -> "procinsh_privileged_helper::ipc::rdma" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::rdma::nldev" -> "procinsh_privileged_helper::privileged_helper::netlink" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::rdma::observation" -> "procinsh_privileged_helper::ipc::rdma" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::rdma::observation" -> "procinsh_privileged_helper::ipc::schema" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::rdma::observation" -> "procinsh_privileged_helper::privileged_helper::system::ipoib" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::rdma::observation" -> "procinsh_privileged_helper::privileged_helper::system::rdma::nldev" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::rdma::observation" -> "procinsh_privileged_helper::privileged_helper::system::rdma::ports" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::rdma::observation" -> "procinsh_privileged_helper::privileged_helper::system::rdma::relations" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::rdma::ports" -> "procinsh_privileged_helper::ipc::rdma" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::rdma::relations" -> "procinsh_privileged_helper::ipc::rdma" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::rdma::relations" -> "procinsh_privileged_helper::ipc::schema" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::rdma::relations" -> "procinsh_privileged_helper::privileged_helper::system::rdma::nldev" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::sched" -> "procinsh_privileged_helper::ipc::model::system" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::service" -> "procinsh_privileged_helper::ipc::acquisition" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::service" -> "procinsh_privileged_helper::ipc::model::system" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::service" -> "procinsh_privileged_helper::privileged_helper::system::activity" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::service" -> "procinsh_privileged_helper::privileged_helper::system::snapshot" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::signals" -> "procinsh_privileged_helper::ipc::activity" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::signals" -> "procinsh_privileged_helper::ipc::model::system" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::signals" -> "procinsh_privileged_helper::privileged_helper::abi" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::snapshot" -> "procinsh_privileged_helper::ipc::acquisition" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::snapshot" -> "procinsh_privileged_helper::ipc::model::resource" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::snapshot" -> "procinsh_privileged_helper::ipc::model::socket_types" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::snapshot" -> "procinsh_privileged_helper::ipc::model::sockets" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::snapshot" -> "procinsh_privileged_helper::ipc::model::system" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::snapshot" -> "procinsh_privileged_helper::ipc::schema" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::snapshot" -> "procinsh_privileged_helper::privileged_helper::process" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::snapshot" -> "procinsh_privileged_helper::privileged_helper::process::discovery" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::snapshot" -> "procinsh_privileged_helper::privileged_helper::system::hardware" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::snapshot" -> "procinsh_privileged_helper::privileged_helper::system::rdma" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+    "procinsh_privileged_helper::privileged_helper::system::status" -> "procinsh_privileged_helper::ipc::acquisition" [label="uses", color="#7f7f7f", style="dashed"] [constraint=false]; // "uses" edge
+
+}

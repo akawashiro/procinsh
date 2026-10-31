@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["HOST_LIMIT","OFFLINE_RETENTION_MS"],"enum":["HostStatus","RemoteHost"],"fn":["timestamp_ms"],"struct":["HostRegistry","HostSummary","Remote"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["endpoint","label","owner","relations","same_connection"],"struct":["Endpoint"]};

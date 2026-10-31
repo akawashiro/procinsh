@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["auxv","config","environment","events","fds","list_processes","maps","request","resource","stats","threads"],"struct":["ApiError","ProcessQuery"],"type":["ApiResult"]};

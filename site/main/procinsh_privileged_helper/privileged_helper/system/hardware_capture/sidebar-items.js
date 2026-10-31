@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_BYTES","MAX_ENTRIES","MAX_TEXT"],"fn":["capture"],"struct":["HardwareReader"]};

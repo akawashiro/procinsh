@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["PC","PERF_REGS_MASK","SP"],"fn":["read_registers"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DUMP_FLAGS","HEADER","NLMSG_DONE","NLMSG_ERROR","NLM_F_DUMP_INTR","REPLY_LIMIT"],"fn":["attributes","kernel_error","open_socket","u32_at"],"struct":["NetlinkDumpRequest"]};

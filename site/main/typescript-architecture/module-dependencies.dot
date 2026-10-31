@@ -1,0 +1,12 @@
+digraph {
+  graph [rankdir=LR, bgcolor="white", pad=0.3];
+  node [shape=box, style="rounded,filled", fillcolor="#e8f2ff", fontname="sans-serif"];
+  edge [color="#475569", arrowsize=0.8];
+  "list" [label="list", tooltip="list"];
+  "process" [label="process", tooltip="process"];
+  "shared" [label="shared", tooltip="shared"];
+  "space" [label="space", tooltip="space"];
+  "list" -> "shared";
+  "process" -> "shared";
+  "space" -> "shared";
+}

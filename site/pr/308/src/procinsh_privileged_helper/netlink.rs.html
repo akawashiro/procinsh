@@ -1,0 +1,237 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/privileged_helper/netlink.rs`."><title>netlink.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1ed95124.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="procinsh_privileged_helper" data-themes="" data-resource-suffix="" data-rustdoc-version="1.98.1 (48a229cea 2026-09-01)" data-channel="1.98.1" data-search-js="search-9944d736.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../../static.files/storage-41dd4d93.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">procinsh_privileged_helper/</div>netlink.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! Bounded netlink dump requests and attribute parsing shared by socket and RDMA
+<a href=#2 id=2 data-nosnippet>2</a>//! diagnostics. Requests only read kernel tables; no endpoint is opened or modified.
+<a href=#3 id=3 data-nosnippet>3</a>//!
+<a href=#4 id=4 data-nosnippet>4</a>//! # Interface
+<a href=#5 id=5 data-nosnippet>5</a>//!
+<a href=#6 id=6 data-nosnippet>6</a>//! | Definition | Visibility | Kind / signature |
+<a href=#7 id=7 data-nosnippet>7</a>//! | --- | --- | --- |
+<a href=#8 id=8 data-nosnippet>8</a>//! | [`NetlinkDumpRequest`] | `pub(super)` | `struct NetlinkDumpRequest` |
+<a href=#9 id=9 data-nosnippet>9</a>//! | [`open_socket`] | `pub(super)` | `fn open_socket(protocol: `[`i32`]`, name: &amp;`[`str`]`) -&gt; `[`Result`]`&lt;`[`OwnedFd`]`&gt;` |
+<a href=#10 id=10 data-nosnippet>10</a>//! | [`attributes`] | `pub(super)` | `fn attributes(bytes: &amp;[`[`u8`]`]) -&gt; `[`Result`]`&lt;`[`Vec`]`&lt;(`[`u16`]`, &amp;[`[`u8`]`])&gt;&gt;` |
+<a href=#11 id=11 data-nosnippet>11</a>//! | [`u32_at`] | `pub(super)` | `fn u32_at(bytes: &amp;[`[`u8`]`], offset: `[`usize`]`) -&gt; `[`Result`]`&lt;`[`u32`]`&gt;` |
+<a href=#12 id=12 data-nosnippet>12</a>
+<a href=#13 id=13 data-nosnippet>13</a></span><span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>, bail, ensure};
+<a href=#14 id=14 data-nosnippet>14</a><span class="kw">use </span>std::{
+<a href=#15 id=15 data-nosnippet>15</a>    os::fd::{AsRawFd, FromRawFd, OwnedFd},
+<a href=#16 id=16 data-nosnippet>16</a>    time::Instant,
+<a href=#17 id=17 data-nosnippet>17</a>};
+<a href=#18 id=18 data-nosnippet>18</a>
+<a href=#19 id=19 data-nosnippet>19</a><span class="kw">const </span>HEADER: usize = <span class="number">16</span>;
+<a href=#20 id=20 data-nosnippet>20</a><span class="kw">const </span>NLMSG_ERROR: u16 = <span class="number">2</span>;
+<a href=#21 id=21 data-nosnippet>21</a><span class="kw">const </span>NLMSG_DONE: u16 = <span class="number">3</span>;
+<a href=#22 id=22 data-nosnippet>22</a><span class="kw">const </span>NLM_F_DUMP_INTR: u16 = <span class="number">0x10</span>;
+<a href=#23 id=23 data-nosnippet>23</a><span class="comment">// NLM_F_REQUEST | NLM_F_DUMP
+<a href=#24 id=24 data-nosnippet>24</a></span><span class="kw">const </span>DUMP_FLAGS: u16 = <span class="number">0x301</span>;
+<a href=#25 id=25 data-nosnippet>25</a><span class="kw">const </span>REPLY_LIMIT: usize = <span class="number">8 </span>* <span class="number">1024 </span>* <span class="number">1024</span>;
+<a href=#26 id=26 data-nosnippet>26</a>
+<a href=#27 id=27 data-nosnippet>27</a><span class="doccomment">/// The kernel's negative errno from an error or done message.
+<a href=#28 id=28 data-nosnippet>28</a></span><span class="kw">fn </span>kernel_error(code: i32) -&gt; std::io::Error {
+<a href=#29 id=29 data-nosnippet>29</a>    std::io::Error::from_raw_os_error(code.saturating_neg())
+<a href=#30 id=30 data-nosnippet>30</a>}
+<a href=#31 id=31 data-nosnippet>31</a>
+<a href=#32 id=32 data-nosnippet>32</a><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>open_socket(protocol: i32, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;OwnedFd&gt; {
+<a href=#33 id=33 data-nosnippet>33</a>    <span class="kw">let </span>raw = <span class="kw">unsafe </span>{
+<a href=#34 id=34 data-nosnippet>34</a>        libc::socket(
+<a href=#35 id=35 data-nosnippet>35</a>            libc::AF_NETLINK,
+<a href=#36 id=36 data-nosnippet>36</a>            libc::SOCK_RAW | libc::SOCK_CLOEXEC | libc::SOCK_NONBLOCK,
+<a href=#37 id=37 data-nosnippet>37</a>            protocol,
+<a href=#38 id=38 data-nosnippet>38</a>        )
+<a href=#39 id=39 data-nosnippet>39</a>    };
+<a href=#40 id=40 data-nosnippet>40</a>    <span class="macro">ensure!</span>(raw &gt;= <span class="number">0</span>, <span class="string">"{name}: {}"</span>, std::io::Error::last_os_error());
+<a href=#41 id=41 data-nosnippet>41</a>    <span class="prelude-val">Ok</span>(<span class="kw">unsafe </span>{ OwnedFd::from_raw_fd(raw) })
+<a href=#42 id=42 data-nosnippet>42</a>}
+<a href=#43 id=43 data-nosnippet>43</a>
+<a href=#44 id=44 data-nosnippet>44</a><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>u32_at(bytes: <span class="kw-2">&amp;</span>[u8], offset: usize) -&gt; <span class="prelude-ty">Result</span>&lt;u32&gt; {
+<a href=#45 id=45 data-nosnippet>45</a>    <span class="prelude-val">Ok</span>(u32::from_ne_bytes(
+<a href=#46 id=46 data-nosnippet>46</a>        bytes
+<a href=#47 id=47 data-nosnippet>47</a>            .get(offset..offset + <span class="number">4</span>)
+<a href=#48 id=48 data-nosnippet>48</a>            .context(<span class="string">"short netlink field"</span>)<span class="question-mark">?
+<a href=#49 id=49 data-nosnippet>49</a>            </span>.try_into()<span class="question-mark">?</span>,
+<a href=#50 id=50 data-nosnippet>50</a>    ))
+<a href=#51 id=51 data-nosnippet>51</a>}
+<a href=#52 id=52 data-nosnippet>52</a>
+<a href=#53 id=53 data-nosnippet>53</a><span class="doccomment">/// Splits a 4-byte aligned attribute stream into `(type, payload)` pairs.
+<a href=#54 id=54 data-nosnippet>54</a>/// The nested and byte-order flags are removed from the type.
+<a href=#55 id=55 data-nosnippet>55</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>attributes(bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;(u16, <span class="kw-2">&amp;</span>[u8])&gt;&gt; {
+<a href=#56 id=56 data-nosnippet>56</a>    <span class="kw">let </span><span class="kw-2">mut </span>result = Vec::new();
+<a href=#57 id=57 data-nosnippet>57</a>    <span class="kw">let </span><span class="kw-2">mut </span>offset = <span class="number">0</span>;
+<a href=#58 id=58 data-nosnippet>58</a>    <span class="kw">while </span>offset &lt; bytes.len() {
+<a href=#59 id=59 data-nosnippet>59</a>        <span class="macro">ensure!</span>(offset + <span class="number">4 </span>&lt;= bytes.len(), <span class="string">"short netlink attribute"</span>);
+<a href=#60 id=60 data-nosnippet>60</a>        <span class="kw">let </span>length = u16::from_ne_bytes(bytes[offset..offset + <span class="number">2</span>].try_into()<span class="question-mark">?</span>) <span class="kw">as </span>usize;
+<a href=#61 id=61 data-nosnippet>61</a>        <span class="kw">let </span>kind = u16::from_ne_bytes(bytes[offset + <span class="number">2</span>..offset + <span class="number">4</span>].try_into()<span class="question-mark">?</span>) &amp; <span class="number">0x3fff</span>;
+<a href=#62 id=62 data-nosnippet>62</a>        <span class="macro">ensure!</span>(
+<a href=#63 id=63 data-nosnippet>63</a>            length &gt;= <span class="number">4 </span>&amp;&amp; offset + length &lt;= bytes.len(),
+<a href=#64 id=64 data-nosnippet>64</a>            <span class="string">"invalid netlink attribute length"
+<a href=#65 id=65 data-nosnippet>65</a>        </span>);
+<a href=#66 id=66 data-nosnippet>66</a>        result.push((kind, <span class="kw-2">&amp;</span>bytes[offset + <span class="number">4</span>..offset + length]));
+<a href=#67 id=67 data-nosnippet>67</a>        offset += (length + <span class="number">3</span>) &amp; !<span class="number">3</span>;
+<a href=#68 id=68 data-nosnippet>68</a>    }
+<a href=#69 id=69 data-nosnippet>69</a>    <span class="prelude-val">Ok</span>(result)
+<a href=#70 id=70 data-nosnippet>70</a>}
+<a href=#71 id=71 data-nosnippet>71</a>
+<a href=#72 id=72 data-nosnippet>72</a><span class="doccomment">/// One dump request. `label` prefixes errors, such as `"UNIX diag timed out"`.
+<a href=#73 id=73 data-nosnippet>73</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">struct </span>NetlinkDumpRequest&lt;<span class="lifetime">'a</span>&gt; {
+<a href=#74 id=74 data-nosnippet>74</a>    <span class="kw">pub</span>(<span class="kw">super</span>) label: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str,
+<a href=#75 id=75 data-nosnippet>75</a>    <span class="kw">pub</span>(<span class="kw">super</span>) message_type: u16,
+<a href=#76 id=76 data-nosnippet>76</a>    <span class="doccomment">/// The only data message type accepted in the reply.
+<a href=#77 id=77 data-nosnippet>77</a>    </span><span class="kw">pub</span>(<span class="kw">super</span>) reply_type: u16,
+<a href=#78 id=78 data-nosnippet>78</a>    <span class="kw">pub</span>(<span class="kw">super</span>) sequence: u32,
+<a href=#79 id=79 data-nosnippet>79</a>    <span class="doccomment">/// Family header and attributes following the netlink header, 4-byte aligned.
+<a href=#80 id=80 data-nosnippet>80</a>    </span><span class="kw">pub</span>(<span class="kw">super</span>) payload: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8],
+<a href=#81 id=81 data-nosnippet>81</a>}
+<a href=#82 id=82 data-nosnippet>82</a>
+<a href=#83 id=83 data-nosnippet>83</a><span class="kw">impl </span>NetlinkDumpRequest&lt;<span class="lifetime">'_</span>&gt; {
+<a href=#84 id=84 data-nosnippet>84</a>    <span class="doccomment">/// Sends the request and passes each reply body to `visit` until `NLMSG_DONE`.
+<a href=#85 id=85 data-nosnippet>85</a>    /// Interrupted dumps, replies from other senders or sequences, error messages and
+<a href=#86 id=86 data-nosnippet>86</a>    /// replies above 8 MiB fail. The deadline bounds the whole exchange.
+<a href=#87 id=87 data-nosnippet>87</a>    </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>run(
+<a href=#88 id=88 data-nosnippet>88</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#89 id=89 data-nosnippet>89</a>        fd: <span class="kw-2">&amp;</span>OwnedFd,
+<a href=#90 id=90 data-nosnippet>90</a>        deadline: Instant,
+<a href=#91 id=91 data-nosnippet>91</a>        <span class="kw-2">mut </span>visit: <span class="kw">impl </span>FnMut(<span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;,
+<a href=#92 id=92 data-nosnippet>92</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#93 id=93 data-nosnippet>93</a>        <span class="kw">let </span>label = <span class="self">self</span>.label;
+<a href=#94 id=94 data-nosnippet>94</a>        <span class="macro">ensure!</span>(Instant::now() &lt; deadline, <span class="string">"{label} timed out"</span>);
+<a href=#95 id=95 data-nosnippet>95</a>        <span class="kw">let </span><span class="kw-2">mut </span>kernel: libc::sockaddr_nl = <span class="kw">unsafe </span>{ std::mem::zeroed() };
+<a href=#96 id=96 data-nosnippet>96</a>        kernel.nl_family = libc::AF_NETLINK <span class="kw">as </span>u16;
+<a href=#97 id=97 data-nosnippet>97</a>        <span class="kw">let </span><span class="kw-2">mut </span>request = <span class="macro">vec!</span>[<span class="number">0u8</span>; HEADER];
+<a href=#98 id=98 data-nosnippet>98</a>        request[<span class="number">0</span>..<span class="number">4</span>].copy_from_slice(<span class="kw-2">&amp;</span>((HEADER + <span class="self">self</span>.payload.len()) <span class="kw">as </span>u32).to_ne_bytes());
+<a href=#99 id=99 data-nosnippet>99</a>        request[<span class="number">4</span>..<span class="number">6</span>].copy_from_slice(<span class="kw-2">&amp;</span><span class="self">self</span>.message_type.to_ne_bytes());
+<a href=#100 id=100 data-nosnippet>100</a>        request[<span class="number">6</span>..<span class="number">8</span>].copy_from_slice(<span class="kw-2">&amp;</span>DUMP_FLAGS.to_ne_bytes());
+<a href=#101 id=101 data-nosnippet>101</a>        request[<span class="number">8</span>..<span class="number">12</span>].copy_from_slice(<span class="kw-2">&amp;</span><span class="self">self</span>.sequence.to_ne_bytes());
+<a href=#102 id=102 data-nosnippet>102</a>        request.extend_from_slice(<span class="self">self</span>.payload);
+<a href=#103 id=103 data-nosnippet>103</a>        <span class="kw">let </span>sent = <span class="kw">unsafe </span>{
+<a href=#104 id=104 data-nosnippet>104</a>            libc::sendto(
+<a href=#105 id=105 data-nosnippet>105</a>                fd.as_raw_fd(),
+<a href=#106 id=106 data-nosnippet>106</a>                request.as_ptr().cast(),
+<a href=#107 id=107 data-nosnippet>107</a>                request.len(),
+<a href=#108 id=108 data-nosnippet>108</a>                <span class="number">0</span>,
+<a href=#109 id=109 data-nosnippet>109</a>                (<span class="kw-2">&amp;</span>kernel <span class="kw">as </span><span class="kw-2">*const </span>libc::sockaddr_nl).cast(),
+<a href=#110 id=110 data-nosnippet>110</a>                std::mem::size_of_val(<span class="kw-2">&amp;</span>kernel) <span class="kw">as _</span>,
+<a href=#111 id=111 data-nosnippet>111</a>            )
+<a href=#112 id=112 data-nosnippet>112</a>        };
+<a href=#113 id=113 data-nosnippet>113</a>        <span class="macro">ensure!</span>(
+<a href=#114 id=114 data-nosnippet>114</a>            sent == request.len() <span class="kw">as </span>isize,
+<a href=#115 id=115 data-nosnippet>115</a>            <span class="string">"{label} send: {}"</span>,
+<a href=#116 id=116 data-nosnippet>116</a>            std::io::Error::last_os_error()
+<a href=#117 id=117 data-nosnippet>117</a>        );
+<a href=#118 id=118 data-nosnippet>118</a>        <span class="kw">let </span><span class="kw-2">mut </span>buffer = <span class="macro">vec!</span>[<span class="number">0u8</span>; <span class="number">65536</span>];
+<a href=#119 id=119 data-nosnippet>119</a>        <span class="kw">let </span><span class="kw-2">mut </span>total = <span class="number">0</span>;
+<a href=#120 id=120 data-nosnippet>120</a>        <span class="kw">loop </span>{
+<a href=#121 id=121 data-nosnippet>121</a>            <span class="macro">ensure!</span>(Instant::now() &lt; deadline, <span class="string">"{label} timed out"</span>);
+<a href=#122 id=122 data-nosnippet>122</a>            <span class="kw">let </span><span class="kw-2">mut </span>poll = libc::pollfd {
+<a href=#123 id=123 data-nosnippet>123</a>                fd: fd.as_raw_fd(),
+<a href=#124 id=124 data-nosnippet>124</a>                events: libc::POLLIN,
+<a href=#125 id=125 data-nosnippet>125</a>                revents: <span class="number">0</span>,
+<a href=#126 id=126 data-nosnippet>126</a>            };
+<a href=#127 id=127 data-nosnippet>127</a>            <span class="kw">let </span>remaining = deadline.saturating_duration_since(Instant::now());
+<a href=#128 id=128 data-nosnippet>128</a>            <span class="kw">let </span>timeout = remaining.as_millis().clamp(<span class="number">1</span>, <span class="number">50</span>) <span class="kw">as </span>i32;
+<a href=#129 id=129 data-nosnippet>129</a>            <span class="kw">let </span>ready = <span class="kw">unsafe </span>{ libc::poll(<span class="kw-2">&amp;mut </span>poll, <span class="number">1</span>, timeout) };
+<a href=#130 id=130 data-nosnippet>130</a>            <span class="kw">if </span>ready &lt; <span class="number">0 </span>{
+<a href=#131 id=131 data-nosnippet>131</a>                <span class="kw">if </span>std::io::Error::last_os_error().raw_os_error() == <span class="prelude-val">Some</span>(libc::EINTR) {
+<a href=#132 id=132 data-nosnippet>132</a>                    <span class="kw">continue</span>;
+<a href=#133 id=133 data-nosnippet>133</a>                }
+<a href=#134 id=134 data-nosnippet>134</a>                <span class="macro">bail!</span>(std::io::Error::last_os_error());
+<a href=#135 id=135 data-nosnippet>135</a>            }
+<a href=#136 id=136 data-nosnippet>136</a>            <span class="kw">if </span>ready == <span class="number">0 </span>{
+<a href=#137 id=137 data-nosnippet>137</a>                <span class="kw">continue</span>;
+<a href=#138 id=138 data-nosnippet>138</a>            }
+<a href=#139 id=139 data-nosnippet>139</a>            <span class="kw">let </span><span class="kw-2">mut </span>sender: libc::sockaddr_nl = <span class="kw">unsafe </span>{ std::mem::zeroed() };
+<a href=#140 id=140 data-nosnippet>140</a>            <span class="kw">let </span><span class="kw-2">mut </span>sender_len = std::mem::size_of_val(<span class="kw-2">&amp;</span>sender) <span class="kw">as </span>libc::socklen_t;
+<a href=#141 id=141 data-nosnippet>141</a>            <span class="kw">let </span>count = <span class="kw">unsafe </span>{
+<a href=#142 id=142 data-nosnippet>142</a>                libc::recvfrom(
+<a href=#143 id=143 data-nosnippet>143</a>                    fd.as_raw_fd(),
+<a href=#144 id=144 data-nosnippet>144</a>                    buffer.as_mut_ptr().cast(),
+<a href=#145 id=145 data-nosnippet>145</a>                    buffer.len(),
+<a href=#146 id=146 data-nosnippet>146</a>                    libc::MSG_TRUNC | libc::MSG_DONTWAIT,
+<a href=#147 id=147 data-nosnippet>147</a>                    (<span class="kw-2">&amp;mut </span>sender <span class="kw">as </span><span class="kw-2">*mut </span>libc::sockaddr_nl).cast(),
+<a href=#148 id=148 data-nosnippet>148</a>                    <span class="kw-2">&amp;mut </span>sender_len,
+<a href=#149 id=149 data-nosnippet>149</a>                )
+<a href=#150 id=150 data-nosnippet>150</a>            };
+<a href=#151 id=151 data-nosnippet>151</a>            <span class="kw">if </span>count &lt; <span class="number">0 </span>{
+<a href=#152 id=152 data-nosnippet>152</a>                <span class="kw">let </span>error = std::io::Error::last_os_error();
+<a href=#153 id=153 data-nosnippet>153</a>                <span class="kw">if </span><span class="macro">matches!</span>(error.raw_os_error(), <span class="prelude-val">Some</span>(libc::EINTR) | <span class="prelude-val">Some</span>(libc::EAGAIN)) {
+<a href=#154 id=154 data-nosnippet>154</a>                    <span class="kw">continue</span>;
+<a href=#155 id=155 data-nosnippet>155</a>                }
+<a href=#156 id=156 data-nosnippet>156</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(error.into());
+<a href=#157 id=157 data-nosnippet>157</a>            }
+<a href=#158 id=158 data-nosnippet>158</a>            <span class="macro">ensure!</span>(
+<a href=#159 id=159 data-nosnippet>159</a>                count &gt; <span class="number">0 </span>&amp;&amp; count <span class="kw">as </span>usize &lt;= buffer.len(),
+<a href=#160 id=160 data-nosnippet>160</a>                <span class="string">"truncated {label} packet"
+<a href=#161 id=161 data-nosnippet>161</a>            </span>);
+<a href=#162 id=162 data-nosnippet>162</a>            <span class="macro">ensure!</span>(sender.nl_pid == <span class="number">0</span>, <span class="string">"{label} sender is not kernel"</span>);
+<a href=#163 id=163 data-nosnippet>163</a>            total += count <span class="kw">as </span>usize;
+<a href=#164 id=164 data-nosnippet>164</a>            <span class="macro">ensure!</span>(total &lt;= REPLY_LIMIT, <span class="string">"{label} exceeds 8 MiB limit"</span>);
+<a href=#165 id=165 data-nosnippet>165</a>            <span class="kw">let </span>bytes = <span class="kw-2">&amp;</span>buffer[..count <span class="kw">as </span>usize];
+<a href=#166 id=166 data-nosnippet>166</a>            <span class="kw">let </span><span class="kw-2">mut </span>offset = <span class="number">0</span>;
+<a href=#167 id=167 data-nosnippet>167</a>            <span class="kw">while </span>offset &lt; bytes.len() {
+<a href=#168 id=168 data-nosnippet>168</a>                <span class="macro">ensure!</span>(offset + HEADER &lt;= bytes.len(), <span class="string">"short netlink header"</span>);
+<a href=#169 id=169 data-nosnippet>169</a>                <span class="kw">let </span>length = u32_at(bytes, offset)<span class="question-mark">? </span><span class="kw">as </span>usize;
+<a href=#170 id=170 data-nosnippet>170</a>                <span class="macro">ensure!</span>(
+<a href=#171 id=171 data-nosnippet>171</a>                    length &gt;= HEADER &amp;&amp; length &lt;= bytes.len() - offset,
+<a href=#172 id=172 data-nosnippet>172</a>                    <span class="string">"invalid netlink length"
+<a href=#173 id=173 data-nosnippet>173</a>                </span>);
+<a href=#174 id=174 data-nosnippet>174</a>                <span class="kw">let </span>kind = u16::from_ne_bytes(bytes[offset + <span class="number">4</span>..offset + <span class="number">6</span>].try_into()<span class="question-mark">?</span>);
+<a href=#175 id=175 data-nosnippet>175</a>                <span class="kw">let </span>flags = u16::from_ne_bytes(bytes[offset + <span class="number">6</span>..offset + <span class="number">8</span>].try_into()<span class="question-mark">?</span>);
+<a href=#176 id=176 data-nosnippet>176</a>                <span class="macro">ensure!</span>(
+<a href=#177 id=177 data-nosnippet>177</a>                    u32_at(bytes, offset + <span class="number">8</span>)<span class="question-mark">? </span>== <span class="self">self</span>.sequence &amp;&amp; flags &amp; NLM_F_DUMP_INTR == <span class="number">0</span>,
+<a href=#178 id=178 data-nosnippet>178</a>                    <span class="string">"{label} dump interrupted"
+<a href=#179 id=179 data-nosnippet>179</a>                </span>);
+<a href=#180 id=180 data-nosnippet>180</a>                <span class="kw">let </span>body = <span class="kw-2">&amp;</span>bytes[offset + HEADER..offset + length];
+<a href=#181 id=181 data-nosnippet>181</a>                <span class="kw">match </span>kind {
+<a href=#182 id=182 data-nosnippet>182</a>                    <span class="comment">// Both carry a negative errno; keep it as an io::Error so callers
+<a href=#183 id=183 data-nosnippet>183</a>                    // can tell an unsupported dump from a failed one.
+<a href=#184 id=184 data-nosnippet>184</a>                    </span>NLMSG_DONE =&gt; {
+<a href=#185 id=185 data-nosnippet>185</a>                        <span class="kw">if </span>body.len() &gt;= <span class="number">4 </span>{
+<a href=#186 id=186 data-nosnippet>186</a>                            <span class="kw">let </span>code = u32_at(body, <span class="number">0</span>)<span class="question-mark">? </span><span class="kw">as </span>i32;
+<a href=#187 id=187 data-nosnippet>187</a>                            <span class="kw">if </span>code != <span class="number">0 </span>{
+<a href=#188 id=188 data-nosnippet>188</a>                                <span class="kw">return </span><span class="prelude-val">Err</span>(kernel_error(code))
+<a href=#189 id=189 data-nosnippet>189</a>                                    .with_context(|| <span class="macro">format!</span>(<span class="string">"{label} dump failed"</span>));
+<a href=#190 id=190 data-nosnippet>190</a>                            }
+<a href=#191 id=191 data-nosnippet>191</a>                        }
+<a href=#192 id=192 data-nosnippet>192</a>                        <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+<a href=#193 id=193 data-nosnippet>193</a>                    }
+<a href=#194 id=194 data-nosnippet>194</a>                    NLMSG_ERROR =&gt; {
+<a href=#195 id=195 data-nosnippet>195</a>                        <span class="kw">let </span>code = u32_at(body, <span class="number">0</span>)<span class="question-mark">? </span><span class="kw">as </span>i32;
+<a href=#196 id=196 data-nosnippet>196</a>                        <span class="kw">if </span>code != <span class="number">0 </span>{
+<a href=#197 id=197 data-nosnippet>197</a>                            <span class="kw">return </span><span class="prelude-val">Err</span>(kernel_error(code)).with_context(|| label.to_owned());
+<a href=#198 id=198 data-nosnippet>198</a>                        }
+<a href=#199 id=199 data-nosnippet>199</a>                    }
+<a href=#200 id=200 data-nosnippet>200</a>                    kind <span class="kw">if </span>kind == <span class="self">self</span>.reply_type =&gt; visit(body)<span class="question-mark">?</span>,
+<a href=#201 id=201 data-nosnippet>201</a>                    <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">"unexpected netlink message {kind}"</span>),
+<a href=#202 id=202 data-nosnippet>202</a>                }
+<a href=#203 id=203 data-nosnippet>203</a>                offset += (length + <span class="number">3</span>) &amp; !<span class="number">3</span>;
+<a href=#204 id=204 data-nosnippet>204</a>            }
+<a href=#205 id=205 data-nosnippet>205</a>        }
+<a href=#206 id=206 data-nosnippet>206</a>    }
+<a href=#207 id=207 data-nosnippet>207</a>}
+<a href=#208 id=208 data-nosnippet>208</a>
+<a href=#209 id=209 data-nosnippet>209</a><span class="attr">#[cfg(test)]
+<a href=#210 id=210 data-nosnippet>210</a></span><span class="kw">mod </span>tests {
+<a href=#211 id=211 data-nosnippet>211</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#212 id=212 data-nosnippet>212</a>
+<a href=#213 id=213 data-nosnippet>213</a>    <span class="kw">fn </span>attribute(kind: u16, data: <span class="kw-2">&amp;</span>[u8]) -&gt; Vec&lt;u8&gt; {
+<a href=#214 id=214 data-nosnippet>214</a>        <span class="kw">let </span><span class="kw-2">mut </span>bytes = Vec::new();
+<a href=#215 id=215 data-nosnippet>215</a>        bytes.extend_from_slice(<span class="kw-2">&amp;</span>((<span class="number">4 </span>+ data.len()) <span class="kw">as </span>u16).to_ne_bytes());
+<a href=#216 id=216 data-nosnippet>216</a>        bytes.extend_from_slice(<span class="kw-2">&amp;</span>kind.to_ne_bytes());
+<a href=#217 id=217 data-nosnippet>217</a>        bytes.extend_from_slice(data);
+<a href=#218 id=218 data-nosnippet>218</a>        bytes.resize((bytes.len() + <span class="number">3</span>) &amp; !<span class="number">3</span>, <span class="number">0</span>);
+<a href=#219 id=219 data-nosnippet>219</a>        bytes
+<a href=#220 id=220 data-nosnippet>220</a>    }
+<a href=#221 id=221 data-nosnippet>221</a>
+<a href=#222 id=222 data-nosnippet>222</a>    <span class="attr">#[test]
+<a href=#223 id=223 data-nosnippet>223</a>    </span><span class="kw">fn </span>attributes_strip_flags_skip_padding_and_reject_bad_lengths() {
+<a href=#224 id=224 data-nosnippet>224</a>        <span class="kw">let </span><span class="kw-2">mut </span>bytes = attribute(<span class="number">0x8000 </span>| <span class="number">19</span>, <span class="kw-2">&amp;</span>attribute(<span class="number">20</span>, <span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]));
+<a href=#225 id=225 data-nosnippet>225</a>        bytes.extend(attribute(<span class="number">2</span>, <span class="string">b"mlx\0"</span>));
+<a href=#226 id=226 data-nosnippet>226</a>        <span class="kw">let </span>parsed = attributes(<span class="kw-2">&amp;</span>bytes).unwrap();
+<a href=#227 id=227 data-nosnippet>227</a>        <span class="macro">assert_eq!</span>(parsed.len(), <span class="number">2</span>);
+<a href=#228 id=228 data-nosnippet>228</a>        <span class="macro">assert_eq!</span>(parsed[<span class="number">0</span>].<span class="number">0</span>, <span class="number">19</span>);
+<a href=#229 id=229 data-nosnippet>229</a>        <span class="macro">assert_eq!</span>(attributes(parsed[<span class="number">0</span>].<span class="number">1</span>).unwrap()[<span class="number">0</span>], (<span class="number">20</span>, <span class="kw-2">&amp;</span>[<span class="number">1u8</span>, <span class="number">2</span>, <span class="number">3</span>][..]));
+<a href=#230 id=230 data-nosnippet>230</a>        <span class="macro">assert_eq!</span>(parsed[<span class="number">1</span>], (<span class="number">2</span>, <span class="kw-2">&amp;</span><span class="string">b"mlx\0"</span>[..]));
+<a href=#231 id=231 data-nosnippet>231</a>        bytes[<span class="number">0</span>] = <span class="number">3</span>;
+<a href=#232 id=232 data-nosnippet>232</a>        <span class="macro">assert!</span>(attributes(<span class="kw-2">&amp;</span>bytes).is_err());
+<a href=#233 id=233 data-nosnippet>233</a>        <span class="macro">assert!</span>(attributes(<span class="kw-2">&amp;</span>[<span class="number">8</span>, <span class="number">0</span>, <span class="number">1</span>]).is_err());
+<a href=#234 id=234 data-nosnippet>234</a>        <span class="macro">assert!</span>(attributes(<span class="kw-2">&amp;</span>[]).unwrap().is_empty());
+<a href=#235 id=235 data-nosnippet>235</a>    }
+<a href=#236 id=236 data-nosnippet>236</a>}
+</code></pre></div></section></main></body></html>

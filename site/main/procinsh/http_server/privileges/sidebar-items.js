@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["capabilities","check","clear_ambient","close_inherited","drop_application_capabilities","prctl","seal_application","set_capabilities"],"struct":["CapabilityHeader","CapabilitySet"]};

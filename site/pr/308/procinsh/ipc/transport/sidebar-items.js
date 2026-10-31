@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["configure","read","read_timeout","read_until","remaining","write","write_until"]};

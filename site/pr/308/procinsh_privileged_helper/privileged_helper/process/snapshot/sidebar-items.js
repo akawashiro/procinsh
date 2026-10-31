@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["arch","capture","instruction_bytes","perf","ptrace","registers","sample"]};

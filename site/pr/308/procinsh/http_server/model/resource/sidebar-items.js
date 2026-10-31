@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["IpcKindJson"],"fn":["decimal","deserialize_decimal"],"struct":["DeviceIdJson","FileIdentityJson","IpcIdentityJson"]};

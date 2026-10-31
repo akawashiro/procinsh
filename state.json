@@ -1,0 +1,12 @@
+{
+  "versions": {
+    "main": {
+      "run_url": "https://github.com/akawashiro/procinsh/actions/runs/41160380258",
+      "sha": "ff7ce873a2dc4505c367393354ae4a28da84d1eb"
+    },
+    "pr-308": {
+      "run_url": "https://github.com/akawashiro/procinsh/actions/runs/41170053299",
+      "sha": "3421bc5af7e5c8bf21693345db9a508691b80523"
+    }
+  }
+}

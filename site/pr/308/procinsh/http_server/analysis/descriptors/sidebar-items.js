@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["complete","pipe_opposite"],"struct":["DescriptorJson","EndpointJson","FileDescriptorsJson","KeyJson","OwnerJson"]};

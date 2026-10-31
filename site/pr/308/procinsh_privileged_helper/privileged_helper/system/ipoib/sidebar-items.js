@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ARPHRD_INFINIBAND","IPOIB_HARDWARE_ADDRESS","NDA_DST","NDA_LLADDR","NUD_FAILED","NUD_INCOMPLETE","RTM_GETNEIGH","RTM_NEWNEIGH"],"fn":["format_gid","has_ipoib_interface","ipoib_gids","parse_neighbor"]};

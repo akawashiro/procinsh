@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["RegisterRole"],"struct":["Register","RegisterMapping","RegisterSet"]};

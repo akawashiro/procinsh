@@ -1,0 +1,902 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/privileged_helper/process/snapshot/capture.rs`."><title>capture.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1ed95124.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="procinsh_privileged_helper" data-themes="" data-resource-suffix="" data-rustdoc-version="1.98.1 (48a229cea 2026-09-01)" data-channel="1.98.1" data-search-js="search-9944d736.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../../../../static.files/storage-41dd4d93.js"></script><script defer src="../../../../static.files/src-script-813739b1.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">procinsh_privileged_helper/process/snapshot/</div>capture.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="attr">#[cfg(test)]
+<a href=#2 id=2 data-nosnippet>2</a></span><span class="kw">use </span><span class="kw">super</span>::sample::SampleSource;
+<a href=#3 id=3 data-nosnippet>3</a><span class="kw">use </span><span class="kw">super</span>::sample::monotonic_ns;
+<a href=#4 id=4 data-nosnippet>4</a><span class="kw">use super</span>::{arch::native, instruction_bytes::InstructionBytes, perf::PerfEventReader};
+<a href=#5 id=5 data-nosnippet>5</a><span class="attr">#[cfg(test)]
+<a href=#6 id=6 data-nosnippet>6</a></span><span class="kw">use super</span>::{registers, stack::StackFrame};
+<a href=#7 id=7 data-nosnippet>7</a><span class="attr">#[cfg(test)]
+<a href=#8 id=8 data-nosnippet>8</a></span><span class="kw">use </span><span class="kw">crate</span>::http_server::analysis::snapshot::{
+<a href=#9 id=9 data-nosnippet>9</a>    symbol::{ElfCache, SymbolInfo, elf_address, instruction_address, resolve_frame},
+<a href=#10 id=10 data-nosnippet>10</a>    unwind::StackUnwinder,
+<a href=#11 id=11 data-nosnippet>11</a>};
+<a href=#12 id=12 data-nosnippet>12</a><span class="kw">use </span><span class="kw">crate</span>::privileged_helper::process::{
+<a href=#13 id=13 data-nosnippet>13</a>    <span class="self">self</span>, ProcessId,
+<a href=#14 id=14 data-nosnippet>14</a>    maps::{MappingSnapshot, MemoryMap},
+<a href=#15 id=15 data-nosnippet>15</a>    procfs,
+<a href=#16 id=16 data-nosnippet>16</a>};
+<a href=#17 id=17 data-nosnippet>17</a><span class="kw">use </span>anyhow::Result;
+<a href=#18 id=18 data-nosnippet>18</a><span class="kw">use </span>std::{
+<a href=#19 id=19 data-nosnippet>19</a>    collections::{BTreeMap, BTreeSet},
+<a href=#20 id=20 data-nosnippet>20</a>    sync::Arc,
+<a href=#21 id=21 data-nosnippet>21</a>    time::{Duration, Instant},
+<a href=#22 id=22 data-nosnippet>22</a>};
+<a href=#23 id=23 data-nosnippet>23</a>
+<a href=#24 id=24 data-nosnippet>24</a><span class="kw">fn </span>executable_header(pid: i32) -&gt; <span class="prelude-ty">Option</span>&lt;[u8; <span class="number">20</span>]&gt; {
+<a href=#25 id=25 data-nosnippet>25</a>    <span class="kw">use </span>std::io::Read;
+<a href=#26 id=26 data-nosnippet>26</a>    <span class="kw">let </span><span class="kw-2">mut </span>header = [<span class="number">0</span>; <span class="number">20</span>];
+<a href=#27 id=27 data-nosnippet>27</a>    std::fs::File::open(<span class="macro">format!</span>(<span class="string">"/proc/{pid}/exe"</span>))
+<a href=#28 id=28 data-nosnippet>28</a>        .and_then(|<span class="kw-2">mut </span>file| file.read_exact(<span class="kw-2">&amp;mut </span>header))
+<a href=#29 id=29 data-nosnippet>29</a>        .ok()<span class="question-mark">?</span>;
+<a href=#30 id=30 data-nosnippet>30</a>    <span class="prelude-val">Some</span>(header)
+<a href=#31 id=31 data-nosnippet>31</a>}
+<a href=#32 id=32 data-nosnippet>32</a>
+<a href=#33 id=33 data-nosnippet>33</a><span class="kw">const </span>PTRACE_INTERVAL: Duration = Duration::from_secs(<span class="number">10</span>);
+<a href=#34 id=34 data-nosnippet>34</a>
+<a href=#35 id=35 data-nosnippet>35</a><span class="doccomment">/// Latest thread sample with loss and error diagnostics.
+<a href=#36 id=36 data-nosnippet>36</a>/// `sampled_at` is Unix milliseconds; `sample_age_ms` uses monotonic time.
+<a href=#37 id=37 data-nosnippet>37</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">use </span><span class="kw">crate</span>::ipc::acquisition::LiveSample <span class="kw">as </span>ThreadSample;
+<a href=#38 id=38 data-nosnippet>38</a><span class="kw">impl </span>ThreadSample {
+<a href=#39 id=39 data-nosnippet>39</a>    <span class="kw">fn </span>waiting(tid: i32, executable_header: <span class="prelude-ty">Option</span>&lt;[u8; <span class="number">20</span>]&gt;) -&gt; <span class="self">Self </span>{
+<a href=#40 id=40 data-nosnippet>40</a>        <span class="self">Self </span>{
+<a href=#41 id=41 data-nosnippet>41</a>            tid,
+<a href=#42 id=42 data-nosnippet>42</a>            executable_header,
+<a href=#43 id=43 data-nosnippet>43</a>            sampled_at: <span class="prelude-val">None</span>,
+<a href=#44 id=44 data-nosnippet>44</a>            sample_time_ns: <span class="prelude-val">None</span>,
+<a href=#45 id=45 data-nosnippet>45</a>            <span class="attr">#[cfg(test)]
+<a href=#46 id=46 data-nosnippet>46</a>            </span>sample_source: <span class="prelude-val">None</span>,
+<a href=#47 id=47 data-nosnippet>47</a>            sample_age_ms: <span class="prelude-val">None</span>,
+<a href=#48 id=48 data-nosnippet>48</a>            cpu: <span class="prelude-val">None</span>,
+<a href=#49 id=49 data-nosnippet>49</a>            lost_samples: <span class="number">0</span>,
+<a href=#50 id=50 data-nosnippet>50</a>            registers: Vec::new(),
+<a href=#51 id=51 data-nosnippet>51</a>            raw_registers: <span class="prelude-val">None</span>,
+<a href=#52 id=52 data-nosnippet>52</a>            stack_bytes: Vec::new(),
+<a href=#53 id=53 data-nosnippet>53</a>            map_epoch: <span class="prelude-val">None</span>,
+<a href=#54 id=54 data-nosnippet>54</a>            context: <span class="prelude-val">None</span>,
+<a href=#55 id=55 data-nosnippet>55</a>            call_stack: Vec::new(),
+<a href=#56 id=56 data-nosnippet>56</a>            disassembly: <span class="prelude-val">None</span>,
+<a href=#57 id=57 data-nosnippet>57</a>            unwind_stop: <span class="string">"Waiting for sample"</span>.into(),
+<a href=#58 id=58 data-nosnippet>58</a>            error: <span class="prelude-val">None</span>,
+<a href=#59 id=59 data-nosnippet>59</a>        }
+<a href=#60 id=60 data-nosnippet>60</a>    }
+<a href=#61 id=61 data-nosnippet>61</a>}
+<a href=#62 id=62 data-nosnippet>62</a><span class="kw">struct </span>Thread {
+<a href=#63 id=63 data-nosnippet>63</a>    start_time: u64,
+<a href=#64 id=64 data-nosnippet>64</a>    event: <span class="prelude-ty">Option</span>&lt;PerfEventReader&gt;,
+<a href=#65 id=65 data-nosnippet>65</a>    switch_event: <span class="prelude-ty">Option</span>&lt;PerfEventReader&gt;,
+<a href=#66 id=66 data-nosnippet>66</a>    setup_error: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href=#67 id=67 data-nosnippet>67</a>    ptrace_error: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href=#68 id=68 data-nosnippet>68</a>    latest: ThreadSample,
+<a href=#69 id=69 data-nosnippet>69</a>    sampled_ns: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+<a href=#70 id=70 data-nosnippet>70</a>}
+<a href=#71 id=71 data-nosnippet>71</a><span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::privileged_helper::process) <span class="kw">struct </span>Sampler {
+<a href=#72 id=72 data-nosnippet>72</a>    id: ProcessId,
+<a href=#73 id=73 data-nosnippet>73</a>    executable_header: <span class="prelude-ty">Option</span>&lt;[u8; <span class="number">20</span>]&gt;,
+<a href=#74 id=74 data-nosnippet>74</a>    threads: BTreeMap&lt;i32, Thread&gt;,
+<a href=#75 id=75 data-nosnippet>75</a>    <span class="attr">#[cfg(test)]
+<a href=#76 id=76 data-nosnippet>76</a>    </span>symbols: ElfCache,
+<a href=#77 id=77 data-nosnippet>77</a>    <span class="attr">#[cfg(test)]
+<a href=#78 id=78 data-nosnippet>78</a>    </span>unwind: StackUnwinder,
+<a href=#79 id=79 data-nosnippet>79</a>    next_ptrace: <span class="prelude-ty">Option</span>&lt;Instant&gt;,
+<a href=#80 id=80 data-nosnippet>80</a>    context: Arc&lt;MappingSnapshot&gt;,
+<a href=#81 id=81 data-nosnippet>81</a>}
+<a href=#82 id=82 data-nosnippet>82</a><span class="kw">impl </span>Sampler {
+<a href=#83 id=83 data-nosnippet>83</a>    <span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::privileged_helper::process) <span class="kw">fn </span>new(id: ProcessId) -&gt; <span class="self">Self </span>{
+<a href=#84 id=84 data-nosnippet>84</a>        <span class="self">Self </span>{
+<a href=#85 id=85 data-nosnippet>85</a>            id,
+<a href=#86 id=86 data-nosnippet>86</a>            executable_header: executable_header(id.pid),
+<a href=#87 id=87 data-nosnippet>87</a>            threads: BTreeMap::new(),
+<a href=#88 id=88 data-nosnippet>88</a>            <span class="attr">#[cfg(test)]
+<a href=#89 id=89 data-nosnippet>89</a>            </span>symbols: ElfCache::default(),
+<a href=#90 id=90 data-nosnippet>90</a>            <span class="attr">#[cfg(test)]
+<a href=#91 id=91 data-nosnippet>91</a>            </span>unwind: StackUnwinder::default(),
+<a href=#92 id=92 data-nosnippet>92</a>            next_ptrace: <span class="prelude-val">None</span>,
+<a href=#93 id=93 data-nosnippet>93</a>            context: Arc::new(MappingSnapshot {
+<a href=#94 id=94 data-nosnippet>94</a>                epoch: <span class="number">0</span>,
+<a href=#95 id=95 data-nosnippet>95</a>                maps: Vec::new(),
+<a href=#96 id=96 data-nosnippet>96</a>            }),
+<a href=#97 id=97 data-nosnippet>97</a>        }
+<a href=#98 id=98 data-nosnippet>98</a>    }
+<a href=#99 id=99 data-nosnippet>99</a>    <span class="doccomment">/// Captures the initial ptrace snapshot and schedules the next attempt ten seconds
+<a href=#100 id=100 data-nosnippet>100</a>    /// after completion, including failed capture attempts.
+<a href=#101 id=101 data-nosnippet>101</a>    </span><span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::privileged_helper::process) <span class="kw">fn </span>bootstrap(
+<a href=#102 id=102 data-nosnippet>102</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#103 id=103 data-nosnippet>103</a>        maps: <span class="kw-2">&amp;</span>[MemoryMap],
+<a href=#104 id=104 data-nosnippet>104</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#105 id=105 data-nosnippet>105</a>        <span class="comment">// Discover all threads and open perf events before interrupting any thread.
+<a href=#106 id=106 data-nosnippet>106</a>        </span><span class="self">self</span>.next_ptrace = <span class="prelude-val">None</span>;
+<a href=#107 id=107 data-nosnippet>107</a>        <span class="self">self</span>.poll(maps)<span class="question-mark">?</span>;
+<a href=#108 id=108 data-nosnippet>108</a>        <span class="self">self</span>.capture_ptrace(maps)
+<a href=#109 id=109 data-nosnippet>109</a>    }
+<a href=#110 id=110 data-nosnippet>110</a>    <span class="kw">fn </span>capture_ptrace(<span class="kw-2">&amp;mut </span><span class="self">self</span>, maps: <span class="kw-2">&amp;</span>[MemoryMap]) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#111 id=111 data-nosnippet>111</a>        <span class="kw">for </span>(<span class="kw-2">&amp;</span>tid, thread) <span class="kw">in </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.threads {
+<a href=#112 id=112 data-nosnippet>112</a>            thread.ptrace_error = <span class="prelude-val">None</span>;
+<a href=#113 id=113 data-nosnippet>113</a>            thread.latest.error = thread.setup_error.clone();
+<a href=#114 id=114 data-nosnippet>114</a>            <span class="kw">match </span><span class="kw">super</span>::ptrace::capture(tid, maps) {
+<a href=#115 id=115 data-nosnippet>115</a>                <span class="prelude-val">Ok</span>(sample) =&gt; process_sample(
+<a href=#116 id=116 data-nosnippet>116</a>                    <span class="self">self</span>.id.pid,
+<a href=#117 id=117 data-nosnippet>117</a>                    <span class="attr">#[cfg(test)]
+<a href=#118 id=118 data-nosnippet>118</a>                    </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.unwind,
+<a href=#119 id=119 data-nosnippet>119</a>                    <span class="attr">#[cfg(test)]
+<a href=#120 id=120 data-nosnippet>120</a>                    </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.symbols,
+<a href=#121 id=121 data-nosnippet>121</a>                    thread,
+<a href=#122 id=122 data-nosnippet>122</a>                    sample,
+<a href=#123 id=123 data-nosnippet>123</a>                    maps,
+<a href=#124 id=124 data-nosnippet>124</a>                    Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.context),
+<a href=#125 id=125 data-nosnippet>125</a>                ),
+<a href=#126 id=126 data-nosnippet>126</a>                <span class="prelude-val">Err</span>(error) =&gt; {
+<a href=#127 id=127 data-nosnippet>127</a>                    <span class="kw">let </span>message = <span class="macro">format!</span>(<span class="string">"ptrace sampling: {error:#}"</span>);
+<a href=#128 id=128 data-nosnippet>128</a>                    thread.ptrace_error = <span class="prelude-val">Some</span>(message.clone());
+<a href=#129 id=129 data-nosnippet>129</a>                    thread.latest.error = <span class="prelude-val">Some</span>(<span class="kw">match </span>thread.latest.error.take() {
+<a href=#130 id=130 data-nosnippet>130</a>                        <span class="prelude-val">Some</span>(error) =&gt; <span class="macro">format!</span>(<span class="string">"{error}; {message}"</span>),
+<a href=#131 id=131 data-nosnippet>131</a>                        <span class="prelude-val">None </span>=&gt; message,
+<a href=#132 id=132 data-nosnippet>132</a>                    });
+<a href=#133 id=133 data-nosnippet>133</a>                }
+<a href=#134 id=134 data-nosnippet>134</a>            }
+<a href=#135 id=135 data-nosnippet>135</a>        }
+<a href=#136 id=136 data-nosnippet>136</a>        <span class="comment">// Schedule from completion, including failed attempts; never catch up in a burst.
+<a href=#137 id=137 data-nosnippet>137</a>        </span><span class="self">self</span>.next_ptrace = <span class="prelude-val">Some</span>(Instant::now() + PTRACE_INTERVAL);
+<a href=#138 id=138 data-nosnippet>138</a>        process::validate_process_identity(<span class="self">self</span>.id)
+<a href=#139 id=139 data-nosnippet>139</a>    }
+<a href=#140 id=140 data-nosnippet>140</a>    <span class="doccomment">/// Drains perf samples and captures current threads when the ptrace deadline is due.
+<a href=#141 id=141 data-nosnippet>141</a>    </span><span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::privileged_helper::process) <span class="kw">fn </span>poll(<span class="kw-2">&amp;mut </span><span class="self">self</span>, maps: <span class="kw-2">&amp;</span>[MemoryMap]) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#142 id=142 data-nosnippet>142</a>        process::validate_process_identity(<span class="self">self</span>.id)<span class="question-mark">?</span>;
+<a href=#143 id=143 data-nosnippet>143</a>        <span class="kw">if </span><span class="self">self</span>.context.maps.as_slice() != maps {
+<a href=#144 id=144 data-nosnippet>144</a>            <span class="self">self</span>.context = Arc::new(MappingSnapshot {
+<a href=#145 id=145 data-nosnippet>145</a>                epoch: <span class="self">self</span>.context.epoch + <span class="number">1</span>,
+<a href=#146 id=146 data-nosnippet>146</a>                maps: maps.to_vec(),
+<a href=#147 id=147 data-nosnippet>147</a>            });
+<a href=#148 id=148 data-nosnippet>148</a>        }
+<a href=#149 id=149 data-nosnippet>149</a>        <span class="attr">#[cfg(test)]
+<a href=#150 id=150 data-nosnippet>150</a>        </span>{
+<a href=#151 id=151 data-nosnippet>151</a>            <span class="kw">for </span>map <span class="kw">in </span>maps.iter().filter(|map| map.executable &amp;&amp; map.inode != <span class="number">0</span>) {
+<a href=#152 id=152 data-nosnippet>152</a>                <span class="kw">if </span><span class="self">self</span>.symbols.get(map).is_none()
+<a href=#153 id=153 data-nosnippet>153</a>                    &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(file) = process::elf::read(<span class="self">self</span>.id.pid, map)
+<a href=#154 id=154 data-nosnippet>154</a>                {
+<a href=#155 id=155 data-nosnippet>155</a>                    <span class="self">self</span>.symbols.insert(map, file);
+<a href=#156 id=156 data-nosnippet>156</a>                }
+<a href=#157 id=157 data-nosnippet>157</a>            }
+<a href=#158 id=158 data-nosnippet>158</a>            <span class="self">self</span>.unwind.refresh(maps, <span class="kw-2">&amp;</span><span class="self">self</span>.symbols);
+<a href=#159 id=159 data-nosnippet>159</a>        }
+<a href=#160 id=160 data-nosnippet>160</a>        <span class="kw">let </span><span class="kw-2">mut </span>alive = BTreeSet::new();
+<a href=#161 id=161 data-nosnippet>161</a>        <span class="kw">for </span>tid <span class="kw">in </span><span class="kw">super</span>::<span class="kw">super</span>::threads::tids(<span class="self">self</span>.id.pid)<span class="question-mark">? </span>{
+<a href=#162 id=162 data-nosnippet>162</a>            <span class="kw">let </span><span class="prelude-val">Ok</span>(stat) = procfs::read_stat(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"/proc/{}/task/{tid}/stat"</span>, <span class="self">self</span>.id.pid))
+<a href=#163 id=163 data-nosnippet>163</a>            <span class="kw">else </span>{
+<a href=#164 id=164 data-nosnippet>164</a>                <span class="kw">continue</span>;
+<a href=#165 id=165 data-nosnippet>165</a>            };
+<a href=#166 id=166 data-nosnippet>166</a>            alive.insert(tid);
+<a href=#167 id=167 data-nosnippet>167</a>            <span class="kw">if </span><span class="self">self
+<a href=#168 id=168 data-nosnippet>168</a>                </span>.threads
+<a href=#169 id=169 data-nosnippet>169</a>                .get(<span class="kw-2">&amp;</span>tid)
+<a href=#170 id=170 data-nosnippet>170</a>                .is_some_and(|thread| thread.start_time != stat.start_time)
+<a href=#171 id=171 data-nosnippet>171</a>            {
+<a href=#172 id=172 data-nosnippet>172</a>                <span class="self">self</span>.threads.remove(<span class="kw-2">&amp;</span>tid);
+<a href=#173 id=173 data-nosnippet>173</a>            }
+<a href=#174 id=174 data-nosnippet>174</a>            <span class="kw">let </span>thread = <span class="self">self</span>.threads.entry(tid).or_insert_with(|| {
+<a href=#175 id=175 data-nosnippet>175</a>                <span class="kw">let </span><span class="kw-2">mut </span>latest = ThreadSample::waiting(tid, <span class="self">self</span>.executable_header);
+<a href=#176 id=176 data-nosnippet>176</a>                <span class="kw">let </span>event = <span class="kw">match </span>PerfEventReader::open(tid) {
+<a href=#177 id=177 data-nosnippet>177</a>                    <span class="prelude-val">Ok</span>(event) =&gt; <span class="prelude-val">Some</span>(event),
+<a href=#178 id=178 data-nosnippet>178</a>                    <span class="prelude-val">Err</span>(e) =&gt; {
+<a href=#179 id=179 data-nosnippet>179</a>                        latest.error = <span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">"{e:#}"</span>));
+<a href=#180 id=180 data-nosnippet>180</a>                        <span class="prelude-val">None
+<a href=#181 id=181 data-nosnippet>181</a>                    </span>}
+<a href=#182 id=182 data-nosnippet>182</a>                };
+<a href=#183 id=183 data-nosnippet>183</a>                <span class="kw">let </span>switch_event = <span class="kw">match </span>PerfEventReader::context_switch(tid) {
+<a href=#184 id=184 data-nosnippet>184</a>                    <span class="prelude-val">Ok</span>(event) =&gt; <span class="prelude-val">Some</span>(event),
+<a href=#185 id=185 data-nosnippet>185</a>                    <span class="prelude-val">Err</span>(e) =&gt; {
+<a href=#186 id=186 data-nosnippet>186</a>                        <span class="kw">let </span>message = <span class="macro">format!</span>(<span class="string">"context-switch perf: {e:#}"</span>);
+<a href=#187 id=187 data-nosnippet>187</a>                        latest.error = <span class="prelude-val">Some</span>(<span class="kw">match </span>latest.error.take() {
+<a href=#188 id=188 data-nosnippet>188</a>                            <span class="prelude-val">Some</span>(error) =&gt; <span class="macro">format!</span>(<span class="string">"{error}; {message}"</span>),
+<a href=#189 id=189 data-nosnippet>189</a>                            <span class="prelude-val">None </span>=&gt; message,
+<a href=#190 id=190 data-nosnippet>190</a>                        });
+<a href=#191 id=191 data-nosnippet>191</a>                        <span class="prelude-val">None
+<a href=#192 id=192 data-nosnippet>192</a>                    </span>}
+<a href=#193 id=193 data-nosnippet>193</a>                };
+<a href=#194 id=194 data-nosnippet>194</a>                Thread {
+<a href=#195 id=195 data-nosnippet>195</a>                    switch_event,
+<a href=#196 id=196 data-nosnippet>196</a>                    setup_error: latest.error.clone(),
+<a href=#197 id=197 data-nosnippet>197</a>                    ptrace_error: <span class="prelude-val">None</span>,
+<a href=#198 id=198 data-nosnippet>198</a>                    start_time: stat.start_time,
+<a href=#199 id=199 data-nosnippet>199</a>                    event,
+<a href=#200 id=200 data-nosnippet>200</a>                    latest,
+<a href=#201 id=201 data-nosnippet>201</a>                    sampled_ns: <span class="prelude-val">None</span>,
+<a href=#202 id=202 data-nosnippet>202</a>                }
+<a href=#203 id=203 data-nosnippet>203</a>            });
+<a href=#204 id=204 data-nosnippet>204</a>            <span class="kw">let </span><span class="kw-2">mut </span>newest = <span class="prelude-val">None</span>;
+<a href=#205 id=205 data-nosnippet>205</a>            <span class="kw">let </span><span class="kw-2">mut </span>lost = <span class="number">0u64</span>;
+<a href=#206 id=206 data-nosnippet>206</a>            thread.latest.error = <span class="kw">match </span>(<span class="kw-2">&amp;</span>thread.setup_error, <span class="kw-2">&amp;</span>thread.ptrace_error) {
+<a href=#207 id=207 data-nosnippet>207</a>                (<span class="prelude-val">Some</span>(perf), <span class="prelude-val">Some</span>(ptrace)) =&gt; <span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">"{perf}; {ptrace}"</span>)),
+<a href=#208 id=208 data-nosnippet>208</a>                (perf, ptrace) =&gt; perf.clone().or_else(|| ptrace.clone()),
+<a href=#209 id=209 data-nosnippet>209</a>            };
+<a href=#210 id=210 data-nosnippet>210</a>            <span class="kw">for </span>event <span class="kw">in </span>[<span class="kw-2">&amp;mut </span>thread.event, <span class="kw-2">&amp;mut </span>thread.switch_event]
+<a href=#211 id=211 data-nosnippet>211</a>                .into_iter()
+<a href=#212 id=212 data-nosnippet>212</a>                .flatten()
+<a href=#213 id=213 data-nosnippet>213</a>            {
+<a href=#214 id=214 data-nosnippet>214</a>                <span class="kw">match </span>event.drain() {
+<a href=#215 id=215 data-nosnippet>215</a>                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(sample)) <span class="kw">if </span>sample.tid == tid =&gt; {
+<a href=#216 id=216 data-nosnippet>216</a>                        <span class="kw">if </span>newest
+<a href=#217 id=217 data-nosnippet>217</a>                            .as_ref()
+<a href=#218 id=218 data-nosnippet>218</a>                            .is_none_or(|old: <span class="kw-2">&amp;</span><span class="kw">super</span>::sample::RawSample| {
+<a href=#219 id=219 data-nosnippet>219</a>                                sample.time_ns &gt; old.time_ns
+<a href=#220 id=220 data-nosnippet>220</a>                            })
+<a href=#221 id=221 data-nosnippet>221</a>                        {
+<a href=#222 id=222 data-nosnippet>222</a>                            newest = <span class="prelude-val">Some</span>(sample);
+<a href=#223 id=223 data-nosnippet>223</a>                        }
+<a href=#224 id=224 data-nosnippet>224</a>                    }
+<a href=#225 id=225 data-nosnippet>225</a>                    <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {}
+<a href=#226 id=226 data-nosnippet>226</a>                    <span class="prelude-val">Err</span>(e) =&gt; thread.latest.error = <span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">"{e:#}"</span>)),
+<a href=#227 id=227 data-nosnippet>227</a>                }
+<a href=#228 id=228 data-nosnippet>228</a>                lost = lost.saturating_add(event.lost);
+<a href=#229 id=229 data-nosnippet>229</a>            }
+<a href=#230 id=230 data-nosnippet>230</a>            thread.latest.lost_samples = lost;
+<a href=#231 id=231 data-nosnippet>231</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(sample) = newest
+<a href=#232 id=232 data-nosnippet>232</a>                &amp;&amp; thread.sampled_ns.is_none_or(|time| sample.time_ns &gt; time)
+<a href=#233 id=233 data-nosnippet>233</a>            {
+<a href=#234 id=234 data-nosnippet>234</a>                process_sample(
+<a href=#235 id=235 data-nosnippet>235</a>                    <span class="self">self</span>.id.pid,
+<a href=#236 id=236 data-nosnippet>236</a>                    <span class="attr">#[cfg(test)]
+<a href=#237 id=237 data-nosnippet>237</a>                    </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.unwind,
+<a href=#238 id=238 data-nosnippet>238</a>                    <span class="attr">#[cfg(test)]
+<a href=#239 id=239 data-nosnippet>239</a>                    </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.symbols,
+<a href=#240 id=240 data-nosnippet>240</a>                    thread,
+<a href=#241 id=241 data-nosnippet>241</a>                    sample,
+<a href=#242 id=242 data-nosnippet>242</a>                    maps,
+<a href=#243 id=243 data-nosnippet>243</a>                    Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.context),
+<a href=#244 id=244 data-nosnippet>244</a>                );
+<a href=#245 id=245 data-nosnippet>245</a>            }
+<a href=#246 id=246 data-nosnippet>246</a>        }
+<a href=#247 id=247 data-nosnippet>247</a>        <span class="self">self</span>.threads.retain(|tid, <span class="kw">_</span>| alive.contains(tid));
+<a href=#248 id=248 data-nosnippet>248</a>        <span class="kw">if </span><span class="self">self
+<a href=#249 id=249 data-nosnippet>249</a>            </span>.next_ptrace
+<a href=#250 id=250 data-nosnippet>250</a>            .is_some_and(|deadline| Instant::now() &gt;= deadline)
+<a href=#251 id=251 data-nosnippet>251</a>        {
+<a href=#252 id=252 data-nosnippet>252</a>            <span class="self">self</span>.capture_ptrace(maps)<span class="question-mark">?</span>;
+<a href=#253 id=253 data-nosnippet>253</a>        }
+<a href=#254 id=254 data-nosnippet>254</a>        process::validate_process_identity(<span class="self">self</span>.id)<span class="question-mark">?</span>;
+<a href=#255 id=255 data-nosnippet>255</a>        <span class="prelude-val">Ok</span>(())
+<a href=#256 id=256 data-nosnippet>256</a>    }
+<a href=#257 id=257 data-nosnippet>257</a>    <span class="doccomment">/// Returns each mapping context referenced by retained thread samples once.
+<a href=#258 id=258 data-nosnippet>258</a>    </span><span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::privileged_helper::process) <span class="kw">fn </span>mapping_snapshots(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;MappingSnapshot&gt; {
+<a href=#259 id=259 data-nosnippet>259</a>        <span class="kw">let </span><span class="kw-2">mut </span>snapshots = BTreeMap::new();
+<a href=#260 id=260 data-nosnippet>260</a>        <span class="kw">for </span>thread <span class="kw">in </span><span class="self">self</span>.threads.values() {
+<a href=#261 id=261 data-nosnippet>261</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(context) = <span class="kw-2">&amp;</span>thread.latest.context {
+<a href=#262 id=262 data-nosnippet>262</a>                snapshots
+<a href=#263 id=263 data-nosnippet>263</a>                    .entry(context.epoch)
+<a href=#264 id=264 data-nosnippet>264</a>                    .or_insert_with(|| context.as_ref().clone());
+<a href=#265 id=265 data-nosnippet>265</a>            }
+<a href=#266 id=266 data-nosnippet>266</a>        }
+<a href=#267 id=267 data-nosnippet>267</a>        snapshots.into_values().collect()
+<a href=#268 id=268 data-nosnippet>268</a>    }
+<a href=#269 id=269 data-nosnippet>269</a>    <span class="doccomment">/// Returns the latest samples with ages refreshed from monotonic time.
+<a href=#270 id=270 data-nosnippet>270</a>    </span><span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::privileged_helper::process) <span class="kw">fn </span>latest(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;ThreadSample&gt; {
+<a href=#271 id=271 data-nosnippet>271</a>        <span class="kw">let </span>now = monotonic_ns();
+<a href=#272 id=272 data-nosnippet>272</a>        <span class="self">self</span>.threads
+<a href=#273 id=273 data-nosnippet>273</a>            .values()
+<a href=#274 id=274 data-nosnippet>274</a>            .map(|thread| {
+<a href=#275 id=275 data-nosnippet>275</a>                <span class="kw">let </span><span class="kw-2">mut </span>latest = thread.latest.clone();
+<a href=#276 id=276 data-nosnippet>276</a>                latest.sample_age_ms = thread
+<a href=#277 id=277 data-nosnippet>277</a>                    .sampled_ns
+<a href=#278 id=278 data-nosnippet>278</a>                    .map(|time| now.saturating_sub(time) / <span class="number">1_000_000</span>);
+<a href=#279 id=279 data-nosnippet>279</a>                latest
+<a href=#280 id=280 data-nosnippet>280</a>            })
+<a href=#281 id=281 data-nosnippet>281</a>            .collect()
+<a href=#282 id=282 data-nosnippet>282</a>    }
+<a href=#283 id=283 data-nosnippet>283</a>}
+<a href=#284 id=284 data-nosnippet>284</a><span class="kw">fn </span>process_sample(
+<a href=#285 id=285 data-nosnippet>285</a>    pid: i32,
+<a href=#286 id=286 data-nosnippet>286</a>    <span class="attr">#[cfg(test)] </span>unwind: <span class="kw-2">&amp;mut </span>StackUnwinder,
+<a href=#287 id=287 data-nosnippet>287</a>    <span class="attr">#[cfg(test)] </span>symbols: <span class="kw-2">&amp;mut </span>ElfCache,
+<a href=#288 id=288 data-nosnippet>288</a>    thread: <span class="kw-2">&amp;mut </span>Thread,
+<a href=#289 id=289 data-nosnippet>289</a>    sample: <span class="kw">super</span>::sample::RawSample,
+<a href=#290 id=290 data-nosnippet>290</a>    maps: <span class="kw-2">&amp;</span>[MemoryMap],
+<a href=#291 id=291 data-nosnippet>291</a>    context: Arc&lt;MappingSnapshot&gt;,
+<a href=#292 id=292 data-nosnippet>292</a>) {
+<a href=#293 id=293 data-nosnippet>293</a>    <span class="kw">if </span>thread.sampled_ns.is_some_and(|time| sample.time_ns &lt;= time) {
+<a href=#294 id=294 data-nosnippet>294</a>        <span class="kw">return</span>;
+<a href=#295 id=295 data-nosnippet>295</a>    }
+<a href=#296 id=296 data-nosnippet>296</a>    <span class="kw">let </span>executable_header = thread.latest.executable_header;
+<a href=#297 id=297 data-nosnippet>297</a>    <span class="kw">let </span>tid = sample.tid;
+<a href=#298 id=298 data-nosnippet>298</a>    <span class="kw">let </span>lost = thread.latest.lost_samples;
+<a href=#299 id=299 data-nosnippet>299</a>    <span class="kw">let </span>r = <span class="kw-2">&amp;</span>sample.registers;
+<a href=#300 id=300 data-nosnippet>300</a>    <span class="attr">#[cfg(test)]
+<a href=#301 id=301 data-nosnippet>301</a>    </span><span class="kw">let </span>(frames, reason) = {
+<a href=#302 id=302 data-nosnippet>302</a>        <span class="kw">let </span>(<span class="kw-2">mut </span>frames, reason) = unwind.walk(
+<a href=#303 id=303 data-nosnippet>303</a>            r.<span class="number">0</span>[native::PC],
+<a href=#304 id=304 data-nosnippet>304</a>            r.<span class="number">0</span>[native::SP],
+<a href=#305 id=305 data-nosnippet>305</a>            r.<span class="number">0</span>[native::FP],
+<a href=#306 id=306 data-nosnippet>306</a>            maps,
+<a href=#307 id=307 data-nosnippet>307</a>            <span class="kw-2">&amp;</span>sample.stack,
+<a href=#308 id=308 data-nosnippet>308</a>        );
+<a href=#309 id=309 data-nosnippet>309</a>        <span class="kw">for </span>(index, frame) <span class="kw">in </span>frames.iter_mut().enumerate() {
+<a href=#310 id=310 data-nosnippet>310</a>            <span class="kw">let </span>address = instruction_address(frame.address, index &gt; <span class="number">0</span>);
+<a href=#311 id=311 data-nosnippet>311</a>            <span class="kw">let </span>info = maps
+<a href=#312 id=312 data-nosnippet>312</a>                .iter()
+<a href=#313 id=313 data-nosnippet>313</a>                .find(|m| m.contains(address) &amp;&amp; m.inode != <span class="number">0</span>)
+<a href=#314 id=314 data-nosnippet>314</a>                .and_then(|map| {
+<a href=#315 id=315 data-nosnippet>315</a>                    <span class="kw">let </span>elf = symbols.get(map)<span class="question-mark">?</span>;
+<a href=#316 id=316 data-nosnippet>316</a>                    resolve_frame(elf_address(address, map, <span class="kw-2">&amp;</span>elf, procfs::page_size())<span class="question-mark">?</span>, <span class="kw-2">&amp;</span>elf)
+<a href=#317 id=317 data-nosnippet>317</a>                });
+<a href=#318 id=318 data-nosnippet>318</a>            apply_symbol_info(frame, info);
+<a href=#319 id=319 data-nosnippet>319</a>        }
+<a href=#320 id=320 data-nosnippet>320</a>        (frames, reason)
+<a href=#321 id=321 data-nosnippet>321</a>    };
+<a href=#322 id=322 data-nosnippet>322</a>    <span class="attr">#[cfg(not(test))]
+<a href=#323 id=323 data-nosnippet>323</a>    </span><span class="kw">let </span>(frames, reason) = (Vec::new(), String::new());
+<a href=#324 id=324 data-nosnippet>324</a>    <span class="kw">let </span>code = InstructionBytes::capture(pid, r.<span class="number">0</span>[native::PC], maps);
+<a href=#325 id=325 data-nosnippet>325</a>    <span class="kw">let </span>age = monotonic_ns().saturating_sub(sample.time_ns) / <span class="number">1_000_000</span>;
+<a href=#326 id=326 data-nosnippet>326</a>    thread.sampled_ns = <span class="prelude-val">Some</span>(sample.time_ns);
+<a href=#327 id=327 data-nosnippet>327</a>    thread.latest = ThreadSample {
+<a href=#328 id=328 data-nosnippet>328</a>        tid,
+<a href=#329 id=329 data-nosnippet>329</a>        executable_header,
+<a href=#330 id=330 data-nosnippet>330</a>        sampled_at: <span class="prelude-val">Some</span>(process::timestamp_ms().saturating_sub(age)),
+<a href=#331 id=331 data-nosnippet>331</a>        sample_time_ns: <span class="prelude-val">Some</span>(sample.time_ns),
+<a href=#332 id=332 data-nosnippet>332</a>        <span class="attr">#[cfg(test)]
+<a href=#333 id=333 data-nosnippet>333</a>        </span>sample_source: <span class="prelude-val">Some</span>(sample.source),
+<a href=#334 id=334 data-nosnippet>334</a>        sample_age_ms: <span class="prelude-val">Some</span>(age),
+<a href=#335 id=335 data-nosnippet>335</a>        cpu: sample.cpu,
+<a href=#336 id=336 data-nosnippet>336</a>        lost_samples: lost,
+<a href=#337 id=337 data-nosnippet>337</a>        <span class="attr">#[cfg(test)]
+<a href=#338 id=338 data-nosnippet>338</a>        </span>registers: registers::from_sample(r, maps),
+<a href=#339 id=339 data-nosnippet>339</a>        <span class="attr">#[cfg(not(test))]
+<a href=#340 id=340 data-nosnippet>340</a>        </span>registers: Vec::new(),
+<a href=#341 id=341 data-nosnippet>341</a>        raw_registers: <span class="prelude-val">Some</span>(r.clone()),
+<a href=#342 id=342 data-nosnippet>342</a>        stack_bytes: sample.stack.clone(),
+<a href=#343 id=343 data-nosnippet>343</a>        map_epoch: <span class="prelude-val">Some</span>(context.epoch),
+<a href=#344 id=344 data-nosnippet>344</a>        context: <span class="prelude-val">Some</span>(context),
+<a href=#345 id=345 data-nosnippet>345</a>        call_stack: frames,
+<a href=#346 id=346 data-nosnippet>346</a>        disassembly: <span class="prelude-val">Some</span>(code),
+<a href=#347 id=347 data-nosnippet>347</a>        unwind_stop: reason,
+<a href=#348 id=348 data-nosnippet>348</a>        error: thread.latest.error.clone(),
+<a href=#349 id=349 data-nosnippet>349</a>    };
+<a href=#350 id=350 data-nosnippet>350</a>}
+<a href=#351 id=351 data-nosnippet>351</a>
+<a href=#352 id=352 data-nosnippet>352</a><span class="comment">// Replace all resolved fields so repeated application cannot append inline frames
+<a href=#353 id=353 data-nosnippet>353</a>// or preserve stale data from an earlier resolution.
+<a href=#354 id=354 data-nosnippet>354</a></span><span class="attr">#[cfg(test)]
+<a href=#355 id=355 data-nosnippet>355</a></span><span class="kw">fn </span>apply_symbol_info(frame: <span class="kw-2">&amp;mut </span>StackFrame, info: <span class="prelude-ty">Option</span>&lt;SymbolInfo&gt;) {
+<a href=#356 id=356 data-nosnippet>356</a>    <span class="kw">let </span>info = info.unwrap_or_default();
+<a href=#357 id=357 data-nosnippet>357</a>    frame.symbol = info.name;
+<a href=#358 id=358 data-nosnippet>358</a>    frame.symbol_offset = info.offset.map(|offset| <span class="macro">format!</span>(<span class="string">"0x{offset:x}"</span>));
+<a href=#359 id=359 data-nosnippet>359</a>    frame.source_file = info.file;
+<a href=#360 id=360 data-nosnippet>360</a>    frame.line = info.line;
+<a href=#361 id=361 data-nosnippet>361</a>    frame.inline_frames = info.inline_frames;
+<a href=#362 id=362 data-nosnippet>362</a>}
+<a href=#363 id=363 data-nosnippet>363</a>
+<a href=#364 id=364 data-nosnippet>364</a><span class="attr">#[cfg(test)]
+<a href=#365 id=365 data-nosnippet>365</a></span><span class="kw">mod </span>tests {
+<a href=#366 id=366 data-nosnippet>366</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#367 id=367 data-nosnippet>367</a>    <span class="kw">use </span><span class="kw">crate</span>::privileged_helper::process::snapshot::stack::SourceFrame;
+<a href=#368 id=368 data-nosnippet>368</a>
+<a href=#369 id=369 data-nosnippet>369</a>    <span class="attr">#[test]
+<a href=#370 id=370 data-nosnippet>370</a>    </span><span class="kw">fn </span>applying_symbols_replaces_fields_and_preserves_json_contract() {
+<a href=#371 id=371 data-nosnippet>371</a>        <span class="kw">let </span><span class="kw-2">mut </span>frame = StackFrame::raw(<span class="number">0x1234</span>);
+<a href=#372 id=372 data-nosnippet>372</a>        <span class="kw">let </span>info = SymbolInfo {
+<a href=#373 id=373 data-nosnippet>373</a>            name: <span class="prelude-val">Some</span>(<span class="string">"inner"</span>.into()),
+<a href=#374 id=374 data-nosnippet>374</a>            offset: <span class="prelude-val">Some</span>(<span class="number">0xa</span>),
+<a href=#375 id=375 data-nosnippet>375</a>            file: <span class="prelude-val">Some</span>(<span class="string">"test.c"</span>.into()),
+<a href=#376 id=376 data-nosnippet>376</a>            line: <span class="prelude-val">Some</span>(<span class="number">12</span>),
+<a href=#377 id=377 data-nosnippet>377</a>            inline_frames: <span class="macro">vec!</span>[SourceFrame {
+<a href=#378 id=378 data-nosnippet>378</a>                function: <span class="prelude-val">Some</span>(<span class="string">"inner"</span>.into()),
+<a href=#379 id=379 data-nosnippet>379</a>                file: <span class="prelude-val">Some</span>(<span class="string">"test.c"</span>.into()),
+<a href=#380 id=380 data-nosnippet>380</a>                line: <span class="prelude-val">Some</span>(<span class="number">12</span>),
+<a href=#381 id=381 data-nosnippet>381</a>            }],
+<a href=#382 id=382 data-nosnippet>382</a>        };
+<a href=#383 id=383 data-nosnippet>383</a>        apply_symbol_info(<span class="kw-2">&amp;mut </span>frame, <span class="prelude-val">Some</span>(info.clone()));
+<a href=#384 id=384 data-nosnippet>384</a>        <span class="kw">let </span>once = frame.clone();
+<a href=#385 id=385 data-nosnippet>385</a>        apply_symbol_info(<span class="kw-2">&amp;mut </span>frame, <span class="prelude-val">Some</span>(info));
+<a href=#386 id=386 data-nosnippet>386</a>        <span class="macro">assert_eq!</span>(frame, once);
+<a href=#387 id=387 data-nosnippet>387</a>        <span class="macro">assert_eq!</span>(
+<a href=#388 id=388 data-nosnippet>388</a>            serde_json::to_value(<span class="kw-2">&amp;</span>frame).unwrap(),
+<a href=#389 id=389 data-nosnippet>389</a>            <span class="macro">serde_json::json!</span>({
+<a href=#390 id=390 data-nosnippet>390</a>                <span class="string">"address"</span>: <span class="string">"0x0000000000001234"</span>, <span class="string">"symbol"</span>: <span class="string">"inner"</span>, <span class="string">"symbol_offset"</span>: <span class="string">"0xa"</span>, <span class="string">"source_file"</span>: <span class="string">"test.c"</span>, <span class="string">"line"</span>: <span class="number">12</span>,
+<a href=#391 id=391 data-nosnippet>391</a>                <span class="string">"inline_frames"</span>: [{<span class="string">"function"</span>: <span class="string">"inner"</span>, <span class="string">"file"</span>: <span class="string">"test.c"</span>, <span class="string">"line"</span>: <span class="number">12</span>}]
+<a href=#392 id=392 data-nosnippet>392</a>            })
+<a href=#393 id=393 data-nosnippet>393</a>        );
+<a href=#394 id=394 data-nosnippet>394</a>        apply_symbol_info(<span class="kw-2">&amp;mut </span>frame, <span class="prelude-val">None</span>);
+<a href=#395 id=395 data-nosnippet>395</a>        <span class="macro">assert_eq!</span>(frame, StackFrame::raw(<span class="number">0x1234</span>));
+<a href=#396 id=396 data-nosnippet>396</a>    }
+<a href=#397 id=397 data-nosnippet>397</a>}
+<a href=#398 id=398 data-nosnippet>398</a>
+<a href=#399 id=399 data-nosnippet>399</a><span class="attr">#[cfg(test)]
+<a href=#400 id=400 data-nosnippet>400</a></span><span class="kw">mod </span>live_tests {
+<a href=#401 id=401 data-nosnippet>401</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#402 id=402 data-nosnippet>402</a>    <span class="kw">use </span><span class="kw">crate</span>::privileged_helper::process::TestTarget;
+<a href=#403 id=403 data-nosnippet>403</a>    <span class="kw">use </span>std::{
+<a href=#404 id=404 data-nosnippet>404</a>        io::{BufRead, BufReader, Write},
+<a href=#405 id=405 data-nosnippet>405</a>        os::{fd::OwnedFd, unix::net::UnixStream},
+<a href=#406 id=406 data-nosnippet>406</a>        process::{Command, Stdio},
+<a href=#407 id=407 data-nosnippet>407</a>        time::{Duration, Instant},
+<a href=#408 id=408 data-nosnippet>408</a>    };
+<a href=#409 id=409 data-nosnippet>409</a>
+<a href=#410 id=410 data-nosnippet>410</a>    <span class="doccomment">/// Commands one worker at a time and waits for readiness or completed join.
+<a href=#411 id=411 data-nosnippet>411</a>    </span><span class="kw">struct </span>ThreadController {
+<a href=#412 id=412 data-nosnippet>412</a>        target: TestTarget,
+<a href=#413 id=413 data-nosnippet>413</a>        connection: BufReader&lt;UnixStream&gt;,
+<a href=#414 id=414 data-nosnippet>414</a>    }
+<a href=#415 id=415 data-nosnippet>415</a>
+<a href=#416 id=416 data-nosnippet>416</a>    <span class="kw">impl </span>ThreadController {
+<a href=#417 id=417 data-nosnippet>417</a>        <span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
+<a href=#418 id=418 data-nosnippet>418</a>            <span class="kw">crate</span>::privileged_helper::test_support::build_targets();
+<a href=#419 id=419 data-nosnippet>419</a>            <span class="kw">let </span>(connection, child_connection) = UnixStream::pair().unwrap();
+<a href=#420 id=420 data-nosnippet>420</a>            connection
+<a href=#421 id=421 data-nosnippet>421</a>                .set_read_timeout(<span class="prelude-val">Some</span>(Duration::from_secs(<span class="number">10</span>)))
+<a href=#422 id=422 data-nosnippet>422</a>                .unwrap();
+<a href=#423 id=423 data-nosnippet>423</a>            connection
+<a href=#424 id=424 data-nosnippet>424</a>                .set_write_timeout(<span class="prelude-val">Some</span>(Duration::from_secs(<span class="number">10</span>)))
+<a href=#425 id=425 data-nosnippet>425</a>                .unwrap();
+<a href=#426 id=426 data-nosnippet>426</a>            <span class="kw">let </span>stdin: OwnedFd = child_connection.try_clone().unwrap().into();
+<a href=#427 id=427 data-nosnippet>427</a>            <span class="kw">let </span>stdout: OwnedFd = child_connection.into();
+<a href=#428 id=428 data-nosnippet>428</a>            <span class="kw">let </span>child = Command::new(<span class="string">"tests/targets/bin/thread_lifecycle"</span>)
+<a href=#429 id=429 data-nosnippet>429</a>                .arg(<span class="string">"--allow-inspector"</span>)
+<a href=#430 id=430 data-nosnippet>430</a>                .stdin(Stdio::from(stdin))
+<a href=#431 id=431 data-nosnippet>431</a>                .stdout(Stdio::from(stdout))
+<a href=#432 id=432 data-nosnippet>432</a>                .spawn()
+<a href=#433 id=433 data-nosnippet>433</a>                .unwrap();
+<a href=#434 id=434 data-nosnippet>434</a>            <span class="kw">let </span>id = process::identity(child.id() <span class="kw">as </span>i32).unwrap();
+<a href=#435 id=435 data-nosnippet>435</a>            <span class="kw">let </span><span class="kw-2">mut </span>controller = <span class="self">Self </span>{
+<a href=#436 id=436 data-nosnippet>436</a>                target: TestTarget {
+<a href=#437 id=437 data-nosnippet>437</a>                    child,
+<a href=#438 id=438 data-nosnippet>438</a>                    id,
+<a href=#439 id=439 data-nosnippet>439</a>                    address: <span class="number">0</span>,
+<a href=#440 id=440 data-nosnippet>440</a>                },
+<a href=#441 id=441 data-nosnippet>441</a>                connection: BufReader::new(connection),
+<a href=#442 id=442 data-nosnippet>442</a>            };
+<a href=#443 id=443 data-nosnippet>443</a>            <span class="macro">assert_eq!</span>(controller.response().trim(), <span class="string">"ready"</span>);
+<a href=#444 id=444 data-nosnippet>444</a>            controller
+<a href=#445 id=445 data-nosnippet>445</a>        }
+<a href=#446 id=446 data-nosnippet>446</a>
+<a href=#447 id=447 data-nosnippet>447</a>        <span class="kw">fn </span>response(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; String {
+<a href=#448 id=448 data-nosnippet>448</a>            <span class="kw">let </span><span class="kw-2">mut </span>response = String::new();
+<a href=#449 id=449 data-nosnippet>449</a>            <span class="macro">assert!</span>(
+<a href=#450 id=450 data-nosnippet>450</a>                <span class="self">self</span>.connection.read_line(<span class="kw-2">&amp;mut </span>response).unwrap() &gt; <span class="number">0</span>,
+<a href=#451 id=451 data-nosnippet>451</a>                <span class="string">"lifecycle fixture closed its control connection"
+<a href=#452 id=452 data-nosnippet>452</a>            </span>);
+<a href=#453 id=453 data-nosnippet>453</a>            response
+<a href=#454 id=454 data-nosnippet>454</a>        }
+<a href=#455 id=455 data-nosnippet>455</a>
+<a href=#456 id=456 data-nosnippet>456</a>        <span class="kw">fn </span>command(<span class="kw-2">&amp;mut </span><span class="self">self</span>, command: <span class="kw-2">&amp;</span>str) -&gt; i32 {
+<a href=#457 id=457 data-nosnippet>457</a>            <span class="macro">writeln!</span>(<span class="self">self</span>.connection.get_mut(), <span class="string">"{command}"</span>).unwrap();
+<a href=#458 id=458 data-nosnippet>458</a>            <span class="self">self</span>.response().trim().parse().unwrap()
+<a href=#459 id=459 data-nosnippet>459</a>        }
+<a href=#460 id=460 data-nosnippet>460</a>    }
+<a href=#461 id=461 data-nosnippet>461</a>
+<a href=#462 id=462 data-nosnippet>462</a>    <span class="kw">fn </span>poll_until(sampler: <span class="kw-2">&amp;mut </span>Sampler, maps: <span class="kw-2">&amp;</span>[MemoryMap], condition: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>Sampler) -&gt; bool) {
+<a href=#463 id=463 data-nosnippet>463</a>        <span class="kw">let </span>deadline = Instant::now() + Duration::from_secs(<span class="number">10</span>);
+<a href=#464 id=464 data-nosnippet>464</a>        <span class="kw">while </span>Instant::now() &lt; deadline {
+<a href=#465 id=465 data-nosnippet>465</a>            sampler.poll(maps).unwrap();
+<a href=#466 id=466 data-nosnippet>466</a>            <span class="kw">if </span>condition(sampler) {
+<a href=#467 id=467 data-nosnippet>467</a>                <span class="kw">return</span>;
+<a href=#468 id=468 data-nosnippet>468</a>            }
+<a href=#469 id=469 data-nosnippet>469</a>            std::thread::sleep(Duration::from_millis(<span class="number">20</span>));
+<a href=#470 id=470 data-nosnippet>470</a>        }
+<a href=#471 id=471 data-nosnippet>471</a>        <span class="macro">panic!</span>(<span class="string">"no expected live sample: {:?}"</span>, sampler.latest());
+<a href=#472 id=472 data-nosnippet>472</a>    }
+<a href=#473 id=473 data-nosnippet>473</a>
+<a href=#474 id=474 data-nosnippet>474</a>    <span class="attr">#[test]
+<a href=#475 id=475 data-nosnippet>475</a>    </span><span class="kw">fn </span>live_sleeping_bootstrap_and_perf_handoff() {
+<a href=#476 id=476 data-nosnippet>476</a>        <span class="kw">let </span>target = TestTarget::new(<span class="string">"sleeping"</span>);
+<a href=#477 id=477 data-nosnippet>477</a>        <span class="kw">let </span>maps = process::maps::read_maps(target.id.pid).unwrap();
+<a href=#478 id=478 data-nosnippet>478</a>        <span class="kw">let </span><span class="kw-2">mut </span>sampler = Sampler::new(target.id);
+<a href=#479 id=479 data-nosnippet>479</a>        sampler.bootstrap(<span class="kw-2">&amp;</span>maps).unwrap();
+<a href=#480 id=480 data-nosnippet>480</a>        <span class="kw">let </span>first = sampler.latest()[<span class="number">0</span>].clone();
+<a href=#481 id=481 data-nosnippet>481</a>        <span class="macro">assert_eq!</span>(first.sample_source, <span class="prelude-val">Some</span>(SampleSource::Ptrace), <span class="string">"{first:?}"</span>);
+<a href=#482 id=482 data-nosnippet>482</a>        <span class="macro">assert_eq!</span>(
+<a href=#483 id=483 data-nosnippet>483</a>            serde_json::to_value(<span class="kw-2">&amp;</span>first).unwrap()[<span class="string">"architecture"</span>],
+<a href=#484 id=484 data-nosnippet>484</a>            <span class="string">"x86_64"
+<a href=#485 id=485 data-nosnippet>485</a>        </span>);
+<a href=#486 id=486 data-nosnippet>486</a>        <span class="macro">assert_eq!</span>(first.registers.len(), <span class="number">18</span>);
+<a href=#487 id=487 data-nosnippet>487</a>        <span class="macro">assert!</span>(first.cpu.is_none());
+<a href=#488 id=488 data-nosnippet>488</a>        <span class="macro">assert!</span>(
+<a href=#489 id=489 data-nosnippet>489</a>            first
+<a href=#490 id=490 data-nosnippet>490</a>                .call_stack
+<a href=#491 id=491 data-nosnippet>491</a>                .iter()
+<a href=#492 id=492 data-nosnippet>492</a>                .any(|frame| frame.symbol.as_deref() == <span class="prelude-val">Some</span>(<span class="string">"main"</span>)),
+<a href=#493 id=493 data-nosnippet>493</a>            <span class="string">"{:?}"</span>,
+<a href=#494 id=494 data-nosnippet>494</a>            first.call_stack
+<a href=#495 id=495 data-nosnippet>495</a>        );
+<a href=#496 id=496 data-nosnippet>496</a>        target.assert_detached();
+<a href=#497 id=497 data-nosnippet>497</a>        PerfEventReader::open(target.id.pid)
+<a href=#498 id=498 data-nosnippet>498</a>            .expect(<span class="string">"perf access is required in the Docker test container"</span>);
+<a href=#499 id=499 data-nosnippet>499</a>        poll_until(<span class="kw-2">&amp;mut </span>sampler, <span class="kw-2">&amp;</span>maps, |s| {
+<a href=#500 id=500 data-nosnippet>500</a>            s.latest()[<span class="number">0</span>].sampled_at &gt; first.sampled_at
+<a href=#501 id=501 data-nosnippet>501</a>                &amp;&amp; s.latest()[<span class="number">0</span>].sample_source != <span class="prelude-val">Some</span>(SampleSource::Ptrace)
+<a href=#502 id=502 data-nosnippet>502</a>        });
+<a href=#503 id=503 data-nosnippet>503</a>        target.assert_detached();
+<a href=#504 id=504 data-nosnippet>504</a>        <span class="comment">// The periodic capture also hands control back to real perf updates.
+<a href=#505 id=505 data-nosnippet>505</a>        </span>sampler.next_ptrace = <span class="prelude-val">Some</span>(Instant::now());
+<a href=#506 id=506 data-nosnippet>506</a>        sampler.poll(<span class="kw-2">&amp;</span>maps).unwrap();
+<a href=#507 id=507 data-nosnippet>507</a>        <span class="macro">assert_eq!</span>(
+<a href=#508 id=508 data-nosnippet>508</a>            sampler.latest()[<span class="number">0</span>].sample_source,
+<a href=#509 id=509 data-nosnippet>509</a>            <span class="prelude-val">Some</span>(SampleSource::Ptrace)
+<a href=#510 id=510 data-nosnippet>510</a>        );
+<a href=#511 id=511 data-nosnippet>511</a>        <span class="kw">let </span>periodic_ns = sampler.threads[<span class="kw-2">&amp;</span>target.id.pid].sampled_ns;
+<a href=#512 id=512 data-nosnippet>512</a>        poll_until(<span class="kw-2">&amp;mut </span>sampler, <span class="kw-2">&amp;</span>maps, |s| {
+<a href=#513 id=513 data-nosnippet>513</a>            s.threads[<span class="kw-2">&amp;</span>target.id.pid].sampled_ns &gt; periodic_ns
+<a href=#514 id=514 data-nosnippet>514</a>                &amp;&amp; s.latest()[<span class="number">0</span>].sample_source != <span class="prelude-val">Some</span>(SampleSource::Ptrace)
+<a href=#515 id=515 data-nosnippet>515</a>        });
+<a href=#516 id=516 data-nosnippet>516</a>        target.assert_detached();
+<a href=#517 id=517 data-nosnippet>517</a>        drop(sampler);
+<a href=#518 id=518 data-nosnippet>518</a>        target.assert_detached();
+<a href=#519 id=519 data-nosnippet>519</a>    }
+<a href=#520 id=520 data-nosnippet>520</a>
+<a href=#521 id=521 data-nosnippet>521</a>    <span class="attr">#[test]
+<a href=#522 id=522 data-nosnippet>522</a>    </span><span class="kw">fn </span>periodic_ptrace_waits_for_deadline_and_refreshes_sleeping_thread() {
+<a href=#523 id=523 data-nosnippet>523</a>        <span class="kw">let </span>target = TestTarget::new(<span class="string">"sleeping"</span>);
+<a href=#524 id=524 data-nosnippet>524</a>        <span class="kw">let </span>maps = process::maps::read_maps(target.id.pid).unwrap();
+<a href=#525 id=525 data-nosnippet>525</a>        <span class="kw">let </span><span class="kw-2">mut </span>sampler = Sampler::new(target.id);
+<a href=#526 id=526 data-nosnippet>526</a>        sampler.bootstrap(<span class="kw-2">&amp;</span>maps).unwrap();
+<a href=#527 id=527 data-nosnippet>527</a>        <span class="kw">let </span>deadline = sampler.next_ptrace.unwrap();
+<a href=#528 id=528 data-nosnippet>528</a>        <span class="macro">assert!</span>(deadline.duration_since(Instant::now()) &gt; Duration::from_secs(<span class="number">9</span>));
+<a href=#529 id=529 data-nosnippet>529</a>        <span class="comment">// Isolate the periodic source from interrupt-induced context-switch samples.
+<a href=#530 id=530 data-nosnippet>530</a>        </span><span class="kw">let </span>thread = sampler.threads.get_mut(<span class="kw-2">&amp;</span>target.id.pid).unwrap();
+<a href=#531 id=531 data-nosnippet>531</a>        thread.event = <span class="prelude-val">None</span>;
+<a href=#532 id=532 data-nosnippet>532</a>        thread.switch_event = <span class="prelude-val">None</span>;
+<a href=#533 id=533 data-nosnippet>533</a>        <span class="kw">let </span>first = thread.sampled_ns;
+<a href=#534 id=534 data-nosnippet>534</a>        sampler.poll(<span class="kw-2">&amp;</span>maps).unwrap();
+<a href=#535 id=535 data-nosnippet>535</a>        <span class="macro">assert_eq!</span>(sampler.threads[<span class="kw-2">&amp;</span>target.id.pid].sampled_ns, first);
+<a href=#536 id=536 data-nosnippet>536</a>        <span class="macro">assert_eq!</span>(sampler.next_ptrace, <span class="prelude-val">Some</span>(deadline));
+<a href=#537 id=537 data-nosnippet>537</a>        sampler.next_ptrace = <span class="prelude-val">Some</span>(Instant::now() - Duration::from_secs(<span class="number">30</span>));
+<a href=#538 id=538 data-nosnippet>538</a>        sampler.poll(<span class="kw-2">&amp;</span>maps).unwrap();
+<a href=#539 id=539 data-nosnippet>539</a>        <span class="kw">let </span>thread = <span class="kw-2">&amp;</span>sampler.threads[<span class="kw-2">&amp;</span>target.id.pid];
+<a href=#540 id=540 data-nosnippet>540</a>        <span class="macro">assert!</span>(thread.sampled_ns &gt; first);
+<a href=#541 id=541 data-nosnippet>541</a>        <span class="macro">assert_eq!</span>(thread.latest.sample_source, <span class="prelude-val">Some</span>(SampleSource::Ptrace));
+<a href=#542 id=542 data-nosnippet>542</a>        <span class="macro">assert!</span>(thread.ptrace_error.is_none());
+<a href=#543 id=543 data-nosnippet>543</a>        <span class="macro">assert_eq!</span>(thread.latest.error, thread.setup_error);
+<a href=#544 id=544 data-nosnippet>544</a>        <span class="macro">assert!</span>(
+<a href=#545 id=545 data-nosnippet>545</a>            sampler.next_ptrace.unwrap().duration_since(Instant::now()) &gt; Duration::from_secs(<span class="number">9</span>)
+<a href=#546 id=546 data-nosnippet>546</a>        );
+<a href=#547 id=547 data-nosnippet>547</a>        <span class="kw">let </span>second = thread.sampled_ns;
+<a href=#548 id=548 data-nosnippet>548</a>        sampler.poll(<span class="kw-2">&amp;</span>maps).unwrap();
+<a href=#549 id=549 data-nosnippet>549</a>        <span class="macro">assert_eq!</span>(sampler.threads[<span class="kw-2">&amp;</span>target.id.pid].sampled_ns, second);
+<a href=#550 id=550 data-nosnippet>550</a>        target.assert_detached();
+<a href=#551 id=551 data-nosnippet>551</a>    }
+<a href=#552 id=552 data-nosnippet>552</a>
+<a href=#553 id=553 data-nosnippet>553</a>    <span class="attr">#[test]
+<a href=#554 id=554 data-nosnippet>554</a>    </span><span class="kw">fn </span>periodic_ptrace_captures_all_threads_including_newly_discovered_threads() {
+<a href=#555 id=555 data-nosnippet>555</a>        <span class="kw">let </span>target = TestTarget::new(<span class="string">"threads"</span>);
+<a href=#556 id=556 data-nosnippet>556</a>        <span class="kw">let </span>maps = process::maps::read_maps(target.id.pid).unwrap();
+<a href=#557 id=557 data-nosnippet>557</a>        <span class="kw">let </span><span class="kw-2">mut </span>sampler = Sampler::new(target.id);
+<a href=#558 id=558 data-nosnippet>558</a>        sampler.bootstrap(<span class="kw-2">&amp;</span>maps).unwrap();
+<a href=#559 id=559 data-nosnippet>559</a>        <span class="comment">// This fixture also churns short-lived threads; only its main and four
+<a href=#560 id=560 data-nosnippet>560</a>        // permanent workers are guaranteed to survive the entire capture sweep.
+<a href=#561 id=561 data-nosnippet>561</a>        </span><span class="kw">let </span>stable_tids: Vec&lt;<span class="kw">_</span>&gt; = sampler
+<a href=#562 id=562 data-nosnippet>562</a>            .threads
+<a href=#563 id=563 data-nosnippet>563</a>            .keys()
+<a href=#564 id=564 data-nosnippet>564</a>            .copied()
+<a href=#565 id=565 data-nosnippet>565</a>            .filter(|<span class="kw-2">&amp;</span>tid| {
+<a href=#566 id=566 data-nosnippet>566</a>                tid == target.id.pid
+<a href=#567 id=567 data-nosnippet>567</a>                    || std::fs::read_to_string(<span class="macro">format!</span>(<span class="string">"/proc/{}/task/{tid}/comm"</span>, target.id.pid))
+<a href=#568 id=568 data-nosnippet>568</a>                        .is_ok_and(|name| {
+<a href=#569 id=569 data-nosnippet>569</a>                            <span class="macro">matches!</span>(name.trim(), <span class="string">"procinsh-worker" </span>| <span class="string">"procinsh-sleep"</span>)
+<a href=#570 id=570 data-nosnippet>570</a>                        })
+<a href=#571 id=571 data-nosnippet>571</a>            })
+<a href=#572 id=572 data-nosnippet>572</a>            .collect();
+<a href=#573 id=573 data-nosnippet>573</a>        <span class="macro">assert_eq!</span>(stable_tids.len(), <span class="number">5</span>);
+<a href=#574 id=574 data-nosnippet>574</a>        <span class="kw">let </span>old: BTreeMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; = sampler
+<a href=#575 id=575 data-nosnippet>575</a>            .threads
+<a href=#576 id=576 data-nosnippet>576</a>            .iter()
+<a href=#577 id=577 data-nosnippet>577</a>            .map(|(<span class="kw-2">&amp;</span>tid, thread)| (tid, thread.sampled_ns))
+<a href=#578 id=578 data-nosnippet>578</a>            .collect();
+<a href=#579 id=579 data-nosnippet>579</a>        <span class="comment">// Rediscovery follows the same path as a thread born after bootstrap.
+<a href=#580 id=580 data-nosnippet>580</a>        </span><span class="kw">let </span>rediscovered = target.id.pid;
+<a href=#581 id=581 data-nosnippet>581</a>        sampler.threads.remove(<span class="kw-2">&amp;</span>rediscovered);
+<a href=#582 id=582 data-nosnippet>582</a>        sampler.next_ptrace = <span class="prelude-val">Some</span>(Instant::now());
+<a href=#583 id=583 data-nosnippet>583</a>        sampler.poll(<span class="kw-2">&amp;</span>maps).unwrap();
+<a href=#584 id=584 data-nosnippet>584</a>        <span class="macro">assert!</span>(sampler.threads.contains_key(<span class="kw-2">&amp;</span>rediscovered));
+<a href=#585 id=585 data-nosnippet>585</a>        <span class="kw">for </span>tid <span class="kw">in </span>stable_tids {
+<a href=#586 id=586 data-nosnippet>586</a>            <span class="kw">let </span>thread = <span class="kw-2">&amp;</span>sampler.threads[<span class="kw-2">&amp;</span>tid];
+<a href=#587 id=587 data-nosnippet>587</a>            <span class="macro">assert_eq!</span>(thread.latest.sample_source, <span class="prelude-val">Some</span>(SampleSource::Ptrace));
+<a href=#588 id=588 data-nosnippet>588</a>            <span class="macro">assert!</span>(thread.ptrace_error.is_none());
+<a href=#589 id=589 data-nosnippet>589</a>            <span class="macro">assert_eq!</span>(thread.latest.error, thread.setup_error);
+<a href=#590 id=590 data-nosnippet>590</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(previous) = old.get(<span class="kw-2">&amp;</span>tid) {
+<a href=#591 id=591 data-nosnippet>591</a>                <span class="macro">assert!</span>(thread.sampled_ns &gt; <span class="kw-2">*</span>previous);
+<a href=#592 id=592 data-nosnippet>592</a>            }
+<a href=#593 id=593 data-nosnippet>593</a>        }
+<a href=#594 id=594 data-nosnippet>594</a>        target.assert_detached();
+<a href=#595 id=595 data-nosnippet>595</a>    }
+<a href=#596 id=596 data-nosnippet>596</a>
+<a href=#597 id=597 data-nosnippet>597</a>    <span class="attr">#[test]
+<a href=#598 id=598 data-nosnippet>598</a>    </span><span class="kw">fn </span>periodic_ptrace_failure_preserves_sample_and_retries_only_when_due() {
+<a href=#599 id=599 data-nosnippet>599</a>        <span class="kw">let </span>target = TestTarget::new(<span class="string">"sleeping"</span>);
+<a href=#600 id=600 data-nosnippet>600</a>        <span class="kw">let </span>maps = process::maps::read_maps(target.id.pid).unwrap();
+<a href=#601 id=601 data-nosnippet>601</a>        <span class="kw">let </span><span class="kw-2">mut </span>sampler = Sampler::new(target.id);
+<a href=#602 id=602 data-nosnippet>602</a>        sampler.bootstrap(<span class="kw-2">&amp;</span>maps).unwrap();
+<a href=#603 id=603 data-nosnippet>603</a>        <span class="kw">let </span>thread = sampler.threads.get_mut(<span class="kw-2">&amp;</span>target.id.pid).unwrap();
+<a href=#604 id=604 data-nosnippet>604</a>        thread.event = <span class="prelude-val">None</span>;
+<a href=#605 id=605 data-nosnippet>605</a>        thread.switch_event = <span class="prelude-val">None</span>;
+<a href=#606 id=606 data-nosnippet>606</a>        <span class="kw">let </span>first = thread.sampled_ns;
+<a href=#607 id=607 data-nosnippet>607</a>        <span class="comment">// An existing tracer forces SEIZE to fail without changing the last sample.
+<a href=#608 id=608 data-nosnippet>608</a>        </span><span class="macro">assert_eq!</span>(
+<a href=#609 id=609 data-nosnippet>609</a>            <span class="kw">unsafe </span>{ libc::ptrace(libc::PTRACE_SEIZE, target.id.pid, <span class="number">0</span>, <span class="number">0</span>) },
+<a href=#610 id=610 data-nosnippet>610</a>            <span class="number">0
+<a href=#611 id=611 data-nosnippet>611</a>        </span>);
+<a href=#612 id=612 data-nosnippet>612</a>        <span class="macro">assert_eq!</span>(
+<a href=#613 id=613 data-nosnippet>613</a>            <span class="kw">unsafe </span>{ libc::ptrace(libc::PTRACE_INTERRUPT, target.id.pid, <span class="number">0</span>, <span class="number">0</span>) },
+<a href=#614 id=614 data-nosnippet>614</a>            <span class="number">0
+<a href=#615 id=615 data-nosnippet>615</a>        </span>);
+<a href=#616 id=616 data-nosnippet>616</a>        <span class="kw">let </span><span class="kw-2">mut </span>status = <span class="number">0</span>;
+<a href=#617 id=617 data-nosnippet>617</a>        <span class="macro">assert_eq!</span>(
+<a href=#618 id=618 data-nosnippet>618</a>            <span class="kw">unsafe </span>{ libc::waitpid(target.id.pid, <span class="kw-2">&amp;mut </span>status, libc::__WALL) },
+<a href=#619 id=619 data-nosnippet>619</a>            target.id.pid
+<a href=#620 id=620 data-nosnippet>620</a>        );
+<a href=#621 id=621 data-nosnippet>621</a>        <span class="macro">assert!</span>(libc::WIFSTOPPED(status));
+<a href=#622 id=622 data-nosnippet>622</a>        sampler.next_ptrace = <span class="prelude-val">Some</span>(Instant::now());
+<a href=#623 id=623 data-nosnippet>623</a>        sampler.poll(<span class="kw-2">&amp;</span>maps).unwrap();
+<a href=#624 id=624 data-nosnippet>624</a>        <span class="kw">let </span>failed_deadline = sampler.next_ptrace.unwrap();
+<a href=#625 id=625 data-nosnippet>625</a>        <span class="kw">let </span>thread = <span class="kw-2">&amp;</span>sampler.threads[<span class="kw-2">&amp;</span>target.id.pid];
+<a href=#626 id=626 data-nosnippet>626</a>        <span class="macro">assert_eq!</span>(thread.sampled_ns, first);
+<a href=#627 id=627 data-nosnippet>627</a>        <span class="macro">assert!</span>(
+<a href=#628 id=628 data-nosnippet>628</a>            thread
+<a href=#629 id=629 data-nosnippet>629</a>                .latest
+<a href=#630 id=630 data-nosnippet>630</a>                .error
+<a href=#631 id=631 data-nosnippet>631</a>                .as_deref()
+<a href=#632 id=632 data-nosnippet>632</a>                .unwrap()
+<a href=#633 id=633 data-nosnippet>633</a>                .contains(<span class="string">"ptrace sampling"</span>)
+<a href=#634 id=634 data-nosnippet>634</a>        );
+<a href=#635 id=635 data-nosnippet>635</a>        <span class="macro">assert!</span>(failed_deadline.duration_since(Instant::now()) &gt; Duration::from_secs(<span class="number">9</span>));
+<a href=#636 id=636 data-nosnippet>636</a>        <span class="macro">assert_eq!</span>(
+<a href=#637 id=637 data-nosnippet>637</a>            <span class="kw">unsafe </span>{ libc::ptrace(libc::PTRACE_DETACH, target.id.pid, <span class="number">0</span>, <span class="number">0</span>) },
+<a href=#638 id=638 data-nosnippet>638</a>            <span class="number">0
+<a href=#639 id=639 data-nosnippet>639</a>        </span>);
+<a href=#640 id=640 data-nosnippet>640</a>        target.assert_detached();
+<a href=#641 id=641 data-nosnippet>641</a>        sampler.poll(<span class="kw-2">&amp;</span>maps).unwrap();
+<a href=#642 id=642 data-nosnippet>642</a>        <span class="macro">assert_eq!</span>(sampler.next_ptrace, <span class="prelude-val">Some</span>(failed_deadline));
+<a href=#643 id=643 data-nosnippet>643</a>        <span class="macro">assert_eq!</span>(sampler.threads[<span class="kw-2">&amp;</span>target.id.pid].sampled_ns, first);
+<a href=#644 id=644 data-nosnippet>644</a>        <span class="macro">assert!</span>(sampler.threads[<span class="kw-2">&amp;</span>target.id.pid].latest.error.is_some());
+<a href=#645 id=645 data-nosnippet>645</a>        sampler.next_ptrace = <span class="prelude-val">Some</span>(Instant::now());
+<a href=#646 id=646 data-nosnippet>646</a>        sampler.poll(<span class="kw-2">&amp;</span>maps).unwrap();
+<a href=#647 id=647 data-nosnippet>647</a>        <span class="kw">let </span>thread = <span class="kw-2">&amp;</span>sampler.threads[<span class="kw-2">&amp;</span>target.id.pid];
+<a href=#648 id=648 data-nosnippet>648</a>        <span class="macro">assert!</span>(thread.sampled_ns &gt; first);
+<a href=#649 id=649 data-nosnippet>649</a>        <span class="macro">assert!</span>(thread.ptrace_error.is_none());
+<a href=#650 id=650 data-nosnippet>650</a>        <span class="macro">assert_eq!</span>(thread.latest.error, thread.setup_error);
+<a href=#651 id=651 data-nosnippet>651</a>        <span class="macro">assert_eq!</span>(thread.latest.sample_source, <span class="prelude-val">Some</span>(SampleSource::Ptrace));
+<a href=#652 id=652 data-nosnippet>652</a>        target.assert_detached();
+<a href=#653 id=653 data-nosnippet>653</a>    }
+<a href=#654 id=654 data-nosnippet>654</a>
+<a href=#655 id=655 data-nosnippet>655</a>    <span class="attr">#[test]
+<a href=#656 id=656 data-nosnippet>656</a>    </span><span class="kw">fn </span>sample_ordering_preserves_bootstrap_then_accepts_newer_perf() {
+<a href=#657 id=657 data-nosnippet>657</a>        <span class="kw">let </span>target = TestTarget::new(<span class="string">"sleeping"</span>);
+<a href=#658 id=658 data-nosnippet>658</a>        <span class="kw">let </span>maps = process::maps::read_maps(target.id.pid).unwrap();
+<a href=#659 id=659 data-nosnippet>659</a>        <span class="kw">let </span><span class="kw-2">mut </span>sampler = Sampler::new(target.id);
+<a href=#660 id=660 data-nosnippet>660</a>        sampler.bootstrap(<span class="kw-2">&amp;</span>maps).unwrap();
+<a href=#661 id=661 data-nosnippet>661</a>        <span class="kw">let </span>thread = sampler.threads.get_mut(<span class="kw-2">&amp;</span>target.id.pid).unwrap();
+<a href=#662 id=662 data-nosnippet>662</a>        <span class="kw">let </span>time = thread.sampled_ns.unwrap();
+<a href=#663 id=663 data-nosnippet>663</a>        <span class="kw">let </span>sample = <span class="kw">super</span>::<span class="kw">super</span>::sample::RawSample {
+<a href=#664 id=664 data-nosnippet>664</a>            tid: target.id.pid,
+<a href=#665 id=665 data-nosnippet>665</a>            time_ns: time.saturating_sub(<span class="number">1</span>),
+<a href=#666 id=666 data-nosnippet>666</a>            cpu: <span class="prelude-val">Some</span>(<span class="number">0</span>),
+<a href=#667 id=667 data-nosnippet>667</a>            registers: registers::RegisterSet([<span class="number">0</span>; <span class="number">24</span>]),
+<a href=#668 id=668 data-nosnippet>668</a>            stack: Vec::new(),
+<a href=#669 id=669 data-nosnippet>669</a>            source: SampleSource::CpuClock,
+<a href=#670 id=670 data-nosnippet>670</a>        };
+<a href=#671 id=671 data-nosnippet>671</a>        process_sample(
+<a href=#672 id=672 data-nosnippet>672</a>            target.id.pid,
+<a href=#673 id=673 data-nosnippet>673</a>            <span class="kw-2">&amp;mut </span>sampler.unwind,
+<a href=#674 id=674 data-nosnippet>674</a>            <span class="kw-2">&amp;mut </span>sampler.symbols,
+<a href=#675 id=675 data-nosnippet>675</a>            thread,
+<a href=#676 id=676 data-nosnippet>676</a>            sample,
+<a href=#677 id=677 data-nosnippet>677</a>            <span class="kw-2">&amp;</span>maps,
+<a href=#678 id=678 data-nosnippet>678</a>            Arc::clone(<span class="kw-2">&amp;</span>sampler.context),
+<a href=#679 id=679 data-nosnippet>679</a>        );
+<a href=#680 id=680 data-nosnippet>680</a>        <span class="macro">assert_eq!</span>(thread.sampled_ns, <span class="prelude-val">Some</span>(time));
+<a href=#681 id=681 data-nosnippet>681</a>        <span class="macro">assert_eq!</span>(thread.latest.sample_source, <span class="prelude-val">Some</span>(SampleSource::Ptrace));
+<a href=#682 id=682 data-nosnippet>682</a>        <span class="kw">let </span>sample = <span class="kw">super</span>::<span class="kw">super</span>::sample::RawSample {
+<a href=#683 id=683 data-nosnippet>683</a>            tid: target.id.pid,
+<a href=#684 id=684 data-nosnippet>684</a>            time_ns: time + <span class="number">1</span>,
+<a href=#685 id=685 data-nosnippet>685</a>            cpu: <span class="prelude-val">Some</span>(<span class="number">7</span>),
+<a href=#686 id=686 data-nosnippet>686</a>            registers: registers::RegisterSet([<span class="number">0</span>; <span class="number">24</span>]),
+<a href=#687 id=687 data-nosnippet>687</a>            stack: Vec::new(),
+<a href=#688 id=688 data-nosnippet>688</a>            source: SampleSource::CpuClock,
+<a href=#689 id=689 data-nosnippet>689</a>        };
+<a href=#690 id=690 data-nosnippet>690</a>        process_sample(
+<a href=#691 id=691 data-nosnippet>691</a>            target.id.pid,
+<a href=#692 id=692 data-nosnippet>692</a>            <span class="kw-2">&amp;mut </span>sampler.unwind,
+<a href=#693 id=693 data-nosnippet>693</a>            <span class="kw-2">&amp;mut </span>sampler.symbols,
+<a href=#694 id=694 data-nosnippet>694</a>            thread,
+<a href=#695 id=695 data-nosnippet>695</a>            sample,
+<a href=#696 id=696 data-nosnippet>696</a>            <span class="kw-2">&amp;</span>maps,
+<a href=#697 id=697 data-nosnippet>697</a>            Arc::clone(<span class="kw-2">&amp;</span>sampler.context),
+<a href=#698 id=698 data-nosnippet>698</a>        );
+<a href=#699 id=699 data-nosnippet>699</a>        <span class="macro">assert_eq!</span>(thread.sampled_ns, <span class="prelude-val">Some</span>(time + <span class="number">1</span>));
+<a href=#700 id=700 data-nosnippet>700</a>        <span class="macro">assert_eq!</span>(thread.latest.sample_source, <span class="prelude-val">Some</span>(SampleSource::CpuClock));
+<a href=#701 id=701 data-nosnippet>701</a>        <span class="macro">assert_eq!</span>(thread.latest.cpu, <span class="prelude-val">Some</span>(<span class="number">7</span>));
+<a href=#702 id=702 data-nosnippet>702</a>        target.assert_detached();
+<a href=#703 id=703 data-nosnippet>703</a>    }
+<a href=#704 id=704 data-nosnippet>704</a>
+<a href=#705 id=705 data-nosnippet>705</a>    <span class="attr">#[test]
+<a href=#706 id=706 data-nosnippet>706</a>    </span><span class="kw">fn </span>live_blocked_samples_refresh_known_registers_and_bound_deep_stacks() {
+<a href=#707 id=707 data-nosnippet>707</a>        <span class="kw">let </span>target = TestTarget::new(<span class="string">"blocked_stack"</span>);
+<a href=#708 id=708 data-nosnippet>708</a>        PerfEventReader::open(target.id.pid)
+<a href=#709 id=709 data-nosnippet>709</a>            .expect(<span class="string">"perf access is required in the Docker test container"</span>);
+<a href=#710 id=710 data-nosnippet>710</a>        PerfEventReader::context_switch(target.id.pid).unwrap();
+<a href=#711 id=711 data-nosnippet>711</a>        <span class="kw">let </span>maps = process::maps::read_maps(target.id.pid).unwrap();
+<a href=#712 id=712 data-nosnippet>712</a>        <span class="kw">let </span><span class="kw-2">mut </span>sampler = Sampler::new(target.id);
+<a href=#713 id=713 data-nosnippet>713</a>        <span class="kw">let </span><span class="kw-2">mut </span>complete = <span class="bool-val">false</span>;
+<a href=#714 id=714 data-nosnippet>714</a>        <span class="kw">let </span><span class="kw-2">mut </span>truncated = <span class="bool-val">false</span>;
+<a href=#715 id=715 data-nosnippet>715</a>        <span class="kw">let </span><span class="kw-2">mut </span>previous = <span class="prelude-val">None</span>;
+<a href=#716 id=716 data-nosnippet>716</a>        <span class="kw">let </span><span class="kw-2">mut </span>updates = <span class="number">0</span>;
+<a href=#717 id=717 data-nosnippet>717</a>        <span class="kw">let </span>deadline = Instant::now() + Duration::from_secs(<span class="number">3</span>);
+<a href=#718 id=718 data-nosnippet>718</a>        <span class="kw">while </span>Instant::now() &lt; deadline {
+<a href=#719 id=719 data-nosnippet>719</a>            sampler.poll(<span class="kw-2">&amp;</span>maps).unwrap();
+<a href=#720 id=720 data-nosnippet>720</a>            <span class="kw">let </span>sample = <span class="kw-2">&amp;</span>sampler.latest()[<span class="number">0</span>];
+<a href=#721 id=721 data-nosnippet>721</a>            <span class="kw">if </span>sample.sample_source == <span class="prelude-val">Some</span>(SampleSource::ContextSwitch { preempted: <span class="bool-val">false </span>}) {
+<a href=#722 id=722 data-nosnippet>722</a>                <span class="macro">assert!</span>(sample.error.is_none(), <span class="string">"{:?}"</span>, sample.error);
+<a href=#723 id=723 data-nosnippet>723</a>                <span class="kw">for </span>(name, expected) <span class="kw">in </span>[
+<a href=#724 id=724 data-nosnippet>724</a>                    (<span class="string">"R12"</span>, <span class="number">0x12345678u64</span>),
+<a href=#725 id=725 data-nosnippet>725</a>                    (<span class="string">"R13"</span>, <span class="number">0x23456789</span>),
+<a href=#726 id=726 data-nosnippet>726</a>                    (<span class="string">"R14"</span>, <span class="number">0x3456789a</span>),
+<a href=#727 id=727 data-nosnippet>727</a>                    (<span class="string">"R15"</span>, <span class="number">0x456789ab</span>),
+<a href=#728 id=728 data-nosnippet>728</a>                ] {
+<a href=#729 id=729 data-nosnippet>729</a>                    <span class="kw">let </span>register = sample.registers.iter().find(|r| r.name == name).unwrap();
+<a href=#730 id=730 data-nosnippet>730</a>                    <span class="macro">assert_eq!</span>(register.value, expected);
+<a href=#731 id=731 data-nosnippet>731</a>                }
+<a href=#732 id=732 data-nosnippet>732</a>                <span class="macro">assert!</span>(
+<a href=#733 id=733 data-nosnippet>733</a>                    sample
+<a href=#734 id=734 data-nosnippet>734</a>                        .call_stack
+<a href=#735 id=735 data-nosnippet>735</a>                        .iter()
+<a href=#736 id=736 data-nosnippet>736</a>                        .any(|f| f.symbol.as_deref() == <span class="prelude-val">Some</span>(<span class="string">"blocked_leaf"</span>))
+<a href=#737 id=737 data-nosnippet>737</a>                );
+<a href=#738 id=738 data-nosnippet>738</a>                complete |= sample
+<a href=#739 id=739 data-nosnippet>739</a>                    .call_stack
+<a href=#740 id=740 data-nosnippet>740</a>                    .iter()
+<a href=#741 id=741 data-nosnippet>741</a>                    .any(|f| f.symbol.as_deref() == <span class="prelude-val">Some</span>(<span class="string">"main"</span>));
+<a href=#742 id=742 data-nosnippet>742</a>                truncated |= sample.unwind_stop.contains(<span class="string">"stack snapshot exhausted"</span>);
+<a href=#743 id=743 data-nosnippet>743</a>                <span class="kw">if </span>sample.sampled_at != previous {
+<a href=#744 id=744 data-nosnippet>744</a>                    updates += <span class="number">1</span>;
+<a href=#745 id=745 data-nosnippet>745</a>                    previous = sample.sampled_at;
+<a href=#746 id=746 data-nosnippet>746</a>                }
+<a href=#747 id=747 data-nosnippet>747</a>            }
+<a href=#748 id=748 data-nosnippet>748</a>            std::thread::sleep(Duration::from_millis(<span class="number">20</span>));
+<a href=#749 id=749 data-nosnippet>749</a>        }
+<a href=#750 id=750 data-nosnippet>750</a>        <span class="macro">assert!</span>(
+<a href=#751 id=751 data-nosnippet>751</a>            complete &amp;&amp; truncated &amp;&amp; updates &gt;= <span class="number">5</span>,
+<a href=#752 id=752 data-nosnippet>752</a>            <span class="string">"complete={complete} truncated={truncated} updates={updates}: {:?}"</span>,
+<a href=#753 id=753 data-nosnippet>753</a>            sampler.latest()
+<a href=#754 id=754 data-nosnippet>754</a>        );
+<a href=#755 id=755 data-nosnippet>755</a>        <span class="macro">eprintln!</span>(
+<a href=#756 id=756 data-nosnippet>756</a>            <span class="string">"Blocked fixture: {updates} distinct updates in 3s; R12–R15 matched; complete and bounded deep stacks verified"
+<a href=#757 id=757 data-nosnippet>757</a>        </span>);
+<a href=#758 id=758 data-nosnippet>758</a>        target.assert_detached();
+<a href=#759 id=759 data-nosnippet>759</a>    }
+<a href=#760 id=760 data-nosnippet>760</a>
+<a href=#761 id=761 data-nosnippet>761</a>    <span class="attr">#[test]
+<a href=#762 id=762 data-nosnippet>762</a>    </span><span class="kw">fn </span>live_busy_and_recursive_samples_advance_without_tracing() {
+<a href=#763 id=763 data-nosnippet>763</a>        <span class="kw">for </span>name <span class="kw">in </span>[
+<a href=#764 id=764 data-nosnippet>764</a>            <span class="string">"busy_loop"</span>,
+<a href=#765 id=765 data-nosnippet>765</a>            <span class="string">"recursive"</span>,
+<a href=#766 id=766 data-nosnippet>766</a>            <span class="string">"recursive_no_fp"</span>,
+<a href=#767 id=767 data-nosnippet>767</a>            <span class="string">"recursive_no_fp_nopie"</span>,
+<a href=#768 id=768 data-nosnippet>768</a>        ] {
+<a href=#769 id=769 data-nosnippet>769</a>            <span class="kw">let </span>target = TestTarget::new(name);
+<a href=#770 id=770 data-nosnippet>770</a>            PerfEventReader::open(target.id.pid)
+<a href=#771 id=771 data-nosnippet>771</a>                .expect(<span class="string">"perf access is required in the Docker test container"</span>);
+<a href=#772 id=772 data-nosnippet>772</a>            <span class="kw">let </span>maps = process::maps::read_maps(target.id.pid).unwrap();
+<a href=#773 id=773 data-nosnippet>773</a>            <span class="kw">let </span><span class="kw-2">mut </span>sampler = Sampler::new(target.id);
+<a href=#774 id=774 data-nosnippet>774</a>            poll_until(<span class="kw-2">&amp;mut </span>sampler, <span class="kw-2">&amp;</span>maps, |s| {
+<a href=#775 id=775 data-nosnippet>775</a>                s.latest().iter().any(|t| t.sampled_at.is_some())
+<a href=#776 id=776 data-nosnippet>776</a>            });
+<a href=#777 id=777 data-nosnippet>777</a>            <span class="kw">let </span>first = sampler.latest()[<span class="number">0</span>].clone();
+<a href=#778 id=778 data-nosnippet>778</a>            <span class="macro">assert_eq!</span>(first.registers.len(), <span class="number">18</span>);
+<a href=#779 id=779 data-nosnippet>779</a>            <span class="macro">assert!</span>(!first.disassembly.as_ref().unwrap().bytes.is_empty());
+<a href=#780 id=780 data-nosnippet>780</a>            <span class="kw">if </span>name.starts_with(<span class="string">"recursive"</span>) {
+<a href=#781 id=781 data-nosnippet>781</a>                <span class="macro">assert!</span>(first.call_stack.len() &gt;= <span class="number">4</span>, <span class="string">"{:?}"</span>, first.call_stack);
+<a href=#782 id=782 data-nosnippet>782</a>                <span class="macro">assert!</span>(
+<a href=#783 id=783 data-nosnippet>783</a>                    first
+<a href=#784 id=784 data-nosnippet>784</a>                        .call_stack
+<a href=#785 id=785 data-nosnippet>785</a>                        .iter()
+<a href=#786 id=786 data-nosnippet>786</a>                        .any(|f| f.symbol.as_deref() == <span class="prelude-val">Some</span>(<span class="string">"main"</span>)),
+<a href=#787 id=787 data-nosnippet>787</a>                    <span class="string">"{:?}"</span>,
+<a href=#788 id=788 data-nosnippet>788</a>                    first.call_stack
+<a href=#789 id=789 data-nosnippet>789</a>                );
+<a href=#790 id=790 data-nosnippet>790</a>                <span class="macro">assert!</span>(
+<a href=#791 id=791 data-nosnippet>791</a>                    first
+<a href=#792 id=792 data-nosnippet>792</a>                        .call_stack
+<a href=#793 id=793 data-nosnippet>793</a>                        .iter()
+<a href=#794 id=794 data-nosnippet>794</a>                        .any(|f| f.source_file.is_some() &amp;&amp; f.line.is_some())
+<a href=#795 id=795 data-nosnippet>795</a>                );
+<a href=#796 id=796 data-nosnippet>796</a>                <span class="macro">assert!</span>(
+<a href=#797 id=797 data-nosnippet>797</a>                    first
+<a href=#798 id=798 data-nosnippet>798</a>                        .call_stack
+<a href=#799 id=799 data-nosnippet>799</a>                        .iter()
+<a href=#800 id=800 data-nosnippet>800</a>                        .any(|f| f.symbol.as_deref() == <span class="prelude-val">Some</span>(<span class="string">"foo"</span>))
+<a href=#801 id=801 data-nosnippet>801</a>                );
+<a href=#802 id=802 data-nosnippet>802</a>            }
+<a href=#803 id=803 data-nosnippet>803</a>            poll_until(<span class="kw-2">&amp;mut </span>sampler, <span class="kw-2">&amp;</span>maps, |s| {
+<a href=#804 id=804 data-nosnippet>804</a>                s.latest()[<span class="number">0</span>].sampled_at &gt; first.sampled_at
+<a href=#805 id=805 data-nosnippet>805</a>            });
+<a href=#806 id=806 data-nosnippet>806</a>            target.assert_detached();
+<a href=#807 id=807 data-nosnippet>807</a>            drop(sampler);
+<a href=#808 id=808 data-nosnippet>808</a>            target.assert_detached();
+<a href=#809 id=809 data-nosnippet>809</a>        }
+<a href=#810 id=810 data-nosnippet>810</a>    }
+<a href=#811 id=811 data-nosnippet>811</a>
+<a href=#812 id=812 data-nosnippet>812</a>    <span class="attr">#[test]
+<a href=#813 id=813 data-nosnippet>813</a>    </span><span class="kw">fn </span>live_no_fp_unwinds_across_shared_library_and_libc() {
+<a href=#814 id=814 data-nosnippet>814</a>        <span class="kw">let </span>target = TestTarget::new(<span class="string">"shared_no_fp"</span>);
+<a href=#815 id=815 data-nosnippet>815</a>        PerfEventReader::open(target.id.pid)
+<a href=#816 id=816 data-nosnippet>816</a>            .expect(<span class="string">"perf access is required in the Docker test container"</span>);
+<a href=#817 id=817 data-nosnippet>817</a>        PerfEventReader::context_switch(target.id.pid).unwrap();
+<a href=#818 id=818 data-nosnippet>818</a>        <span class="kw">let </span>maps = process::maps::read_maps(target.id.pid).unwrap();
+<a href=#819 id=819 data-nosnippet>819</a>        <span class="kw">let </span><span class="kw-2">mut </span>sampler = Sampler::new(target.id);
+<a href=#820 id=820 data-nosnippet>820</a>        poll_until(<span class="kw-2">&amp;mut </span>sampler, <span class="kw-2">&amp;</span>maps, |s| {
+<a href=#821 id=821 data-nosnippet>821</a>            <span class="kw">let </span>latest = s.latest();
+<a href=#822 id=822 data-nosnippet>822</a>            latest.iter().any(|sample| {
+<a href=#823 id=823 data-nosnippet>823</a>                sample
+<a href=#824 id=824 data-nosnippet>824</a>                    .call_stack
+<a href=#825 id=825 data-nosnippet>825</a>                    .iter()
+<a href=#826 id=826 data-nosnippet>826</a>                    .filter(|f| f.symbol.as_deref() == <span class="prelude-val">Some</span>(<span class="string">"shared_recurse"</span>))
+<a href=#827 id=827 data-nosnippet>827</a>                    .count()
+<a href=#828 id=828 data-nosnippet>828</a>                    &gt;= <span class="number">13
+<a href=#829 id=829 data-nosnippet>829</a>                    </span>&amp;&amp; sample
+<a href=#830 id=830 data-nosnippet>830</a>                        .call_stack
+<a href=#831 id=831 data-nosnippet>831</a>                        .iter()
+<a href=#832 id=832 data-nosnippet>832</a>                        .any(|f| f.symbol.as_deref() == <span class="prelude-val">Some</span>(<span class="string">"main"</span>))
+<a href=#833 id=833 data-nosnippet>833</a>                    &amp;&amp; sample.call_stack.iter().any(|f| {
+<a href=#834 id=834 data-nosnippet>834</a>                        maps.iter().any(|map| {
+<a href=#835 id=835 data-nosnippet>835</a>                            map.contains(f.address)
+<a href=#836 id=836 data-nosnippet>836</a>                                &amp;&amp; map
+<a href=#837 id=837 data-nosnippet>837</a>                                    .pathname
+<a href=#838 id=838 data-nosnippet>838</a>                                    .as_deref()
+<a href=#839 id=839 data-nosnippet>839</a>                                    .is_some_and(|p| p.contains(<span class="string">"libc.so"</span>))
+<a href=#840 id=840 data-nosnippet>840</a>                        })
+<a href=#841 id=841 data-nosnippet>841</a>                    })
+<a href=#842 id=842 data-nosnippet>842</a>            })
+<a href=#843 id=843 data-nosnippet>843</a>        });
+<a href=#844 id=844 data-nosnippet>844</a>        target.assert_detached();
+<a href=#845 id=845 data-nosnippet>845</a>    }
+<a href=#846 id=846 data-nosnippet>846</a>
+<a href=#847 id=847 data-nosnippet>847</a>    <span class="attr">#[test]
+<a href=#848 id=848 data-nosnippet>848</a>    </span><span class="kw">fn </span>live_thread_lifecycle_discovers_and_removes_acknowledged_threads() {
+<a href=#849 id=849 data-nosnippet>849</a>        <span class="kw">let </span><span class="kw-2">mut </span>controller = ThreadController::new();
+<a href=#850 id=850 data-nosnippet>850</a>        <span class="kw">let </span>id = controller.target.id;
+<a href=#851 id=851 data-nosnippet>851</a>        <span class="kw">let </span>maps = process::maps::read_maps(id.pid).unwrap();
+<a href=#852 id=852 data-nosnippet>852</a>        <span class="kw">let </span><span class="kw-2">mut </span>sampler = Sampler::new(id);
+<a href=#853 id=853 data-nosnippet>853</a>        sampler.poll(<span class="kw-2">&amp;</span>maps).unwrap();
+<a href=#854 id=854 data-nosnippet>854</a>        <span class="kw">for _ in </span><span class="number">0</span>..<span class="number">3 </span>{
+<a href=#855 id=855 data-nosnippet>855</a>            <span class="kw">let </span>tid = controller.command(<span class="string">"start"</span>);
+<a href=#856 id=856 data-nosnippet>856</a>            <span class="macro">assert_ne!</span>(tid, id.pid);
+<a href=#857 id=857 data-nosnippet>857</a>            sampler.poll(<span class="kw-2">&amp;</span>maps).unwrap();
+<a href=#858 id=858 data-nosnippet>858</a>            <span class="kw">let </span>thread = sampler
+<a href=#859 id=859 data-nosnippet>859</a>                .threads
+<a href=#860 id=860 data-nosnippet>860</a>                .get(<span class="kw-2">&amp;</span>tid)
+<a href=#861 id=861 data-nosnippet>861</a>                .expect(<span class="string">"new worker was not discovered"</span>);
+<a href=#862 id=862 data-nosnippet>862</a>            <span class="macro">assert!</span>(thread.event.is_some(), <span class="string">"{:?}"</span>, thread.setup_error);
+<a href=#863 id=863 data-nosnippet>863</a>            <span class="macro">assert!</span>(thread.switch_event.is_some(), <span class="string">"{:?}"</span>, thread.setup_error);
+<a href=#864 id=864 data-nosnippet>864</a>            <span class="macro">assert_eq!</span>(controller.command(<span class="string">"stop"</span>), tid);
+<a href=#865 id=865 data-nosnippet>865</a>            <span class="comment">// pthread_join has completed. Wait only for procfs to drop the task,
+<a href=#866 id=866 data-nosnippet>866</a>            // without racing an uncontrolled stream of replacement threads.
+<a href=#867 id=867 data-nosnippet>867</a>            </span>poll_until(<span class="kw-2">&amp;mut </span>sampler, <span class="kw-2">&amp;</span>maps, |s| !s.threads.contains_key(<span class="kw-2">&amp;</span>tid));
+<a href=#868 id=868 data-nosnippet>868</a>            <span class="macro">assert!</span>(!sampler.latest().iter().any(|sample| sample.tid == tid));
+<a href=#869 id=869 data-nosnippet>869</a>            <span class="macro">assert!</span>(sampler.threads.contains_key(<span class="kw-2">&amp;</span>id.pid));
+<a href=#870 id=870 data-nosnippet>870</a>        }
+<a href=#871 id=871 data-nosnippet>871</a>        controller.target.assert_detached();
+<a href=#872 id=872 data-nosnippet>872</a>    }
+<a href=#873 id=873 data-nosnippet>873</a>
+<a href=#874 id=874 data-nosnippet>874</a>    <span class="attr">#[test]
+<a href=#875 id=875 data-nosnippet>875</a>    </span><span class="kw">fn </span>live_sampler_rejects_mismatched_process_identity() {
+<a href=#876 id=876 data-nosnippet>876</a>        <span class="kw">let </span>controller = ThreadController::new();
+<a href=#877 id=877 data-nosnippet>877</a>        <span class="kw">let </span>id = controller.target.id;
+<a href=#878 id=878 data-nosnippet>878</a>        <span class="kw">let </span>maps = process::maps::read_maps(id.pid).unwrap();
+<a href=#879 id=879 data-nosnippet>879</a>        <span class="kw">let </span>stale = ProcessId {
+<a href=#880 id=880 data-nosnippet>880</a>            start_time_ticks: id.start_time_ticks + <span class="number">1</span>,
+<a href=#881 id=881 data-nosnippet>881</a>            ..id
+<a href=#882 id=882 data-nosnippet>882</a>        };
+<a href=#883 id=883 data-nosnippet>883</a>        <span class="kw">let </span><span class="kw-2">mut </span>sampler = Sampler::new(stale);
+<a href=#884 id=884 data-nosnippet>884</a>        <span class="macro">assert!</span>(sampler.poll(<span class="kw-2">&amp;</span>maps).is_err());
+<a href=#885 id=885 data-nosnippet>885</a>        <span class="macro">assert!</span>(sampler.threads.is_empty());
+<a href=#886 id=886 data-nosnippet>886</a>        controller.target.assert_detached();
+<a href=#887 id=887 data-nosnippet>887</a>    }
+<a href=#888 id=888 data-nosnippet>888</a>
+<a href=#889 id=889 data-nosnippet>889</a>    <span class="attr">#[test]
+<a href=#890 id=890 data-nosnippet>890</a>    </span><span class="kw">fn </span>live_sampler_rejects_exited_process() {
+<a href=#891 id=891 data-nosnippet>891</a>        <span class="kw">let </span><span class="kw-2">mut </span>controller = ThreadController::new();
+<a href=#892 id=892 data-nosnippet>892</a>        <span class="kw">let </span>id = controller.target.id;
+<a href=#893 id=893 data-nosnippet>893</a>        <span class="kw">let </span>maps = process::maps::read_maps(id.pid).unwrap();
+<a href=#894 id=894 data-nosnippet>894</a>        <span class="kw">let </span><span class="kw-2">mut </span>sampler = Sampler::new(id);
+<a href=#895 id=895 data-nosnippet>895</a>        sampler.poll(<span class="kw-2">&amp;</span>maps).unwrap();
+<a href=#896 id=896 data-nosnippet>896</a>        controller.target.assert_detached();
+<a href=#897 id=897 data-nosnippet>897</a>        controller.target.child.kill().unwrap();
+<a href=#898 id=898 data-nosnippet>898</a>        controller.target.child.wait().unwrap();
+<a href=#899 id=899 data-nosnippet>899</a>        <span class="macro">assert!</span>(sampler.poll(<span class="kw-2">&amp;</span>maps).is_err());
+<a href=#900 id=900 data-nosnippet>900</a>    }
+<a href=#901 id=901 data-nosnippet>901</a>}
+</code></pre></div></section></main></body></html>
