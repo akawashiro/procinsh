@@ -71,6 +71,22 @@ procinsh --connect 100.64.0.1:9190 --host-name gpu-node-1 \
 
 <img src="./images/procinsh_multi_host.png" alt="Three KVM virtual machines in the All hosts (layers) view" width="800">
 
+### Config file
+
+Options can also be kept in a TOML file, read from
+`$XDG_CONFIG_HOME/procinsh/config.toml` (usually
+`~/.config/procinsh/config.toml`) when it exists, or from `--config PATH`.
+Keys are the long option names; options given on the command line override the
+file. A relative `agent-token-file` is resolved against the file's directory.
+
+```toml
+# the hub above
+listen = ["127.0.0.1:9090"]
+accept-agents = ["100.64.0.1:9190"]
+allow-non-loopback = true
+agent-token-file = "/home/me/procinsh-token"
+```
+
 ### Self build on Linux
 
 #### Ubuntu

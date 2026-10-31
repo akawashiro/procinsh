@@ -48,6 +48,7 @@ framehop = { version = "0.16.0", default-features = false, features = ["std"] }
 rust-embed = { version = "8.13.0", features = ["debug-embed"] }
 mime_guess = "2.0.5"
 flate2 = "1"
+toml = "1.1.8"
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
