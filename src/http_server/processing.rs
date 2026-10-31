@@ -360,6 +360,19 @@ impl ObservationProcessor {
             if registers.is_null() {
                 continue;
             }
+            if raw.get("architecture").and_then(Value::as_str) != Some(std::env::consts::ARCH) {
+                let message = "Only native 64-bit process snapshots are supported";
+                let error = raw
+                    .get("error")
+                    .and_then(Value::as_str)
+                    .map_or_else(|| message.to_owned(), |error| format!("{error}; {message}"));
+                raw.insert("error".into(), Value::String(error));
+                raw.insert("registers".into(), serde_json::json!([]));
+                raw.insert("call_stack".into(), serde_json::json!([]));
+                raw.insert("unwind_stop".into(), Value::String(message.into()));
+                raw.insert("disassembly".into(), Value::Null);
+                continue;
+            }
             let registers: RegisterSet = serde_json::from_value(registers)?;
             let stack: Vec<u8> = serde_json::from_value(stack)?;
             let maps = epoch
@@ -367,8 +380,7 @@ impl ObservationProcessor {
                 .map(Vec::as_slice)
                 .unwrap_or(&[]);
             unwinder.refresh(maps, &self.symbols);
-            let (mut frames, reason) =
-                unwinder.walk(registers.0[8], registers.0[7], registers.0[6], maps, &stack);
+            let (mut frames, reason) = unwinder.walk(&registers, maps, &stack);
             for (index, frame) in frames.iter_mut().enumerate() {
                 let address = instruction_address(frame.address, index > 0);
                 let info = maps
@@ -414,11 +426,11 @@ mod tests {
     async fn retained_samples_use_their_captured_mapping_epoch() {
         use crate::http_server::model::memory::parse_map;
         let mut processor = ObservationProcessor::default();
-        let mut registers = [0; 24];
-        registers[0] = 0x1008;
-        registers[8] = 0x1008;
-        registers[7] = 0x1000;
-        let sample = |epoch| json!({"raw_registers":registers,"stack_bytes":[],"map_epoch":epoch,"sample_time_ns":crate::http_server::model::process::monotonic_ns().saturating_sub(3_000_000_000)});
+        let mut registers = RegisterSet::default();
+        registers.values[0] = 0x1008;
+        registers.values[RegisterSet::PC] = 0x1008;
+        registers.values[RegisterSet::SP] = 0x1000;
+        let sample = |epoch| json!({"architecture":std::env::consts::ARCH,"raw_registers":registers,"stack_bytes":[],"map_epoch":epoch,"sample_time_ns":crate::http_server::model::process::monotonic_ns().saturating_sub(3_000_000_000)});
         let mut response = MonitorResponse::Data(json!({
             "summary":{"identity":{"pid":42,"start_time_ticks":10}},
             "mapping_snapshots":[
@@ -440,7 +452,14 @@ mod tests {
                 .as_array()
                 .unwrap()
                 .iter()
-                .find(|register| register["name"] == "RAX")
+                .find(|register| {
+                    register["name"]
+                        == if cfg!(target_arch = "aarch64") {
+                            "X0"
+                        } else {
+                            "RAX"
+                        }
+                })
                 .unwrap();
             assert_eq!(rax["mapping"]["pathname"], path);
             assert!(sample.get("map_epoch").is_none());
@@ -514,5 +533,42 @@ mod tests {
         assert_eq!(value["history"].as_array().unwrap().len(), 1);
         processor.close(1);
         assert_eq!(processor.histories.len(), 1);
+    }
+    #[tokio::test]
+    async fn unsupported_abis_retain_acquisition_errors_and_discard_private_samples() {
+        for architecture in [
+            Value::Null,
+            json!(if cfg!(target_arch = "aarch64") {
+                "x86_64"
+            } else {
+                "aarch64"
+            }),
+        ] {
+            let mut response = MonitorResponse::Data(json!({
+                "summary":{"identity":{"pid":42,"start_time_ticks":10}},
+                "live_samples":[{"architecture":architecture,"raw_registers":RegisterSet::default(),
+                    "stack_bytes":[1,2,3],"map_epoch":1,"error":"Partial capture",
+                    "registers":[],"call_stack":[],"disassembly":{"address":"0x1000","bytes":[144],"error":null}}]
+            }));
+            ObservationProcessor::default()
+                .process(&MonitorClient::unavailable(), None, &mut response)
+                .await
+                .unwrap();
+            let MonitorResponse::Data(value) = response else {
+                panic!()
+            };
+            let sample = &value["live_samples"][0];
+            assert!(
+                sample["error"]
+                    .as_str()
+                    .unwrap()
+                    .starts_with("Partial capture; Only native")
+            );
+            assert!(sample["disassembly"].is_null());
+            assert!(sample["registers"].as_array().unwrap().is_empty());
+            for field in ["raw_registers", "stack_bytes", "map_epoch"] {
+                assert!(sample.get(field).is_none());
+            }
+        }
     }
 }

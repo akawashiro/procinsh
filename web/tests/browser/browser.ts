@@ -375,7 +375,7 @@ try {
     "memory maps",
   );
   await waitFor(
-    "document.querySelectorAll('#registers tr').length === 18",
+    "[18,33,34].includes(document.querySelectorAll('#registers tr').length)",
     "live register sample",
   );
   assert.match(
@@ -388,11 +388,11 @@ try {
   );
   await waitFor(
     "document.querySelectorAll('#disassembly tr').length > 0",
-    "disassembly from captured RIP",
+    "disassembly from captured PC",
   );
   const ripText = () =>
     evaluate(
-      "Array.from(document.querySelectorAll('#registers tr')).find(r => r.cells[0].textContent === 'RIP').cells[1].textContent",
+      "Array.from(document.querySelectorAll('#registers tr')).find(r => ['RIP','PC'].includes(r.cells[0].textContent)).cells[1].textContent",
     );
   assert.equal(
     await evaluate(
@@ -475,7 +475,7 @@ try {
     /TID \d+/,
   );
   await waitFor(
-    "document.querySelectorAll('#registers tr').length === 18",
+    "[18,33,34].includes(document.querySelectorAll('#registers tr').length)",
     "worker live sample",
   );
   assert.equal(

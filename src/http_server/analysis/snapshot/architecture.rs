@@ -2,10 +2,10 @@
 //!
 //! # Interface
 //! [`Architecture`] (`pub(in crate::http_server)`): `enum Architecture`.
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// 64-bit instruction set of a sampled process.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(in crate::http_server) enum Architecture {
     X86_64,

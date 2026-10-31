@@ -99,10 +99,6 @@ impl PerfEventReader {
         )
     }
     fn open_attr(tid: i32, attr: Attr, context_switch: bool) -> Result<Self> {
-        ensure!(
-            REGS_MASK != 0,
-            "perf register sampling is not implemented for this architecture yet"
-        );
         let fd = unsafe { libc::syscall(libc::SYS_perf_event_open, &attr, tid, -1, -1, 8) };
         if fd < 0 {
             return Err(std::io::Error::last_os_error())
@@ -268,8 +264,8 @@ fn parse(bytes: &[u8]) -> Result<Option<Sample>> {
     if abi == 0 {
         return Ok(None);
     }
-    ensure!(abi == 2, "perf sample is not x86-64 user mode");
-    let mut values = [0; 24];
+    ensure!(abi == 2, "perf sample is not 64-bit user mode");
+    let mut values = vec![0; RegisterSet::COUNT];
     for (i, value) in values.iter_mut().enumerate() {
         if REGS_MASK & (1 << i) != 0 {
             *value = c.u64()?;
@@ -288,7 +284,11 @@ fn parse(bytes: &[u8]) -> Result<Option<Sample>> {
         tid,
         time_ns,
         cpu: Some(cpu),
-        registers: RegisterSet(values),
+        registers: RegisterSet {
+            values,
+            flags_available: cfg!(target_arch = "x86_64"),
+            code_pac_mask: None,
+        },
         stack: stack[..used].to_vec(),
     }))
 }
@@ -343,7 +343,7 @@ mod tests {
         for value in [(42u64 << 32) | 42, time, 7, 2] {
             bytes.extend(value.to_ne_bytes());
         }
-        for index in 0..24 {
+        for index in 0..RegisterSet::COUNT {
             if REGS_MASK & (1 << index) != 0 {
                 bytes.extend((index as u64 + 100).to_ne_bytes());
             }
@@ -376,7 +376,7 @@ mod tests {
             );
             let sample = event.drain().unwrap().unwrap();
             assert_eq!(sample.source, SampleSource::ContextSwitch { preempted });
-            assert_eq!(sample.registers.0[8], 108);
+            assert_eq!(sample.registers.values[8], 108);
         }
         for (kind, misc, payload) in [
             (PERF_RECORD_SWITCH, 0, switch_bytes(42, 101)), // switch-in
@@ -489,7 +489,7 @@ mod tests {
         for x in [(42u64 << 32) | 42, 123, 7, 2] {
             b.extend(x.to_ne_bytes());
         }
-        for i in 0..24 {
+        for i in 0..RegisterSet::COUNT {
             if REGS_MASK & (1 << i) != 0 {
                 b.extend((i as u64 + 100).to_ne_bytes());
             }
@@ -499,7 +499,12 @@ mod tests {
         b.extend(8u64.to_ne_bytes());
         let s = parse(&b).unwrap().unwrap();
         assert_eq!((s.tid, s.cpu, s.time_ns), (42, Some(7), 123));
-        assert_eq!(s.registers.0[8], 108);
+        assert_eq!(s.registers.values[8], 108);
+        assert_eq!(s.registers.flags_available, cfg!(target_arch = "x86_64"));
+        assert!(s.registers.code_pac_mask.is_none());
+        assert_eq!(s.registers.pc(), 100 + RegisterSet::PC as u64);
+        assert_eq!(s.registers.sp(), 100 + RegisterSet::SP as u64);
+
         assert_eq!(s.stack.len(), 8);
         for n in 0..b.len() {
             assert!(parse(&b[..n]).is_err());
