@@ -864,7 +864,7 @@ To filter only HTTP access logs, use `RUST_LOG=info,procinsh::http_server::middl
 
 ## Verification
 
-The host needs Linux x86-64, Docker Engine, and Docker daemon access from a regular account. Tests, test builds, and fixture preparation all run inside containers. Host-side Rust, Node.js, sudo, and setcap are unnecessary.
+The host needs Linux x86-64 or AArch64, Docker Engine, and Docker daemon access from a regular account. Tests, test builds, and fixture preparation all run inside containers. Host-side Rust, Node.js, sudo, and setcap are unnecessary.
 
 ```sh
 # Ordinary tests, formatting/static analysis, kernel/live sensor verification

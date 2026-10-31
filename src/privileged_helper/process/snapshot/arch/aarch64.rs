@@ -4,6 +4,7 @@
 //! All entries have `pub(in crate::privileged_helper::process::snapshot)` visibility.
 //! - [`PERF_REGS_MASK`]: `const PERF_REGS_MASK: u64`.
 //! - [`read_registers`]: `fn read_registers(tid: i32) -> anyhow::Result<RegisterSet>`.
+//!
 //! Captured values use [`RegisterSet`].
 use crate::ipc::registers::RegisterSet;
 use crate::privileged_helper::process::snapshot::ptrace::request;
