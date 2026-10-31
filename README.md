@@ -19,7 +19,7 @@ Like [Ghost in the Shell](https://en.wikipedia.org/wiki/Ghost_in_the_Shell), you
 
 ## Usage
 
-Requires Linux x86-64. Both installation methods compile native code and require
+Requires Linux x86-64 or AArch64. Both installation methods compile native code and require
 Rust, a C compiler, clang with the BPF backend, bpftool, pkg-config, libelf and
 zlib development files, and BTF information at `/sys/kernel/btf/vmlinux`.
 

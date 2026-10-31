@@ -11,10 +11,16 @@ use super::{
     symbol::{ElfCache, elf_address},
 };
 use crate::http_server::model::memory::MemoryMap;
-use framehop::{
-    Module, Unwinder,
-    x86_64::{CacheX86_64, UnwindRegsX86_64, UnwinderX86_64},
+use crate::ipc::registers::RegisterSet;
+#[cfg(target_arch = "aarch64")]
+use framehop::aarch64::{
+    CacheAarch64 as NativeCache, PtrAuthMask, UnwindRegsAarch64, UnwinderAarch64 as NativeUnwinder,
 };
+#[cfg(target_arch = "x86_64")]
+use framehop::x86_64::{
+    CacheX86_64 as NativeCache, UnwindRegsX86_64, UnwinderX86_64 as NativeUnwinder,
+};
+use framehop::{Module, Unwinder};
 use std::sync::Arc;
 
 type Mapping = (u64, u64, u64, u64, u32, u32);
@@ -22,8 +28,8 @@ type Mapping = (u64, u64, u64, u64, u32, u32);
 #[derive(Default)]
 /// Unwinds sampled stacks using cached rules and executable mapping metadata.
 pub struct StackUnwinder {
-    unwinder: UnwinderX86_64<Arc<[u8]>>,
-    cache: CacheX86_64<framehop::MayAllocateDuringUnwind>,
+    unwinder: NativeUnwinder<Arc<[u8]>>,
+    cache: NativeCache<framehop::MayAllocateDuringUnwind>,
     mappings: Vec<Mapping>,
     modules: Vec<(u64, u64, bool)>,
 }
@@ -49,8 +55,8 @@ impl StackUnwinder {
         if mappings == self.mappings {
             return;
         }
-        self.unwinder = UnwinderX86_64::new();
-        self.cache = CacheX86_64::new();
+        self.unwinder = NativeUnwinder::new();
+        self.cache = NativeCache::new();
         self.modules.clear();
         self.mappings = mappings;
         for map in maps.iter().filter(|m| m.executable) {
@@ -79,17 +85,16 @@ impl StackUnwinder {
     /// Unwinds from the supplied register values and captured stack bytes.
     pub fn walk(
         &mut self,
-        rip: u64,
-        rsp: u64,
-        rbp: u64,
+        registers: &RegisterSet,
         maps: &[MemoryMap],
         stack: &[u8],
     ) -> (Vec<StackFrame>, String) {
+        let (rip, rsp, rbp) = (registers.pc(), registers.sp(), registers.fp());
         let mut frames = Vec::new();
         if !maps.iter().any(|m| m.readable && m.contains(rsp)) {
             return (
                 vec![StackFrame::raw(rip)],
-                "RSP is outside readable mappings".into(),
+                "SP is outside readable mappings".into(),
             );
         }
         let mut read = |address: u64| -> Result<u64, ()> {
@@ -99,18 +104,32 @@ impl StackUnwinder {
                 .ok_or(())?;
             Ok(u64::from_ne_bytes(bytes.try_into().map_err(|_| ())?))
         };
-        let mut iter = self.unwinder.iter_frames(
-            rip,
-            UnwindRegsX86_64::new(rip, rsp, rbp),
-            &mut self.cache,
-            &mut read,
+        #[cfg(target_arch = "x86_64")]
+        let regs = UnwindRegsX86_64::new(rip, rsp, rbp);
+        #[cfg(target_arch = "aarch64")]
+        let regs = UnwindRegsAarch64::new_with_ptr_auth_mask(
+            registers
+                .code_pac_mask
+                .map_or(PtrAuthMask::new_no_strip(), |mask| PtrAuthMask(!mask)),
+            registers.lr(),
+            rsp,
+            rbp,
         );
+        let mut iter = self
+            .unwinder
+            .iter_frames(rip, regs, &mut self.cache, &mut read);
         let mut diagnostic = None;
         let reason = loop {
             match iter.next() {
                 Ok(Some(frame)) => {
                     let address = frame.address();
                     let lookup = frame.address_for_lookup();
+                    if cfg!(target_arch = "aarch64") && !address.is_multiple_of(4) {
+                        if frames.is_empty() {
+                            frames.push(StackFrame::raw(address));
+                        }
+                        break "unaligned AArch64 instruction address".into();
+                    }
                     if !maps.iter().any(|m| m.executable && m.contains(lookup)) {
                         if frames.is_empty() {
                             frames.push(StackFrame::raw(address));
@@ -156,12 +175,11 @@ impl StackUnwinder {
 mod tests {
     use super::*;
     use crate::http_server::analysis::test_support::process::{self, TestTarget};
-    use iced_x86::{Decoder, DecoderOptions, Mnemonic, Register};
-    use object::{Object, ObjectSection, ObjectSymbol};
+    use object::{Object, ObjectSymbol};
     use process::procfs;
 
-    // Reproduce the fixture's call-site stack from its actual instructions and
-    // unwind metadata. This exercises CFI even where perf privileges are absent.
+    // Capture actual native call-site state, exercising CFI without assuming a
+    // compiler's prologue instructions or instruction-set-specific stack layout.
     #[test]
     fn omitted_frame_pointer_snapshot_reaches_main() {
         for name in [
@@ -183,50 +201,16 @@ mod tests {
             let base = map.start - elf_address(map.start, map, &elf, procfs::page_size()).unwrap();
             let bytes = std::fs::read(format!("tests/targets/bin/{name}")).unwrap();
             let file = object::File::parse(bytes.as_slice()).unwrap();
-            let symbol = |name: &str| {
-                file.symbols()
-                    .find(|s| s.name().ok() == Some(name))
-                    .unwrap()
-            };
-            let text = file.section_by_name(".text").unwrap();
-            let data = text.data().unwrap();
-            let mut stack = Vec::new();
-            for (caller, callee) in [("bar", "baz"), ("foo", "bar"), ("main", "foo")] {
-                let function = symbol(caller);
-                let start = (function.address() - text.address()) as usize;
-                let mut decoder = Decoder::with_ip(
-                    64,
-                    &data[start..start + function.size() as usize],
-                    function.address(),
-                    DecoderOptions::NONE,
-                );
-                let mut allocation = 0;
-                let return_address = loop {
-                    assert!(decoder.can_decode(), "missing call {caller} -> {callee}");
-                    let instruction = decoder.decode();
-                    if instruction.mnemonic() == Mnemonic::Call
-                        && instruction.near_branch_target() == symbol(callee).address()
-                    {
-                        break base + instruction.next_ip();
-                    }
-                    if instruction.mnemonic() == Mnemonic::Push {
-                        allocation += 8;
-                    }
-                    if instruction.mnemonic() == Mnemonic::Sub
-                        && instruction.op0_register() == Register::RSP
-                    {
-                        allocation += instruction.immediate8to64() as usize;
-                    }
-                };
-                stack.extend_from_slice(&return_address.to_ne_bytes());
-                // Include this caller's local allocation before its saved return.
-                stack.resize(stack.len() + allocation, 0);
-            }
-            let rsp = maps
-                .iter()
-                .find(|m| m.pathname.as_deref() == Some("[stack]"))
-                .unwrap()
-                .start;
+            let expected: Vec<_> = ["baz", "bar", "foo", "main"]
+                .map(|name| {
+                    base + file
+                        .symbols()
+                        .find(|s| s.name().ok() == Some(name))
+                        .unwrap()
+                        .address()
+                })
+                .into();
+            let (registers, stack) = process::capture_registers(target.id.pid, &maps).unwrap();
             for indexed in [true, false] {
                 let mut state = StackUnwinder::default();
                 state.refresh(&maps, &symbols);
@@ -241,28 +225,18 @@ mod tests {
                         sections,
                     ));
                 }
-                let (frames, stop) =
-                    state.walk(base + symbol("baz").address(), rsp, 1, &maps, &stack);
-                let (short_frames, short_stop) =
-                    state.walk(base + symbol("baz").address(), rsp, 1, &maps, &stack[..8]);
-                assert_eq!(short_frames.len(), 2, "{short_frames:?}");
-                assert!(
-                    short_stop.contains("stack snapshot exhausted"),
-                    "{short_stop}"
-                );
-                let expected: Vec<_> = ["baz", "bar", "foo", "main"]
-                    .map(|name| base + symbol(name).address())
-                    .into();
+                let (frames, stop) = state.walk(&registers, &maps, &stack);
                 assert!(frames.len() >= 4, "{name}: {frames:?}, {stop}");
-                for (frame, start) in frames.iter().zip(expected) {
+                for (frame, start) in frames.iter().zip(&expected) {
                     assert!(
-                        frame.address >= start && frame.address - start < 256,
+                        frame.address >= *start && frame.address - start < 256,
                         "{name}: {frames:?}"
                     );
                 }
+                let (_, short_stop) = state.walk(&registers, &maps, &[]);
                 assert!(
-                    stop == "end of stack" || stop.contains("stack snapshot exhausted"),
-                    "{stop}"
+                    short_stop.contains("stack snapshot exhausted"),
+                    "{short_stop}"
                 );
             }
             let mut state = StackUnwinder::default();
@@ -274,6 +248,14 @@ mod tests {
         }
     }
 
+    fn registers(pc: u64, sp: u64, fp: u64) -> RegisterSet {
+        let mut r = RegisterSet::default();
+        r.values[RegisterSet::PC] = pc;
+        r.values[RegisterSet::SP] = sp;
+        r.values[RegisterSet::FP] = fp;
+        r
+    }
+
     #[test]
     fn fallback_reports_module_failure_and_bounds_stack_reads() {
         let maps = vec![
@@ -281,14 +263,36 @@ mod tests {
             process::maps::parse_map("3000-4000 r-xp 0 00:00 0 /missing").unwrap(),
         ];
         let mut state = StackUnwinder::default();
-        let (_, reason) = state.walk(0x3010, 0x1000, 0x1100, &maps, &[]);
+        let (_, reason) = state.walk(&registers(0x3010, 0x1000, 0x1100), &maps, &[]);
         assert!(reason.contains("snapshot exhausted"), "{reason}");
         assert!(reason.contains("module lookup failure"), "{reason}");
         state.modules.push((0x3000, 0x4000, false));
-        let (_, reason) = state.walk(0x3010, 0x1000, 0x1100, &maps, &[]);
+        let (_, reason) = state.walk(&registers(0x3010, 0x1000, 0x1100), &maps, &[]);
         assert!(reason.contains("unwind metadata unavailable"), "{reason}");
-        let (frames, reason) = state.walk(0x3010, 0x2000, 0, &maps, &[]);
+        let (frames, reason) = state.walk(&registers(0x3010, 0x2000, 0), &maps, &[]);
         assert_eq!(frames.len(), 1);
-        assert!(reason.contains("RSP"));
+        assert!(reason.contains("SP"));
+    }
+    #[cfg(target_arch = "aarch64")]
+    #[test]
+    fn kernel_pac_mask_strips_saved_return_addresses_without_guessing() {
+        let maps = vec![
+            process::maps::parse_map("1000-2000 rw-p 0 00:00 0 [stack]").unwrap(),
+            process::maps::parse_map("3000-4000 r-xp 0 00:00 0 /missing").unwrap(),
+        ];
+        let mut r = registers(0x3010, 0x1000, 0x1010);
+        let mut stack = vec![0; 64];
+        stack[16..24].copy_from_slice(&0x1020u64.to_ne_bytes());
+        stack[24..32].copy_from_slice(&0xab00_0000_0000_3020u64.to_ne_bytes());
+        let (frames, reason) = StackUnwinder::default().walk(&r, &maps, &stack);
+        assert_eq!(frames.len(), 1);
+        assert!(reason.contains("outside executable"), "{reason}");
+        r.code_pac_mask = Some(0xff00_0000_0000_0000);
+        let (frames, reason) = StackUnwinder::default().walk(&r, &maps, &stack);
+        assert_eq!(
+            frames.iter().map(|f| f.address).collect::<Vec<_>>(),
+            [0x3010, 0x3020],
+            "{reason}"
+        );
     }
 }

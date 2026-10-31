@@ -66,9 +66,21 @@ jobs:
         # Docker's default seccomp and AppArmor profiles remain enabled.
         run: bash scripts/docker_test.sh kernel
 
+  arm64-test:
+    name: Checks and ordinary tests (arm64)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run checks in Docker
+        run: bash scripts/docker_test.sh checks
+      - name: Run all Rust and frontend tests in Docker
+        run: bash scripts/docker_test.sh ordinary
+
   arm64-kernel-test:
     name: Live eBPF tests (arm64)
-    # AArch64 snapshots are not implemented yet; this job covers the build and BPF.
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     steps:
@@ -89,10 +101,9 @@ jobs:
           - runner: ubuntu-24.04
             arch: x86-64
             suite: browser
-          # Replay exercises Chromium on arm64 without requiring register capture.
           - runner: ubuntu-24.04-arm
             arch: arm64
-            suite: browser-replay
+            suite: browser
     steps:
       - uses: actions/checkout@v7.0.1
         with:

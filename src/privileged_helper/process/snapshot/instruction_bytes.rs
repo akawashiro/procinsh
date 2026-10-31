@@ -1,4 +1,4 @@
-//! Capture bounded instruction bytes from the sampled RIP for main-side decoding.
+//! Capture bounded instruction bytes from the sampled PC for main-side decoding.
 //!
 //! # Interface
 //! [`InstructionBytes`] (`pub(super)`): `struct InstructionBytes`.
@@ -22,7 +22,7 @@ impl InstructionBytes {
     pub(super) fn capture(pid: i32, rip: u64, maps: &[MemoryMap]) -> Self {
         let mut result = Self::empty(rip);
         let Some(map) = maps.iter().find(|m| m.contains(rip)) else {
-            result.error = Some("RIP is outside the memory mappings.".into());
+            result.error = Some("PC is outside the memory mappings.".into());
             return result;
         };
         let length = (map.end - rip).min(MAX_BYTES as u64) as usize;

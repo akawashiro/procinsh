@@ -1,7 +1,7 @@
 #[cfg(test)]
 use super::sample::SampleSource;
 use super::sample::monotonic_ns;
-use super::{arch::native, instruction_bytes::InstructionBytes, perf::PerfEventReader};
+use super::{instruction_bytes::InstructionBytes, perf::PerfEventReader};
 #[cfg(test)]
 use super::{registers, stack::StackFrame};
 #[cfg(test)]
@@ -67,6 +67,7 @@ struct Thread {
     ptrace_error: Option<String>,
     latest: ThreadSample,
     sampled_ns: Option<u64>,
+    code_pac_mask: Option<u64>,
 }
 pub(in crate::privileged_helper::process) struct Sampler {
     id: ProcessId,
@@ -199,6 +200,7 @@ impl Sampler {
                     event,
                     latest,
                     sampled_ns: None,
+                    code_pac_mask: None,
                 }
             });
             let mut newest = None;
@@ -286,7 +288,7 @@ fn process_sample(
     #[cfg(test)] unwind: &mut StackUnwinder,
     #[cfg(test)] symbols: &mut ElfCache,
     thread: &mut Thread,
-    sample: super::sample::RawSample,
+    mut sample: super::sample::RawSample,
     maps: &[MemoryMap],
     context: Arc<MappingSnapshot>,
 ) {
@@ -296,16 +298,12 @@ fn process_sample(
     let executable_header = thread.latest.executable_header;
     let tid = sample.tid;
     let lost = thread.latest.lost_samples;
+    thread.code_pac_mask = sample.registers.code_pac_mask.or(thread.code_pac_mask);
+    sample.registers.code_pac_mask = thread.code_pac_mask;
     let r = &sample.registers;
     #[cfg(test)]
     let (frames, reason) = {
-        let (mut frames, reason) = unwind.walk(
-            r.0[native::PC],
-            r.0[native::SP],
-            r.0[native::FP],
-            maps,
-            &sample.stack,
-        );
+        let (mut frames, reason) = unwind.walk(r, maps, &sample.stack);
         for (index, frame) in frames.iter_mut().enumerate() {
             let address = instruction_address(frame.address, index > 0);
             let info = maps
@@ -321,7 +319,7 @@ fn process_sample(
     };
     #[cfg(not(test))]
     let (frames, reason) = (Vec::new(), String::new());
-    let code = InstructionBytes::capture(pid, r.0[native::PC], maps);
+    let code = InstructionBytes::capture(pid, r.pc(), maps);
     let age = monotonic_ns().saturating_sub(sample.time_ns) / 1_000_000;
     thread.sampled_ns = Some(sample.time_ns);
     thread.latest = ThreadSample {
@@ -481,9 +479,20 @@ mod live_tests {
         assert_eq!(first.sample_source, Some(SampleSource::Ptrace), "{first:?}");
         assert_eq!(
             serde_json::to_value(&first).unwrap()["architecture"],
-            "x86_64"
+            std::env::consts::ARCH
         );
-        assert_eq!(first.registers.len(), 18);
+        assert_eq!(
+            first.registers.len(),
+            if cfg!(target_arch = "aarch64") {
+                if first.raw_registers.as_ref().unwrap().flags_available {
+                    34
+                } else {
+                    33
+                }
+            } else {
+                18
+            }
+        );
         assert!(first.cpu.is_none());
         assert!(
             first
@@ -664,7 +673,7 @@ mod live_tests {
             tid: target.id.pid,
             time_ns: time.saturating_sub(1),
             cpu: Some(0),
-            registers: registers::RegisterSet([0; 24]),
+            registers: registers::RegisterSet::default(),
             stack: Vec::new(),
             source: SampleSource::CpuClock,
         };
@@ -683,7 +692,7 @@ mod live_tests {
             tid: target.id.pid,
             time_ns: time + 1,
             cpu: Some(7),
-            registers: registers::RegisterSet([0; 24]),
+            registers: registers::RegisterSet::default(),
             stack: Vec::new(),
             source: SampleSource::CpuClock,
         };
@@ -720,11 +729,16 @@ mod live_tests {
             let sample = &sampler.latest()[0];
             if sample.sample_source == Some(SampleSource::ContextSwitch { preempted: false }) {
                 assert!(sample.error.is_none(), "{:?}", sample.error);
+                let names = if cfg!(target_arch = "aarch64") {
+                    ["X19", "X20", "X21", "X22"]
+                } else {
+                    ["R12", "R13", "R14", "R15"]
+                };
                 for (name, expected) in [
-                    ("R12", 0x12345678u64),
-                    ("R13", 0x23456789),
-                    ("R14", 0x3456789a),
-                    ("R15", 0x456789ab),
+                    (names[0], 0x12345678u64),
+                    (names[1], 0x23456789),
+                    (names[2], 0x3456789a),
+                    (names[3], 0x456789ab),
                 ] {
                     let register = sample.registers.iter().find(|r| r.name == name).unwrap();
                     assert_eq!(register.value, expected);
@@ -775,7 +789,18 @@ mod live_tests {
                 s.latest().iter().any(|t| t.sampled_at.is_some())
             });
             let first = sampler.latest()[0].clone();
-            assert_eq!(first.registers.len(), 18);
+            assert_eq!(
+                first.registers.len(),
+                if cfg!(target_arch = "aarch64") {
+                    if first.raw_registers.as_ref().unwrap().flags_available {
+                        34
+                    } else {
+                        33
+                    }
+                } else {
+                    18
+                }
+            );
             assert!(!first.disassembly.as_ref().unwrap().bytes.is_empty());
             if name.starts_with("recursive") {
                 assert!(first.call_stack.len() >= 4, "{:?}", first.call_stack);

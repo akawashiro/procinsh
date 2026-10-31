@@ -10,8 +10,8 @@ export async function checkLiveSamples({
     null,
   );
   await waitFor(
-    "document.querySelectorAll('#registers tr').length===18",
-    "automatic live x86-64 registers",
+    "[18,33,34].includes(document.querySelectorAll('#registers tr').length)",
+    "automatic native registers",
   );
   assert.equal(
     await evaluate("document.getElementById('disasm-location')"),
@@ -62,8 +62,8 @@ export async function checkLiveSamples({
   // Captions, the current-instruction marker and register names come from the
   // snapshot, so AArch64 renders without ARM64 hardware. Dispatch and read in
   // one evaluation so live updates cannot interleave; dispatching also replaces
-  // window.lastObservation, so keep the real x86-64 data.
-  await evaluate("window.x86Observation = window.lastObservation");
+  // window.lastObservation, so keep the real native data.
+  await evaluate("window.nativeObservation = window.lastObservation");
   const render = (observation: string) =>
     evaluate<{ caption: string; marker: string; registers: string[] }>(`(() => {
       window.targetSources.at(-1).dispatchEvent(new MessageEvent('observation', {data: JSON.stringify(${observation})}));
@@ -74,7 +74,7 @@ export async function checkLiveSamples({
       };
     })()`);
   const arm =
-    await render(`{...window.x86Observation, live_samples: window.x86Observation.live_samples.map(t => t.tid !== ${tid} ? t : {
+    await render(`{...window.nativeObservation, live_samples: window.nativeObservation.live_samples.map(t => t.tid !== ${tid} ? t : {
       ...t,
       architecture: 'aarch64',
       registers: [['PC','pc'],['SP','sp'],['X29','fp'],['X30','lr'],['PSTATE','flags'],['X0','general'],['X1','general']]
@@ -91,18 +91,26 @@ export async function checkLiveSamples({
     "X0",
     "X1",
   ]);
-  const x86 = await render("window.x86Observation");
-  assert.equal(x86.caption, `TID ${tid} · Live best-effort · x86-64 / Intel`);
-  assert.equal(x86.marker, "→ RIP");
-  assert.equal(x86.registers.length, 18);
-  assert.equal(x86.registers[0], "RIP");
+  const native = await render("window.nativeObservation");
+  const architecture = await evaluate<string>(`${sample}.architecture`);
+  assert.equal(
+    native.caption,
+    `TID ${tid} · Live best-effort · ${architecture === "aarch64" ? "AArch64" : "x86-64 / Intel"}`,
+  );
+  assert.equal(native.marker, architecture === "aarch64" ? "→ PC" : "→ RIP");
+  assert.ok(
+    (architecture === "aarch64" ? [33, 34] : [18]).includes(
+      native.registers.length,
+    ),
+  );
+  assert.equal(native.registers[0], architecture === "aarch64" ? "PC" : "RIP");
   const unknown = await render(
-    `{...window.x86Observation, live_samples: window.x86Observation.live_samples.map(t => ({...t, architecture: null}))}`,
+    `{...window.nativeObservation, live_samples: window.nativeObservation.live_samples.map(t => ({...t, architecture: null}))}`,
   );
   assert.equal(
     unknown.caption,
     `TID ${tid} · Live best-effort`,
     "an unknown instruction set gets a neutral caption",
   );
-  await render("window.x86Observation");
+  await render("window.nativeObservation");
 }

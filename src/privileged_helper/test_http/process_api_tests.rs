@@ -168,7 +168,10 @@ async fn explicit_identity_is_required_without_selection() {
 async fn target_streams_have_independent_lifetimes_and_histories() {
     let state = Arc::new(AppState::new(Duration::from_millis(100)));
     let app = super::router::router(state.clone(), "127.0.0.1:8080".parse().unwrap());
-    let id = super::process::identity(std::process::id() as i32).unwrap();
+    // Keep the observed thread set fixed: inspecting this test process would
+    // also sample the collector threads created by each additional session.
+    let target = super::process::TestTarget::new("sleeping");
+    let id = target.id;
     let uri = format!("/api/processes/events?{}", query(id));
     let mut a = app
         .clone()
@@ -192,13 +195,9 @@ async fn target_streams_have_independent_lifetimes_and_histories() {
     assert_eq!(next(&mut b).await["summary"]["identity"]["pid"], id.pid);
     let mut bodies = vec![b];
     for _ in 1..32 {
-        bodies.push(
-            app.clone()
-                .oneshot(request(&uri))
-                .await
-                .unwrap()
-                .into_body(),
-        );
+        let response = app.clone().oneshot(request(&uri)).await.unwrap();
+        assert_eq!(response.status(), 200);
+        bodies.push(response.into_body());
     }
     assert_eq!(
         app.clone().oneshot(request(&uri)).await.unwrap().status(),

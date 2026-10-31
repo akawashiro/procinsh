@@ -1,7 +1,6 @@
 //! Stopped-thread capture for initial and periodic sampling. The guard owns the attachment on every error path.
 use super::{
     arch::native,
-    registers::RegisterSet,
     sample::{RawSample, SampleSource, monotonic_ns},
 };
 use crate::privileged_helper::process::{maps::MemoryMap, memory};
@@ -95,7 +94,7 @@ pub(super) fn capture(tid: i32, maps: &[MemoryMap]) -> Result<RawSample> {
     attachment.wait()?;
     let time_ns = monotonic_ns();
     let values = native::read_registers(tid)?;
-    let sp = values[native::SP];
+    let sp = values.sp();
     let stack = match maps.iter().find(|map| map.contains(sp)) {
         Some(map) => memory::read_raw(tid, sp, (map.end - sp).min(16 * 1024) as usize)?,
         None => Vec::new(),
@@ -104,7 +103,7 @@ pub(super) fn capture(tid: i32, maps: &[MemoryMap]) -> Result<RawSample> {
         tid,
         time_ns,
         cpu: None,
-        registers: RegisterSet(values),
+        registers: values,
         stack,
         source: SampleSource::Ptrace,
     })

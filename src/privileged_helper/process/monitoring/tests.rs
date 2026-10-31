@@ -59,7 +59,14 @@ fn initial_watch_value_contains_sleeping_thread_snapshot() {
     let value = serde_json::to_value(&*session.receiver.borrow()).unwrap();
     let sample = &value["live_samples"][0];
     assert!(sample["sampled_at"].is_u64(), "{sample}");
-    assert_eq!(sample["registers"].as_array().unwrap().len(), 18);
+    assert_eq!(
+        sample["registers"].as_array().unwrap().len(),
+        if cfg!(target_arch = "aarch64") {
+            34
+        } else {
+            18
+        }
+    );
     assert!(!sample["call_stack"].as_array().unwrap().is_empty());
     assert!(sample.get("sample_source").is_none());
     target.assert_detached();
