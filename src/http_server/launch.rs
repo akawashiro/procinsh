@@ -84,6 +84,10 @@ impl Drop for HelperSupervisor {
 
 pub(crate) fn run(config: super::ServerConfig) -> Result<()> {
     let path = std::env::current_exe()?.with_file_name("procinsh-privileged-helper");
+    if let Some(level) = config.privacy_level {
+        super::privacy::enable(level)?;
+        log::info!("privacy mode at level {level}: environments and process memory are not read");
+    }
     privileges::close_inherited()?;
     // This runs before Tokio creates any threads. Keep no_new_privs unset until
     // after helper exec, otherwise Linux suppresses its file capabilities.
@@ -106,6 +110,9 @@ pub(crate) fn run(config: super::ServerConfig) -> Result<()> {
                 "--parent-pid",
                 &std::process::id().to_string(),
             ]);
+        if super::privacy::enabled() {
+            command.arg("--privacy");
+        }
         // Only the private endpoint and stdio survive exec. No inspection FDs
         // exist in this process, and none are ever passed over the socket.
         unsafe {

@@ -61,6 +61,15 @@ pub(super) struct PerfEventReader {
 // moving ownership to the observation worker does not share the mapping.
 unsafe impl Send for PerfEventReader {}
 
+/// The user stack copied with each sample; none in privacy mode.
+fn user_stack_bytes() -> u32 {
+    if crate::privileged_helper::process::privacy() {
+        0
+    } else {
+        16384
+    }
+}
+
 impl PerfEventReader {
     pub(super) fn open(tid: i32) -> Result<Self> {
         let attr = Attr {
@@ -73,7 +82,7 @@ impl PerfEventReader {
             flags: (1 << 5) | (1 << 6) | (1 << 25),
             wakeup: 1,
             regs: REGS_MASK,
-            stack: 16384,
+            stack: user_stack_bytes(),
             clock: libc::CLOCK_MONOTONIC,
             ..Attr::default()
         };
@@ -91,7 +100,7 @@ impl PerfEventReader {
                 flags: (1 << 18) | (1 << 25) | (1 << 26),
                 wakeup: 1,
                 regs: REGS_MASK,
-                stack: 16384,
+                stack: user_stack_bytes(),
                 clock: libc::CLOCK_MONOTONIC,
                 ..Attr::default()
             },

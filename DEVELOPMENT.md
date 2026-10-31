@@ -33,6 +33,7 @@
       - [System-wide state/structure and viewing sessions](#system-wide-statestructure-and-viewing-sessions)
       - [System-wide activity and SSE delivery](#system-wide-activity-and-sse-delivery)
       - [Multiple hosts (hub and agent)](#multiple-hosts-hub-and-agent)
+      - [Privacy mode](#privacy-mode)
     - [IPC between backend and privileged helper](#ipc-between-backend-and-privileged-helper)
       - [Launch, protocol and lifetime](#launch-protocol-and-lifetime)
       - [Encoding and validation](#encoding-and-validation)
@@ -481,6 +482,10 @@ A hub accepts agent TCP links on `--accept-agents`. An agent links to a hub with
 - Merged stream (`host=all`, [merged.rs](src/http_server/api/merged.rs)): `hosts` first (as `/api/hosts`, resent when hosts change), then each host's `snapshot`, `activity`, and `gap` with `"host"` added; each host has its own sequence and delta baseline. A host that comes online joins the stream. About once a second the hub matches connections between hosts and sends `links` when they change: `sockets` and `rdma` entries with `a` and `b` as `{host, relation}`; RDMA entries add `evidence: {gid, cm}`.
 - Cross-host matching ([correlate.rs](src/http_server/hosts/correlate.rs)): an external TCP/UDP connection without a local peer matches when exactly one connection on another host has the reversed `(local, remote)` tuple. Loopback and unspecified addresses, and tuples duplicated by NAT or otherwise, stay unmatched. RDMA QPs match when connected QPs on two hosts have swapped QPNs and remote QPNs. A remote GID equal to the other end's port GID, or swapped CM addresses, is evidence; any contradicting address rejects the match. Without evidence, a swap matches only when it is unique among all hosts and both ports have the same link layer.
 - Limits: the link is not encrypted. Non-loopback `--accept-agents` requires `--allow-non-loopback` and a token. Run hubs and agents only on a secure network; an agent trusts whichever hub answers at its `--connect` address.
+
+#### Privacy mode
+
+`--privacy` passes `--privacy` to the helper, which then refuses `/proc/PID/environ` and every `process_vm_readv` (auxv strings, ptrace stacks, instruction bytes) and requests no user stack from perf. In the unprivileged process, [privacy.rs](src/http_server/privacy.rs) masks each reply at the end of `MonitorClient::request`, after analysis and before HTTP or agent-link output, so SSE, REST, recordings and replies to a hub are covered by one path. Identifying fields (`ip` other than loopback/unspecified, `remote_hostname`, `gid`, `remote_gid`, `uuid`, `serial`) are replaced whole. Other strings are scanned by logblur-core at the configured level, with this machine's host name, machine/boot IDs and login users (UID ≥ 1000) preloaded; string arrays such as argv are scanned as one space-joined text so options and values in separate arguments are seen together. A match becomes `░` + 8 hex digits of SHA-256 over a random per-run key and the value + `░`. Results are cached by text. A hub also masks agent replies; host names default to `host-<pseudonym>` and the advertised machine ID is a pseudonym. [privacy.ts](web/src/shared/privacy.ts) watches each page's DOM and wraps pseudonyms in blurred `.masked` spans.
 
 ### IPC between backend and privileged helper
 

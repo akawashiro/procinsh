@@ -27,10 +27,16 @@ extern "C" fn stop(_: i32) {
 pub(crate) fn run() -> Result<()> {
     let args: Vec<_> = std::env::args().skip(1).collect();
     ensure!(
-        args.len() == 4 && args[0] == "--ipc-fd" && args[1] == "3" && args[2] == "--parent-pid",
+        (args.len() == 4 || args.len() == 5 && args[4] == "--privacy")
+            && args[0] == "--ipc-fd"
+            && args[1] == "3"
+            && args[2] == "--parent-pid",
         "helper requires an inherited private IPC endpoint"
     );
     let parent: i32 = args[3].parse()?;
+    if args.len() == 5 {
+        super::process::enable_privacy();
+    }
     let mut peer: libc::ucred = unsafe { std::mem::zeroed() };
     let mut size = std::mem::size_of_val(&peer) as libc::socklen_t;
     ensure!(

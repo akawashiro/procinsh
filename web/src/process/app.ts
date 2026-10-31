@@ -1,5 +1,6 @@
 // Compose process data, rendering, and user actions; own page lifecycle events.
 import { processUrl } from "../shared/navigation.js";
+import { watchMasked } from "../shared/privacy.js";
 import { hostUrl, mountHostControls, withHost } from "../shared/hosts.js";
 import { ProcessDataStore } from "./data.js";
 import { createProcessRenderer } from "./renderer.js";
@@ -66,3 +67,4 @@ addEventListener("pageshow", (event) => {
 addEventListener("resize", renderHistory);
 void data.start(location.pathname, location.search);
 links();
+watchMasked();
