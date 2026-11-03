@@ -1,4 +1,5 @@
 """Verify signal_generate against a running capability-enabled container server; unavailable sensors fail."""
+
 import ctypes
 import json
 import os

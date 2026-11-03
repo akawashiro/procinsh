@@ -1,4 +1,5 @@
 //! Acquire thread identities, scheduler fields and counters.
+
 //!
 //! # Interface
 //!

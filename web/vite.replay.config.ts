@@ -1,4 +1,5 @@
 // Standalone static replay build that can be served at any deployment prefix.
+
 import { readdirSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { defineConfig } from "vite";

@@ -1,4 +1,5 @@
 //! Embedded SPACE, SPACE replay, process pages, and static assets.
+
 //!
 //! # Interface
 //! - [`router`]: `pub(super) fn router() -> Router<Arc<AppState>>`; supplies the

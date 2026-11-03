@@ -1,4 +1,5 @@
 //! JSON representations of native RDMA observations.
+
 //!
 //! # Interface
 //! Installs serde implementations; no named items are exported.

@@ -1,4 +1,5 @@
 // Bounded UTF-8 acquisition for both local files and HTTP response bodies.
+
 import { MAX_RECORDING_BYTES } from "./recording.js";
 
 /** Inspect bytes rather than extensions or headers: fetch may already have

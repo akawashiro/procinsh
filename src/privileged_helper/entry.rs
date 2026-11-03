@@ -1,4 +1,5 @@
 //! Private privileged acquisition executable. It has no HTTP listener.
+
 //!
 //! # Interface
 //! No items are exported. Startup delegates to [`privileged_helper::run`].

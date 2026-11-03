@@ -1,4 +1,5 @@
 //! Shared native IPC data, codec and bounded Unix-stream framing. JSON conversion belongs to main.
+
 //!
 //! # Interface
 //! - [`schema`] (`pub(crate)`): `mod schema`.

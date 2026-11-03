@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """Measure SSE transport bytes and arrival latency on a local procinsh server.
 
 HTTP/TCP headers and chunk framing are excluded. Event transfer sizes attribute

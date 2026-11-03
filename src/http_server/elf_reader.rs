@@ -1,4 +1,5 @@
 //! Acquire only ELF ranges selected by main, preserving one verified file identity.
+
 //!
 //! # Interface
 //! [`acquire`] (`pub(super)`): `async fn acquire(client: &MonitorClient, id: ProcessId, mapping_start: u64, known: Option<ElfFileId>) -> anyhow::Result<Option<ElfImage>>`.

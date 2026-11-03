@@ -1,5 +1,6 @@
 //! One RDMA observation for a system snapshot.
 
+
 use super::super::ipoib;
 use super::codes::IbGid;
 use super::{RdmaPortInfo, RdmaRelation};

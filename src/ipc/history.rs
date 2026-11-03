@@ -1,4 +1,5 @@
 //! Process history points interpreted by main.
+
 //!
 //! # Interface
 //! - [`HistoryPoint`] (`pub`): `struct HistoryPoint`.

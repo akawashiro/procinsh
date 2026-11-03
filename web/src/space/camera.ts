@@ -1,4 +1,5 @@
 // Own camera projection, world bounds, focus, and OrbitControls.
+
 import * as T from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { Position } from "./types.js";

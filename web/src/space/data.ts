@@ -1,4 +1,5 @@
 // Own system subscriptions, observed state, retained activity, and display updates.
+
 // Delegate snapshot merging and resource placement to pure transformations.
 import { mergeSnapshot } from "./snapshot-merge.js";
 import {

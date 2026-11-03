@@ -1,4 +1,5 @@
 // Inputs and callbacks for SPACE geometry, picking, details, and rendering.
+
 import type * as T from "three";
 import type {
   DeviceHandle,

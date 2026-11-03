@@ -1,4 +1,5 @@
 //! PCI devices of interest and their upstream bridges from sysfs.
+
 //!
 //! Only plain sysfs attributes are read. `config` and BAR resize files are never
 //! opened, since they can wake a runtime-suspended device.

@@ -1,4 +1,5 @@
 """Run against a service with CAP_BPF and CAP_PERFMON. Fails if sensors are unavailable."""
+
 import json, subprocess, threading, time, sys
 from sse import Stream
 base=sys.argv[1] if len(sys.argv)>1 else 'http://127.0.0.1:8080'

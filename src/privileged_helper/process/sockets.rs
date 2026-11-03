@@ -1,4 +1,5 @@
 //! Socket table parsing and UNIX peer diagnostics for process and system scans.
+
 //!
 //! # Interface
 //!

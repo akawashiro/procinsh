@@ -1,4 +1,5 @@
 //! PCIe paths between devices, classified like `nvidia-smi topo -m`.
+
 //!
 //! # Interface
 //!

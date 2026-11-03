@@ -1,4 +1,5 @@
 // Compose list data, search, and rendering, and own page lifecycle events.
+
 import { ListDataStore } from "./data.js";
 import { watchMasked } from "../shared/privacy.js";
 import { createListSearch } from "./search.js";

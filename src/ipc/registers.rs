@@ -1,4 +1,5 @@
 //! Register values shared with native acquisition.
+
 //!
 //! # Interface
 //! - [`RegisterSet`] (`pub`): `struct RegisterSet`.

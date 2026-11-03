@@ -1,4 +1,5 @@
 // Shared formatting. Values remain structured in models and API contracts.
+
 export namespace Display {
   export function socketType(
     type: import("./api-types.js").SocketType,

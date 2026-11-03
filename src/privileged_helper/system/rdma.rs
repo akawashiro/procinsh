@@ -1,4 +1,5 @@
 //! RDMA queue pairs, connection manager IDs and port addresses, observed read-only
+
 //! through RDMA netlink, rtnetlink IPoIB neighbors and sysfs.
 //!
 //! RDMA netlink is queried only when `class/infiniband` under the sysfs root lists a

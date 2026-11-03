@@ -1,4 +1,5 @@
 #[cfg(test)]
+
 use super::sampling::{initial_observation, next_observation};
 #[cfg(test)]
 use std::collections::VecDeque;

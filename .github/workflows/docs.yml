@@ -1,5 +1,6 @@
 name: Publish documentation and replay demo
 
+
 on:
   workflow_run:
     workflows: [Build documentation]

@@ -1,4 +1,5 @@
 //! Linux perf ABI with the native register layout from `arch::native`. Events
+
 //! follow a TID across CPU migration.
 use super::{
     registers::RegisterSet,

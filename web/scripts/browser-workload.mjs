@@ -1,4 +1,5 @@
 // External-site workload using the same Puppeteer WebDriver BiDi API for both browsers.
+
 import puppeteer from 'puppeteer-core';
 import {mkdtemp, rm, writeFile, readFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';

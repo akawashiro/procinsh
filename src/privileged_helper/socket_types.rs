@@ -1,4 +1,5 @@
 //! Shared socket types values used during acquisition.
+
 //!
 //! # Interface
 //!

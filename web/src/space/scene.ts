@@ -1,4 +1,5 @@
 // Compose SPACE geometry builders and own scene updates, selection, and resource disposal.
+
 import * as T from "three";
 import { buildRdma, RDMA_DEVICE_HEIGHT } from "./scene-rdma.js";
 import { buildLayers } from "./scene-layers.js";

@@ -1,4 +1,5 @@
 use super::super::{AppState, client::ObservationSession, delivery::SnapshotEncoder};
+
 use crate::http_server::protocol::MonitorEvent;
 use axum::response::{
     IntoResponse, Response, Sse,

@@ -1,4 +1,5 @@
 // Capture wire observations without exposing application state on window.
+
 export const processEventRecording = `(() => {
   window.targetSources = [];
   window.processObservations = [];

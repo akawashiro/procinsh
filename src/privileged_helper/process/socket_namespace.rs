@@ -1,4 +1,5 @@
 //! Pin a verified process's network namespace and open diagnostic sockets there.
+
 //!
 //! # Interface
 //!

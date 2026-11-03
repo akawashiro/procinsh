@@ -1,4 +1,5 @@
 //! Raw process acquisition, bounded samples and sensor diagnostics.
+
 //!
 //! # Interface
 //! - [`ProcessSummary`] (`pub`): `struct ProcessSummary`.

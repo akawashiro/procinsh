@@ -1,4 +1,5 @@
 use super::model::{SystemActivity, SystemMonitorStatus};
+
 use super::{SystemSnapshot, activity, snapshot};
 #[derive(Debug, PartialEq, Eq)]
 pub(in crate::privileged_helper) enum SubscribeError {

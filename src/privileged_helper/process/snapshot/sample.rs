@@ -1,4 +1,5 @@
 use super::registers::RegisterSet;
+
 pub use crate::ipc::acquisition::SampleSource;
 pub(super) struct RawSample {
     pub(super) source: SampleSource,

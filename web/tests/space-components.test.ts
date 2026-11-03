@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+
 import { test, vi, afterEach } from "vitest";
 import assert from "node:assert/strict";
 import { resolve } from "node:path";

@@ -1,4 +1,5 @@
 //! Validates the inherited private endpoint and owns helper lifetime.
+
 //!
 //! # Interface
 //! [`run`] (`pub(crate)`): `fn run() -> anyhow::Result<()>`.

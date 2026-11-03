@@ -1,4 +1,5 @@
 //! Shared resource values used during acquisition.
+
 //!
 //! # Interface
 //!

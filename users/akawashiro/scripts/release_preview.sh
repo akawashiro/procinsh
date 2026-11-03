@@ -1,4 +1,5 @@
 #!/bin/bash
+
 set -euo pipefail
 
 state=${PROCINSH_RELEASE_PREVIEW_STATE:-$HOME/procinsh-release-preview}

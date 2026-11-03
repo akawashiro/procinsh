@@ -1,4 +1,5 @@
 //! Every host on one SPACE stream. Snapshot, activity and gap payloads carry
+
 //! `"host"`; `hosts` lists the hosts and `links` the connections between them.
 //! Watching the merged view starts collection on every online agent.
 

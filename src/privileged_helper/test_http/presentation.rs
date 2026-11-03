@@ -1,4 +1,5 @@
 //! HTTP presentation code included only by helper contract tests.
+
 //!
 //! # Interface
 //! Test-only adapters; this module is absent from normal builds.

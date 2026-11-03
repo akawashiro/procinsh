@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """Release from origin/main in a separate worktree."""
 
 import argparse

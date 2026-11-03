@@ -1,4 +1,5 @@
 //! Main-only JSON representation of native acquisition values.
+
 //!
 //! # Interface
 //! Serde implementations for IPC acquisition types; no named types or functions are exported.

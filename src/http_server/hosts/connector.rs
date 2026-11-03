@@ -1,4 +1,5 @@
 //! The agent side of a hub link: reconnects with backoff and answers the hub's
+
 //! requests with this host's helper.
 
 use super::identity::HostInfo;

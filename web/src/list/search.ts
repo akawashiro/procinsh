@@ -1,4 +1,5 @@
 // Filter and order process observations, and handle list search controls.
+
 import type { ProcessSummary } from "../shared/api-types.js";
 function matchingProcesses(
   processes: ProcessSummary[],

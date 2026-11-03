@@ -1,4 +1,5 @@
 import { expect, test } from "vitest";
+
 import { TestEventSource } from "./support/mocks.js";
 import { SpaceDataStore } from "../src/space/data.js";
 import { isSpaceRelationVisible, socketOwnerKey } from "../src/space/model.js";

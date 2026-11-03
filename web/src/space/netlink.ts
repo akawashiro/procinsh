@@ -1,4 +1,5 @@
 // Track current kernel-facing Netlink sockets and traffic totals per owner.
+
 import { Display } from "../shared/display.js";
 import type {
   FdEndpoint,

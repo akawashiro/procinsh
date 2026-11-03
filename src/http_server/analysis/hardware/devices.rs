@@ -1,4 +1,5 @@
 //! Serialized hardware devices, enriched with GPU and RDMA identity.
+
 //!
 //! # Interface
 //!

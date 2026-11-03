@@ -1,5 +1,6 @@
 import type { api } from "../../src/shared/api.js";
 
+
 export function deferred<T = unknown>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
   let reject!: (reason?: unknown) => void;

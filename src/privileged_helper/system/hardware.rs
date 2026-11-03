@@ -1,4 +1,5 @@
 //! Sysfs location used by protected neighbor acquisition.
+
 //!
 //! # Interface
 //! [`HardwareSources`] (`pub(super)`): `struct HardwareSources` supplies the sysfs root.

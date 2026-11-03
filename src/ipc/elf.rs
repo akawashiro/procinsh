@@ -1,4 +1,5 @@
 //! Bounded ranges of a verified mapped file, transferred without descriptors.
+
 //!
 //! # Interface
 //! - [`ElfFileId`] (`pub`): `type ElfFileId = (u64,u64,u64,i64,i64)`.

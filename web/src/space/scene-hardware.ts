@@ -1,4 +1,5 @@
 // Build hardware geometry and selection overlays; the caller owns and disposes their groups.
+
 import * as T from "three";
 import type { SceneInput } from "./contracts.js";
 import { key, PROCESS_SIDE } from "./model.js";

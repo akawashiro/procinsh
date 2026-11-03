@@ -1,4 +1,5 @@
 // Draw CPU/RSS history and its axes on a supplied Canvas 2D surface.
+
 import { bytes } from "../shared/display.js";
 import type { HistoryPoint } from "../shared/api-types.js";
 function historyMemoryLimit(peak: number): number {

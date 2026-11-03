@@ -1,4 +1,5 @@
 // Exercise tour ownership through real browser input in live and static replay SPACE.
+
 import assert from "node:assert/strict";
 import type { Cdp, Evaluate, WaitFor } from "./harness.js";
 import { delay, until } from "../support/runtime.js";

@@ -1,4 +1,5 @@
 use crate::privileged_helper::process::maps::MemoryMap;
+
 use crate::privileged_helper::process::snapshot::stack::StackFrame;
 
 pub(super) fn walk(

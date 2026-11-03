@@ -1,4 +1,5 @@
 //! Processes holding character devices of the hardware view, such as
+
 //! `/dev/nvidia0`, `/dev/dri/renderD128` or `/dev/infiniband/uverbs0`.
 //!
 //! # Interface

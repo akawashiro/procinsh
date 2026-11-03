@@ -1,4 +1,5 @@
 import type { Protocol } from "devtools-protocol";
+
 import type { ProtocolMapping } from "devtools-protocol/types/protocol-mapping.js";
 import { delay, until } from "../support/runtime.js";
 

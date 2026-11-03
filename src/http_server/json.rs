@@ -1,4 +1,5 @@
 //! Main-only JSON and query representations for IPC identities and acquisition values.
+
 //!
 //! # Interface
 //! Installs serde implementations; no named types or functions are exported.

@@ -1,4 +1,5 @@
 // Browser acquisition and transport controls; both loaders use the same parser.
+
 import { parseRecording, SpaceRecorder, SpaceReplay } from "./recording.js";
 import { readRecording } from "./recording-input.js";
 import type { RecordingEvent } from "./recording.js";

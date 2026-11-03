@@ -1,4 +1,5 @@
 import type { ProcessChecks } from "./harness.js";
+
 import assert from "node:assert/strict";
 
 export async function checkProcessDetails({

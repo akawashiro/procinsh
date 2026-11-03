@@ -1,4 +1,5 @@
 import type { SystemSnapshot } from "../../src/shared/api-types.js";
+
 import type { createSpaceCamera } from "../../src/space/camera.js";
 type CameraView = ReturnType<ReturnType<typeof createSpaceCamera>["view"]>;
 // Browser integration via tsx and DevTools Protocol. Requires Chromium.

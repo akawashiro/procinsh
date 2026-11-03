@@ -1,4 +1,5 @@
 //! Raw system activity and sensor health data for monitoring delivery.
+
 //!
 //! # Interface
 //!

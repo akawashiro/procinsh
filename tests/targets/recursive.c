@@ -1,4 +1,5 @@
 #include "support.h"
+
 __attribute__((noinline)) void baz(void) {
     for (;;)
         asm volatile("" ::: "memory");

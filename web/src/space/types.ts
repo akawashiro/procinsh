@@ -1,4 +1,5 @@
 // Shared values passed between SPACE components; independent of their implementations.
+
 import type * as T from "three";
 import type {
   Process,

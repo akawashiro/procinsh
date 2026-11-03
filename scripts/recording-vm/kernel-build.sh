@@ -1,4 +1,5 @@
 #!/bin/bash
+
 # Build upstream Linux v7.0 in the guest with separate source and output.
 set -euo pipefail
 source_dir=/home/demo/linux

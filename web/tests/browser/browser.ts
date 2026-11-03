@@ -1,4 +1,5 @@
 // Browser integration via tsx and DevTools Protocol. Requires Chromium.
+
 import {
   launch as spawnCaptured,
   delay,

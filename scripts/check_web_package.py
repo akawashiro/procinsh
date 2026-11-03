@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """Check packaged assets, excluded tests, and builds without Node/npm."""
 
 import os

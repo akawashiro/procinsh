@@ -1,4 +1,5 @@
 //! Unprivileged interpretation of acquired observations.
+
 //!
 //! # Interface
 //!

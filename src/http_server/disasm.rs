@@ -1,4 +1,5 @@
 //! Decode captured instruction bytes in the unprivileged HTTP process.
+
 //!
 //! # Interface
 //! [`decode_response`] (`pub(super)`): `fn decode_response(response: &mut MonitorResponse) -> anyhow::Result<()>`.

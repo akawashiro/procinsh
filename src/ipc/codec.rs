@@ -1,4 +1,5 @@
 //! Native-endian binary values for the private, same-machine IPC connection.
+
 //!
 //! # Interface
 //!

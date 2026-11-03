@@ -1,4 +1,5 @@
 import { readFileSync, cpSync, mkdirSync, readdirSync } from "node:fs";
+
 import { resolve } from "node:path";
 import { defineConfig, loadEnv, type Plugin } from "vite";
 

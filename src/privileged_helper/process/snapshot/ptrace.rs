@@ -1,4 +1,5 @@
 //! Stopped-thread capture for initial and periodic sampling. The guard owns the attachment on every error path.
+
 use super::{
     arch::native,
     sample::{RawSample, SampleSource, monotonic_ns},

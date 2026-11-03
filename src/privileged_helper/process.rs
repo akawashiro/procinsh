@@ -1,4 +1,5 @@
 //! Protected process acquisition for IPC and system monitoring.
+
 //!
 //! # Interface
 //!

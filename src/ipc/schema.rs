@@ -1,4 +1,5 @@
 //! Closed monitor operations and structured replies. No request accepts a path,
+
 //! arbitrary process-memory read, syscall number, file descriptor, or caller-selected limit.
 //! Mapped ELF requests select an existing executable mapping by its start address;
 //! the helper independently verifies the process, mapped file identity and file ranges.

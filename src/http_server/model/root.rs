@@ -1,4 +1,5 @@
 //! Data values shared by acquisition and unprivileged analysis.
+
 //!
 //! # Interface
 //!

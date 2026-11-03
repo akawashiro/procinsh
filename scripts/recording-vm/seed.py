@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """Generate a NoCloud seed without copying host credentials into the guest."""
 import json
 import os

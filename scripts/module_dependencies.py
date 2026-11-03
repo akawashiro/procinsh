@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """Render cargo-modules 0.27.0 DOT output (module nodes, uses edges only)."""
 import argparse
 import json

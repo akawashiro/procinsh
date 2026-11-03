@@ -1,4 +1,5 @@
 //! Native Linux AArch64 register capture using NT_PRSTATUS and optional NT_ARM_PAC_MASK.
+
 //!
 //! # Interface
 //! All entries have `pub(in crate::privileged_helper::process::snapshot)` visibility.

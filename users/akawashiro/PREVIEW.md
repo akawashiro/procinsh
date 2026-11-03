@@ -1,5 +1,6 @@
 # main・公開最新版の常設プレビュー
 
+
 最新 main と、`cargo install procinsh --locked` でインストールできる crates.io の公開最新版を、systemd の user service で常設します。更新処理の終了から main は約10秒後、公開版は約1分後に再確認します。ビルド中は旧版が動き続け、成功した場合だけ再起動します。
 
 | 対象 | 待受 | 専用領域 | 本体 service |

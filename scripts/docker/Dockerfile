@@ -1,4 +1,5 @@
 ARG BASE_IMAGE=ubuntu:24.04
+
 FROM node:22-bookworm-slim AS node
 FROM ${BASE_IMAGE}
 ENV DEBIAN_FRONTEND=noninteractive \

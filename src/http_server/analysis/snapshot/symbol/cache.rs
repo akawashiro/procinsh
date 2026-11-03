@@ -1,4 +1,5 @@
 //! Parse bounded ELF/DWARF bytes and retain symbol and unwind data in main.
+
 //!
 //! # Interface
 //!

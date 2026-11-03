@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+
 import type { Evaluate } from "./harness.js";
 
 export async function checkSocketVisibility(evaluate: Evaluate) {

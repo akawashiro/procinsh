@@ -1,4 +1,5 @@
 /** @inline */
+
 type DisplayText = string | number | null | undefined;
 
 export const node = <K extends keyof HTMLElementTagNameMap>(

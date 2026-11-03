@@ -1,4 +1,5 @@
 // Architecture-dependent labels for live samples, derived from snapshot data.
+
 import type { Architecture, ThreadSample } from "../shared/api-types.js";
 
 const ARCHITECTURE_LABELS: Record<Architecture, string> = {

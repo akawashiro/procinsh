@@ -1,4 +1,5 @@
 // Element IDs in the process details template.
+
 export interface ProcessElements {
   brand: HTMLAnchorElement;
   back: HTMLAnchorElement;

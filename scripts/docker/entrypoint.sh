@@ -1,4 +1,5 @@
 #!/bin/bash
+
 set -euo pipefail
 
 # All writes, including fixture builds, stay in the container.
