@@ -19,6 +19,7 @@ suite=$1
 shift
 case "$suite" in
   ordinary)
+    cargo test --locked --manifest-path scripts/rust-dependencies/Cargo.toml --target-dir target/rust-dependencies
     npm --prefix web run build:replay
     cargo build --locked --all-targets
     cargo test --locked --no-run
@@ -37,8 +38,11 @@ case "$suite" in
     node --check web/scripts/browser-workload.mjs
     npm --prefix web run format:check
     cargo fmt --all --check
+    cargo fmt --manifest-path scripts/rust-dependencies/Cargo.toml --check
     python3 scripts/format_c.py --check
     cargo clippy --locked --all-targets -- -D warnings
+    cargo clippy --locked --all-targets --manifest-path scripts/rust-dependencies/Cargo.toml --target-dir target/rust-dependencies -- -D warnings
+    python3 scripts/module_dependencies.py
     RUSTDOCFLAGS='-D rustdoc::broken_intra_doc_links' \
       cargo doc --locked --workspace --no-deps --document-private-items
     npm --prefix web run docs

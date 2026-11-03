@@ -59,7 +59,6 @@ jobs:
           test ${#bpftools[@]} -gt 0
           echo "BPFTOOL=${bpftools[0]}" >> "$GITHUB_ENV"
           test -r /sys/kernel/btf/vmlinux
-          cargo install cargo-modules --version 0.27.0 --locked
         working-directory: source
       - name: Build versioned documentation
         run: python3 tools/scripts/build_docs.py build --source source --artifact "$RUNNER_TEMP/documentation"

@@ -1,37 +1,33 @@
 #!/usr/bin/env python3
-"""Render cargo-modules 0.27.0 DOT output (module nodes, uses edges only)."""
+"""Render source-path Rust module dependencies, preserving re-export boundaries."""
 import argparse
 import json
 from pathlib import Path
-import re
+import tempfile
 import shutil
 import subprocess
 
 
-# cargo-modules' pinned printer emits one node/edge per line, with kind comments.
-NODE = re.compile(r'^\s*"([^"]+)" \[.*; // "(\w+)" node$')
-EDGE = re.compile(r'^\s*"([^"]+)" -> "([^"]+)" \[.*; // "(\w+)" edge$')
-
-
-def parse_modules(dot):
-    nodes, edges = set(), set()
-    roots = {match[1] for line in dot.splitlines()
-             if (match := NODE.match(line)) and match[2] == 'crate'}
-    for line in dot.splitlines():
-        if match := NODE.match(line):
-            name, kind = match.groups()
-            if kind == 'crate' or (kind == 'mod' and name.split('::', 1)[0] in roots):
-                nodes.add(name)
-        elif match := EDGE.match(line):
-            source, target, kind = match.groups()
-            if kind == 'uses':
-                edges.add((source, target))
-        elif '// "' in line and line.rstrip().endswith((' node', ' edge')):
-            raise ValueError(f'Unexpected cargo-modules DOT format: {line}')
-    edges = {(a, b) for a, b in edges if a in nodes and b in nodes and a != b}
-    if not nodes or not edges:
-        raise ValueError('Expected internal module nodes and dependency edges')
-    return nodes, edges
+def extract_modules(root, target=None):
+    """Read source paths under the host (or requested target) rustc configuration."""
+    command = ['rustc', '--print', 'cfg']
+    if target:
+        command.extend(['--target', target])
+    config = subprocess.check_output(command, cwd=root, text=True)
+    with tempfile.TemporaryDirectory(prefix='procinsh-dependencies-') as directory:
+        cfg_file = Path(directory) / 'rustc.cfg'
+        cfg_file.write_text(config)
+        command = [
+            'cargo', 'run', '--quiet', '--locked', '--manifest-path',
+            str(root / 'scripts/rust-dependencies/Cargo.toml'),
+            '--target-dir', str(root / 'target/rust-dependencies'),
+            '--', '--cfg-file', str(cfg_file),
+            str(root), 'procinsh', 'src/http_server/entry.rs',
+            str(root), 'procinsh_privileged_helper', 'src/privileged_helper/entry.rs',
+        ]
+        graph = json.loads(subprocess.check_output(command, cwd=root, text=True))
+    graph['configuration'] = config.splitlines()
+    return graph
 
 
 def overview(nodes, edges):
@@ -85,15 +81,15 @@ def render_dot(nodes, edges, *, nested=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('input', type=Path, nargs='+')
+    parser.add_argument('--target', help='rustc target configuration to analyze')
     parser.add_argument('--output', type=Path, default=Path('target/doc/rust-architecture'))
     args = parser.parse_args()
-    nodes, edges = set(), set()
-    for path in args.input:
-        input_nodes, input_edges = parse_modules(path.read_text())
-        nodes.update(input_nodes)
-        edges.update(input_edges)
+    root = Path(__file__).resolve().parent.parent
+    graph = extract_modules(root, args.target)
+    nodes = set(graph['nodes'])
+    edges = {tuple(edge) for edge in graph['edges']}
     args.output.mkdir(parents=True, exist_ok=True)
+    (args.output / 'source-dependencies.json').write_text(json.dumps(graph, indent=2) + '\n')
     for name, graph in [('module-dependencies', overview(nodes, edges)),
                         ('module-dependencies-detail', (nodes, edges))]:
         dot = args.output / f'{name}.dot'

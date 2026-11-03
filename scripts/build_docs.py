@@ -70,14 +70,19 @@ def build(source, artifact, metadata):
     run(["npm", "--prefix", "web", "run", "docs:architecture"], source)
     graph = out / "rust-architecture"
     graph.mkdir(parents=True, exist_ok=True)
-    inputs = []
-    for binary in ["procinsh", "procinsh-privileged-helper"]:
-        path = graph / f"{binary}-modules-raw.dot"
-        with path.open("w") as output:
-            run(["cargo", "modules", "dependencies", "--bin", binary, "--no-externs", "--no-sysroot",
-                 "--no-fns", "--no-traits", "--no-types"], source, stdout=output)
-        inputs.append(str(path))
-    run(["python3", "scripts/module_dependencies.py", *inputs], source)
+    if (source / "scripts/rust-dependencies/Cargo.toml").is_file():
+        run(["python3", "scripts/module_dependencies.py"], source)
+    else:
+        # Historical source revisions still consume cargo-modules DOT output.
+        run(["cargo", "install", "cargo-modules", "--version", "0.27.0", "--locked"], source)
+        inputs = []
+        for binary in ["procinsh", "procinsh-privileged-helper"]:
+            path = graph / f"{binary}-modules-raw.dot"
+            with path.open("w") as output:
+                run(["cargo", "modules", "dependencies", "--bin", binary, "--no-externs", "--no-sysroot",
+                     "--no-fns", "--no-traits", "--no-types"], source, stdout=output)
+            inputs.append(str(path))
+        run(["python3", "scripts/module_dependencies.py", *inputs], source)
     if key == "main":
         run(["npm", "--prefix", "web", "run", "build:replay"], source)
         shutil.copytree(source / "web/dist-replay", out / "demo")

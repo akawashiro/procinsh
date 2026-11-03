@@ -13,7 +13,18 @@
 <p>Includes both executables: <code>procinsh</code> (HTTP server) and
 <code>procinsh_privileged_helper</code> (privileged acquisition helper).
 Each executable has its own module tree, including its copy of the shared IPC modules.</p>
-<p>Arrows mean <strong>user → dependency</strong>.
+<p>Arrows mean <strong>source module → referenced module interface</strong>.
+Imports and explicit paths in expressions and types point to the interface named in the source:
+<code>use symbol::ElfCache</code> points to <code>symbol</code>, even when the type
+is defined in <code>symbol::cache</code>. Direct implementation references and
+re-export declarations retain their own dependencies. Unused imports also count.</p>
+<p>The graph uses the normal-build rustc configuration recorded in
+<a href="source-dependencies.json">the source graph JSON</a>; test-only code and external
+crates are excluded. Macro expansion, attribute arguments, and dependencies known only
+through type inference are not analyzed. Unresolved explicit internal paths are reported
+in the JSON diagnostics and build log. This is a source-reference graph, not a complete
+semantic dependency graph.</p>
+<p>
 Opposite arrows show mutual dependencies; longer cycles can be followed along the arrows.</p>
 <h2>Overview</h2>
 <a href="module-dependencies.svg"><img src="module-dependencies.svg" alt="Dependencies between HTTP server and privileged helper subsystems"></a>
