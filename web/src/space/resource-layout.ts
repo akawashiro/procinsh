@@ -35,7 +35,7 @@ export function networkGroups(fd_relations: FdRelation[]) {
 }
 
 /** Markers anchored to a process, or to an explicit anchor such as an RDMA device. */
-type LayoutAnchor =
+export type LayoutAnchor =
   { endpoint: { process_id: ProcessId } } | { anchor: string };
 const anchorOf = (group: LayoutAnchor) =>
   "anchor" in group ? group.anchor : key(group.endpoint.process_id);

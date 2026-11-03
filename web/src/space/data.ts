@@ -1,7 +1,12 @@
 // Own system subscriptions, observed state, retained activity, and display updates.
 // Delegate snapshot merging and resource placement to pure transformations.
 import { mergeSnapshot } from "./snapshot-merge.js";
-import { networkGroups, networkLayout, fileLayout } from "./resource-layout.js";
+import {
+  networkGroups,
+  networkLayout,
+  fileLayout,
+  type LayoutAnchor,
+} from "./resource-layout.js";
 import { spaceNow } from "./clock.js";
 import { NetlinkSocketStore, isKernelNetlink } from "./netlink.js";
 import {
@@ -819,7 +824,9 @@ if (import.meta.vitest) {
     }
   });
   test("network activity direction", async () => {
-    const assert = (await import("node:assert/strict")).default;
+    const assert: typeof import("node:assert/strict") = (
+      await import("node:assert/strict")
+    ).default;
     const { fdRelation } = await import("../../tests/support/fixtures.js");
     const external = fdRelation({ peer: null, shared: false });
     assert.equal(
