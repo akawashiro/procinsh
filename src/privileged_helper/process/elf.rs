@@ -132,6 +132,7 @@ pub(in crate::privileged_helper::process) fn read(
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
     #[test]
     fn verifies_identity_pins_regular_files_and_bounds_reads() {

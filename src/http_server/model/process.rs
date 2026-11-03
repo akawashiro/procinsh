@@ -13,7 +13,10 @@
 //! | [`next_observation`] | `pub` | `fn next_observation(previous: &ProcessSample, current: &ProcessSample) -> ProcessObservation` |
 //! | [`monotonic_ns`] | `pub` | `fn monotonic_ns() -> u64` |
 
-pub use crate::ipc::model::process::*;
+#[allow(unused_imports, reason = "Preserve the complete façade interface")]
+pub use crate::ipc::model::process::{
+    IoStats, ProcessObservation, ProcessSample, Rates, monotonic_ns, ticks_per_second,
+};
 use crate::{
     http_server::model::threads::{ThreadObservation, ThreadSample},
     ipc::schema::ProcessId,

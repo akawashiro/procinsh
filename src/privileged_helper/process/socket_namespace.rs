@@ -68,6 +68,7 @@ impl NetworkNamespaceReader {
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
     use std::{fs, os::unix::net::UnixStream, time::Duration};
 

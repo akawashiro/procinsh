@@ -143,6 +143,7 @@ fn parse_uids(value: &str) -> (Option<u32>, Option<u32>) {
 }
 #[cfg(test)]
 mod uid_tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
 
     #[test]

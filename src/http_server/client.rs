@@ -1,5 +1,7 @@
 use super::hosts::AgentLink;
-use super::protocol::*;
+use super::protocol::{
+    MAX_REQUEST, MAX_RESPONSE, MonitorEvent, MonitorRequest, MonitorResponse, TIMEOUT, WireResponse,
+};
 use crate::ipc::transport;
 use anyhow::{Context, Result, bail};
 use std::{net::Shutdown, os::unix::net::UnixStream, sync::Arc};

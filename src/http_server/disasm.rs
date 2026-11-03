@@ -7,7 +7,10 @@
 use crate::http_server::analysis::snapshot::architecture::Architecture;
 use crate::http_server::protocol::{MonitorEvent, MonitorResponse};
 use anyhow::Result;
-use capstone::prelude::*;
+use capstone::{
+    Capstone,
+    arch::{self, BuildsCapstone, BuildsCapstoneSyntax},
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -134,6 +137,7 @@ pub(super) fn decode_response(response: &mut MonitorResponse) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
 
     impl Disassembly {

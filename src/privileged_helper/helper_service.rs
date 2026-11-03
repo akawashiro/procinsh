@@ -1,4 +1,10 @@
-use crate::ipc::{schema::*, transport};
+use crate::ipc::{
+    schema::{
+        AcquiredData, MAX_REQUEST, MAX_RESPONSE, MonitorEvent, MonitorRequest, MonitorResponse,
+        ProcessResource, SESSION_LEASE, WireResponse,
+    },
+    transport,
+};
 use crate::privileged_helper::{process, system};
 use anyhow::{Result, ensure};
 use std::{
@@ -243,6 +249,7 @@ impl MonitorService {
 
 #[cfg(test)]
 mod lease_tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
 
     #[test]
@@ -268,6 +275,7 @@ mod lease_tests {
 
 #[cfg(test)]
 mod exit_tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
 
     #[test]

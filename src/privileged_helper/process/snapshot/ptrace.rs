@@ -111,6 +111,7 @@ pub(super) fn capture(tid: i32, maps: &[MemoryMap]) -> Result<RawSample> {
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
     use crate::privileged_helper::process::{self, TestTarget};
 

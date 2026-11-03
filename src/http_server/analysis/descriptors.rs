@@ -12,7 +12,12 @@
 //! | [`complete`] | `pub` | `fn complete(data: &mut FileDescriptors)` |
 
 pub use crate::ipc::descriptors::{Descriptor, Endpoint, FileDescriptors, Key, Owner};
-use crate::{http_server::model::socket_types::*, ipc::schema::ProcessId};
+use crate::{
+    http_server::model::socket_types::{
+        FdAccess, FdKind, InetAddress, SocketConnectionStatus, SocketProtocol, SocketState,
+    },
+    ipc::schema::ProcessId,
+};
 use std::collections::HashMap;
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(dead_code)]

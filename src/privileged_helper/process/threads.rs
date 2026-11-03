@@ -13,7 +13,10 @@
 //! | [`ThreadSample`] | `pub(super)` | `struct ThreadSample` |
 
 use super::procfs::{self, Stat};
-pub(super) use crate::ipc::model::threads::*;
+#[allow(unused_imports, reason = "Preserve the complete façade interface")]
+pub(super) use crate::ipc::model::threads::{
+    CpuRange, SchedulerPolicy, ThreadObservation, ThreadSample, affinity,
+};
 use anyhow::{Result, ensure};
 use std::fs;
 pub(super) fn tids(pid: i32) -> Result<Vec<i32>> {

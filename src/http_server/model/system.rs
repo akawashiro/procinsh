@@ -11,10 +11,19 @@
 //! | [`SystemSnapshot`] | `pub` | `struct SystemSnapshot` |
 //! | [`NeighborSnapshot`] | `pub` | `struct NeighborSnapshot` |
 
-pub use crate::ipc::model::system::*;
+#[allow(unused_imports, reason = "Preserve the complete façade interface")]
+pub use crate::ipc::model::system::{
+    FdEndpoint, FdRelation, NeighborSnapshot, ProcessSnapshot, SocketEndpoint, SystemSnapshot,
+};
 use crate::{
     http_server::analysis::hardware::{DeviceHandle, HardwareDevice, HardwarePath},
-    http_server::model::{memory::MemoryMap, resource::IpcIdentity, socket_types::*},
+    http_server::model::{
+        memory::MemoryMap,
+        resource::IpcIdentity,
+        socket_types::{
+            FdAccess, FdKind, InetAddress, SocketConnectionStatus, SocketProtocol, SocketState,
+        },
+    },
     ipc::schema::ProcessId,
 };
 #[derive(serde::Serialize, serde::Deserialize)]

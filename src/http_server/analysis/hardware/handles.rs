@@ -191,6 +191,7 @@ impl DeviceHandleCollector {
 #[cfg(test)]
 mod tests {
     use super::super::pci::fixture;
+    #[allow(clippy::wildcard_imports)]
     use super::*;
 
     #[test]

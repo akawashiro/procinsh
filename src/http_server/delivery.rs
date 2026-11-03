@@ -103,6 +103,7 @@ impl SnapshotEncoder {
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
     #[test]
     fn delta_baseline_refresh_and_pid_reuse() {

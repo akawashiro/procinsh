@@ -31,6 +31,7 @@ impl std::fmt::Display for SensorState {
 }
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
     use serde_json::{json, to_value};
 

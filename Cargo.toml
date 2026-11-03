@@ -59,3 +59,7 @@ strip = "debuginfo"
 
 [build-dependencies]
 libbpf-cargo = "0.26.2"
+
+[lints.clippy]
+wildcard_imports = "deny"
+enum_glob_use = "deny"

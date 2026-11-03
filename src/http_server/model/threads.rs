@@ -10,7 +10,10 @@
 //! | [`ThreadObservation`] | `pub` | `struct ThreadObservation` |
 //! | [`ThreadSample`] | `pub` | `struct ThreadSample` |
 
-pub use crate::ipc::model::threads::*;
+#[allow(unused_imports, reason = "Preserve the complete façade interface")]
+pub use crate::ipc::model::threads::{
+    CpuRange, SchedulerPolicy, ThreadObservation, ThreadSample, affinity,
+};
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(dead_code)]
 #[serde(remote = "crate::http_server::model::threads::SchedulerPolicy")]
@@ -135,6 +138,7 @@ impl ThreadSample {
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
 
     #[test]

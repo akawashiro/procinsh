@@ -292,8 +292,11 @@ pub(crate) use {wire_enum, wire_struct};
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
-    use crate::ipc::schema::*;
+    use crate::ipc::schema::{
+        MAX_REQUEST, MAX_RESPONSE, MonitorEvent, MonitorRequest, ProcessId, ProcessResource,
+    };
     #[test]
     fn native_numbers_strings_and_socket_scope_roundtrip() {
         let scalar = 0x0102030405060708u64;

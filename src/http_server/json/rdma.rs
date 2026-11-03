@@ -2,7 +2,10 @@
 //!
 //! # Interface
 //! Installs serde implementations; no named items are exported.
-use crate::ipc::rdma::*;
+use crate::ipc::rdma::{
+    IbGid, RdmaAddress, RdmaCmInfo, RdmaCmState, RdmaEndpoint, RdmaEndpointOwner, RdmaPortInfo,
+    RdmaPortSpace, RdmaQpState, RdmaQpType, RdmaRelation,
+};
 use crate::ipc::schema::ProcessId;
 use std::net::IpAddr;
 

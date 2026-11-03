@@ -35,6 +35,7 @@ impl Architecture {
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
 
     fn header(class: u8, data: u8, machine: u16) -> [u8; 20] {

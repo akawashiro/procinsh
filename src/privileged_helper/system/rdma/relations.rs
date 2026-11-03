@@ -8,7 +8,11 @@ use std::{
     net::IpAddr,
 };
 
-pub(in crate::privileged_helper::system) use crate::ipc::rdma::*;
+#[allow(unused_imports, reason = "Preserve the complete façade interface")]
+pub(in crate::privileged_helper::system) use crate::ipc::rdma::{
+    IbGid, RdmaAddress, RdmaCmInfo, RdmaCmState, RdmaEndpoint, RdmaEndpointOwner, RdmaPortInfo,
+    RdmaPortSpace, RdmaQpState, RdmaQpType, RdmaRelation,
+};
 
 struct Endpoint<'a> {
     entry: &'a QueuePairEntry,
@@ -218,6 +222,7 @@ pub(in crate::privileged_helper::system) fn test_relation(qpn: u32) -> RdmaRelat
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
 
     fn qp(device: &str, qpn: u32, remote: Option<u32>, owner: ResourceOwner) -> QueuePairEntry {

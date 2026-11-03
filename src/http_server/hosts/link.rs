@@ -113,6 +113,7 @@ impl AgentLink {
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
     use serde_json::json;
 

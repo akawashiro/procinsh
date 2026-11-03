@@ -104,6 +104,7 @@ pub(super) fn auxv(id: ProcessId) -> Result<crate::ipc::acquisition::AuxData> {
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
     use crate::http_server::analysis::details::{parse_auxv, parse_environment};
 

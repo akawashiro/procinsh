@@ -2,7 +2,12 @@
 //!
 //! # Interface
 //! Serde implementations for IPC acquisition types; no named types or functions are exported.
-use crate::ipc::acquisition::*;
+#[cfg(test)]
+use crate::ipc::acquisition::SampleSource;
+use crate::ipc::acquisition::{
+    AuxData, EnvironmentData, InstructionBytes, LiveSample, MemoryRollup, ObservationData,
+    ProcessSummary, SensorState, SystemMonitorStatus,
+};
 fn serialize_architecture<S: serde::Serializer>(
     header: &Option<[u8; 20]>,
     serializer: S,

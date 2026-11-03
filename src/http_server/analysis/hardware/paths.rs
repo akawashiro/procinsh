@@ -167,6 +167,7 @@ pub fn paths(nodes: &[PciNode], numa_nodes: usize) -> Vec<HardwarePath> {
 #[cfg(test)]
 mod tests {
     use super::super::pci::{fixture, read_topology};
+    #[allow(clippy::wildcard_imports)]
     use super::*;
 
     fn class_of(

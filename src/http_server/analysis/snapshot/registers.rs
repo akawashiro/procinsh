@@ -189,6 +189,7 @@ impl serde::Serialize for RegisterRole {
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
 
     #[cfg(target_arch = "x86_64")]

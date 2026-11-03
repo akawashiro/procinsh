@@ -415,6 +415,7 @@ impl ObservationProcessor {
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
     use serde_json::json;
     fn observation(ticks: u64, time: u64) -> Value {

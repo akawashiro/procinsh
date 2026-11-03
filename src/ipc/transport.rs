@@ -101,6 +101,7 @@ fn write_until(
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
     use crate::{
         ipc::elf::{FileChunk, MappedFileData},

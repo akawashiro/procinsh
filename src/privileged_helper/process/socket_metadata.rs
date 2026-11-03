@@ -258,6 +258,7 @@ pub(in crate::privileged_helper) fn require_socket_metadata(id: ProcessId, fd: i
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
     use crate::privileged_helper::socket_types::AddressFamily;
     use std::{
@@ -285,7 +286,7 @@ mod tests {
 
     #[test]
     fn socket_connection_status_preserves_uncertain_observations() {
-        use SocketConnectionStatus::*;
+        use SocketConnectionStatus::{Listening, PeerPresent, Unconnected, Unknown};
         assert_eq!(
             connection_status(Some(true), Some(libc::ENOTCONN)),
             Listening
@@ -334,7 +335,7 @@ mod tests {
 
     #[test]
     fn socket_connection_status_reads_live_tcp_udp_and_unix_without_consuming_data() {
-        use SocketConnectionStatus::*;
+        use SocketConnectionStatus::{Listening, PeerPresent, Unconnected};
         use std::{
             net::{TcpListener, TcpStream, UdpSocket},
             os::unix::net::{UnixListener, UnixStream},

@@ -13,7 +13,8 @@
 //! | [`IpcIdentity`] | `pub` | `struct IpcIdentity` |
 //! | [`FileIdentity`] | `pub` | `struct FileIdentity` |
 
-pub use crate::ipc::model::resource::*;
+#[allow(unused_imports, reason = "Preserve the complete façade interface")]
+pub use crate::ipc::model::resource::{DeviceId, FileIdentity, IpcIdentity, IpcKind};
 use serde::Deserialize;
 
 pub fn deserialize_decimal<'de, D: serde::Deserializer<'de>>(
@@ -109,6 +110,7 @@ impl<'de> serde::Deserialize<'de> for crate::http_server::model::resource::FileI
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
 
     #[test]

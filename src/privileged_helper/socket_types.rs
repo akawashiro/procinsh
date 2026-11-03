@@ -13,4 +13,8 @@
 //! | [`FdAccess`] | `pub(super)` | `enum FdAccess` |
 //! | [`InetAddress`] | `pub(super)` | `struct InetAddress` |
 
-pub(super) use crate::ipc::model::socket_types::*;
+#[allow(unused_imports, reason = "Preserve the complete façade interface")]
+pub(super) use crate::ipc::model::socket_types::{
+    AddressFamily, FdAccess, FdKind, InetAddress, SocketConnectionStatus, SocketProtocol,
+    SocketState, SocketType,
+};

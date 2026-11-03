@@ -248,6 +248,7 @@ impl SnapshotEncoder {
 #[cfg(test)]
 mod tests {
     use super::super::snapshot::ProcessSnapshot;
+    #[allow(clippy::wildcard_imports)]
     use super::*;
     use crate::privileged_helper::{process::MemoryMap, resource::DeviceId};
 

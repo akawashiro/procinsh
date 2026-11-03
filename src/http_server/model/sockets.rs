@@ -7,7 +7,7 @@
 //! | [`SocketInfo`] | `pub` | `struct SocketInfo` |
 
 use crate::http_server::model::socket_types::{SocketProtocol, SocketState};
-pub use crate::ipc::model::sockets::*;
+pub use crate::ipc::model::sockets::SocketInfo;
 use std::net::SocketAddr;
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(dead_code)]

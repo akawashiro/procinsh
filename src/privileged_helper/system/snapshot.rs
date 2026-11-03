@@ -444,6 +444,7 @@ pub(super) fn collect_from(
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
 
     #[test]

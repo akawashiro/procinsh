@@ -3,7 +3,10 @@
 //! # Interface
 //! [`run`] (`pub(crate)`): `fn run() -> anyhow::Result<()>`.
 use super::helper_service::{MonitorService, MonitorState};
-use crate::ipc::{schema::*, transport};
+use crate::ipc::{
+    schema::{HelperIdentity, MAX_REQUEST},
+    transport,
+};
 use anyhow::{Result, ensure};
 use std::{
     net::Shutdown,

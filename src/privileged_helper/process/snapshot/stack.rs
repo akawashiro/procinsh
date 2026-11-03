@@ -7,4 +7,5 @@
 //! | [`StackFrame`] | `pub(super)` | `struct StackFrame` |
 //! | [`SourceFrame`] | `pub(super)` | `struct SourceFrame` |
 
-pub(super) use crate::ipc::stack::*;
+#[allow(unused_imports, reason = "Preserve the complete façade interface")]
+pub(super) use crate::ipc::stack::{SourceFrame, StackFrame};

@@ -13,7 +13,11 @@
 //! | [`FdAccess`] | `pub` | `enum FdAccess` |
 //! | [`InetAddress`] | `pub` | `struct InetAddress` |
 
-pub use crate::ipc::model::socket_types::*;
+#[allow(unused_imports, reason = "Preserve the complete façade interface")]
+pub use crate::ipc::model::socket_types::{
+    AddressFamily, FdAccess, FdKind, InetAddress, SocketConnectionStatus, SocketProtocol,
+    SocketState, SocketType,
+};
 use std::net::IpAddr;
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(dead_code)]
@@ -223,6 +227,7 @@ impl<'de> serde::Deserialize<'de> for crate::http_server::model::socket_types::I
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
 
     #[test]

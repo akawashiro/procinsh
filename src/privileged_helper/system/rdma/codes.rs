@@ -1,7 +1,12 @@
 //! Shared RDMA codes and their acquisition contract tests.
-pub(super) use crate::ipc::rdma::*;
+#[allow(unused_imports, reason = "Preserve the complete façade interface")]
+pub(super) use crate::ipc::rdma::{
+    IbGid, RdmaAddress, RdmaCmInfo, RdmaCmState, RdmaEndpoint, RdmaEndpointOwner, RdmaPortInfo,
+    RdmaPortSpace, RdmaQpState, RdmaQpType, RdmaRelation,
+};
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
 
     #[test]

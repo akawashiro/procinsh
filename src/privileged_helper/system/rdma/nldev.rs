@@ -279,6 +279,7 @@ pub(super) fn read_resources(deadline: Instant) -> Result<NldevResources> {
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
 
     #[test]

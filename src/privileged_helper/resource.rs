@@ -9,4 +9,5 @@
 //! | [`IpcIdentity`] | `pub(super)` | `struct IpcIdentity` |
 //! | [`FileIdentity`] | `pub(super)` | `struct FileIdentity` |
 
-pub(super) use crate::ipc::model::resource::*;
+#[allow(unused_imports, reason = "Preserve the complete façade interface")]
+pub(super) use crate::ipc::model::resource::{DeviceId, FileIdentity, IpcIdentity, IpcKind};

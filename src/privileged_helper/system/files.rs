@@ -92,6 +92,7 @@ impl FileActivityCollector {
 }
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
     use crate::http_server::analysis::activity::FileBatch as Batch;
 

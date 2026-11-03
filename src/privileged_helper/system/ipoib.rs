@@ -105,6 +105,7 @@ pub(super) fn ipoib_gids(deadline: Instant) -> Result<HashMap<IpAddr, String>> {
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
 
     fn attribute(kind: u16, data: &[u8]) -> Vec<u8> {

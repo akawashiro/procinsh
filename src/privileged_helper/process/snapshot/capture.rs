@@ -361,6 +361,7 @@ fn apply_symbol_info(frame: &mut StackFrame, info: Option<SymbolInfo>) {
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
     use crate::privileged_helper::process::snapshot::stack::SourceFrame;
 
@@ -396,6 +397,7 @@ mod tests {
 
 #[cfg(test)]
 mod live_tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
     use crate::privileged_helper::process::TestTarget;
     use std::{

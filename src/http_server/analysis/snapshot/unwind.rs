@@ -173,6 +173,7 @@ impl StackUnwinder {
 }
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
     use crate::http_server::analysis::test_support::process::{self, TestTarget};
     use object::{Object, ObjectSymbol};

@@ -13,7 +13,14 @@
 
 use crate::{
     ipc::hardware::{DeviceHandle, HardwareDevice, HardwarePath},
-    ipc::model::{memory::MemoryMap, resource::IpcIdentity, socket_types::*, sockets::SocketInfo},
+    ipc::model::{
+        memory::MemoryMap,
+        resource::IpcIdentity,
+        socket_types::{
+            FdAccess, FdKind, InetAddress, SocketConnectionStatus, SocketProtocol, SocketState,
+        },
+        sockets::SocketInfo,
+    },
     ipc::schema::ProcessId,
 };
 #[derive(Clone)]

@@ -14,7 +14,10 @@
 //! | [`parse_smaps`] | `pub` | `fn parse_smaps(text: &str) -> Result<Vec<SmapsEntry>>` |
 
 use crate::http_server::model::resource::{DeviceId, decimal};
-pub use crate::ipc::model::memory::*;
+#[allow(unused_imports, reason = "Preserve the complete façade interface")]
+pub use crate::ipc::model::memory::{
+    MappingSnapshot, MemoryKind, MemoryMap, SmapsEntry, parse_map, parse_smaps,
+};
 use anyhow::Result;
 use serde::Deserialize;
 pub fn deserialize_hex<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<u64, D::Error> {
@@ -131,6 +134,7 @@ impl<'de> serde::Deserialize<'de> for crate::http_server::model::memory::Mapping
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
 
     #[test]

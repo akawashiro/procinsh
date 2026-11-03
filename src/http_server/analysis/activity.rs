@@ -412,6 +412,7 @@ impl ActivityProcessor {
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
     #[test]
     fn cpu_idle_transition_is_reported_even_without_a_counter_delta() {

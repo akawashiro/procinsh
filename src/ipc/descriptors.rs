@@ -1,4 +1,9 @@
-use crate::ipc::{model::socket_types::*, schema::ProcessId};
+use crate::ipc::{
+    model::socket_types::{
+        FdAccess, FdKind, InetAddress, SocketConnectionStatus, SocketProtocol, SocketState,
+    },
+    schema::ProcessId,
+};
 
 #[derive(Debug)]
 pub struct Owner {

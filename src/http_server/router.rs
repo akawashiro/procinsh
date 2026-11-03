@@ -37,6 +37,7 @@ fn compression_layer() -> CompressionLayer<impl Predicate> {
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
     use axum::{
         body::{Body, HttpBody},

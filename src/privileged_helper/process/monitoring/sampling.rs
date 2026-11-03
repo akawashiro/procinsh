@@ -54,6 +54,7 @@ pub(in crate::privileged_helper::process) fn capture_sample(
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
 
     fn sample() -> ProcessSample {

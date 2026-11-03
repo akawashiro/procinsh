@@ -294,6 +294,7 @@ fn parse(bytes: &[u8]) -> Result<Option<Sample>> {
 }
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
     fn fake_event() -> PerfEventReader {
         let length = 8192;

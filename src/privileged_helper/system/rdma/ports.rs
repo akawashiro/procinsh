@@ -2,7 +2,11 @@
 
 use std::{fs, path::Path};
 
-pub(in crate::privileged_helper::system) use crate::ipc::rdma::*;
+#[allow(unused_imports, reason = "Preserve the complete façade interface")]
+pub(in crate::privileged_helper::system) use crate::ipc::rdma::{
+    IbGid, RdmaAddress, RdmaCmInfo, RdmaCmState, RdmaEndpoint, RdmaEndpointOwner, RdmaPortInfo,
+    RdmaPortSpace, RdmaQpState, RdmaQpType, RdmaRelation,
+};
 
 fn text(path: &Path) -> Option<String> {
     let value = fs::read_to_string(path).ok()?;
@@ -58,6 +62,7 @@ pub(super) fn read_ports(root: &Path) -> Vec<RdmaPortInfo> {
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
 
     #[test]

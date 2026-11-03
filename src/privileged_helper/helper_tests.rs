@@ -1,5 +1,10 @@
 use super::helper_service::{MonitorService, MonitorState};
-use crate::ipc::{schema::*, transport};
+use crate::ipc::{
+    schema::{
+        MAX_REQUEST, MAX_RESPONSE, MonitorRequest, MonitorResponse, ProcessResource, WireResponse,
+    },
+    transport,
+};
 use crate::privileged_helper::process::{self, ProcessId};
 use std::{io::Write, os::unix::net::UnixStream, sync::Arc, time::Duration};
 

@@ -226,6 +226,7 @@ impl HostRegistry {
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
 
     fn info(name: &str, machine: &str) -> HostInfo {

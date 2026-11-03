@@ -16,7 +16,10 @@
 //! | [`parse_smaps`] | `pub(in crate::privileged_helper)` | `fn parse_smaps(text: &str) -> Result<Vec<SmapsEntry>>` |
 
 use super::procfs::read_text;
-pub(in crate::privileged_helper) use crate::ipc::model::memory::*;
+#[allow(unused_imports, reason = "Preserve the complete façade interface")]
+pub(in crate::privileged_helper) use crate::ipc::model::memory::{
+    MappingSnapshot, MemoryKind, MemoryMap, SmapsEntry, parse_map, parse_smaps,
+};
 use anyhow::Result;
 pub(super) fn read_maps(pid: i32) -> Result<Vec<MemoryMap>> {
     read_text(&format!("/proc/{pid}/maps"))?

@@ -466,6 +466,7 @@ pub(super) fn read(id: ProcessId) -> Result<FileDescriptors> {
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
 
     #[test]

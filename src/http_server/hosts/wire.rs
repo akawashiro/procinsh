@@ -132,6 +132,7 @@ pub(super) fn same_secret(expected: &str, actual: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
     use crate::http_server::protocol::MonitorResponse;
     use serde_json::json;

@@ -266,6 +266,7 @@ pub(in crate::http_server) fn correlate(hosts: &[(&str, &Value)]) -> CrossHostLi
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
     use serde_json::json;
 

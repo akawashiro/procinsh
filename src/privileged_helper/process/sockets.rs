@@ -194,12 +194,13 @@ pub(super) fn unix_diag(
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
 
     #[test]
     fn socket_connection_fallback_requires_positive_table_evidence() {
         use crate::privileged_helper::socket_types::AddressFamily;
-        use SocketConnectionStatus::*;
+        use SocketConnectionStatus::{Listening, PeerPresent, Unconnected, Unknown};
         let mut info = SocketInfo {
             protocol: SocketProtocol::Udp {
                 family: AddressFamily::Ipv4,

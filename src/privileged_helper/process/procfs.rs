@@ -106,6 +106,7 @@ pub(super) fn read_io(pid: i32) -> Result<IoStats> {
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
 
     #[test]
@@ -131,6 +132,7 @@ mod tests {
 
 #[cfg(test)]
 mod limit_tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
     #[test]
     fn rejects_oversized_procfs_text_before_parsing() {

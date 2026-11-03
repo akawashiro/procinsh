@@ -133,6 +133,7 @@ fn update_state(result: anyhow::Result<()>) -> SensorState {
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
 
     #[test]

@@ -1,4 +1,5 @@
 use super::super::{SymbolInfo, elf_address, instruction_address, resolve_frame};
+#[allow(clippy::wildcard_imports)]
 use super::*;
 use crate::http_server::model::memory::parse_map;
 use std::process::Command;

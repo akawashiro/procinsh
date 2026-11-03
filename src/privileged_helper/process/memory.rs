@@ -35,6 +35,7 @@ pub(super) fn read_raw(pid: i32, address: u64, length: usize) -> Result<Vec<u8>>
 
 #[cfg(test)]
 mod tests {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
 
     #[test]
