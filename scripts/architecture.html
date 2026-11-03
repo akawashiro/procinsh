@@ -13,10 +13,21 @@
 <p>Includes both executables: <code>procinsh</code> (HTTP server) and
 <code>procinsh_privileged_helper</code> (privileged acquisition helper).
 Each executable has its own module tree, including its copy of the shared IPC modules.</p>
-<p>Arrows mean <strong>user → dependency</strong>.
-Opposite arrows show mutual dependencies; longer cycles can be followed along the arrows.</p>
+<p>Arrows mean <strong>user → dependency</strong>, projected onto module boundaries.
+An incoming arrow stops at the first target-side child below the modules' common ancestor.
+For example, <code>snapshot::unwind → snapshot::symbol::cache</code> becomes
+<code>snapshot::unwind → snapshot::symbol</code>. Arrows to containers end at their outline.
+Dependencies between children inside a module remain visible within that module;
+references to ancestors keep their original targets.</p>
+<p>This projection groups both re-exported and directly referenced internals. It does not
+identify the interface used in the source, and can hide internal dependency cycles.
+The raw diagram below preserves the resolved targets for inspection.</p>
 <h2>Overview</h2>
 <a href="module-dependencies.svg"><img src="module-dependencies.svg" alt="Dependencies between HTTP server and privileged helper subsystems"></a>
 <h2>Detail</h2>
 <a href="module-dependencies-detail.svg"><img src="module-dependencies-detail.svg" alt="Dependencies including child modules of both executables"></a>
+<details>
+<summary>Raw resolved dependencies (without boundary projection)</summary>
+<a href="module-dependencies-detail-raw.svg"><img src="module-dependencies-detail-raw.svg" alt="Original resolved dependencies, including direct arrows to internal modules"></a>
+</details>
 </html>

@@ -979,6 +979,20 @@ gh workflow run docs.yml --ref main
 
 TypeScript docs use [typedoc.json](web/typedoc.json) to recursively expand `web/src/` as entry points. They cover exported types/functions in list, details, SPACE, and shared modules, excluding external library docs. Locally, run `npm --prefix web ci` then `npm --prefix web run docs` and open `target/doc/typescript/index.html`.
 
+Rust dependency diagrams use the pinned `cargo-modules 0.27.0` resolved dependency
+output and `scripts/module_dependencies.py` to project incoming arrows onto module
+boundaries. The destination is the first child on the target side below the source
+and target's common ancestor: `snapshot::unwind -> snapshot::symbol::cache` becomes
+`snapshot::unwind -> snapshot::symbol`. References to ancestors are unchanged, and
+sources are never collapsed. Duplicate projected edges are combined. In the nested
+detail diagram, arrows to module containers stop at their outline.
+
+The projection applies to direct implementation references as well as re-exports;
+it does not recover source import paths and can hide cycles between internals.
+`module-dependencies-detail-raw.svg` and its DOT file retain the unprojected resolved
+graph for comparison. Both executables keep their own module trees. The `ordinary`
+and `checks` Docker suites verify the routing rules and Graphviz cluster rendering.
+
 [module-dependencies.ts](web/scripts/module-dependencies.ts) uses the TypeScript compiler API to analyze imports/re-exports in `web/src/` and draws SVG dependency graphs with Graphviz. This includes type-only imports, `import("...")` type references, and string-literal dynamic imports. External packages, `web/tests/`, and test blocks inside `if (import.meta.vitest)` are excluded. Arrows point from consumers to dependencies; the overview groups by directories directly under the source root, and detail diagrams show files.
 
 Install Graphviz's `dot` locally and run:

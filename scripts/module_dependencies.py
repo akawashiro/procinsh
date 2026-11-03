@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render cargo-modules 0.27.0 DOT output (module nodes, uses edges only)."""
+"""Render cargo-modules dependencies with incoming edges stopped at module boundaries."""
 import argparse
 import json
 from pathlib import Path
@@ -34,6 +34,27 @@ def parse_modules(dot):
     return nodes, edges
 
 
+def module_boundaries(edges):
+    """Stop each edge at the first target module outside the source's ancestry.
+
+    For snapshot::unwind -> snapshot::symbol::cache, symbol is the boundary.
+    References to ancestors stay attached to those ancestors. This is a visual
+    projection of resolved dependencies; direct internal references are folded too.
+    """
+    result = set()
+    for source, target in edges:
+        source_parts, target_parts = source.split('::'), target.split('::')
+        common = 0
+        for left, right in zip(source_parts, target_parts):
+            if left != right:
+                break
+            common += 1
+        boundary = '::'.join(target_parts[:common + 1])
+        if source != boundary:
+            result.add((source, boundary))
+    return result
+
+
 def overview(nodes, edges):
     def top(name):
         # Summarize each executable at its subsystem boundary.
@@ -41,13 +62,15 @@ def overview(nodes, edges):
     return {top(n) for n in nodes}, {(top(a), top(b)) for a, b in edges if top(a) != top(b)}
 
 
-def render_dot(nodes, edges, *, nested=False):
+def render_dot(nodes, edges, *, nested=False, cluster_targets=False):
     lines = ['digraph {', '  graph [rankdir=LR, bgcolor="white", pad=0.3];',
              '  node [shape=box, style="rounded,filled", fillcolor="#e8f2ff", fontname="sans-serif"];',
              '  edge [color="#475569", arrowsize=0.8];']
+    if cluster_targets:
+        lines.append('  graph [compound=true];')
+    children = {}
     if nested:
         # Include ancestors as containers even if the input omits their nodes.
-        children = {}
         for node in sorted(nodes):
             parts = node.split('::')
             for depth in range(2, len(parts) + 1):
@@ -79,7 +102,10 @@ def render_dot(nodes, edges, *, nested=False):
         for node in sorted(nodes):
             lines.append(f'  {json.dumps(node)} [label={json.dumps(node)}];')
     for source, target in sorted(edges):
-        lines.append(f'  {json.dumps(source)} -> {json.dumps(target)};')
+        attributes = ''
+        if cluster_targets and target in children and not source.startswith(target + '::'):
+            attributes = f' [lhead={json.dumps("cluster_" + target)}]'
+        lines.append(f'  {json.dumps(source)} -> {json.dumps(target)}{attributes};')
     return '\n'.join(lines + ['}', ''])
 
 
@@ -94,10 +120,14 @@ def main():
         nodes.update(input_nodes)
         edges.update(input_edges)
     args.output.mkdir(parents=True, exist_ok=True)
-    for name, graph in [('module-dependencies', overview(nodes, edges)),
-                        ('module-dependencies-detail', (nodes, edges))]:
+    boundary_edges = module_boundaries(edges)
+    for name, graph, nested, cluster_targets in [
+        ('module-dependencies', overview(nodes, boundary_edges), False, False),
+        ('module-dependencies-detail', (nodes, boundary_edges), True, True),
+        ('module-dependencies-detail-raw', (nodes, edges), True, False),
+    ]:
         dot = args.output / f'{name}.dot'
-        dot.write_text(render_dot(*graph, nested=name.endswith("-detail")))
+        dot.write_text(render_dot(*graph, nested=nested, cluster_targets=cluster_targets))
         subprocess.run(['dot', '-Tsvg', str(dot), '-o', str(args.output / f'{name}.svg')], check=True)
     shutil.copyfile(Path(__file__).with_name('architecture.html'), args.output / 'index.html')
 

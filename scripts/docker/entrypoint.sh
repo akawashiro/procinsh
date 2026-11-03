@@ -19,6 +19,7 @@ suite=$1
 shift
 case "$suite" in
   ordinary)
+    python3 tests/module-dependencies.py
     npm --prefix web run build:replay
     cargo build --locked --all-targets
     cargo test --locked --no-run
@@ -38,6 +39,7 @@ case "$suite" in
     npm --prefix web run format:check
     cargo fmt --all --check
     python3 scripts/format_c.py --check
+    python3 tests/module-dependencies.py
     cargo clippy --locked --all-targets -- -D warnings
     RUSTDOCFLAGS='-D rustdoc::broken_intra_doc_links' \
       cargo doc --locked --workspace --no-deps --document-private-items
