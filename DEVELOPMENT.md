@@ -145,7 +145,7 @@ The list, process detail, and SPACE pages have separate HTML and TypeScript entr
 | [space/index.html](web/space/index.html), [space/style.css](web/src/space/style.css), [space/app.ts](web/src/space/app.ts) | `/` and `/space` HTML/CSS and startup; `app.ts` connects data, scene, and interaction components; Vite bundles `space/app.ts` |
 | [space/types.ts](web/src/space/types.ts), [space/contracts.ts](web/src/space/contracts.ts) | Shared layout/activity/selection/rendering data types and component input/callback contracts |
 | [space/model.ts](web/src/space/model.ts) | Pure functions for process/resource identities, labels, UID colors |
-| [space/data.ts](web/src/space/data.ts) | SSE, observation/activity state, structure-event merging, retained layout state; independent of Three.js/DOM |
+| [space/data.ts](web/src/space/data.ts) | SSE and observation/activity state, delegating [snapshot merging and resource placement](developer-docs/space-data.md); independent of Three.js/DOM |
 | [space/process-layout.ts](web/src/space/process-layout.ts) | Pure functions for full parent/child tree layout and added-process placement preserving existing coordinates |
 | [space/scene.ts](web/src/space/scene.ts) | Building/updating Three.js objects from layout data and releasing unused Geometry/Material resources |
 | [space/renderer.ts](web/src/space/renderer.ts) | Render loop, activity animations, Canvas 2D text labels, FPS/render-resolution adjustment |
