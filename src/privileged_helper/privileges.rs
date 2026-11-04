@@ -51,6 +51,8 @@ fn prctl(option: i32, arg: libc::c_ulong, operation: &str) -> Result<()> {
 }
 
 pub(crate) fn restrict_helper_privileges() -> Result<()> {
+    // Capability numbers from the Linux UAPI header (include/uapi/linux/capability.h):
+    // https://github.com/torvalds/linux/blob/v6.18/include/uapi/linux/capability.h
     const CAP_DAC_READ_SEARCH: u32 = 2;
     const CAP_SETPCAP: u32 = 8;
     const CAP_SYS_PTRACE: u32 = 19;
