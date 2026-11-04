@@ -45,6 +45,10 @@ fn read_string(pid: i32, address: u64) -> Result<String> {
 }
 
 pub(super) fn environment(id: ProcessId) -> Result<crate::ipc::acquisition::EnvironmentData> {
+    ensure!(
+        !memory::privacy(),
+        "Environment variables are not read in privacy mode."
+    );
     validate_process_identity(id)?;
     let bytes = read_limited(
         File::open(format!("/proc/{}/environ", id.pid))?,

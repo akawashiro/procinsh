@@ -38,6 +38,8 @@
 //! | [`additional_sockets`] | `pub(super)` | `fn additional_sockets(pid: `[`i32`]`) -> `[`HashMap`](std::collections::HashMap)`<`[`u64`]`, `[`SocketInfo`]`>` |
 //! | [`mapped_elf`] | `pub(super)` | `fn mapped_elf(id: ProcessId, mapping_start: u64, ranges: Vec<crate::ipc::elf::FileRange>) -> anyhow::Result<crate::ipc::schema::MonitorResponse>` |
 //! | [`timestamp_ms`] | `pub(super)` | `fn timestamp_ms() -> `[`u64`] |
+//! | [`enable_privacy`] | `pub(super)` | `fn enable_privacy()` |
+//! | [`privacy`] | `pub(super)` | `fn privacy() -> `[`bool`] |
 //!
 //! Mapped ELF byte replies use [`MappedFileData`](crate::ipc::elf::MappedFileData).
 pub(super) use monitoring::ObservationSession;
@@ -62,6 +64,7 @@ use discovery::{summary, users};
 pub(super) use identity::identity;
 pub(super) use identity::{ProcessId, validate_process_identity};
 pub(super) use maps::MemoryMap;
+pub(super) use memory::{enable_privacy, privacy};
 pub(super) use monitoring::ProcessMonitor;
 use resources::permission_help;
 #[cfg(test)]

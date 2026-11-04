@@ -73,7 +73,9 @@ impl MonitorClient {
 
     pub(super) async fn request(&self, request: MonitorRequest) -> Result<MonitorResponse> {
         if let Backend::Agent(link) = &*self.0 {
-            return link.request(request).await;
+            let mut response = link.request(request).await?;
+            super::privacy::scrub_response(&mut response);
+            return Ok(response);
         }
         let session = match &request {
             MonitorRequest::Poll { session } => Some(*session),
@@ -93,6 +95,7 @@ impl MonitorClient {
             processor.process(self, session, &mut response).await?;
         }
         super::disasm::decode_response(&mut response)?;
+        super::privacy::scrub_response(&mut response);
         Ok(response)
     }
 

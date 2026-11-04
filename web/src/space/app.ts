@@ -1,5 +1,6 @@
 // Compose SPACE data, rendering, and user actions; own page lifecycle events.
 import { SpaceRecorder } from "./recording.js";
+import { watchMasked } from "../shared/privacy.js";
 import {
   mountRecordingControls,
   mountReplayControls,
@@ -627,3 +628,4 @@ if (replayMode) {
   );
 }
 start();
+watchMasked();

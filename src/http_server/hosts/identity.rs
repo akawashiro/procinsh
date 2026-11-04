@@ -33,15 +33,25 @@ pub(crate) fn valid_host_name(name: &str) -> bool {
 }
 
 impl HostInfo {
-    /// This machine, named by `name` or the kernel host name.
+    /// This machine, named by `name` or the kernel host name. In privacy mode
+    /// the default name and the machine ID are pseudonyms for this run.
     pub(in crate::http_server) fn local(name: Option<String>) -> Self {
+        let machine_id = text("/etc/machine-id")
+            .or_else(|| text("/proc/sys/kernel/random/boot_id"))
+            .unwrap_or_default();
+        let private = crate::http_server::privacy::enabled();
+        let pseudonym = || crate::http_server::privacy::pseudonym(&machine_id).replace('░', "");
         Self {
             name: name
-                .or_else(|| text("/proc/sys/kernel/hostname"))
+                .or_else(|| {
+                    if private {
+                        Some(format!("host-{}", pseudonym()))
+                    } else {
+                        text("/proc/sys/kernel/hostname")
+                    }
+                })
                 .unwrap_or_else(|| "localhost".into()),
-            machine_id: text("/etc/machine-id")
-                .or_else(|| text("/proc/sys/kernel/random/boot_id"))
-                .unwrap_or_default(),
+            machine_id: if private { pseudonym() } else { machine_id },
             version: env!("CARGO_PKG_VERSION").into(),
             kernel: text("/proc/sys/kernel/osrelease"),
             arch: std::env::consts::ARCH.into(),

@@ -1,9 +1,22 @@
 use super::permission_help;
 use anyhow::{Result, bail, ensure};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 pub(super) const MAX_READ: usize = 65536;
 
+/// Set once at startup by `--privacy`: no process memory or environment is read.
+static PRIVACY: AtomicBool = AtomicBool::new(false);
+
+pub(in crate::privileged_helper) fn enable_privacy() {
+    PRIVACY.store(true, Ordering::Relaxed);
+}
+
+pub(in crate::privileged_helper) fn privacy() -> bool {
+    PRIVACY.load(Ordering::Relaxed)
+}
+
 pub(super) fn read_raw(pid: i32, address: u64, length: usize) -> Result<Vec<u8>> {
+    ensure!(!privacy(), "Process memory is not read in privacy mode.");
     ensure!(
         (1..=MAX_READ).contains(&length),
         "length must be 1..=65536 bytes"

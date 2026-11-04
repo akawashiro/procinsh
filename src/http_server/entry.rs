@@ -60,6 +60,12 @@ struct Cli {
     /// File holding the shared agent token
     #[arg(long, value_name = "PATH")]
     agent_token_file: Option<PathBuf>,
+    /// Privacy mode: never read environments or process memory, and mask secrets, addresses, user and host names before sending anything
+    #[arg(long)]
+    privacy: bool,
+    /// How much privacy mode masks, from 1 (credentials only) to 4 (also URLs and long numbers); default: 3
+    #[arg(long, value_name = "LEVEL", value_parser = clap::value_parser!(u8).range(1..=4))]
+    privacy_level: Option<u8>,
 }
 
 /// The config file's keys are the long option names. A relative
@@ -73,6 +79,8 @@ struct ConfigFile {
     connect: Option<String>,
     host_name: Option<String>,
     agent_token_file: Option<PathBuf>,
+    privacy: bool,
+    privacy_level: Option<u8>,
 }
 
 fn default_config_path() -> Option<PathBuf> {
@@ -124,6 +132,8 @@ fn merge(cli: Cli, config: ConfigFile) -> Cli {
         connect: cli.connect.or(config.connect),
         host_name: cli.host_name.or(config.host_name),
         agent_token_file: cli.agent_token_file.or(config.agent_token_file),
+        privacy: cli.privacy || config.privacy,
+        privacy_level: cli.privacy_level.or(config.privacy_level),
     }
 }
 
@@ -189,12 +199,18 @@ fn run() -> Result<()> {
             "invalid host name {name:?}: use 1-63 letters, digits, '.', '_' or '-', not \"all\""
         );
     }
+    let privacy_level = cli.privacy_level.unwrap_or(3);
+    ensure!(
+        (1..=4).contains(&privacy_level),
+        "invalid privacy level {privacy_level}: use 1-4"
+    );
     http_server::run(http_server::ServerConfig {
         listen: cli.listen,
         accept_agents: cli.accept_agents,
         connect: cli.connect,
         host_name: cli.host_name,
         agent_token,
+        privacy_level: cli.privacy.then_some(privacy_level),
     })
 }
 
@@ -242,6 +258,20 @@ mod tests {
         );
         assert_eq!(merged.listen, ["127.0.0.1:7070".parse().unwrap()]);
         assert_eq!(merged.host_name.as_deref(), Some("cli"));
+    }
+
+    #[test]
+    fn privacy_comes_from_either_source() {
+        let merged = merge(parse(&[]), config("privacy = true\nprivacy-level = 2"));
+        assert!(merged.privacy);
+        assert_eq!(merged.privacy_level, Some(2));
+        let merged = merge(
+            parse(&["--privacy-level", "4"]),
+            config("privacy-level = 2"),
+        );
+        assert!(!merged.privacy);
+        assert_eq!(merged.privacy_level, Some(4));
+        assert!(Cli::try_parse_from(["procinsh", "--privacy-level", "5"]).is_err());
     }
 
     #[test]

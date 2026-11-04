@@ -2,7 +2,7 @@
 //!
 //! # Interface
 //! - [`run`] (`pub(crate)`): `fn run(config: ServerConfig) -> anyhow::Result<()>`.
-//! - [`ServerConfig`] (`pub(crate)`): listeners, agent links and the host name.
+//! - [`ServerConfig`] (`pub(crate)`): listeners, agent links, the host name and privacy mode.
 //! - [`valid_host_name`] (`pub(crate)`): `fn valid_host_name(name: &str) -> bool`.
 #[path = "analysis/root.rs"]
 mod analysis;
@@ -18,6 +18,7 @@ mod launch;
 mod middleware;
 #[path = "model/root.rs"]
 mod model;
+mod privacy;
 mod privileges;
 mod processing;
 mod router;

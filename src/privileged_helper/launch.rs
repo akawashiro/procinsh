@@ -28,6 +28,9 @@ struct Cli {
     /// PID of the parent process that owns the IPC endpoint
     #[arg(long)]
     parent_pid: i32,
+    /// Refuse to read process environments and memory
+    #[arg(long)]
+    privacy: bool,
 }
 
 static STOP: AtomicBool = AtomicBool::new(false);
@@ -38,6 +41,9 @@ extern "C" fn stop(_: i32) {
 pub(crate) fn run() -> Result<()> {
     let cli = Cli::parse();
     let parent = cli.parent_pid;
+    if cli.privacy {
+        super::process::enable_privacy();
+    }
     let mut peer: libc::ucred = unsafe { std::mem::zeroed() };
     let mut size = std::mem::size_of_val(&peer) as libc::socklen_t;
     ensure!(

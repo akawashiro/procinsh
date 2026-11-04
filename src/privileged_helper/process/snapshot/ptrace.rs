@@ -96,6 +96,7 @@ pub(super) fn capture(tid: i32, maps: &[MemoryMap]) -> Result<RawSample> {
     let values = native::read_registers(tid)?;
     let sp = values.sp();
     let stack = match maps.iter().find(|map| map.contains(sp)) {
+        _ if memory::privacy() => Vec::new(),
         Some(map) => memory::read_raw(tid, sp, (map.end - sp).min(16 * 1024) as usize)?,
         None => Vec::new(),
     };

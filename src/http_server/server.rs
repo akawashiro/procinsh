@@ -17,6 +17,8 @@ pub(crate) struct ServerConfig {
     /// The name shown by a hub; the kernel host name by default.
     pub(crate) host_name: Option<String>,
     pub(crate) agent_token: Option<String>,
+    /// Privacy mode's logblur level (1–4), or `None` when it is off.
+    pub(crate) privacy_level: Option<u8>,
 }
 
 /// Bind every address before serving, then share collectors across listeners.

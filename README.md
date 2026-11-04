@@ -87,6 +87,22 @@ allow-non-loopback = true
 agent-token-file = "/home/me/procinsh-token"
 ```
 
+### Privacy mode
+
+For screen sharing, screenshots or recordings, start with `--privacy` (or
+`privacy = true` in the config file). procinsh then does not read environment
+variables or process memory (auxv strings, stacks, instruction bytes), and masks
+secrets, IP addresses, user names, host names and machine IDs before anything
+leaves the server. A masked value appears as a blurred block; the browser never
+receives the original. Values are masked consistently within one run, so
+different addresses stay different.
+
+`--privacy-level` (1–4, default 3) chooses how much is masked: 1 credentials,
+2 also personal data, 3 also network and device identifiers, 4 also URLs and
+long numbers. On a hub, data from agents is masked again; run each agent with
+`--privacy` too so that nothing leaves the agent unmasked. Cross-host links
+are not matched by address in this mode.
+
 ### Self build on Linux
 
 #### Ubuntu
