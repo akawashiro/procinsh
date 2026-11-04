@@ -1,18 +1,12 @@
 use super::ProcessMonitor as AppState;
-use crate::privileged_helper::process::{self as process, ProcessScanner, test_support::Target};
+use crate::privileged_helper::process::{self as process, test_support::Target};
 use std::{sync::Arc, time::Duration};
 
 #[test]
 fn discovery_rates_history_and_process_exit() {
     let mut target = Target::new("busy_loop");
-    let mut discovery = ProcessScanner::default();
-    assert!(
-        discovery
-            .collect()
-            .unwrap()
-            .iter()
-            .any(|p| p.identity == target.id)
-    );
+    let initial = process::collect_processes().unwrap();
+    assert!(initial.iter().any(|p| p.identity == target.id));
     let app = Arc::new(AppState::new(Duration::from_millis(100)));
     let session = app.observe(target.id, app.reserve().unwrap()).unwrap();
     let other_id = process::identity(std::process::id() as i32).unwrap();
@@ -27,17 +21,17 @@ fn discovery_rates_history_and_process_exit() {
         assert!(o.threads.iter().any(|t| t.tid == target.id.pid));
         assert!(!t.maps.is_empty());
     }
-    assert!(
-        discovery
-            .collect()
-            .unwrap()
-            .iter()
-            .find(|p| p.identity == target.id)
-            .unwrap()
-            .cpu_percent
-            .unwrap()
-            > 0.0
-    );
+    let current = process::collect_processes().unwrap();
+    let before = initial.iter().find(|p| p.identity == target.id).unwrap();
+    let after = current.iter().find(|p| p.identity == target.id).unwrap();
+    assert!(before.cpu_percent.is_none());
+    assert!(after.cpu_percent.is_none());
+    let elapsed = (after.raw_measured_ns - before.raw_measured_ns) as f64 / 1_000_000_000.0;
+    let cpu_percent = after.raw_ticks.saturating_sub(before.raw_ticks) as f64
+        / process::ticks_per_second()
+        / elapsed
+        * 100.0;
+    assert!(cpu_percent > 0.0);
     target.child.kill().unwrap();
     target.child.wait().unwrap();
     std::thread::sleep(Duration::from_millis(200));

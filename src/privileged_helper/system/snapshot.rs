@@ -9,8 +9,8 @@
 //! | [`NeighborSnapshot`] | `pub(in crate::privileged_helper)` | `struct NeighborSnapshot` |
 //! | [`SystemSnapshot`] | `pub(in crate::privileged_helper)` | `struct SystemSnapshot` |
 //! | [`process_from_summary`] | `pub(super)` | `fn process_from_summary(summary: `[`ProcessSummary`]`, parent_id: `[`Option`]`<`[`ProcessId`]`>) -> `[`ProcessSnapshot`] |
-//! | [`collect`] | `pub(super)` | `fn collect(discovery: &mut `[`ProcessScanner`]`) -> `[`SystemSnapshot`] |
-//! | [`collect_from`] | `pub(super)` | `fn collect_from(discovery: &mut `[`ProcessScanner`]`, sources: &`[`HardwareSources`]`) -> `[`SystemSnapshot`] |
+//! | [`collect`] | `pub(super)` | `fn collect() -> `[`SystemSnapshot`] |
+//! | [`collect_from`] | `pub(super)` | `fn collect_from(sources: &`[`HardwareSources`]`) -> `[`SystemSnapshot`] |
 
 #[cfg(test)]
 use super::hardware::HardwareObservation;
@@ -23,9 +23,7 @@ pub(in crate::privileged_helper) use crate::ipc::model::system::{
 };
 #[cfg(test)]
 pub(in crate::privileged_helper) use crate::ipc::model::system::{FdRelation, SocketEndpoint};
-use crate::privileged_helper::process::{
-    self, ProcessId, ProcessScanner, ProcessSummary, SocketInfo,
-};
+use crate::privileged_helper::process::{self, ProcessId, ProcessSummary, SocketInfo};
 use crate::privileged_helper::resource::{DeviceId, IpcIdentity, IpcKind};
 #[cfg(test)]
 use crate::privileged_helper::socket_types::SocketState;
@@ -116,15 +114,12 @@ pub(super) fn process_from_summary(
     }
 }
 
-pub(super) fn collect(discovery: &mut ProcessScanner) -> SystemSnapshot {
-    collect_from(discovery, &HardwareSources::default())
+pub(super) fn collect() -> SystemSnapshot {
+    collect_from(&HardwareSources::default())
 }
 
 /// Collects with hardware read from `sources`, which tests point at fixtures.
-pub(super) fn collect_from(
-    discovery: &mut ProcessScanner,
-    sources: &HardwareSources,
-) -> SystemSnapshot {
+pub(super) fn collect_from(sources: &HardwareSources) -> SystemSnapshot {
     let mut result = SystemSnapshot {
         captured_at: process::timestamp_ms(),
         ..Default::default()
@@ -141,7 +136,7 @@ pub(super) fn collect_from(
     let hardware = HardwareObservation::observe(&acquired);
     #[cfg(test)]
     let mut handles = hardware.handles(&acquired);
-    let summaries = match discovery.collect() {
+    let summaries = match process::collect_processes() {
         Ok(v) => v,
         Err(e) => {
             result.warnings.push(e.to_string());

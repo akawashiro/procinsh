@@ -100,7 +100,7 @@ fn scripted_helper(
                     Ok(MonitorResponse::Closed)
                 }
             };
-            if transport::write(&mut helper, &response, MAX_RESPONSE).is_err() {
+            if transport::send(&mut helper, &response, MAX_RESPONSE).is_err() {
                 break;
             }
         }

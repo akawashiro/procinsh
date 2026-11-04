@@ -161,7 +161,6 @@ impl SystemMonitor {
         workers.push(spawn_worker("snapshot", move || {
             log::info!("System snapshot worker started");
             let mut previous_warnings = Vec::new();
-            let mut discovery = crate::privileged_helper::process::ProcessScanner::default();
             let mut full = Instant::now() - Duration::from_secs(10);
             while !monitor.stopped() {
                 if !monitor.active() {
@@ -170,7 +169,7 @@ impl SystemMonitor {
                     continue;
                 }
                 if full.elapsed() >= Duration::from_secs(1) {
-                    let data = snapshot::collect(&mut discovery);
+                    let data = snapshot::collect();
                     if data.warnings != previous_warnings {
                         if data.warnings.is_empty() {
                             log::info!("System snapshot recovered");

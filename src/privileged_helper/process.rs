@@ -6,7 +6,6 @@
 //!
 //! | Definition | Visibility | Kind / type |
 //! | --- | --- | --- |
-//! | [`ProcessScanner`] | `pub(super)` | `struct `[`ProcessScanner`] |
 //! | [`ProcessSummary`] | `pub(super)` | `struct `[`ProcessSummary`] |
 //! | [`ProcessId`] | `pub(super)` | `struct `[`ProcessId`] |
 //! | [`MemoryMap`] | `pub(super)` | `struct `[`MemoryMap`] |
@@ -22,6 +21,7 @@
 //!
 //! | Definition | Visibility | Signature |
 //! | --- | --- | --- |
+//! | [`collect_processes`] | `pub(super)` | `fn collect_processes() -> anyhow::Result<Vec<ProcessSummary>>` |
 //! | [`validate_process_identity`] | `pub(super)` | `fn validate_process_identity(id: `[`ProcessId`]`) -> `[`Result`](anyhow::Result)`<()>` |
 //! | [`observation`] | `pub(super)` | `fn observation (id: ProcessId) -> anyhow::Result<`[`ObservationData`](crate::ipc::acquisition::ObservationData)`>` |
 //! | [`fn@threads`] | `pub(super)` | `fn threads (id: ProcessId) -> anyhow::Result<`[`ObservationData`](crate::ipc::acquisition::ObservationData)`>` |
@@ -58,7 +58,7 @@ mod socket_metadata;
 mod socket_namespace;
 mod sockets;
 mod threads;
-pub(super) use discovery::{ProcessScanner, ProcessSummary};
+pub(super) use discovery::{ProcessSummary, collect_processes};
 use discovery::{summary, users};
 #[cfg(test)]
 pub(super) use identity::identity;

@@ -1,8 +1,6 @@
 // Visibility is scoped to the consumers of the parent process façade.
 use super::{ProcessId, procfs};
 use anyhow::Result;
-#[cfg(test)]
-use std::time::Instant;
 use std::{collections::HashMap, fs};
 
 pub use crate::ipc::acquisition::ProcessSummary;
@@ -74,64 +72,24 @@ pub(super) fn users() -> HashMap<u32, String> {
     }
 }
 
-#[derive(Default)]
 /// Scans protected procfs for process summaries and raw CPU counters.
-pub(in crate::privileged_helper) struct ProcessScanner {
-    #[cfg(test)]
-    previous: HashMap<ProcessId, (u64, Instant)>,
-}
-impl ProcessScanner {
-    pub(in crate::privileged_helper) fn collect(&mut self) -> Result<Vec<ProcessSummary>> {
-        let users = users();
-        #[cfg(test)]
-        let now = Instant::now();
-        #[cfg(test)]
-        let mut next = HashMap::new();
-        let mut result = Vec::new();
-        for entry in fs::read_dir("/proc")?.flatten() {
-            let Some(pid) = entry
-                .file_name()
-                .to_str()
-                .and_then(|s| s.parse::<i32>().ok())
-            else {
-                continue;
-            };
-            let Ok(stat) = procfs::read_stat(&format!("/proc/{pid}/stat")) else {
-                continue;
-            };
-            let item = summary(&stat, &users);
-            #[cfg(test)]
-            let item = {
-                let mut item = item;
-                if let Some((ticks, time)) = self.previous.get(&item.identity) {
-                    let elapsed = now.duration_since(*time).as_secs_f64();
-                    if elapsed > 0.0 {
-                        item.cpu_percent = Some(
-                            stat.ticks.saturating_sub(*ticks) as f64
-                                / procfs::ticks_per_second()
-                                / elapsed
-                                * 100.0,
-                        );
-                    }
-                }
-                next.insert(item.identity, (stat.ticks, now));
-                item
-            };
-            result.push(item);
-        }
-        #[cfg(test)]
-        {
-            self.previous = next;
-        }
-        #[cfg(test)]
-        result.sort_by(|a, b| {
-            b.cpu_percent
-                .unwrap_or(0.0)
-                .total_cmp(&a.cpu_percent.unwrap_or(0.0))
-                .then(a.identity.pid.cmp(&b.identity.pid))
-        });
-        Ok(result)
+pub(in crate::privileged_helper) fn collect_processes() -> Result<Vec<ProcessSummary>> {
+    let users = users();
+    let mut result = Vec::new();
+    for entry in fs::read_dir("/proc")?.flatten() {
+        let Some(pid) = entry
+            .file_name()
+            .to_str()
+            .and_then(|s| s.parse::<i32>().ok())
+        else {
+            continue;
+        };
+        let Ok(stat) = procfs::read_stat(&format!("/proc/{pid}/stat")) else {
+            continue;
+        };
+        result.push(summary(&stat, &users));
     }
+    Ok(result)
 }
 
 fn parse_uids(value: &str) -> (Option<u32>, Option<u32>) {

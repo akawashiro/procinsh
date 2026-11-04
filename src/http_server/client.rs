@@ -47,7 +47,7 @@ impl MonitorClient {
                     {
                         continue;
                     }
-                    let response = transport::write(&mut socket, &pending.request, MAX_REQUEST)
+                    let response = transport::send(&mut socket, &pending.request, MAX_REQUEST)
                         .and_then(|()| transport::read::<WireResponse>(&mut socket, MAX_RESPONSE));
                     match response {
                         Ok(response) => {

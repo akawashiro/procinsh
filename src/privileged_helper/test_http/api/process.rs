@@ -49,8 +49,8 @@ pub(super) async fn config(State(s): State<Arc<AppState>>) -> Json<Value> {
     )
 }
 
-pub(super) async fn list_processes(State(s): State<Arc<AppState>>) -> ApiResult {
-    blocking(move || Ok(Json(json!(s.discovery.lock().unwrap().collect()?)))).await
+pub(super) async fn list_processes() -> ApiResult {
+    blocking(move || Ok(Json(json!(process::collect_processes()?)))).await
 }
 
 pub(super) async fn stats(Query(id): Query<ProcessId>) -> ApiResult {
