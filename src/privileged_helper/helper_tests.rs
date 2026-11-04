@@ -1,12 +1,12 @@
-use super::helper_service::{MonitorService, MonitorState};
+use super::helper_service::{CollectorManager, HelperIpcService};
 use crate::ipc::{schema::*, transport};
 use crate::privileged_helper::process::{self, ProcessId};
 use std::{io::Write, os::unix::net::UnixStream, sync::Arc, time::Duration};
 
 #[test]
 fn validates_identity_before_creating_collectors_and_releases_sessions() {
-    let state = Arc::new(MonitorState::new(Duration::from_millis(100)));
-    let mut service = MonitorService::new(state.clone());
+    let collectors = Arc::new(CollectorManager::new(Duration::from_millis(100)));
+    let mut ipc_service = HelperIpcService::new(collectors.clone());
     for id in [
         ProcessId {
             pid: -1,
@@ -18,7 +18,7 @@ fn validates_identity_before_creating_collectors_and_releases_sessions() {
         },
     ] {
         assert!(
-            service
+            ipc_service
                 .dispatch(MonitorRequest::Process {
                     id,
                     resource: ProcessResource::Maps
@@ -26,40 +26,46 @@ fn validates_identity_before_creating_collectors_and_releases_sessions() {
                 .is_err()
         );
         assert!(
-            service
+            ipc_service
                 .dispatch(MonitorRequest::ObserveProcess { id })
                 .is_err()
         );
-        assert_eq!(state.monitoring.observer_count(), 0);
+        assert_eq!(collectors.monitoring.observer_count(), 0);
     }
     let target = process::TestTarget::new("sleeping");
-    let MonitorResponse::Started { session, .. } = service
+    let MonitorResponse::Started { session, .. } = ipc_service
         .dispatch(MonitorRequest::ObserveProcess { id: target.id })
         .unwrap()
     else {
         panic!("expected session")
     };
-    assert_eq!(state.monitoring.observer_count(), 1);
-    service.dispatch(MonitorRequest::Close { session }).unwrap();
-    assert_eq!(state.monitoring.observer_count(), 0);
-    assert!(service.dispatch(MonitorRequest::Poll { session }).is_err());
-    let _ = service
+    assert_eq!(collectors.monitoring.observer_count(), 1);
+    ipc_service
+        .dispatch(MonitorRequest::Close { session })
+        .unwrap();
+    assert_eq!(collectors.monitoring.observer_count(), 0);
+    assert!(
+        ipc_service
+            .dispatch(MonitorRequest::Poll { session })
+            .is_err()
+    );
+    let _ = ipc_service
         .dispatch(MonitorRequest::ObserveProcess { id: target.id })
         .unwrap();
-    drop(service);
-    assert_eq!(state.monitoring.observer_count(), 0);
-    state.stop();
-    state.join_collectors().unwrap();
+    drop(ipc_service);
+    assert_eq!(collectors.monitoring.observer_count(), 0);
+    collectors.stop();
+    collectors.join_collectors().unwrap();
 }
 
 #[test]
 fn disconnect_drops_all_parent_sessions() {
-    let state = Arc::new(MonitorState::new(Duration::from_millis(100)));
+    let collectors = Arc::new(CollectorManager::new(Duration::from_millis(100)));
     let (mut client, server) = UnixStream::pair().unwrap();
-    let service = MonitorService::new(state.clone());
-    let worker = std::thread::spawn(move || service.serve(server));
+    let ipc_service = HelperIpcService::new(collectors.clone());
+    let worker = std::thread::spawn(move || ipc_service.serve(server));
     let target = process::TestTarget::new("sleeping");
-    transport::write(
+    transport::send(
         &mut client,
         &MonitorRequest::ObserveProcess { id: target.id },
         MAX_REQUEST,
@@ -67,12 +73,12 @@ fn disconnect_drops_all_parent_sessions() {
     .unwrap();
     let response: WireResponse = transport::read(&mut client, MAX_RESPONSE).unwrap();
     assert!(matches!(response, Ok(MonitorResponse::Started { .. })));
-    assert_eq!(state.monitoring.observer_count(), 1);
+    assert_eq!(collectors.monitoring.observer_count(), 1);
     drop(client);
     assert!(worker.join().unwrap().is_err());
-    assert_eq!(state.monitoring.observer_count(), 0);
-    state.stop();
-    state.join_collectors().unwrap();
+    assert_eq!(collectors.monitoring.observer_count(), 0);
+    collectors.stop();
+    collectors.join_collectors().unwrap();
 }
 
 #[test]

@@ -429,7 +429,7 @@ Targets use `{pid, start_time_ticks}`, not PID alone. Every request verifies the
 #### Configuration and process list
 
 - `GET /api/config`: returns the package version, update interval specified at startup, and history retention in seconds.
-- `GET /api/processes`: the helper's `ProcessScanner` scans `/proc` on each request and returns process identities, names, commands, users, memory sizes, and other information. The backend calculates CPU usage from the difference against the previous collection; it is null when no difference is available, including the first collection.
+- `GET /api/processes`: the helper's `collect_processes` function scans `/proc` on each request and returns process identities, names, commands, users, memory sizes, and other information. The backend calculates CPU usage from the difference against the previous collection; it is null when no difference is available, including the first collection.
 
 #### Analysis, caches, and session state
 
@@ -1056,7 +1056,7 @@ tests/targets/bin/recursive --allow-inspector
 
 ## API documentation
 
-Rust type names express responsibilities. Data and values describe their contents (`ProcessId`, `ProcessSummary`, `ProcessSnapshot`); types managing operations, state, or resources describe their roles (`ProcessScanner`, `ProcessMonitor`, `FileActivityCollector`, `PerfEventReader`, `PtraceGuard`). Helper methods alone do not determine this distinction, and types do not all require mechanical suffixes.
+Rust type names express responsibilities. Data and values describe their contents (`ProcessId`, `ProcessSummary`, `ProcessSnapshot`); types managing operations, state, or resources describe their roles (`ProcessMonitor`, `FileActivityCollector`, `PerfEventReader`, `PtraceGuard`). Helper methods alone do not determine this distinction, and types do not all require mechanical suffixes.
 
 [API Documentation](https://akawashiro.github.io/procinsh/) links to the Rust API, [TypeScript API](https://akawashiro.github.io/procinsh/main/typescript/), [Rust dependency graph](https://akawashiro.github.io/procinsh/main/rust-architecture/), and [TypeScript dependency graph](https://akawashiro.github.io/procinsh/main/typescript-architecture/).
 Each module root's `//!` documentation explains its responsibility and entry points used outside that module, including interfaces for parents and siblings as well as any external interfaces.

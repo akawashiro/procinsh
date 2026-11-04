@@ -2,7 +2,7 @@
 //!
 //! # Interface
 //! - [`configure`] (`pub`): `fn configure(socket: &UnixStream) -> anyhow::Result<()>`.
-//! - [`fn@write`] (`pub`): `fn write<T: Wire>(socket: &mut UnixStream, value: &T, limit: usize) -> anyhow::Result<()>`.
+//! - [`send`] (`pub`): `fn send<T: Wire>(socket: &mut UnixStream, value: &T, limit: usize) -> anyhow::Result<()>`.
 //! - [`read`] (`pub`): `fn read<T: Wire>(socket: &mut UnixStream, limit: usize) -> anyhow::Result<T>`.
 //! - [`read_timeout`] (`pub`): `fn read_timeout<T: Wire>(socket: &mut UnixStream, limit: usize, timeout: Duration) -> anyhow::Result<T>`.
 //!
@@ -20,7 +20,7 @@ pub fn configure(socket: &UnixStream) -> Result<()> {
     Ok(())
 }
 
-pub fn write<T: Wire>(socket: &mut UnixStream, value: &T, limit: usize) -> Result<()> {
+pub fn send<T: Wire>(socket: &mut UnixStream, value: &T, limit: usize) -> Result<()> {
     let bytes = codec::encode(value, limit)?;
     let deadline = Instant::now() + TIMEOUT;
     write_until(socket, &(bytes.len() as u32).to_ne_bytes(), deadline)?;
@@ -119,7 +119,7 @@ mod tests {
                     bytes: (0..length).map(|index| index as u8).collect(),
                 }],
             })));
-            write(&mut sender, &reply, MAX_RESPONSE).unwrap();
+            send(&mut sender, &reply, MAX_RESPONSE).unwrap();
         });
         let reply: WireResponse = read(&mut receiver, MAX_RESPONSE).unwrap();
         let MonitorResponse::Elf(Some(file)) = reply.unwrap() else {

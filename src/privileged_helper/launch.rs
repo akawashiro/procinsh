@@ -2,7 +2,7 @@
 //!
 //! # Interface
 //! [`run`] (`pub(crate)`): `fn run() -> anyhow::Result<()>`.
-use super::helper_service::{MonitorService, MonitorState};
+use super::helper_service::{CollectorManager, HelperIpcService};
 use crate::ipc::{schema::*, transport};
 use anyhow::{Result, ensure};
 use clap::Parser;
@@ -83,7 +83,7 @@ pub(crate) fn run() -> Result<()> {
             && unsafe { libc::getppid() } == parent,
         "parent exited during helper startup"
     );
-    transport::write(
+    transport::send(
         &mut ipc_socket,
         &HelperIdentity {
             pid: std::process::id(),
@@ -91,14 +91,14 @@ pub(crate) fn run() -> Result<()> {
         },
         MAX_REQUEST,
     )?;
-    let state = Arc::new(MonitorState::new(Duration::from_secs(1)));
-    let service = MonitorService::new(state.clone());
+    let collectors = Arc::new(CollectorManager::new(Duration::from_secs(1)));
+    let ipc_service = HelperIpcService::new(collectors.clone());
     let shutdown = ipc_socket.try_clone()?;
     let (finished, completion) = mpsc::channel();
     std::thread::Builder::new()
         .name("privileged-ipc".into())
         .spawn(move || {
-            let _ = finished.send(service.serve(ipc_socket));
+            let _ = finished.send(ipc_service.serve(ipc_socket));
         })?;
     loop {
         match completion.try_recv() {
@@ -125,11 +125,11 @@ pub(crate) fn run() -> Result<()> {
             break;
         }
     }
-    state.stop();
+    collectors.stop();
     let _ = shutdown.shutdown(Shutdown::Both);
     let (done, joined) = mpsc::channel();
     std::thread::spawn(move || {
-        let _ = done.send(state.join_collectors());
+        let _ = done.send(collectors.join_collectors());
     });
     let deadline = Instant::now() + Duration::from_secs(5);
     joined.recv_timeout(deadline.saturating_duration_since(Instant::now()))??;

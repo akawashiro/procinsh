@@ -4,21 +4,19 @@ use anyhow::{Result, ensure};
 use std::{
     collections::HashMap,
     os::{fd::AsRawFd, unix::net::UnixStream},
-    sync::{Arc, Mutex},
+    sync::Arc,
     time::{Duration, Instant},
 };
 
-/// Owns all acquisition workers and privileged descriptors in the helper.
-pub(in crate::privileged_helper) struct MonitorState {
+/// Owns all collection workers and privileged descriptors in the helper.
+pub(in crate::privileged_helper) struct CollectorManager {
     pub(in crate::privileged_helper) system_monitor: Arc<system::SystemMonitor>,
-    pub(in crate::privileged_helper) discovery: Mutex<process::ProcessScanner>,
     pub(in crate::privileged_helper) monitoring: Arc<process::ProcessMonitor>,
 }
-impl MonitorState {
+impl CollectorManager {
     pub(in crate::privileged_helper) fn new(interval: Duration) -> Self {
         Self {
             system_monitor: Arc::new(system::SystemMonitor::default()),
-            discovery: Mutex::new(process::ProcessScanner::default()),
             monitoring: Arc::new(process::ProcessMonitor::new(interval)),
         }
     }
@@ -42,17 +40,18 @@ struct ObservationLease {
     polled: Instant,
 }
 
+/// Serves helper IPC requests and manages observation leases.
 /// Serial dispatch bounds in-flight work to one operation. Long-lived sampling
 /// is owned by independently bounded monitor sessions, never by HTTP tasks.
-pub(super) struct MonitorService {
-    pub(super) state: Arc<MonitorState>,
+pub(super) struct HelperIpcService {
+    pub(super) collectors: Arc<CollectorManager>,
     sessions: HashMap<u64, ObservationLease>,
     next_session: u64,
 }
-impl MonitorService {
-    pub(super) fn new(state: Arc<MonitorState>) -> Self {
+impl HelperIpcService {
+    pub(super) fn new(collectors: Arc<CollectorManager>) -> Self {
         Self {
-            state,
+            collectors,
             sessions: HashMap::new(),
             next_session: 0,
         }
@@ -89,7 +88,10 @@ impl MonitorService {
             self.sessions.remove(&session);
             return Ok(MonitorResponse::Closed);
         }
-        ensure!(!self.state.monitoring.is_stopped(), "Server is stopping");
+        ensure!(
+            !self.collectors.monitoring.is_stopped(),
+            "Server is stopping"
+        );
         match request {
             MonitorRequest::MappedElf {
                 id,
@@ -97,7 +99,7 @@ impl MonitorService {
                 ranges,
             } => process::mapped_elf(id, mapping_start, ranges),
             MonitorRequest::Processes => Ok(MonitorResponse::Data(AcquiredData::Processes(
-                self.state.discovery.lock().unwrap().collect()?,
+                process::collect_processes()?,
             ))),
             MonitorRequest::Process { id, resource } => {
                 process::validate_process_identity(id)?;
@@ -118,7 +120,7 @@ impl MonitorService {
             }
             MonitorRequest::ObserveProcess { id } => {
                 process::validate_process_identity(id)?;
-                let permit = self.state.monitoring.reserve().map_err(|e| {
+                let permit = self.collectors.monitoring.reserve().map_err(|e| {
                     anyhow::anyhow!(
                         "{}",
                         match e {
@@ -127,7 +129,7 @@ impl MonitorService {
                         }
                     )
                 })?;
-                let mut subscription = self.state.monitoring.observe(id, permit)?;
+                let mut subscription = self.collectors.monitoring.observe(id, permit)?;
                 let initial = Arc::new(subscription.receiver.borrow_and_update().clone());
                 self.start(
                     Subscription::Process(subscription),
@@ -135,7 +137,7 @@ impl MonitorService {
                 )
             }
             MonitorRequest::ObserveSystem => {
-                let subscription = self.state.system_monitor.subscribe().map_err(|e| {
+                let subscription = self.collectors.system_monitor.subscribe().map_err(|e| {
                     anyhow::anyhow!(
                         "{}",
                         match e {
@@ -148,13 +150,13 @@ impl MonitorService {
                 self.start(Subscription::System(subscription), initial)
             }
             MonitorRequest::Poll { session } => {
-                let state = self
+                let lease = self
                     .sessions
                     .get_mut(&session)
                     .ok_or_else(|| anyhow::anyhow!("unknown or expired observation session"))?;
-                state.polled = Instant::now();
+                lease.polled = Instant::now();
                 let mut closed = false;
-                let event = match &mut state.subscription {
+                let event = match &mut lease.subscription {
                     Subscription::Process(subscription) => {
                         match subscription.receiver.has_changed() {
                             Ok(true) => {
@@ -184,7 +186,7 @@ impl MonitorService {
                         Err(tokio::sync::broadcast::error::TryRecvError::Lagged(dropped)) => {
                             Some(MonitorEvent::AcquisitionGap {
                                 dropped,
-                                snapshot: self.state.system_monitor.snapshot(),
+                                snapshot: self.collectors.system_monitor.snapshot(),
                             })
                         }
                         Err(tokio::sync::broadcast::error::TryRecvError::Empty) => None,
@@ -229,10 +231,10 @@ impl MonitorService {
             let response: WireResponse = self.dispatch(request).map_err(|e| format!("{e:#}"));
             // Oversize replies return a bounded error rather than corrupting
             // framing or killing an otherwise usable observation connection.
-            if let Err(error) = transport::write(&mut socket, &response, MAX_RESPONSE) {
+            if let Err(error) = transport::send(&mut socket, &response, MAX_RESPONSE) {
                 if error.is::<crate::ipc::codec::LimitExceeded>() {
                     let response: WireResponse = Err("monitor response exceeds size limit".into());
-                    transport::write(&mut socket, &response, MAX_RESPONSE)?;
+                    transport::send(&mut socket, &response, MAX_RESPONSE)?;
                 } else {
                     return Err(error);
                 }
@@ -248,21 +250,25 @@ mod lease_tests {
     #[test]
     fn unpolled_sessions_expire_and_release_collectors() {
         let target = process::TestTarget::new("sleeping");
-        let state = Arc::new(MonitorState::new(Duration::from_millis(100)));
-        let mut service = MonitorService::new(state.clone());
-        let MonitorResponse::Started { session, .. } = service
+        let collectors = Arc::new(CollectorManager::new(Duration::from_millis(100)));
+        let mut ipc_service = HelperIpcService::new(collectors.clone());
+        let MonitorResponse::Started { session, .. } = ipc_service
             .dispatch(MonitorRequest::ObserveProcess { id: target.id })
             .unwrap()
         else {
             panic!("session expected")
         };
-        assert_eq!(state.monitoring.observer_count(), 1);
-        service.sessions.get_mut(&session).unwrap().polled = Instant::now() - SESSION_LEASE;
-        service.expire();
-        assert_eq!(state.monitoring.observer_count(), 0);
-        assert!(service.dispatch(MonitorRequest::Poll { session }).is_err());
-        state.stop();
-        state.join_collectors().unwrap();
+        assert_eq!(collectors.monitoring.observer_count(), 1);
+        ipc_service.sessions.get_mut(&session).unwrap().polled = Instant::now() - SESSION_LEASE;
+        ipc_service.expire();
+        assert_eq!(collectors.monitoring.observer_count(), 0);
+        assert!(
+            ipc_service
+                .dispatch(MonitorRequest::Poll { session })
+                .is_err()
+        );
+        collectors.stop();
+        collectors.join_collectors().unwrap();
     }
 }
 
@@ -273,9 +279,9 @@ mod exit_tests {
     #[test]
     fn closed_watch_delivers_final_process_exit_before_ending_session() {
         let target = process::TestTarget::new("sleeping");
-        let state = Arc::new(MonitorState::new(Duration::from_millis(20)));
-        let mut service = MonitorService::new(state.clone());
-        let MonitorResponse::Started { session, .. } = service
+        let collectors = Arc::new(CollectorManager::new(Duration::from_millis(20)));
+        let mut ipc_service = HelperIpcService::new(collectors.clone());
+        let MonitorResponse::Started { session, .. } = ipc_service
             .dispatch(MonitorRequest::ObserveProcess { id: target.id })
             .unwrap()
         else {
@@ -284,7 +290,7 @@ mod exit_tests {
         assert_eq!(unsafe { libc::kill(target.id.pid, libc::SIGTERM) }, 0);
         let deadline = Instant::now() + Duration::from_secs(5);
         loop {
-            let Subscription::Process(subscription) = &service.sessions[&session].subscription
+            let Subscription::Process(subscription) = &ipc_service.sessions[&session].subscription
             else {
                 unreachable!()
             };
@@ -300,13 +306,15 @@ mod exit_tests {
         let MonitorResponse::Event {
             event: Some(MonitorEvent::Observation(data)),
             closed,
-        } = service.dispatch(MonitorRequest::Poll { session }).unwrap()
+        } = ipc_service
+            .dispatch(MonitorRequest::Poll { session })
+            .unwrap()
         else {
             panic!("final observation expected")
         };
         assert!(closed);
         assert!(data.exited);
-        state.stop();
-        state.join_collectors().unwrap();
+        collectors.stop();
+        collectors.join_collectors().unwrap();
     }
 }
