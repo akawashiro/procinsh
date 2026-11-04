@@ -14,7 +14,6 @@ struct CapabilitySet {
     permitted: u32,
     inheritable: u32,
 }
-const REQUIRED: u64 = (1 << 2) | (1 << 19) | (1 << 21) | (1 << 38) | (1 << 39);
 
 fn check(result: libc::c_long, operation: &str) -> Result<()> {
     if result < 0 {
@@ -52,13 +51,25 @@ fn prctl(option: i32, arg: libc::c_ulong, operation: &str) -> Result<()> {
 }
 
 pub(crate) fn restrict_helper_privileges() -> Result<()> {
+    const CAP_DAC_READ_SEARCH: u32 = 2;
+    const CAP_SETPCAP: u32 = 8;
+    const CAP_SYS_PTRACE: u32 = 19;
+    const CAP_SYS_ADMIN: u32 = 21;
+    const CAP_PERFMON: u32 = 38;
+    const CAP_BPF: u32 = 39;
+    const REQUIRED_CAPABILITIES: u64 = (1_u64 << CAP_DAC_READ_SEARCH)
+        | (1_u64 << CAP_SYS_PTRACE)
+        | (1_u64 << CAP_SYS_ADMIN)
+        | (1_u64 << CAP_PERFMON)
+        | (1_u64 << CAP_BPF);
+
     prctl(
         libc::PR_CAP_AMBIENT,
         libc::PR_CAP_AMBIENT_CLEAR_ALL as _,
         "clear ambient capabilities",
     )?;
     let mut data = capabilities()?;
-    if data[0].effective & (1 << 8) != 0 {
+    if data[0].effective & (1 << CAP_SETPCAP) != 0 {
         // Disable UID-0's special exec capability rules while CAP_SETPCAP is
         // available; keep only the five explicitly documented inspection caps.
         prctl(libc::PR_SET_SECUREBITS, 1 | 2, "lock SECBIT_NOROOT")?;
@@ -66,7 +77,7 @@ pub(crate) fn restrict_helper_privileges() -> Result<()> {
             .trim()
             .parse()?;
         for cap in 0..=last {
-            if cap >= 64 || REQUIRED & (1_u64 << cap) == 0 {
+            if cap >= 64 || REQUIRED_CAPABILITIES & (1_u64 << cap) == 0 {
                 prctl(
                     libc::PR_CAPBSET_DROP,
                     cap as _,
@@ -76,7 +87,7 @@ pub(crate) fn restrict_helper_privileges() -> Result<()> {
         }
     }
     for (i, set) in data.iter_mut().enumerate() {
-        let mask = (REQUIRED >> (i * 32)) as u32;
+        let mask = (REQUIRED_CAPABILITIES >> (i * 32)) as u32;
         set.permitted &= mask;
         set.effective &= mask;
         set.inheritable = 0;
