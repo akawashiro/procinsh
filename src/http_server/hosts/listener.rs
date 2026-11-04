@@ -1,6 +1,6 @@
 //! The hub side of agent links.
 
-use super::identity::HostInfo;
+use super::identity::{HostInfo, valid_host_name};
 use super::link::AgentLink;
 use super::registry::HostRegistry;
 use super::wire::{self, Message};
@@ -67,6 +67,13 @@ async fn handshake(
     else {
         bail!("agent did not start with hello");
     };
+    let mut info = HostInfo {
+        name: host.clone(),
+        machine_id,
+        version,
+        kernel,
+        arch,
+    };
     let admitted = if protocol != wire::PROTOCOL {
         Err(format!(
             "agent protocol {protocol} is not supported (hub protocol {})",
@@ -76,17 +83,11 @@ async fn handshake(
         && !wire::same_secret(expected, offered.as_deref().unwrap_or_default())
     {
         Err("agent token mismatch".into())
+    } else if !valid_host_name(&info.name) {
+        Err("invalid agent host name".into())
     } else {
-        registry.admit(
-            HostInfo {
-                name: host.clone(),
-                machine_id,
-                version,
-                kernel,
-                arch,
-            },
-            link,
-        )
+        info.protect_remote();
+        registry.admit(info.clone(), link)
     };
     match admitted {
         Ok(id) => {
@@ -98,7 +99,7 @@ async fn handshake(
                 },
             )
             .await?;
-            Ok((host, id))
+            Ok((info.name, id))
         }
         Err(reason) => {
             wire::write(
