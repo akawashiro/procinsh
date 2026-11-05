@@ -30,6 +30,7 @@ fn file_identity(meta: &fs::Metadata) -> (u64, u64, u64, i64, i64) {
         meta.mtime_nsec(),
     )
 }
+
 fn matching_file(pid: i32, map: &MemoryMap) -> Option<(fs::File, fs::Metadata)> {
     let mut paths = vec![
         PathBuf::from(format!(

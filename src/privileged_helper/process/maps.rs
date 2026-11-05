@@ -18,6 +18,7 @@
 use super::procfs::read_text;
 pub(in crate::privileged_helper) use crate::ipc::model::memory::*;
 use anyhow::Result;
+
 pub(super) fn read_maps(pid: i32) -> Result<Vec<MemoryMap>> {
     read_text(&format!("/proc/{pid}/maps"))?
         .lines()

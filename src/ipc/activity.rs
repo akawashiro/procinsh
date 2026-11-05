@@ -173,11 +173,13 @@ fn u32_at(bytes: &[u8], offset: usize) -> Option<u32> {
         bytes.get(offset..offset + 4)?.try_into().ok()?,
     ))
 }
+
 pub(crate) fn u64_at(bytes: &[u8], offset: usize) -> Option<u64> {
     Some(u64::from_ne_bytes(
         bytes.get(offset..offset + 8)?.try_into().ok()?,
     ))
 }
+
 pub fn process_key(bytes: &[u8]) -> Option<ProcessKey> {
     Some(ProcessKey {
         start: u64_at(bytes, 0)?,

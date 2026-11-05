@@ -45,6 +45,7 @@ impl<'de> serde::Deserialize<'de> for crate::http_server::model::resource::Devic
 pub fn decimal<S: serde::Serializer>(value: &u64, serializer: S) -> Result<S::Ok, S::Error> {
     serializer.collect_str(value)
 }
+
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(dead_code)]
 #[serde(remote = "crate::http_server::model::resource::IpcKind")]

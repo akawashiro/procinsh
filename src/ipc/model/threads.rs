@@ -52,6 +52,7 @@ pub fn affinity(text: &str) -> Option<Vec<CpuRange>> {
         })
         .collect()
 }
+
 #[derive(Clone, Debug)]
 pub struct ThreadObservation {
     pub tid: i32,

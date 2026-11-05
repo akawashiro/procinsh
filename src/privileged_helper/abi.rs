@@ -9,6 +9,7 @@
 use crate::ipc::activity::{FileActivity, IpcEvent, SignalSample};
 use crate::ipc::model::resource::{DeviceId, FileIdentity};
 use crate::ipc::schema::ProcessId;
+
 pub fn decode_file(data: &[u8]) -> Option<FileActivity> {
     if data.len() != 4144 {
         return None;
@@ -44,6 +45,7 @@ pub fn decode_file(data: &[u8]) -> Option<FileActivity> {
         count: 1,
     })
 }
+
 pub fn decode_ipc(bytes: &[u8]) -> Option<IpcEvent> {
     if bytes.len() != 56 {
         return None;
@@ -61,6 +63,7 @@ pub fn decode_ipc(bytes: &[u8]) -> Option<IpcEvent> {
         worker: u32at(52) != 0,
     })
 }
+
 pub fn decode_signal(bytes: &[u8]) -> Option<SignalSample> {
     if bytes.len() != 40 {
         return None;

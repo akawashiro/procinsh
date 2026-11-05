@@ -280,9 +280,11 @@ impl<'de> serde::Deserialize<'de> for IbGid {
         Self::parse(&text).ok_or_else(|| serde::de::Error::custom("invalid IB GID"))
     }
 }
+
 fn hex<S: serde::Serializer>(value: &u64, s: S) -> Result<S::Ok, S::Error> {
     s.collect_str(&format_args!("0x{value:016x}"))
 }
+
 fn unhex<'de, D: serde::Deserializer<'de>>(d: D) -> Result<u64, D::Error> {
     let s = <String as serde::Deserialize>::deserialize(d)?;
     u64::from_str_radix(s.trim_start_matches("0x"), 16).map_err(serde::de::Error::custom)

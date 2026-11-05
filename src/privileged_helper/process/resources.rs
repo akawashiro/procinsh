@@ -35,6 +35,7 @@ pub(in crate::privileged_helper) fn observation(
         threads_only: false,
     })
 }
+
 pub(in crate::privileged_helper) fn threads(
     id: ProcessId,
 ) -> Result<crate::ipc::acquisition::ObservationData> {
@@ -43,6 +44,7 @@ pub(in crate::privileged_helper) fn threads(
         threads_only: true,
     })
 }
+
 pub use crate::ipc::acquisition::MemoryMaps;
 
 pub(in crate::privileged_helper) fn maps(id: ProcessId) -> Result<MemoryMaps> {

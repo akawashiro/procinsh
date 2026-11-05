@@ -13,9 +13,11 @@ pub(super) struct SnapshotEncoder {
     epochs: HashMap<String, Value>,
     sequence: u64,
 }
+
 fn key(value: &Value, field: &str) -> String {
     value[field].to_string()
 }
+
 fn delta(old: &[Value], current: &[Value], field: &str) -> Option<Value> {
     let previous: HashMap<_, _> = old.iter().map(|v| (key(v, field), v)).collect();
     let live: std::collections::HashSet<_> = current.iter().map(|v| key(v, field)).collect();
@@ -31,9 +33,11 @@ fn delta(old: &[Value], current: &[Value], field: &str) -> Option<Value> {
     let delta = json!({"upsert":upsert,"remove":remove});
     (delta.to_string().len() + 6 < serde_json::to_vec(current).unwrap().len()).then_some(delta)
 }
+
 fn entries(value: &Value) -> &[Value] {
     value.as_array().map(Vec::as_slice).unwrap_or_default()
 }
+
 impl SnapshotEncoder {
     pub(super) fn encode(
         &mut self,

@@ -15,9 +15,11 @@ use crate::{
     ipc::model::threads::{ThreadObservation, ThreadSample},
     ipc::schema::ProcessId,
 };
+
 pub fn ticks_per_second() -> f64 {
     unsafe { libc::sysconf(libc::_SC_CLK_TCK) }.max(1) as f64
 }
+
 #[derive(Clone, Debug, Default)]
 pub struct IoStats {
     pub read_bytes: u64,

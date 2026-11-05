@@ -202,6 +202,7 @@ fn compressed_debug_sections_reject_decompression_bombs() {
 fn load(path: &Path) -> Option<ElfSymbols> {
     ElfSymbols::parse(&fs::read(path).ok()?)
 }
+
 fn load_cached(cache: &mut ElfCache, map: &MemoryMap) -> Option<Arc<ElfSymbols>> {
     let path = Path::new(map.pathname.as_deref()?);
     let meta = fs::metadata(path).ok()?;

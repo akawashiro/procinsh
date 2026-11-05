@@ -17,10 +17,12 @@ use crate::http_server::model::resource::{DeviceId, decimal};
 pub use crate::ipc::model::memory::*;
 use anyhow::Result;
 use serde::Deserialize;
+
 pub fn deserialize_hex<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<u64, D::Error> {
     let value = String::deserialize(deserializer)?;
     u64::from_str_radix(value.trim_start_matches("0x"), 16).map_err(serde::de::Error::custom)
 }
+
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(dead_code)]
 #[serde(remote = "crate::http_server::model::memory::MemoryKind")]

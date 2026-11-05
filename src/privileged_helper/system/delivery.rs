@@ -67,6 +67,7 @@ struct EntryDelta<'a, T: Serialize, K: Serialize> {
     upsert: Vec<&'a T>,
     remove: Vec<K>,
 }
+
 fn map_delta<'a>(old: &[MemoryMap], current: &'a [MemoryMap]) -> EntryDelta<'a, MemoryMap, String> {
     let previous: HashMap<_, _> = old.iter().map(|m| (m.start, m)).collect();
     let live: std::collections::HashSet<_> = current.iter().map(|m| m.start).collect();
@@ -82,6 +83,7 @@ fn map_delta<'a>(old: &[MemoryMap], current: &'a [MemoryMap]) -> EntryDelta<'a, 
             .collect(),
     }
 }
+
 /// An ID-keyed delta from the previous baseline, or None when replacing the whole
 /// collection is smaller.
 fn entry_delta<'a, T: Serialize + PartialEq>(
@@ -107,6 +109,7 @@ fn entry_delta<'a, T: Serialize + PartialEq>(
         serde_json::to_vec(d).unwrap().len() + 6 < serde_json::to_vec(current).unwrap().len()
     })
 }
+
 impl SnapshotEncoder {
     /// Encodes full or delta SSE snapshots with a sequence and, for deltas, base sequence.
     /// Map deltas use start addresses; FD relation and device handle deltas use IDs.

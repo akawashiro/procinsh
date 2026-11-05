@@ -12,6 +12,7 @@ use anyhow::{Context, Result, bail, ensure};
 use std::{fs::File, io::Read};
 const MAX_ENVIRONMENT: usize = 1024 * 1024;
 const MAX_AUXV: usize = 64 * 1024;
+
 fn read_limited(reader: impl Read, limit: usize) -> Result<Vec<u8>> {
     let mut bytes = Vec::new();
     reader.take(limit as u64 + 1).read_to_end(&mut bytes)?;

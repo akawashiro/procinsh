@@ -49,6 +49,7 @@ pub(super) enum MonitorResponse {
     },
     Closed,
 }
+
 fn event(raw: crate::ipc::schema::MonitorEvent) -> Result<MonitorEvent> {
     use crate::ipc::schema::MonitorEvent as Raw;
     Ok(match raw {
@@ -60,6 +61,7 @@ fn event(raw: crate::ipc::schema::MonitorEvent) -> Result<MonitorEvent> {
         }
     })
 }
+
 pub(super) fn response(raw: crate::ipc::schema::MonitorResponse) -> Result<MonitorResponse> {
     use crate::ipc::schema::{AcquiredData, MonitorResponse as Raw};
     Ok(match raw {
