@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 pub(super) const COVERAGE: &str = "Regular-file read/write, pread/pwrite and vectored I/O, including page cache. Not physical disk traffic. mmap, io_uring, splice/sendfile and kernel workers are not observed.";
 const MAX_AGGREGATES: usize = 8192;
 pub(super) use crate::ipc::activity::FileActivity;
-use crate::privileged_helper::abi::decode_file;
+use crate::privileged_helper::bpf_records::decode_file;
 #[derive(Default)]
 struct Batch {
     events: Vec<FileActivity>,
