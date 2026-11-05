@@ -3,9 +3,9 @@ use super::sampling::{initial_observation, next_observation};
 #[cfg(test)]
 use std::collections::VecDeque;
 // Session handles and lifecycle methods are re-exported by the process façade.
-#[cfg(test)]
-use super::history::{self};
 use super::sampling::{ProcessSample, capture_sample};
+#[cfg(test)]
+use crate::http_server::analysis::history;
 use crate::privileged_helper::process::SubscribeError;
 
 use crate::privileged_helper::process::{
