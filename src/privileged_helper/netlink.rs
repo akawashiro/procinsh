@@ -6,6 +6,7 @@
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
 //! | [`NetlinkDumpRequest`] | `pub(super)` | `struct NetlinkDumpRequest` |
+//! | [`dump`] | `pub(super)` | `fn dump(fd: &`[`OwnedFd`]`, request: &`[`NetlinkDumpRequest`]`<'_>, deadline: `[`Instant`]`) -> `[`Result`]`<`[`Vec`]`<`[`Vec`]`<`[`u8`]`>>>` |
 //! | [`open_socket`] | `pub(super)` | `fn open_socket(protocol: `[`i32`]`, name: &`[`str`]`) -> `[`Result`]`<`[`OwnedFd`]`>` |
 //! | [`attributes`] | `pub(super)` | `fn attributes(bytes: &[`[`u8`]`]) -> `[`Result`]`<`[`Vec`]`<(`[`u16`]`, &[`[`u8`]`])>>` |
 //! | [`u32_at`] | `pub(super)` | `fn u32_at(bytes: &[`[`u8`]`], offset: `[`usize`]`) -> `[`Result`]`<`[`u32`]`>` |
@@ -80,128 +81,136 @@ pub(super) struct NetlinkDumpRequest<'a> {
     pub(super) payload: &'a [u8],
 }
 
-impl NetlinkDumpRequest<'_> {
-    /// Sends the request and passes each reply body to `visit` until `NLMSG_DONE`.
-    /// Interrupted dumps, replies from other senders or sequences, error messages and
-    /// replies above 8 MiB fail. The deadline bounds the whole exchange.
-    pub(super) fn run(
-        &self,
-        fd: &OwnedFd,
-        deadline: Instant,
-        mut visit: impl FnMut(&[u8]) -> Result<()>,
-    ) -> Result<()> {
-        let label = self.label;
+/// Sends the request and returns owned reply bodies in receive order after `NLMSG_DONE`.
+/// Control messages are excluded. Failed requests return no partial results.
+/// Interrupted dumps, replies from other senders or sequences, error messages and
+/// replies above 8 MiB fail. The deadline bounds the whole exchange.
+pub(super) fn dump(
+    fd: &OwnedFd,
+    request: &NetlinkDumpRequest<'_>,
+    deadline: Instant,
+) -> Result<Vec<Vec<u8>>> {
+    let label = request.label;
+    ensure!(Instant::now() < deadline, "{label} timed out");
+    let mut kernel: libc::sockaddr_nl = unsafe { std::mem::zeroed() };
+    kernel.nl_family = libc::AF_NETLINK as u16;
+    let mut packet = vec![0u8; HEADER];
+    packet[0..4].copy_from_slice(&((HEADER + request.payload.len()) as u32).to_ne_bytes());
+    packet[4..6].copy_from_slice(&request.message_type.to_ne_bytes());
+    packet[6..8].copy_from_slice(&DUMP_FLAGS.to_ne_bytes());
+    packet[8..12].copy_from_slice(&request.sequence.to_ne_bytes());
+    packet.extend_from_slice(request.payload);
+    let sent = unsafe {
+        libc::sendto(
+            fd.as_raw_fd(),
+            packet.as_ptr().cast(),
+            packet.len(),
+            0,
+            (&kernel as *const libc::sockaddr_nl).cast(),
+            std::mem::size_of_val(&kernel) as _,
+        )
+    };
+    ensure!(
+        sent == packet.len() as isize,
+        "{label} send: {}",
+        std::io::Error::last_os_error()
+    );
+    receive_replies(fd, request, deadline)
+}
+
+fn receive_replies(
+    fd: &OwnedFd,
+    request: &NetlinkDumpRequest<'_>,
+    deadline: Instant,
+) -> Result<Vec<Vec<u8>>> {
+    let label = request.label;
+    let mut replies = Vec::new();
+    let mut buffer = vec![0u8; 65536];
+    let mut total = 0;
+    loop {
         ensure!(Instant::now() < deadline, "{label} timed out");
-        let mut kernel: libc::sockaddr_nl = unsafe { std::mem::zeroed() };
-        kernel.nl_family = libc::AF_NETLINK as u16;
-        let mut request = vec![0u8; HEADER];
-        request[0..4].copy_from_slice(&((HEADER + self.payload.len()) as u32).to_ne_bytes());
-        request[4..6].copy_from_slice(&self.message_type.to_ne_bytes());
-        request[6..8].copy_from_slice(&DUMP_FLAGS.to_ne_bytes());
-        request[8..12].copy_from_slice(&self.sequence.to_ne_bytes());
-        request.extend_from_slice(self.payload);
-        let sent = unsafe {
-            libc::sendto(
-                fd.as_raw_fd(),
-                request.as_ptr().cast(),
-                request.len(),
-                0,
-                (&kernel as *const libc::sockaddr_nl).cast(),
-                std::mem::size_of_val(&kernel) as _,
-            )
+        let mut poll = libc::pollfd {
+            fd: fd.as_raw_fd(),
+            events: libc::POLLIN,
+            revents: 0,
         };
-        ensure!(
-            sent == request.len() as isize,
-            "{label} send: {}",
-            std::io::Error::last_os_error()
-        );
-        let mut buffer = vec![0u8; 65536];
-        let mut total = 0;
-        loop {
-            ensure!(Instant::now() < deadline, "{label} timed out");
-            let mut poll = libc::pollfd {
-                fd: fd.as_raw_fd(),
-                events: libc::POLLIN,
-                revents: 0,
-            };
-            let remaining = deadline.saturating_duration_since(Instant::now());
-            let timeout = remaining.as_millis().clamp(1, 50) as i32;
-            let ready = unsafe { libc::poll(&mut poll, 1, timeout) };
-            if ready < 0 {
-                if std::io::Error::last_os_error().raw_os_error() == Some(libc::EINTR) {
-                    continue;
-                }
-                bail!(std::io::Error::last_os_error());
-            }
-            if ready == 0 {
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        let timeout = remaining.as_millis().clamp(1, 50) as i32;
+        let ready = unsafe { libc::poll(&mut poll, 1, timeout) };
+        if ready < 0 {
+            if std::io::Error::last_os_error().raw_os_error() == Some(libc::EINTR) {
                 continue;
             }
-            let mut sender: libc::sockaddr_nl = unsafe { std::mem::zeroed() };
-            let mut sender_len = std::mem::size_of_val(&sender) as libc::socklen_t;
-            let count = unsafe {
-                libc::recvfrom(
-                    fd.as_raw_fd(),
-                    buffer.as_mut_ptr().cast(),
-                    buffer.len(),
-                    libc::MSG_TRUNC | libc::MSG_DONTWAIT,
-                    (&mut sender as *mut libc::sockaddr_nl).cast(),
-                    &mut sender_len,
-                )
-            };
-            if count < 0 {
-                let error = std::io::Error::last_os_error();
-                if matches!(error.raw_os_error(), Some(libc::EINTR) | Some(libc::EAGAIN)) {
-                    continue;
-                }
-                return Err(error.into());
+            bail!(std::io::Error::last_os_error());
+        }
+        if ready == 0 {
+            continue;
+        }
+        let mut sender: libc::sockaddr_nl = unsafe { std::mem::zeroed() };
+        let mut sender_len = std::mem::size_of_val(&sender) as libc::socklen_t;
+        let count = unsafe {
+            libc::recvfrom(
+                fd.as_raw_fd(),
+                buffer.as_mut_ptr().cast(),
+                buffer.len(),
+                libc::MSG_TRUNC | libc::MSG_DONTWAIT,
+                (&mut sender as *mut libc::sockaddr_nl).cast(),
+                &mut sender_len,
+            )
+        };
+        if count < 0 {
+            let error = std::io::Error::last_os_error();
+            if matches!(error.raw_os_error(), Some(libc::EINTR) | Some(libc::EAGAIN)) {
+                continue;
             }
+            return Err(error.into());
+        }
+        ensure!(
+            count > 0 && count as usize <= buffer.len(),
+            "truncated {label} packet"
+        );
+        ensure!(sender.nl_pid == 0, "{label} sender is not kernel");
+        total += count as usize;
+        ensure!(total <= REPLY_LIMIT, "{label} exceeds 8 MiB limit");
+        let bytes = &buffer[..count as usize];
+        let mut offset = 0;
+        while offset < bytes.len() {
+            ensure!(offset + HEADER <= bytes.len(), "short netlink header");
+            let length = u32_at(bytes, offset)? as usize;
             ensure!(
-                count > 0 && count as usize <= buffer.len(),
-                "truncated {label} packet"
+                length >= HEADER && length <= bytes.len() - offset,
+                "invalid netlink length"
             );
-            ensure!(sender.nl_pid == 0, "{label} sender is not kernel");
-            total += count as usize;
-            ensure!(total <= REPLY_LIMIT, "{label} exceeds 8 MiB limit");
-            let bytes = &buffer[..count as usize];
-            let mut offset = 0;
-            while offset < bytes.len() {
-                ensure!(offset + HEADER <= bytes.len(), "short netlink header");
-                let length = u32_at(bytes, offset)? as usize;
-                ensure!(
-                    length >= HEADER && length <= bytes.len() - offset,
-                    "invalid netlink length"
-                );
-                let kind = u16::from_ne_bytes(bytes[offset + 4..offset + 6].try_into()?);
-                let flags = u16::from_ne_bytes(bytes[offset + 6..offset + 8].try_into()?);
-                ensure!(
-                    u32_at(bytes, offset + 8)? == self.sequence && flags & NLM_F_DUMP_INTR == 0,
-                    "{label} dump interrupted"
-                );
-                let body = &bytes[offset + HEADER..offset + length];
-                match kind {
-                    // Both carry a negative errno; keep it as an io::Error so callers
-                    // can tell an unsupported dump from a failed one.
-                    NLMSG_DONE => {
-                        if body.len() >= 4 {
-                            let code = u32_at(body, 0)? as i32;
-                            if code != 0 {
-                                return Err(kernel_error(code))
-                                    .with_context(|| format!("{label} dump failed"));
-                            }
-                        }
-                        return Ok(());
-                    }
-                    NLMSG_ERROR => {
+            let kind = u16::from_ne_bytes(bytes[offset + 4..offset + 6].try_into()?);
+            let flags = u16::from_ne_bytes(bytes[offset + 6..offset + 8].try_into()?);
+            ensure!(
+                u32_at(bytes, offset + 8)? == request.sequence && flags & NLM_F_DUMP_INTR == 0,
+                "{label} dump interrupted"
+            );
+            let body = &bytes[offset + HEADER..offset + length];
+            match kind {
+                // Both carry a negative errno; keep it as an io::Error so callers
+                // can tell an unsupported dump from a failed one.
+                NLMSG_DONE => {
+                    if body.len() >= 4 {
                         let code = u32_at(body, 0)? as i32;
                         if code != 0 {
-                            return Err(kernel_error(code)).with_context(|| label.to_owned());
+                            return Err(kernel_error(code))
+                                .with_context(|| format!("{label} dump failed"));
                         }
                     }
-                    kind if kind == self.reply_type => visit(body)?,
-                    _ => bail!("unexpected netlink message {kind}"),
+                    return Ok(replies);
                 }
-                offset += (length + 3) & !3;
+                NLMSG_ERROR => {
+                    let code = u32_at(body, 0)? as i32;
+                    if code != 0 {
+                        return Err(kernel_error(code)).with_context(|| label.to_owned());
+                    }
+                }
+                kind if kind == request.reply_type => replies.push(body.to_vec()),
+                _ => bail!("unexpected netlink message {kind}"),
             }
+            offset += (length + 3) & !3;
         }
     }
 }
@@ -209,6 +218,105 @@ impl NetlinkDumpRequest<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn message(kind: u16, flags: u16, sequence: u32, body: &[u8]) -> Vec<u8> {
+        let mut bytes = vec![0u8; HEADER];
+        bytes[..4].copy_from_slice(&((HEADER + body.len()) as u32).to_ne_bytes());
+        bytes[4..6].copy_from_slice(&kind.to_ne_bytes());
+        bytes[6..8].copy_from_slice(&flags.to_ne_bytes());
+        bytes[8..12].copy_from_slice(&sequence.to_ne_bytes());
+        bytes.extend_from_slice(body);
+        bytes.resize((bytes.len() + 3) & !3, 0);
+        bytes
+    }
+
+    fn receive_packets(packets: &[Vec<u8>]) -> Result<Vec<Vec<u8>>> {
+        // Unnamed datagrams exercise the receive loop with deterministic packets.
+        // Their empty sender address leaves the zero-initialized nl_pid at zero.
+        let (sender, receiver) = std::os::unix::net::UnixDatagram::pair()?;
+        for packet in packets {
+            sender.send(packet)?;
+        }
+        let request = NetlinkDumpRequest {
+            label: "test dump",
+            message_type: 20,
+            reply_type: 20,
+            sequence: 7,
+            payload: &[],
+        };
+        receive_replies(
+            &OwnedFd::from(receiver),
+            &request,
+            Instant::now() + std::time::Duration::from_millis(100),
+        )
+    }
+
+    #[test]
+    fn dump_returns_owned_bodies_in_order_and_excludes_control_messages() {
+        let mut first = message(20, 0, 7, b"first");
+        first.extend(message(20, 0, 7, b"second"));
+        first.extend(message(NLMSG_ERROR, 0, 7, &0i32.to_ne_bytes()));
+        let replies = receive_packets(&[
+            first,
+            message(20, 0, 7, b"third"),
+            message(NLMSG_DONE, 0, 7, &0i32.to_ne_bytes()),
+        ])
+        .unwrap();
+        assert_eq!(
+            replies,
+            [b"first".to_vec(), b"second".to_vec(), b"third".to_vec()]
+        );
+    }
+
+    #[test]
+    fn empty_dump_returns_empty_list() {
+        assert!(
+            receive_packets(&[message(NLMSG_DONE, 0, 7, &[])])
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn failed_dump_returns_error_instead_of_received_bodies() {
+        for kind in [NLMSG_ERROR, NLMSG_DONE] {
+            let error = receive_packets(&[
+                message(20, 0, 7, b"partial"),
+                message(kind, 0, 7, &(-libc::EOPNOTSUPP).to_ne_bytes()),
+            ])
+            .unwrap_err();
+            assert_eq!(
+                error
+                    .downcast_ref::<std::io::Error>()
+                    .unwrap()
+                    .raw_os_error(),
+                Some(libc::EOPNOTSUPP)
+            );
+        }
+    }
+
+    #[test]
+    fn interrupted_or_mismatched_dump_returns_no_results() {
+        for (flags, sequence) in [(NLM_F_DUMP_INTR, 7), (0, 8)] {
+            assert!(
+                receive_packets(&[
+                    message(20, 0, 7, b"partial"),
+                    message(NLMSG_DONE, flags, sequence, &[]),
+                ])
+                .is_err()
+            );
+        }
+    }
+
+    #[test]
+    fn dump_without_completion_times_out() {
+        assert!(
+            receive_packets(&[message(20, 0, 7, b"partial")])
+                .unwrap_err()
+                .to_string()
+                .contains("timed out")
+        );
+    }
 
     fn attribute(kind: u16, data: &[u8]) -> Vec<u8> {
         let mut bytes = Vec::new();
