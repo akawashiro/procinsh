@@ -11,8 +11,6 @@
 //! Sampling returns raw [`sampling::ProcessSample`] counters with monotonic times.
 //! [`ProcessMonitor`] owns acquisition sessions; main derives observations and histories.
 
-#[cfg(test)]
-mod history;
 mod sampling;
 mod service;
 pub(super) use sampling::capture_sample;
