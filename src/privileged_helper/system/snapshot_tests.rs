@@ -67,6 +67,7 @@ fn netns_snapshot_resolves_multiple_namespaces_and_cross_namespace_holders() {
         }));
     }
 }
+
 impl Drop for Child {
     fn drop(&mut self) {
         let _ = self.0.kill();

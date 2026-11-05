@@ -21,6 +21,7 @@ fn check(result: libc::c_long, operation: &str) -> Result<()> {
     }
     Ok(())
 }
+
 fn capabilities() -> Result<[CapabilitySet; 2]> {
     let mut header = CapabilityHeader {
         version: 0x20080522,
@@ -33,6 +34,7 @@ fn capabilities() -> Result<[CapabilitySet; 2]> {
     )?;
     Ok(data)
 }
+
 fn set_capabilities(data: &[CapabilitySet; 2]) -> Result<()> {
     let header = CapabilityHeader {
         version: 0x20080522,
@@ -43,6 +45,7 @@ fn set_capabilities(data: &[CapabilitySet; 2]) -> Result<()> {
         "capset",
     )
 }
+
 fn prctl(option: i32, arg: libc::c_ulong, operation: &str) -> Result<()> {
     check(
         unsafe { libc::prctl(option, arg, 0, 0, 0) } as libc::c_long,

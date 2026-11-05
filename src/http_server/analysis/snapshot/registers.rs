@@ -41,6 +41,7 @@ fn optional_hex<S: serde::Serializer>(
         None => serializer.serialize_none(),
     }
 }
+
 /// Classified register value; its mapping-relative offset serializes as hex or null.
 #[derive(serde::Serialize)]
 #[allow(dead_code)]
@@ -103,6 +104,7 @@ impl<'de> serde::Deserialize<'de> for RegisterSet {
         Ok(result)
     }
 }
+
 pub fn from_sample(r: &RegisterSet, maps: &[MemoryMap]) -> Vec<Register> {
     REGISTERS
         .iter()

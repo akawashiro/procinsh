@@ -183,6 +183,7 @@ impl ElfImage {
         Ok(merged)
     }
 }
+
 pub(super) fn needed_section(name: &str) -> bool {
     name.starts_with(".debug_")
         || name.starts_with(".zdebug_")
@@ -198,6 +199,7 @@ pub(super) fn needed_section(name: &str) -> bool {
                 | ".symtab_shndx"
         )
 }
+
 impl<'a> ReadRef<'a> for &'a ElfImage {
     fn len(self) -> std::result::Result<u64, ()> {
         Ok(self.identity.2)

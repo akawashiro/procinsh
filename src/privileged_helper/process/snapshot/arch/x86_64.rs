@@ -15,6 +15,7 @@ use std::ptr;
 // AX/BX/CX/DX/SI/DI/BP/SP/IP/FLAGS and R8–R15, in kernel register order.
 pub(in crate::privileged_helper::process::snapshot) const PERF_REGS_MASK: u64 =
     0x3ff | (0xff << 16);
+
 /// Reads a ptrace-stopped thread's registers in PERF_REG_X86_* order.
 pub(in crate::privileged_helper::process::snapshot) fn read_registers(
     tid: i32,

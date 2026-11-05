@@ -12,6 +12,7 @@ pub(in crate::privileged_helper::process) use crate::http_server::model::process
 pub(in crate::privileged_helper::process) use crate::ipc::model::process::ProcessSample;
 use crate::privileged_helper::process::{self, ProcessId, procfs, threads};
 use anyhow::Result;
+
 pub(in crate::privileged_helper::process) fn capture_sample(
     id: ProcessId,
 ) -> Result<ProcessSample> {

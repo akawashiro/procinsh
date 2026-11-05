@@ -3,6 +3,7 @@
 //! # Interface
 //! Serde implementations for IPC acquisition types; no named types or functions are exported.
 use crate::ipc::acquisition::*;
+
 fn serialize_architecture<S: serde::Serializer>(
     header: &Option<[u8; 20]>,
     serializer: S,

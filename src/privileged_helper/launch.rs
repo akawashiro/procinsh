@@ -34,6 +34,7 @@ struct Cli {
 }
 
 static STOP: AtomicBool = AtomicBool::new(false);
+
 extern "C" fn stop(_: i32) {
     STOP.store(true, Ordering::Relaxed);
 }

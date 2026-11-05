@@ -263,6 +263,7 @@ impl<'a> Cursor<'a> {
         Ok(u64::from_ne_bytes(self.take(8)?.try_into()?))
     }
 }
+
 fn parse(bytes: &[u8]) -> Result<Option<Sample>> {
     let mut c = Cursor(bytes);
     let tids = c.take(8)?;
@@ -301,6 +302,7 @@ fn parse(bytes: &[u8]) -> Result<Option<Sample>> {
         stack: stack[..used].to_vec(),
     }))
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;

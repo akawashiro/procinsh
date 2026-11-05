@@ -214,6 +214,7 @@ fn netlink_name(protocol: u32) -> Option<&'static str> {
         _ => return None,
     })
 }
+
 /// Independently observed listener/peer availability, not a transport state.
 ///
 /// A peer includes an unnamed UNIX endpoint or a Netlink default destination;

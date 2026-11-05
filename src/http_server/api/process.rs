@@ -87,36 +87,42 @@ pub(super) async fn stats(
 ) -> ApiResult {
     resource(&s, query, ProcessResource::Observation).await
 }
+
 pub(super) async fn threads(
     State(s): State<Arc<AppState>>,
     Query(query): Query<ProcessQuery>,
 ) -> ApiResult {
     resource(&s, query, ProcessResource::Threads).await
 }
+
 pub(super) async fn maps(
     State(s): State<Arc<AppState>>,
     Query(query): Query<ProcessQuery>,
 ) -> ApiResult {
     resource(&s, query, ProcessResource::Maps).await
 }
+
 pub(super) async fn environment(
     State(s): State<Arc<AppState>>,
     Query(query): Query<ProcessQuery>,
 ) -> ApiResult {
     resource(&s, query, ProcessResource::Environment).await
 }
+
 pub(super) async fn fds(
     State(s): State<Arc<AppState>>,
     Query(query): Query<ProcessQuery>,
 ) -> ApiResult {
     resource(&s, query, ProcessResource::Fds).await
 }
+
 pub(super) async fn auxv(
     State(s): State<Arc<AppState>>,
     Query(query): Query<ProcessQuery>,
 ) -> ApiResult {
     resource(&s, query, ProcessResource::Auxv).await
 }
+
 async fn resource(state: &AppState, query: ProcessQuery, resource: ProcessResource) -> ApiResult {
     let id = query.id();
     request(

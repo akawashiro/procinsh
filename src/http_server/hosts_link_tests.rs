@@ -396,6 +396,7 @@ fn summary(host: &str, identity: ProcessId) -> crate::ipc::acquisition::ProcessS
         raw_measured_ns: 0,
     }
 }
+
 fn detail(host: &str, id: ProcessId) -> crate::ipc::acquisition::ProcessDetailSnapshot {
     let sample=serde_json::from_value(json!({"timestamp":1,"process_id":id,"rss_bytes":0,"vms_bytes":0,"minor_faults":0,"major_faults":0,"voluntary_context_switches":null,"nonvoluntary_context_switches":null,"io":null,"threads":[],"cpu":0,"nice":0,"priority":20,"ticks":0,"measured_at":0})).unwrap();
     crate::ipc::acquisition::ProcessDetailSnapshot {

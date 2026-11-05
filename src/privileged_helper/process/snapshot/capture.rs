@@ -283,6 +283,7 @@ impl Sampler {
             .collect()
     }
 }
+
 fn process_sample(
     pid: i32,
     #[cfg(test)] unwind: &mut StackUnwinder,

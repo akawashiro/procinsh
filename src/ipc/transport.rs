@@ -56,6 +56,7 @@ fn remaining(deadline: Instant) -> std::io::Result<Duration> {
         .filter(|d| !d.is_zero())
         .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::TimedOut, "monitor frame timed out"))
 }
+
 fn read_until(
     socket: &mut UnixStream,
     mut bytes: &mut [u8],
@@ -77,6 +78,7 @@ fn read_until(
     }
     Ok(())
 }
+
 fn write_until(
     socket: &mut UnixStream,
     mut bytes: &[u8],

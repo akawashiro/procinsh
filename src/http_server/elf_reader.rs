@@ -12,6 +12,7 @@ use crate::{
     },
 };
 use anyhow::{Result, bail};
+
 async fn read(
     client: &MonitorClient,
     id: ProcessId,
@@ -30,6 +31,7 @@ async fn read(
         _ => bail!("unexpected mapped file response"),
     }
 }
+
 pub(super) async fn acquire(
     client: &MonitorClient,
     id: ProcessId,

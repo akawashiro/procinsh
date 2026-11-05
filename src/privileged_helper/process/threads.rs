@@ -16,6 +16,7 @@ use super::procfs::{self, Stat};
 pub(super) use crate::ipc::model::threads::*;
 use anyhow::{Result, ensure};
 use std::fs;
+
 pub(super) fn tids(pid: i32) -> Result<Vec<i32>> {
     let mut tids: Vec<_> = fs::read_dir(format!("/proc/{pid}/task"))?
         .flatten()

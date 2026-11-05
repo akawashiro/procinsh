@@ -121,6 +121,7 @@ fn reverse(ip: IpAddr) -> Option<String> {
         .into_owned();
     (!name.is_empty() && name.parse::<IpAddr>().is_err()).then_some(name)
 }
+
 impl Default for ReverseDnsResolver {
     fn default() -> Self {
         Self::new()

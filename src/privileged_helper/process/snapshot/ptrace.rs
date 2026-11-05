@@ -25,6 +25,7 @@ pub(super) fn request(
     }
     Ok(())
 }
+
 /// Owns a ptrace attachment and attempts to detach the thread when dropped.
 struct PtraceGuard {
     tid: i32,
@@ -83,6 +84,7 @@ impl Drop for PtraceGuard {
         }
     }
 }
+
 pub(super) fn capture(tid: i32, maps: &[MemoryMap]) -> Result<RawSample> {
     request(libc::PTRACE_SEIZE, tid, 0, 0)?;
     let mut attachment = PtraceGuard {

@@ -77,6 +77,7 @@ impl<'a> Decoder<'a> {
         self.take(length)
     }
 }
+
 pub fn encode<T: Wire>(value: &T, limit: usize) -> Result<Vec<u8>> {
     let mut output = Encoder {
         bytes: Vec::new(),
@@ -85,12 +86,14 @@ pub fn encode<T: Wire>(value: &T, limit: usize) -> Result<Vec<u8>> {
     value.write(&mut output)?;
     Ok(output.bytes)
 }
+
 pub fn decode<T: Wire>(bytes: &[u8]) -> Result<T> {
     let mut input = Decoder { bytes };
     let value = T::read(&mut input)?;
     ensure!(input.bytes.is_empty(), "trailing monitor bytes");
     Ok(value)
 }
+
 macro_rules! number {
     ($($type:ty),+ $(,)?) => {$(
         impl Wire for $type {
