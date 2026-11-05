@@ -25,7 +25,7 @@ const MAX_EVENTS: usize = 1024;
 #[cfg(test)]
 use crate::http_server::analysis::activity::resolve_signal;
 use crate::ipc::activity::SignalSample;
-use crate::privileged_helper::abi::decode_signal;
+use crate::privileged_helper::bpf_records::decode_signal;
 /// Owns the signal_generate hook and a bounded batch of process-level observations.
 /// At most 1024 events are retained between service drains. Excess events contribute
 /// to `lost`, independently of other sensors. Main matches process identities.

@@ -1,5 +1,5 @@
 use crate::ipc::activity::IpcEvent;
-use crate::privileged_helper::abi::decode_ipc;
+use crate::privileged_helper::bpf_records::decode_ipc;
 use anyhow::{Context, Result};
 use libbpf_rs::{MapCore, MapFlags, ObjectBuilder, RingBufferBuilder};
 use std::sync::{Arc, Mutex};

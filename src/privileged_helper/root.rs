@@ -5,6 +5,7 @@
 //! | Definition | Visibility | Signature |
 //! | --- | --- | --- |
 //! | [`run`] | `pub(crate)` | `fn run() -> anyhow::Result<()>` |
+//! | [`bpf_records`] | `pub(crate)` | `mod bpf_records` |
 //!
 //! Shared resource identities live in [`resource`]; socket metadata and descriptor
 //! capabilities live in [`socket_types`]; bounded netlink dumps live in [`netlink`].
@@ -54,4 +55,4 @@ mod helper_tests;
 #[path = "../http_server/delivery.rs"]
 mod http_delivery;
 
-pub(crate) mod abi;
+pub(crate) mod bpf_records;
