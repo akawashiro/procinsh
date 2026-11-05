@@ -34,8 +34,8 @@ const PTRACE_INTERVAL: Duration = Duration::from_secs(10);
 
 /// Latest thread sample with loss and error diagnostics.
 /// `sampled_at` is Unix milliseconds; `sample_age_ms` uses monotonic time.
-pub(super) use crate::ipc::acquisition::LiveSample as ThreadSample;
-impl ThreadSample {
+pub(super) use crate::ipc::acquisition::LiveSample;
+impl LiveSample {
     fn waiting(tid: i32, executable_header: Option<[u8; 20]>) -> Self {
         Self {
             tid,
@@ -65,7 +65,7 @@ struct Thread {
     switch_event: Option<PerfEventReader>,
     setup_error: Option<String>,
     ptrace_error: Option<String>,
-    latest: ThreadSample,
+    latest: LiveSample,
     sampled_ns: Option<u64>,
     code_pac_mask: Option<u64>,
 }
@@ -173,7 +173,7 @@ impl Sampler {
                 self.threads.remove(&tid);
             }
             let thread = self.threads.entry(tid).or_insert_with(|| {
-                let mut latest = ThreadSample::waiting(tid, self.executable_header);
+                let mut latest = LiveSample::waiting(tid, self.executable_header);
                 let event = match PerfEventReader::open(tid) {
                     Ok(event) => Some(event),
                     Err(e) => {
@@ -269,7 +269,7 @@ impl Sampler {
         snapshots.into_values().collect()
     }
     /// Returns the latest samples with ages refreshed from monotonic time.
-    pub(in crate::privileged_helper::process) fn latest(&self) -> Vec<ThreadSample> {
+    pub(in crate::privileged_helper::process) fn latest(&self) -> Vec<LiveSample> {
         let now = monotonic_ns();
         self.threads
             .values()
@@ -323,7 +323,7 @@ fn process_sample(
     let code = InstructionBytes::capture(pid, r.pc(), maps);
     let age = monotonic_ns().saturating_sub(sample.time_ns) / 1_000_000;
     thread.sampled_ns = Some(sample.time_ns);
-    thread.latest = ThreadSample {
+    thread.latest = LiveSample {
         tid,
         executable_header,
         sampled_at: Some(process::timestamp_ms().saturating_sub(age)),
@@ -398,7 +398,7 @@ mod tests {
 #[cfg(test)]
 mod live_tests {
     use super::*;
-    use crate::privileged_helper::process::TestTarget;
+    use crate::privileged_helper::process::Target;
     use std::{
         io::{BufRead, BufReader, Write},
         os::{fd::OwnedFd, unix::net::UnixStream},
@@ -408,7 +408,7 @@ mod live_tests {
 
     /// Commands one worker at a time and waits for readiness or completed join.
     struct ThreadController {
-        target: TestTarget,
+        target: Target,
         connection: BufReader<UnixStream>,
     }
 
@@ -432,7 +432,7 @@ mod live_tests {
                 .unwrap();
             let id = process::identity(child.id() as i32).unwrap();
             let mut controller = Self {
-                target: TestTarget {
+                target: Target {
                     child,
                     id,
                     address: 0,
@@ -472,7 +472,7 @@ mod live_tests {
 
     #[test]
     fn live_sleeping_bootstrap_and_perf_handoff() {
-        let target = TestTarget::new("sleeping");
+        let target = Target::new("sleeping");
         let maps = process::maps::read_maps(target.id.pid).unwrap();
         let mut sampler = Sampler::new(target.id);
         sampler.bootstrap(&maps).unwrap();
@@ -530,7 +530,7 @@ mod live_tests {
 
     #[test]
     fn periodic_ptrace_waits_for_deadline_and_refreshes_sleeping_thread() {
-        let target = TestTarget::new("sleeping");
+        let target = Target::new("sleeping");
         let maps = process::maps::read_maps(target.id.pid).unwrap();
         let mut sampler = Sampler::new(target.id);
         sampler.bootstrap(&maps).unwrap();
@@ -562,7 +562,7 @@ mod live_tests {
 
     #[test]
     fn periodic_ptrace_captures_all_threads_including_newly_discovered_threads() {
-        let target = TestTarget::new("threads");
+        let target = Target::new("threads");
         let maps = process::maps::read_maps(target.id.pid).unwrap();
         let mut sampler = Sampler::new(target.id);
         sampler.bootstrap(&maps).unwrap();
@@ -606,7 +606,7 @@ mod live_tests {
 
     #[test]
     fn periodic_ptrace_failure_preserves_sample_and_retries_only_when_due() {
-        let target = TestTarget::new("sleeping");
+        let target = Target::new("sleeping");
         let maps = process::maps::read_maps(target.id.pid).unwrap();
         let mut sampler = Sampler::new(target.id);
         sampler.bootstrap(&maps).unwrap();
@@ -664,7 +664,7 @@ mod live_tests {
 
     #[test]
     fn sample_ordering_preserves_bootstrap_then_accepts_newer_perf() {
-        let target = TestTarget::new("sleeping");
+        let target = Target::new("sleeping");
         let maps = process::maps::read_maps(target.id.pid).unwrap();
         let mut sampler = Sampler::new(target.id);
         sampler.bootstrap(&maps).unwrap();
@@ -714,7 +714,7 @@ mod live_tests {
 
     #[test]
     fn live_blocked_samples_refresh_known_registers_and_bound_deep_stacks() {
-        let target = TestTarget::new("blocked_stack");
+        let target = Target::new("blocked_stack");
         PerfEventReader::open(target.id.pid)
             .expect("perf access is required in the Docker test container");
         PerfEventReader::context_switch(target.id.pid).unwrap();
@@ -781,7 +781,7 @@ mod live_tests {
             "recursive_no_fp",
             "recursive_no_fp_nopie",
         ] {
-            let target = TestTarget::new(name);
+            let target = Target::new(name);
             PerfEventReader::open(target.id.pid)
                 .expect("perf access is required in the Docker test container");
             let maps = process::maps::read_maps(target.id.pid).unwrap();
@@ -837,7 +837,7 @@ mod live_tests {
 
     #[test]
     fn live_no_fp_unwinds_across_shared_library_and_libc() {
-        let target = TestTarget::new("shared_no_fp");
+        let target = Target::new("shared_no_fp");
         PerfEventReader::open(target.id.pid)
             .expect("perf access is required in the Docker test container");
         PerfEventReader::context_switch(target.id.pid).unwrap();

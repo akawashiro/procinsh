@@ -1,4 +1,5 @@
-use super::{self as process, maps, memory, test_support::Target};
+use super::{maps, memory, test_support::Target};
+use crate::privileged_helper::process;
 use std::time::Duration;
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -22,7 +23,7 @@ fn netns_fd_list_resolves_peers_separately_from_shared_holders() {
     use crate::privileged_helper::socket_types::{SocketConnectionStatus, SocketState};
     use std::os::fd::AsRawFd;
     for separate in [false, true] {
-        let fixture = process::TestNetworkNamespaceTarget::new(separate);
+        let fixture = process::NetworkNamespaceTarget::new(separate);
         let details = process::fds::read(fixture.target.id).unwrap();
         let entry = details.entries.iter().find(|entry| entry.fd == 61).unwrap();
         assert_eq!(entry.state, Some(SocketState::Connected));

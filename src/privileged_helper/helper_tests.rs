@@ -32,7 +32,7 @@ fn validates_identity_before_creating_collectors_and_releases_sessions() {
         );
         assert_eq!(collectors.monitoring.observer_count(), 0);
     }
-    let target = process::TestTarget::new("sleeping");
+    let target = process::Target::new("sleeping");
     let MonitorResponse::Started { session, .. } = ipc_service
         .dispatch(MonitorRequest::ObserveProcess { id: target.id })
         .unwrap()
@@ -64,7 +64,7 @@ fn disconnect_drops_all_parent_sessions() {
     let (mut client, server) = UnixStream::pair().unwrap();
     let ipc_service = HelperIpcService::new(collectors.clone());
     let worker = std::thread::spawn(move || ipc_service.serve(server));
-    let target = process::TestTarget::new("sleeping");
+    let target = process::Target::new("sleeping");
     transport::send(
         &mut client,
         &MonitorRequest::ObserveProcess { id: target.id },

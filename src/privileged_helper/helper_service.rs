@@ -249,7 +249,7 @@ mod lease_tests {
 
     #[test]
     fn unpolled_sessions_expire_and_release_collectors() {
-        let target = process::TestTarget::new("sleeping");
+        let target = process::Target::new("sleeping");
         let collectors = Arc::new(CollectorManager::new(Duration::from_millis(100)));
         let mut ipc_service = HelperIpcService::new(collectors.clone());
         let MonitorResponse::Started { session, .. } = ipc_service
@@ -278,7 +278,7 @@ mod exit_tests {
 
     #[test]
     fn closed_watch_delivers_final_process_exit_before_ending_session() {
-        let target = process::TestTarget::new("sleeping");
+        let target = process::Target::new("sleeping");
         let collectors = Arc::new(CollectorManager::new(Duration::from_millis(20)));
         let mut ipc_service = HelperIpcService::new(collectors.clone());
         let MonitorResponse::Started { session, .. } = ipc_service

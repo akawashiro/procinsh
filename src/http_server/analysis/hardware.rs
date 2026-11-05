@@ -25,4 +25,4 @@ pub use observation::{HardwareObservation, HardwareSources};
 pub use paths::HardwarePath;
 
 #[cfg(test)]
-pub(crate) use observation::acquisition as capture_fixture;
+pub(crate) use observation::acquisition;

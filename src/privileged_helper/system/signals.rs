@@ -23,9 +23,9 @@ use std::sync::{
 const MAX_EVENTS: usize = 1024;
 
 #[cfg(test)]
-use crate::http_server::analysis::activity::resolve_signal as resolve;
+use crate::http_server::analysis::activity::resolve_signal;
 use crate::ipc::activity::SignalSample;
-use crate::privileged_helper::abi::decode_signal as decode;
+use crate::privileged_helper::abi::decode_signal;
 /// Owns the signal_generate hook and a bounded batch of process-level observations.
 /// At most 1024 events are retained between service drains. Excess events contribute
 /// to `lost`, independently of other sensors. Main matches process identities.
@@ -57,7 +57,7 @@ impl SignalCollector {
             .context("signal events map")?;
         let mut builder = RingBufferBuilder::new();
         builder.add(&map, move |bytes| {
-            if let Some(sample) = decode(bytes) {
+            if let Some(sample) = decode_signal(bytes) {
                 let mut queue = q.lock().unwrap();
                 if queue.len() < MAX_EVENTS {
                     queue.push(sample);
@@ -106,7 +106,7 @@ mod tests {
 
     #[test]
     fn signal_sample_decoding_and_pid_reuse() {
-        assert!(decode(&[0; 39]).is_none());
+        assert!(decode_signal(&[0; 39]).is_none());
         let mut bytes = [0u8; 40];
         bytes[0..8].copy_from_slice(&123456u64.to_ne_bytes());
         bytes[8..16].copy_from_slice(&1_000_000_000u64.to_ne_bytes());
@@ -114,7 +114,7 @@ mod tests {
         bytes[24..28].copy_from_slice(&42u32.to_ne_bytes());
         bytes[28..32].copy_from_slice(&43u32.to_ne_bytes());
         bytes[32..36].copy_from_slice(&libc::SIGUSR1.to_ne_bytes());
-        let sample = decode(&bytes).unwrap();
+        let sample = decode_signal(&bytes).unwrap();
         let mut processes = HashMap::from([
             (
                 42,
@@ -131,7 +131,7 @@ mod tests {
                 },
             ),
         ]);
-        let event = resolve(sample, &processes).unwrap();
+        let event = resolve_signal(sample, &processes).unwrap();
         assert_eq!(
             (
                 event.timestamp_ns,
@@ -145,7 +145,7 @@ mod tests {
         assert_eq!(json["source_id"]["pid"], 42);
         assert_eq!(json["destination_id"]["pid"], 43);
         assert!(
-            resolve(
+            resolve_signal(
                 SignalSample {
                     signal: 0,
                     ..sample
@@ -155,11 +155,11 @@ mod tests {
             .is_none()
         );
         processes.get_mut(&42).unwrap().start_time_ticks += 1;
-        assert!(resolve(sample, &processes).is_none());
+        assert!(resolve_signal(sample, &processes).is_none());
         processes.get_mut(&42).unwrap().start_time_ticks -= 1;
         processes.get_mut(&43).unwrap().start_time_ticks += 1;
-        assert!(resolve(sample, &processes).is_none());
+        assert!(resolve_signal(sample, &processes).is_none());
         processes.remove(&43);
-        assert!(resolve(sample, &processes).is_none());
+        assert!(resolve_signal(sample, &processes).is_none());
     }
 }

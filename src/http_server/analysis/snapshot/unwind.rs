@@ -13,13 +13,9 @@ use super::{
 use crate::http_server::model::memory::MemoryMap;
 use crate::ipc::registers::RegisterSet;
 #[cfg(target_arch = "aarch64")]
-use framehop::aarch64::{
-    CacheAarch64 as NativeCache, PtrAuthMask, UnwindRegsAarch64, UnwinderAarch64 as NativeUnwinder,
-};
+use framehop::aarch64::{CacheAarch64, PtrAuthMask, UnwindRegsAarch64, UnwinderAarch64};
 #[cfg(target_arch = "x86_64")]
-use framehop::x86_64::{
-    CacheX86_64 as NativeCache, UnwindRegsX86_64, UnwinderX86_64 as NativeUnwinder,
-};
+use framehop::x86_64::{CacheX86_64, UnwindRegsX86_64, UnwinderX86_64};
 use framehop::{Module, Unwinder};
 use std::sync::Arc;
 
@@ -28,8 +24,14 @@ type Mapping = (u64, u64, u64, u64, u32, u32);
 #[derive(Default)]
 /// Unwinds sampled stacks using cached rules and executable mapping metadata.
 pub struct StackUnwinder {
-    unwinder: NativeUnwinder<Arc<[u8]>>,
-    cache: NativeCache<framehop::MayAllocateDuringUnwind>,
+    #[cfg(target_arch = "aarch64")]
+    unwinder: UnwinderAarch64<Arc<[u8]>>,
+    #[cfg(target_arch = "x86_64")]
+    unwinder: UnwinderX86_64<Arc<[u8]>>,
+    #[cfg(target_arch = "aarch64")]
+    cache: CacheAarch64<framehop::MayAllocateDuringUnwind>,
+    #[cfg(target_arch = "x86_64")]
+    cache: CacheX86_64<framehop::MayAllocateDuringUnwind>,
     mappings: Vec<Mapping>,
     modules: Vec<(u64, u64, bool)>,
 }
@@ -55,8 +57,8 @@ impl StackUnwinder {
         if mappings == self.mappings {
             return;
         }
-        self.unwinder = NativeUnwinder::new();
-        self.cache = NativeCache::new();
+        self.unwinder = Default::default();
+        self.cache = Default::default();
         self.modules.clear();
         self.mappings = mappings;
         for map in maps.iter().filter(|m| m.executable) {

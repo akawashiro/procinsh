@@ -45,7 +45,7 @@ async fn explicit_identity_is_required_without_selection() {
     let state = Arc::new(AppState::new(Duration::from_millis(100)));
     let app = super::router::router(state.clone(), "127.0.0.1:8080".parse().unwrap());
     // Observe a child to exercise explicit process selection through the API.
-    let target = super::process::TestTarget::new("sleeping");
+    let target = super::process::Target::new("sleeping");
     let id = target.id;
     for method in ["GET", "POST", "DELETE"] {
         let mut req = request("/api/target");
@@ -170,7 +170,7 @@ async fn target_streams_have_independent_lifetimes_and_histories() {
     let app = super::router::router(state.clone(), "127.0.0.1:8080".parse().unwrap());
     // Keep the observed thread set fixed: inspecting this test process would
     // also sample the collector threads created by each additional session.
-    let target = super::process::TestTarget::new("sleeping");
+    let target = super::process::Target::new("sleeping");
     let id = target.id;
     let uri = format!("/api/processes/events?{}", query(id));
     let mut a = app
@@ -244,7 +244,7 @@ async fn closing_a_session_stops_its_collector() {
     state.join_collectors().unwrap();
 }
 
-use super::process::TestTarget as Target;
+use super::process::Target;
 
 #[tokio::test]
 async fn api_explicit_identity_validation_and_removed_snapshot() {

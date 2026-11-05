@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 pub(super) const COVERAGE: &str = "Regular-file read/write, pread/pwrite and vectored I/O, including page cache. Not physical disk traffic. mmap, io_uring, splice/sendfile and kernel workers are not observed.";
 const MAX_AGGREGATES: usize = 8192;
 pub(super) use crate::ipc::activity::FileActivity;
-use crate::privileged_helper::abi::decode_file as decode;
+use crate::privileged_helper::abi::decode_file;
 #[derive(Default)]
 struct Batch {
     events: Vec<FileActivity>,
@@ -52,7 +52,7 @@ impl FileActivityCollector {
         let mut builder = RingBufferBuilder::new();
         builder.add(&map, move |data| {
             let mut batch = shared.lock().unwrap();
-            if let Some(event) = decode(data) {
+            if let Some(event) = decode_file(data) {
                 batch.add(event);
             } else {
                 batch.dropped += 1;
@@ -93,7 +93,7 @@ impl FileActivityCollector {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::http_server::analysis::activity::FileBatch as Batch;
+    use crate::http_server::analysis::activity::FileBatch;
 
     fn event() -> Vec<u8> {
         let mut data = vec![0; 4144];
@@ -110,7 +110,7 @@ mod tests {
 
     #[test]
     fn file_activity_preserves_wire_fields_and_null_path() {
-        let mut activity = decode(&event()).unwrap();
+        let mut activity = decode_file(&event()).unwrap();
         activity.path = None;
         assert_eq!(
             serde_json::to_value(&activity).unwrap(),
@@ -124,7 +124,7 @@ mod tests {
     #[test]
     fn decoding_and_path_failure() {
         let mut raw = event();
-        let e = decode(&raw).unwrap();
+        let e = decode_file(&raw).unwrap();
         assert_eq!(e.path.as_deref(), Some("/tmp/x"));
         assert_eq!(
             e.file,
@@ -139,18 +139,18 @@ mod tests {
             crate::privileged_helper::process::ticks_per_second() as u64
         );
         raw[40..44].copy_from_slice(&0u32.to_ne_bytes());
-        assert!(decode(&raw).unwrap().path.is_none());
+        assert!(decode_file(&raw).unwrap().path.is_none());
         raw[40..44].copy_from_slice(&4097u32.to_ne_bytes());
-        assert!(decode(&raw).unwrap().path.is_none());
-        assert!(decode(&raw[..100]).is_none());
+        assert!(decode_file(&raw).unwrap().path.is_none());
+        assert!(decode_file(&raw[..100]).is_none());
         raw[24..32].fill(0);
-        assert!(decode(&raw).is_none());
+        assert!(decode_file(&raw).is_none());
     }
 
     #[test]
     fn aggregation_separates_direction_and_process_lifetime_and_is_bounded() {
-        let e = decode(&event()).unwrap();
-        let mut batch = Batch::default();
+        let e = decode_file(&event()).unwrap();
+        let mut batch = FileBatch::default();
         batch.add(e.clone());
         batch.add(e.clone());
         let mut write = e.clone();

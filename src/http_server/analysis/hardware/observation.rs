@@ -70,7 +70,7 @@ impl HardwareSources {
     }
     #[cfg(test)]
     pub(super) fn fixture(sys: PathBuf, proc: PathBuf) -> Self {
-        let files = super::capture_fixture::capture(&sys, &proc);
+        let files = super::acquisition::capture(&sys, &proc);
         Self::at(sys, proc, files)
     }
 }
@@ -127,7 +127,7 @@ mod tests {
         let f = fixture::workstation("captured-only");
         let sys = f.sys();
         let proc = f.proc();
-        let files = super::super::capture_fixture::capture(&sys, &proc);
+        let files = super::super::acquisition::capture(&sys, &proc);
         assert!(!files.truncated);
         let encoded = crate::ipc::codec::encode(&files, 16 * 1024 * 1024).unwrap();
         let captured = crate::ipc::codec::decode(&encoded).unwrap();

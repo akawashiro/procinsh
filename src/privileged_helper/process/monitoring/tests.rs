@@ -1,5 +1,5 @@
-use super::ProcessMonitor as AppState;
-use crate::privileged_helper::process::{self as process, test_support::Target};
+use super::ProcessMonitor;
+use crate::privileged_helper::process::{self, test_support::Target};
 use std::{sync::Arc, time::Duration};
 
 #[test]
@@ -7,7 +7,7 @@ fn discovery_rates_history_and_process_exit() {
     let mut target = Target::new("busy_loop");
     let initial = process::collect_processes().unwrap();
     assert!(initial.iter().any(|p| p.identity == target.id));
-    let app = Arc::new(AppState::new(Duration::from_millis(100)));
+    let app = Arc::new(ProcessMonitor::new(Duration::from_millis(100)));
     let session = app.observe(target.id, app.reserve().unwrap()).unwrap();
     let other_id = process::identity(std::process::id() as i32).unwrap();
     let other = app.observe(other_id, app.reserve().unwrap()).unwrap();
@@ -48,7 +48,7 @@ fn discovery_rates_history_and_process_exit() {
 #[test]
 fn initial_watch_value_contains_sleeping_thread_snapshot() {
     let target = Target::new("sleeping");
-    let app = Arc::new(AppState::new(Duration::from_secs(60)));
+    let app = Arc::new(ProcessMonitor::new(Duration::from_secs(60)));
     let session = app.observe(target.id, app.reserve().unwrap()).unwrap();
     let value = serde_json::to_value(&*session.receiver.borrow()).unwrap();
     let sample = &value["live_samples"][0];
