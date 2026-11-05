@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """Connect a terminal to the guest serial console (Ctrl-] disconnects)."""
 import os
 import select

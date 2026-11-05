@@ -1,4 +1,5 @@
 // Pure multi-host helpers: qualify host-local identities and compose one snapshot.
+
 import type {
   CrossHostLinks,
   DeviceHandle,

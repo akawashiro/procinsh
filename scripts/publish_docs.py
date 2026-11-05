@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """Reconcile static documentation snapshots using trusted main-branch code only."""
 import argparse
 import html

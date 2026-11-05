@@ -1,4 +1,5 @@
 //! Bounded netlink dump requests and attribute parsing shared by socket and RDMA
+
 //! diagnostics. Requests only read kernel tables; no endpoint is opened or modified.
 //!
 //! # Interface

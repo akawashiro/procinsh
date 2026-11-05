@@ -1,4 +1,5 @@
 //! RDMA netlink (nldev) dumps of devices, queue pairs and connection manager IDs.
+
 //!
 //! Resource dumps require a device index and reply with one nested table per
 //! message. Resources of processes outside the caller's PID namespace are omitted

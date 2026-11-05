@@ -1,4 +1,5 @@
 // Build host floors into a caller-owned group and return their label anchors.
+
 import * as T from "three";
 import type { SceneInput } from "./contracts.js";
 import { addressHost } from "./hosts.js";

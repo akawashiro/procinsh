@@ -1,4 +1,5 @@
 #!/bin/bash
+
 set -euo pipefail
 
 # Use native Chromium packages in both containers and recording VMs.

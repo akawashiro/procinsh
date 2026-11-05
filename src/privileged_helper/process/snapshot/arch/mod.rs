@@ -1,4 +1,5 @@
 //! Native register acquisition layout; executable headers are passed to main as bytes.
+
 //!
 //! # Interface
 //! | Definition | Visibility | Kind |

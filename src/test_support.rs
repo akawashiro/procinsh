@@ -1,4 +1,5 @@
 //! Shared fixture compilation for tests of acquisition and analysis.
+
 //!
 //! # Interface
 //! Test-only helpers; this module is absent from normal builds.

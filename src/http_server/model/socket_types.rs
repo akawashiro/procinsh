@@ -1,4 +1,5 @@
 //! Structured socket metadata and descriptor capabilities shared by both views.
+
 //!
 //! # Interface
 //!

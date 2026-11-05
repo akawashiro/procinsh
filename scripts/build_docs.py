@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """Build a commit-pinned documentation artifact without publication privileges."""
 import argparse
 import html

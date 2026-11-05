@@ -1,4 +1,5 @@
 //! Process observation and collector lifecycle.
+
 //!
 //! # Interface
 //!

@@ -1,4 +1,5 @@
 //! Bounded reads of fixed hardware attributes, without interpreting their values.
+
 //!
 //! # Interface
 //! [`capture`] (`pub(crate)`): `fn capture(sys: &Path, proc: &Path) -> HardwareFiles`.

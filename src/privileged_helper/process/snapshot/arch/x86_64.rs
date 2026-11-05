@@ -1,4 +1,5 @@
 //! x86-64 register capture. Register sets are indexed by Linux
+
 //! PERF_REG_X86_* so ptrace and perf samples share one layout.
 //!
 //! # Interface

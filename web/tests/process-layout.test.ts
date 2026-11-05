@@ -1,4 +1,5 @@
 import { test } from "vitest";
+
 import assert from "node:assert/strict";
 import { treeLayout, stableLayout } from "../src/space/process-layout.js";
 import { SpaceDataStore } from "../src/space/data.js";

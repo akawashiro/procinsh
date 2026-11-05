@@ -1,4 +1,5 @@
 //! Decode fixed-layout native BPF records after bounded kernel reads.
+
 //!
 //! # Interface
 //! - [`decode_file`] (`pub`): `fn decode_file(data: &[u8]) -> Option<FileActivity>`.

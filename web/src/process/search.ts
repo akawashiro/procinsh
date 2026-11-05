@@ -1,4 +1,5 @@
 // Filter retained environment/FD data and handle additional-panel search input.
+
 import { Display } from "../shared/display.js";
 import type { Environment, FileDescriptors } from "../shared/api-types.js";
 import type { DetailKind } from "./data.js";

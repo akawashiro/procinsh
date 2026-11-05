@@ -1,4 +1,5 @@
 //! Clear HTTP process capabilities and seal privilege changes after helper startup.
+
 //!
 //! # Interface
 //! All entry points have `pub(super)` visibility.

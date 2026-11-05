@@ -1,4 +1,5 @@
 /// Remembers only operational states, not continuously changing counters.
+
 #[derive(Default)]
 pub(super) struct StatusLog(std::collections::HashMap<&'static str, super::model::SensorState>);
 impl StatusLog {

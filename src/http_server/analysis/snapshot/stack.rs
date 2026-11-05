@@ -1,4 +1,5 @@
 //! Shared stack frame values, independent of capture and symbol resolution.
+
 //!
 //! # Interface
 //!

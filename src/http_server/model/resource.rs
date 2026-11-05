@@ -1,4 +1,5 @@
 //! Typed identities shared by process discovery and activity collection.
+
 //!
 //! File and IPC inodes serialize as decimal strings to preserve integer precision.
 //!

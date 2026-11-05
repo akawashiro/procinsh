@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+
 import { defineConfig, mergeConfig, type Plugin } from "vite";
 import applicationConfig from "./vite.config.js";
 

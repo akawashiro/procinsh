@@ -1,4 +1,5 @@
 // Own thread selection and render the selectable thread table and its facts.
+
 import { Display, num, percent } from "../shared/display.js";
 import { node, cell, button } from "../shared/dom.js";
 import type { Target } from "../shared/api-types.js";

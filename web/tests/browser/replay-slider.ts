@@ -1,4 +1,5 @@
 // Check the painted native thumb, including padding that value-only checks miss.
+
 import assert from "node:assert/strict";
 import type { Cdp, Evaluate } from "./harness.js";
 

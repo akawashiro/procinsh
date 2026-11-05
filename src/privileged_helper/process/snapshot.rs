@@ -1,4 +1,5 @@
 //! Initial and ten-second ptrace snapshots, non-stopping perf samples,
+
 //! raw register/stack snapshots and best-effort instruction-byte capture.
 //!
 //! # Interface

@@ -1,4 +1,5 @@
 //! Resolve.
+
 //!
 //! # Interface
 //!

@@ -1,4 +1,5 @@
 //! Interpret acquisition replies before HTTP output in the unprivileged process.
+
 //!
 //! # Interface
 //! [`ObservationProcessor`] (`pub(super)`): `struct ObservationProcessor`.

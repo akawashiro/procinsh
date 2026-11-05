@@ -1,4 +1,5 @@
 //! Stack address and resolved frame data.
+
 //!
 //! # Interface
 //! - [`SourceFrame`] (`pub`): `struct SourceFrame`.

@@ -1,4 +1,5 @@
 //! GPUs, RDMA NICs, accelerators and NVSwitches with the PCIe bridges between them,
+
 //! the paths between devices, and the processes holding their character devices.
 //!
 //! Interprets helper-acquired sysfs/procfs text and links entirely in memory.

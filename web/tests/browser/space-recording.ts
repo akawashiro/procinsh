@@ -1,4 +1,5 @@
 // Exercise browser downloads and local File API loading using the live binary.
+
 import assert from "node:assert/strict";
 import type { Cdp, Evaluate, WaitFor } from "./harness.js";
 import { parseRecording } from "../../src/space/recording.js";

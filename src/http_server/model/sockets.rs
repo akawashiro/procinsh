@@ -1,4 +1,5 @@
 //! Socket observations used by acquisition and main-side relation construction.
+
 //!
 //! # Interface
 //!

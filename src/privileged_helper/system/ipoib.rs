@@ -1,4 +1,5 @@
 //! InfiniBand port GIDs of network destinations reached over IPoIB.
+
 //!
 //! An IPoIB neighbor's hardware address is 20 bytes: flags and the remote IPoIB
 //! QPN, then the remote port GID. `/proc/net/arp` truncates it, so neighbors are

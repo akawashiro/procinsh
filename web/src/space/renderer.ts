@@ -1,4 +1,5 @@
 // Animate activity, draw the scene and labels, and adapt rendering resolution.
+
 import { spaceNow } from "./clock.js";
 import type * as T from "three";
 import { key, signalName } from "./model.js";

@@ -1,4 +1,5 @@
 // Plan scene-aware shots and move a Z-up camera using frame time, independent of replay.
+
 import * as T from "three";
 import type { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { Position, TourScene, TourShot } from "./types.js";

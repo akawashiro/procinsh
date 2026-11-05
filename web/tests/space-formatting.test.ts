@@ -1,4 +1,5 @@
 import { test } from "vitest";
+
 import assert from "node:assert/strict";
 import { remoteLabel, processColors } from "../src/space/model.js";
 import { socketEndpoint } from "./support/fixtures.js";

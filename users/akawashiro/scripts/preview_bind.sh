@@ -1,4 +1,5 @@
 #!/bin/bash
+
 set -euo pipefail
 
 case "${1:-}" in

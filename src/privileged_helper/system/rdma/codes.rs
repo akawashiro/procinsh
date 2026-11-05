@@ -1,4 +1,5 @@
 //! Shared RDMA codes and their acquisition contract tests.
+
 pub(super) use crate::ipc::rdma::*;
 #[cfg(test)]
 mod tests {

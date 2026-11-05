@@ -1,4 +1,5 @@
 //! Local fixture acquisition for unprivileged-analysis tests.
+
 pub(super) mod process {
     use crate::{
         http_server::analysis::snapshot::symbol::{ElfCache, ElfFile, ElfSymbols},

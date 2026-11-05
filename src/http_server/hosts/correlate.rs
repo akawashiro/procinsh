@@ -1,4 +1,5 @@
 //! Connections whose two ends are observed on different hosts.
+
 //!
 //! Each host reports a connection to another host as an external endpoint. A TCP
 //! or UDP pair matches by reversed address tuples; an RDMA pair by swapped QPNs

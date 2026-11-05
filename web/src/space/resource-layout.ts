@@ -1,4 +1,5 @@
 // Group network destinations and calculate stable resource marker coordinates.
+
 // These functions do not own subscriptions, retained activity, or display state.
 import { key, remoteLabel } from "./model.js";
 import { Display } from "../shared/display.js";

@@ -1,4 +1,5 @@
 // Own process identity resolution, SSE observations, and additional panel reads.
+
 import { api, errorMessage } from "../shared/api.js";
 import { same, query } from "../shared/navigation.js";
 import { readHostParam, withHost } from "../shared/hosts.js";

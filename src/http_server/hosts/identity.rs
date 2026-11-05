@@ -1,5 +1,6 @@
 //! The identity a host advertises to a hub and shows in the host list.
 
+
 use serde::Serialize;
 use std::fs;
 

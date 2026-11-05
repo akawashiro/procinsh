@@ -1,4 +1,5 @@
 //! Build descriptor peer and shared-holder output from acquired observations.
+
 //!
 //! # Interface
 //!

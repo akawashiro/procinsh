@@ -1,4 +1,5 @@
 //! Acquire ELF bytes from verified regular files without parsing ELF or DWARF.
+
 //!
 //! # Interface
 //!

@@ -1,4 +1,5 @@
 //! A hub and an agent in one process, linked over loopback TCP, each with a
+
 //! scripted helper.
 
 use super::{AppState, client::MonitorClient, hosts, router::router};

@@ -1,4 +1,5 @@
 // Element IDs in the SPACE template.
+
 export interface SpaceElements {
   world: HTMLCanvasElement;
   labels: HTMLCanvasElement;

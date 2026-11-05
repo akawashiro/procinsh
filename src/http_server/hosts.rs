@@ -1,4 +1,5 @@
 //! Multiple hosts: a hub accepts agent links and serves each agent's processes,
+
 //! process details and SPACE observations; an agent links to a hub and answers
 //! the hub's requests with its own privileged helper.
 //!

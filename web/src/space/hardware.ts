@@ -1,4 +1,5 @@
 // Pure hardware bay layout and labels: PCIe trees beside the init process (-x).
+
 import { Display } from "../shared/display.js";
 import type {
   DeviceHandle,

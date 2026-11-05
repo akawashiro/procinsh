@@ -1,4 +1,5 @@
 // Build RDMA geometry into a caller-owned group and return its rendering references.
+
 import * as T from "three";
 import type { SceneInput } from "./contracts.js";
 import { PROCESS_SIDE } from "./model.js";

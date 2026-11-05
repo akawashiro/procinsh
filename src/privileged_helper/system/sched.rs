@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+
 use libbpf_rs::{MapCore, MapFlags, ObjectBuilder};
 /// Owns BPF resources and captures scheduler counters.
 pub(super) struct CpuActivityCollector {

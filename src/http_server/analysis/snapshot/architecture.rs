@@ -1,4 +1,5 @@
 //! Identify the instruction set from an acquired executable header.
+
 //!
 //! # Interface
 //! [`Architecture`] (`pub(in crate::http_server)`): `enum Architecture`.

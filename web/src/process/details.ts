@@ -1,4 +1,5 @@
 // Render and bind the environment, auxiliary-vector, and FD panels.
+
 import { Display } from "../shared/display.js";
 import { node, cell } from "../shared/dom.js";
 import { processUrl } from "../shared/navigation.js";

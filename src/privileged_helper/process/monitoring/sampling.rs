@@ -1,4 +1,5 @@
 //! Acquire raw process/thread counters with monotonic timestamps.
+
 //!
 //! # Interface
 //! [`capture_sample`] (`pub(super)`): `fn capture_sample(id: ProcessId) -> anyhow::Result<ProcessSample>`.

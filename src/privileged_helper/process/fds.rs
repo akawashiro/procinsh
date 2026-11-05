@@ -1,4 +1,5 @@
 //! Descriptor kinds, communication peers and shared holders for one process.
+
 //!
 //! # Interface
 //!

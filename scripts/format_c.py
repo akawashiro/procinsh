@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """Format repository C sources, or check them without changes using --check."""
 import argparse
 import os

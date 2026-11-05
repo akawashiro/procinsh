@@ -1,4 +1,5 @@
 //! HTTP application with cleared capabilities, observation analysis and helper supervision.
+
 //!
 //! # Interface
 //! - [`run`] (`pub(crate)`): `fn run(config: ServerConfig) -> anyhow::Result<()>`.

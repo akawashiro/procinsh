@@ -1,4 +1,5 @@
 // Pure identity, resource labels, process dimensions and colors for SPACE.
+
 import { Display } from "../shared/display.js";
 import type {
   ProcessId,

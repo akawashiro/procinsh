@@ -1,4 +1,5 @@
 //! Exercise the installed interface: start the binary and communicate over HTTP.
+
 use std::{
     io::{BufRead, BufReader, Read, Write},
     net::{SocketAddr, TcpStream},

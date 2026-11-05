@@ -1,4 +1,5 @@
 """Small HTTP SSE client with deterministic shutdown of a blocked reader."""
+
 import http.client
 import socket
 from urllib.parse import urlsplit

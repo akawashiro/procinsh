@@ -1,4 +1,5 @@
 //! Queue pair relations: owners, connection manager addresses, remote GIDs and
+
 //! queue pairs connected within this host.
 
 use super::nldev::{CmIdEntry, NldevResources, QueuePairEntry, ResourceOwner};

@@ -1,4 +1,5 @@
 // Allocate one stable hull attachment per process/IPC resource identity.
+
 import * as T from "three";
 import type { FdEndpoint } from "../shared/api-types.js";
 import type { SceneInput } from "./contracts.js";

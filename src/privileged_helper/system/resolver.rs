@@ -1,4 +1,5 @@
 //! Bounded background reverse lookup: snapshot collection never waits for DNS.
+
 //!
 //! # Interface
 //!

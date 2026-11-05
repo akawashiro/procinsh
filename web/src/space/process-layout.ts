@@ -1,4 +1,5 @@
 // Pure process placement: full forest layout and stable incremental updates.
+
 // Exports ProcessLayoutNode, treeLayout, and stableLayout; no SSE or rendering state.
 import { key, PROCESS_SIDE } from "./model.js";
 import type { ProcessId, FdRelation } from "../shared/api-types.js";

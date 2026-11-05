@@ -1,4 +1,5 @@
 // Sample userspace geometry and activity only when a tour shot is chosen.
+
 import type { RenderView } from "./contracts.js";
 import type { CpuGlow, TourScene } from "./types.js";
 import { key } from "./model.js";

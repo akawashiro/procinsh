@@ -1,4 +1,5 @@
 // Render selection details and identity-preserving process links in the DOM.
+
 import { spaceNow } from "./clock.js";
 import { Display } from "../shared/display.js";
 import { processUrl } from "../shared/navigation.js";

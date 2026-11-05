@@ -1,4 +1,5 @@
 // Versioned, standalone JSON recordings shared by local and static loaders.
+
 import type { SystemSnapshot, SpaceActivity } from "../shared/api-types.js";
 
 export type RecordingEvent =

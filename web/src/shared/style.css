@@ -1,4 +1,5 @@
 :root{color-scheme:dark;--bg:#0c111a;--panel:#141c28;--line:#263246;--text:#e4ebf5;--muted:#93a2b9;--cyan:#66dfc5;--blue:#8ab4ff;--red:#ff9b9b;font-family:Inter,system-ui,-apple-system,sans-serif;font-size:14px}
+
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text)}
 [hidden]{display:none!important}

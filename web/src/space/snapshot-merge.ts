@@ -1,4 +1,5 @@
 // Apply full/delta snapshots and validate the sequence and process-map baselines.
+
 import { key } from "./model.js";
 import type {
   SystemSnapshot,

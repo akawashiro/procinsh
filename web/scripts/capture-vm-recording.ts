@@ -1,4 +1,5 @@
 // Use the existing browser recorder through QEMU hostfwd; no alternate JSON writer.
+
 import assert from "node:assert/strict";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";

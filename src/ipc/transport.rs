@@ -1,4 +1,5 @@
 //! Bounded native-endian binary framing over private Unix streams.
+
 //!
 //! # Interface
 //! - [`configure`] (`pub`): `fn configure(socket: &UnixStream) -> anyhow::Result<()>`.

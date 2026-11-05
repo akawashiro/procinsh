@@ -1,4 +1,5 @@
 //! Raw hardware attributes acquired by helper and interpreted by the HTTP server.
+
 //!
 //! # Interface
 //! - [`HardwareFiles`] (`pub`): `struct HardwareFiles`.

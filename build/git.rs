@@ -1,4 +1,5 @@
 //! Compile-time Git identity and Cargo inputs for the binary's web headers.
+
 //!
 //! # Interface
 //! - [`emit`]: `pub(super) fn emit(root: &Path)`; emits the validated revision,

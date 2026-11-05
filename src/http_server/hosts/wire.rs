@@ -1,4 +1,5 @@
 //! Agent link framing: `u32` big-endian length, one encoding byte, then a JSON
+
 //! [`Message`]. Larger messages are gzip-compressed; snapshots compress well.
 //!
 //! The hub sends the same closed [`MonitorRequest`]s the HTTP layer sends to its

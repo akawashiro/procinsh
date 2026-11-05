@@ -1,4 +1,5 @@
 #!/bin/bash
+
 # Dedicated, disposable recording machine. No SSH forwarding or host filesystem sharing.
 set -euo pipefail
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)

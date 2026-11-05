@@ -1,4 +1,5 @@
 // Render the selected thread's registers, call stack, and disassembly.
+
 import { Display } from "../shared/display.js";
 import { node, cell } from "../shared/dom.js";
 import type { ThreadSample } from "../shared/api-types.js";

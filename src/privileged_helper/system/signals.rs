@@ -1,4 +1,5 @@
 //! BPF signal_generate collection, bounded batching, and process identity checks.
+
 //!
 //! # Interface
 //!

@@ -1,4 +1,5 @@
 //! Capture bounded instruction bytes from the sampled PC for main-side decoding.
+
 //!
 //! # Interface
 //! [`InstructionBytes`] (`pub(super)`): `struct InstructionBytes`.

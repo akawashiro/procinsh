@@ -1,4 +1,5 @@
 #!/bin/bash
+
 set -euo pipefail
 exec > >(tee /var/log/recording-setup.log) 2>&1
 port=$2

@@ -1,4 +1,5 @@
 /** Generate internal TypeScript dependency graphs from the compiler's AST and resolver. */
+
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, relative, resolve, sep } from "node:path";
 import { execFileSync } from "node:child_process";

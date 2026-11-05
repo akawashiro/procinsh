@@ -1,4 +1,5 @@
 import { expect, test } from "vitest";
+
 import { SpaceDataStore } from "../src/space/data.js";
 import { isKernelNetlink } from "../src/space/netlink.js";
 import { createSpaceScene } from "../src/space/scene.js";

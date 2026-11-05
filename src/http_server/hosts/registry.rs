@@ -1,5 +1,6 @@
 //! Hosts known to a hub: the local machine and remote agents by name.
 
+
 use super::identity::{HostInfo, valid_host_name};
 use super::link::AgentLink;
 use serde::Serialize;

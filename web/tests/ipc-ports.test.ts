@@ -1,4 +1,5 @@
 import { test } from "vitest";
+
 import assert from "node:assert/strict";
 import * as T from "three";
 import { IpcPortAllocator } from "../src/space/ipc-ports.js";

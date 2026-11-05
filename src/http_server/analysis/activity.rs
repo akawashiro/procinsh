@@ -1,4 +1,5 @@
 //! Derive system activity from bounded kernel observations in main.
+
 //!
 //! # Interface
 //!

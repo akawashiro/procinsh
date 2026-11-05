@@ -1,4 +1,5 @@
 //! Main-owned sparse ELF bytes and selection of symbol, DWARF and unwind sections.
+
 //!
 //! # Interface
 //! [`ElfImage`] (`pub`): `struct ElfImage` stores verified file ranges for parsing.

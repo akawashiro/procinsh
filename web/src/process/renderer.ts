@@ -1,4 +1,5 @@
 // Render process identity, status, metrics, and memory mappings.
+
 import { errorMessage } from "../shared/api.js";
 import {
   Display,

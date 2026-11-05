@@ -1,4 +1,5 @@
 use super::{client::MonitorClient, hosts::HostRegistry};
+
 use std::{
     sync::{
         Arc,

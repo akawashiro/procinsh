@@ -1,4 +1,5 @@
 //! One hardware observation for a system snapshot.
+
 //!
 //! # Interface
 //!

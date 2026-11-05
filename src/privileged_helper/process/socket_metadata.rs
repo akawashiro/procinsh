@@ -1,4 +1,5 @@
 //! Read socket kinds and listener/peer availability through temporary FD duplicates.
+
 //!
 //! # Interface
 //!

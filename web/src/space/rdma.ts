@@ -1,4 +1,5 @@
 // Pure RDMA queue pair grouping, anchors, labels and device placement for SPACE.
+
 import { Display } from "../shared/display.js";
 import { key } from "./model.js";
 import type {

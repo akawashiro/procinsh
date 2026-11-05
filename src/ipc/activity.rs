@@ -1,4 +1,5 @@
 //! Native kernel-event values and CPU key decoding.
+
 //!
 //! # Interface
 //! - [`RawActivity`] (`pub`): `struct RawActivity`.

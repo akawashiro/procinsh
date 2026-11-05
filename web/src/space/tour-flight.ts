@@ -1,4 +1,5 @@
 // Build a closed route near several processes and sample it at constant world speed.
+
 import * as T from "three";
 import type { TourSubject } from "./types.js";
 
