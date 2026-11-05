@@ -210,21 +210,46 @@ fn unsupported(error: &anyhow::Error) -> bool {
         .is_some_and(|code| code == libc::EOPNOTSUPP || code == libc::ENOTSUP)
 }
 
+fn parse_resource_replies(
+    bodies: Vec<Vec<u8>>,
+    command: u16,
+    result: &mut NldevResources,
+) -> Result<()> {
+    for body in bodies {
+        if command == CMD_RES_QP_GET {
+            let (device, list) = entries(&body, RES_QP, RES_QP_ENTRY)?;
+            for data in list {
+                if result.queue_pairs.len() >= QUEUE_PAIR_LIMIT {
+                    result.truncated = true;
+                    break;
+                }
+                result.queue_pairs.push(parse_queue_pair(&device, data)?);
+            }
+        } else {
+            let (device, list) = entries(&body, RES_CM_ID, RES_CM_ID_ENTRY)?;
+            for data in list {
+                result.cm_ids.push(parse_cm_id(&device, data)?);
+            }
+        }
+    }
+    Ok(())
+}
+
 pub(super) fn read_resources(deadline: Instant) -> Result<NldevResources> {
     let fd = netlink::open_socket(NETLINK_RDMA, "NETLINK_RDMA")?;
     let mut sequence = 1;
     let mut devices = Vec::new();
-    NetlinkDumpRequest {
+    let replies = NetlinkDumpRequest {
         label: "RDMA device dump",
         message_type: message_type(CMD_GET),
         reply_type: message_type(CMD_GET),
         sequence,
         payload: &[],
     }
-    .run(&fd, deadline, |body| {
-        devices.push(parse_device(body)?);
-        Ok(())
-    })?;
+    .run(&fd, deadline)?;
+    for body in replies {
+        devices.push(parse_device(&body)?);
+    }
     devices.sort_by(|a, b| a.1.cmp(&b.1));
     let mut result = NldevResources::default();
     for (index, name) in devices {
@@ -244,24 +269,11 @@ pub(super) fn read_resources(deadline: Instant) -> Result<NldevResources> {
                 sequence,
                 payload: &payload,
             }
-            .run(&fd, deadline, |body| {
-                if command == CMD_RES_QP_GET {
-                    let (device, list) = entries(body, RES_QP, RES_QP_ENTRY)?;
-                    for data in list {
-                        if result.queue_pairs.len() >= QUEUE_PAIR_LIMIT {
-                            result.truncated = true;
-                            break;
-                        }
-                        result.queue_pairs.push(parse_queue_pair(&device, data)?);
-                    }
-                } else {
-                    let (device, list) = entries(body, RES_CM_ID, RES_CM_ID_ENTRY)?;
-                    for data in list {
-                        result.cm_ids.push(parse_cm_id(&device, data)?);
-                    }
-                }
-                Ok(())
-            });
+            .run(&fd, deadline);
+            let dumped = match dumped {
+                Ok(bodies) => parse_resource_replies(bodies, command, &mut result),
+                Err(error) => Err(error),
+            };
             if let Err(error) = dumped {
                 ensure!(Instant::now() < deadline, "{error:#}");
                 // Some drivers, such as Microsoft MANA, cannot report queue pairs or

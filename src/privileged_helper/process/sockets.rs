@@ -177,18 +177,18 @@ pub(super) fn unix_diag(
     request[4..8].copy_from_slice(&u32::MAX.to_ne_bytes());
     request[12..16].copy_from_slice(&5u32.to_ne_bytes()); // SHOW_NAME | SHOW_PEER
     let mut result = HashMap::new();
-    netlink::NetlinkDumpRequest {
+    let replies = netlink::NetlinkDumpRequest {
         label: "UNIX diag",
         message_type: 20, // SOCK_DIAG_BY_FAMILY
         reply_type: 20,
         sequence: 1,
         payload: &request,
     }
-    .run(&fd, deadline, |body| {
-        let (inode, info) = parse_diag(body)?;
+    .run(&fd, deadline)?;
+    for body in replies {
+        let (inode, info) = parse_diag(&body)?;
         result.insert(inode, info);
-        Ok(())
-    })?;
+    }
     Ok(result)
 }
 
