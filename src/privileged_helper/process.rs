@@ -81,9 +81,9 @@ mod test_support;
 #[cfg(test)]
 pub(super) use socket_metadata::require_socket_metadata;
 #[cfg(test)]
-pub(super) use test_support::NetworkNamespaceTarget as TestNetworkNamespaceTarget;
+pub(super) use test_support::NetworkNamespaceTarget;
 #[cfg(test)]
-pub(super) use test_support::Target as TestTarget;
+pub(super) use test_support::Target;
 #[cfg(test)]
 mod tests;
 

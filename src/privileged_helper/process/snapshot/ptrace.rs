@@ -1,8 +1,9 @@
 //! Stopped-thread capture for initial and periodic sampling. The guard owns the attachment on every error path.
-use super::{
-    arch::native,
-    sample::{RawSample, SampleSource, monotonic_ns},
-};
+#[cfg(target_arch = "aarch64")]
+use super::arch::aarch64::read_registers;
+#[cfg(target_arch = "x86_64")]
+use super::arch::x86_64::read_registers;
+use super::sample::{RawSample, SampleSource, monotonic_ns};
 use crate::privileged_helper::process::{maps::MemoryMap, memory};
 use anyhow::{Result, ensure};
 
@@ -95,7 +96,7 @@ pub(super) fn capture(tid: i32, maps: &[MemoryMap]) -> Result<RawSample> {
     request(libc::PTRACE_INTERRUPT, tid, 0, 0)?;
     attachment.wait()?;
     let time_ns = monotonic_ns();
-    let values = native::read_registers(tid)?;
+    let values = read_registers(tid)?;
     let sp = values.sp();
     let stack = match maps.iter().find(|map| map.contains(sp)) {
         _ if memory::privacy() => Vec::new(),
@@ -115,11 +116,11 @@ pub(super) fn capture(tid: i32, maps: &[MemoryMap]) -> Result<RawSample> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::privileged_helper::process::{self, TestTarget};
+    use crate::privileged_helper::process::{self, Target};
 
     #[test]
     fn guard_detaches_after_capture_error() {
-        let target = TestTarget::new("sleeping");
+        let target = Target::new("sleeping");
         let failed = (|| -> Result<()> {
             request(libc::PTRACE_SEIZE, target.id.pid, 0, 0)?;
             let mut attachment = PtraceGuard {
@@ -143,7 +144,7 @@ mod tests {
 
     #[test]
     fn already_traced_thread_failure_keeps_perf_sampler_usable() {
-        let target = TestTarget::new("sleeping");
+        let target = Target::new("sleeping");
         let maps = process::maps::read_maps(target.id.pid).unwrap();
         request(libc::PTRACE_SEIZE, target.id.pid, 0, 0).unwrap();
         let attachment = PtraceGuard {

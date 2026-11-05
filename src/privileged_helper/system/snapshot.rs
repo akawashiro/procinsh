@@ -124,7 +124,14 @@ pub(super) fn collect_from(sources: &HardwareSources) -> SystemSnapshot {
         captured_at: process::timestamp_ms(),
         ..Default::default()
     };
-    result.raw_hardware = super::hardware_capture::capture(&sources.sys, &sources.proc);
+    #[cfg(not(test))]
+    {
+        result.raw_hardware = super::hardware_capture::capture(&sources.sys, &sources.proc);
+    }
+    #[cfg(test)]
+    {
+        result.raw_hardware = super::acquisition::capture(&sources.sys, &sources.proc);
+    }
     if result.raw_hardware.truncated {
         result
             .warnings

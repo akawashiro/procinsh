@@ -23,7 +23,7 @@ mod hardware;
 #[cfg(not(test))]
 mod hardware_capture;
 #[cfg(test)]
-use crate::http_server::analysis::hardware::capture_fixture as hardware_capture;
+use crate::http_server::analysis::hardware::acquisition;
 mod ipc;
 mod ipoib;
 mod model;

@@ -1,5 +1,5 @@
-use crate::ipc::activity::IpcEvent as Event;
-use crate::privileged_helper::abi::decode_ipc as event;
+use crate::ipc::activity::IpcEvent;
+use crate::privileged_helper::abi::decode_ipc;
 use anyhow::{Context, Result};
 use libbpf_rs::{MapCore, MapFlags, ObjectBuilder, RingBufferBuilder};
 use std::sync::{Arc, Mutex};
@@ -8,7 +8,7 @@ pub(super) struct IpcActivityCollector {
     ring: libbpf_rs::RingBuffer<'static>,
     _links: Vec<libbpf_rs::Link>,
     obj: libbpf_rs::Object,
-    queue: Arc<Mutex<Vec<Event>>>,
+    queue: Arc<Mutex<Vec<IpcEvent>>>,
     drops: Arc<std::sync::atomic::AtomicU64>,
 }
 
@@ -58,7 +58,7 @@ impl IpcActivityCollector {
             .context("events map")?;
         let mut builder = RingBufferBuilder::new();
         builder.add(&map, move |bytes| {
-            if let Some(e) = event(bytes) {
+            if let Some(e) = decode_ipc(bytes) {
                 let mut q = q.lock().unwrap();
                 if q.len() < 65536 {
                     q.push(e);
@@ -96,7 +96,7 @@ impl IpcActivityCollector {
         }
         Ok(())
     }
-    pub(super) fn drain(&mut self) -> Vec<Event> {
+    pub(super) fn drain(&mut self) -> Vec<IpcEvent> {
         self.queue.lock().unwrap().drain(..).collect()
     }
     pub(super) fn unresolved(&self) -> u64 {
@@ -109,13 +109,13 @@ mod tests {
 
     #[test]
     fn decodes_bpf_event_without_unaligned_reads() {
-        assert!(event(&[0; 55]).is_none());
+        assert!(decode_ipc(&[0; 55]).is_none());
         let mut bytes = [0u8; 56];
         bytes[8..16].copy_from_slice(&1234u64.to_ne_bytes());
         bytes[32..40].copy_from_slice(&256u64.to_ne_bytes());
         bytes[40..44].copy_from_slice(&42u32.to_ne_bytes());
         bytes[48..52].copy_from_slice(&1u32.to_ne_bytes());
-        let e = event(&bytes).unwrap();
+        let e = decode_ipc(&bytes).unwrap();
         assert_eq!(e.start, 1234);
         assert_eq!(e.bytes, 256);
         assert_eq!(e.pid, 42);

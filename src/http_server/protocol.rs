@@ -51,21 +51,25 @@ pub(super) enum MonitorResponse {
 }
 
 fn event(raw: crate::ipc::schema::MonitorEvent) -> Result<MonitorEvent> {
-    use crate::ipc::schema::MonitorEvent as Raw;
+    use crate::ipc::schema;
     Ok(match raw {
-        Raw::Observation(value) => MonitorEvent::Observation(serde_json::to_value(&*value)?),
-        Raw::Activity(value) => MonitorEvent::Activity(serde_json::to_value(&*value)?),
-        Raw::AcquiredSnapshot(value) => MonitorEvent::AcquiredSnapshot(value),
-        Raw::AcquisitionGap { dropped, snapshot } => {
+        schema::MonitorEvent::Observation(value) => {
+            MonitorEvent::Observation(serde_json::to_value(&*value)?)
+        }
+        schema::MonitorEvent::Activity(value) => {
+            MonitorEvent::Activity(serde_json::to_value(&*value)?)
+        }
+        schema::MonitorEvent::AcquiredSnapshot(value) => MonitorEvent::AcquiredSnapshot(value),
+        schema::MonitorEvent::AcquisitionGap { dropped, snapshot } => {
             MonitorEvent::AcquisitionGap { dropped, snapshot }
         }
     })
 }
 
 pub(super) fn response(raw: crate::ipc::schema::MonitorResponse) -> Result<MonitorResponse> {
-    use crate::ipc::schema::{AcquiredData, MonitorResponse as Raw};
+    use crate::ipc::schema::{self, AcquiredData};
     Ok(match raw {
-        Raw::Data(value) => MonitorResponse::Data(match value {
+        schema::MonitorResponse::Data(value) => MonitorResponse::Data(match value {
             AcquiredData::Processes(v) => serde_json::to_value(v)?,
             AcquiredData::Observation(v) => serde_json::to_value(v)?,
             AcquiredData::Maps(v) => serde_json::to_value(v)?,
@@ -73,15 +77,15 @@ pub(super) fn response(raw: crate::ipc::schema::MonitorResponse) -> Result<Monit
             AcquiredData::Auxv(v) => serde_json::to_value(v)?,
             AcquiredData::Fds(v) => serde_json::to_value(v)?,
         }),
-        Raw::Elf(_) => anyhow::bail!("unexpected mapped file reply"),
-        Raw::Started { session, initial } => MonitorResponse::Started {
+        schema::MonitorResponse::Elf(_) => anyhow::bail!("unexpected mapped file reply"),
+        schema::MonitorResponse::Started { session, initial } => MonitorResponse::Started {
             session,
             initial: event(initial)?,
         },
-        Raw::Event { event: raw, closed } => MonitorResponse::Event {
+        schema::MonitorResponse::Event { event: raw, closed } => MonitorResponse::Event {
             event: raw.map(event).transpose()?,
             closed,
         },
-        Raw::Closed => MonitorResponse::Closed,
+        schema::MonitorResponse::Closed => MonitorResponse::Closed,
     })
 }

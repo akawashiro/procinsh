@@ -1,4 +1,5 @@
-use super::{self as process, threads};
+use super::threads;
+use crate::privileged_helper::process;
 use std::{
     io::{BufRead, BufReader},
     process::{Child, Command, Stdio},

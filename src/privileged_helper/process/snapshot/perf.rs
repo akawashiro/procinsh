@@ -1,8 +1,8 @@
-//! Linux perf ABI with the native register layout from `arch::native`. Events
+//! Linux perf ABI with the native register layout from `arch`. Events
 //! follow a TID across CPU migration.
 use super::{
     registers::RegisterSet,
-    sample::{RawSample as Sample, SampleSource},
+    sample::{RawSample, SampleSource},
 };
 use anyhow::{Context, Result, bail, ensure};
 use std::{
@@ -10,7 +10,10 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
-use super::arch::native::PERF_REGS_MASK as REGS_MASK;
+#[cfg(target_arch = "aarch64")]
+use super::arch::aarch64::PERF_REGS_MASK;
+#[cfg(target_arch = "x86_64")]
+use super::arch::x86_64::PERF_REGS_MASK;
 const SAMPLE_TYPE: u64 = (1 << 1) | (1 << 2) | (1 << 7) | (1 << 12) | (1 << 13);
 
 // Linux UAPI include/uapi/linux/perf_event.h: sizeof(struct perf_event_header).
@@ -55,7 +58,7 @@ pub(super) struct PerfEventReader {
     tail: u64,
     pub(super) lost: u64,
     context_switch: bool,
-    pending: Option<Sample>,
+    pending: Option<RawSample>,
 }
 // SAFETY: PerfEventReader exclusively owns its mmap and fd. Access requires &mut self;
 // moving ownership to the observation worker does not share the mapping.
@@ -81,7 +84,7 @@ impl PerfEventReader {
             // CPU clock, 100 Hz of scheduled user CPU time, CLOCK_MONOTONIC.
             flags: (1 << 5) | (1 << 6) | (1 << 25),
             wakeup: 1,
-            regs: REGS_MASK,
+            regs: PERF_REGS_MASK,
             stack: user_stack_bytes(),
             clock: libc::CLOCK_MONOTONIC,
             ..Attr::default()
@@ -99,7 +102,7 @@ impl PerfEventReader {
                 sample_type: SAMPLE_TYPE,
                 flags: (1 << 18) | (1 << 25) | (1 << 26),
                 wakeup: 1,
-                regs: REGS_MASK,
+                regs: PERF_REGS_MASK,
                 stack: user_stack_bytes(),
                 clock: libc::CLOCK_MONOTONIC,
                 ..Attr::default()
@@ -163,7 +166,7 @@ impl PerfEventReader {
             })
             .collect()
     }
-    pub(super) fn drain(&mut self) -> Result<Option<Sample>> {
+    pub(super) fn drain(&mut self) -> Result<Option<RawSample>> {
         let head = unsafe { &*self.mapping.add(1024).cast::<AtomicU64>() }.load(Ordering::Acquire);
         let mut latest = None;
         let result = (|| {
@@ -264,7 +267,7 @@ impl<'a> Cursor<'a> {
     }
 }
 
-fn parse(bytes: &[u8]) -> Result<Option<Sample>> {
+fn parse(bytes: &[u8]) -> Result<Option<RawSample>> {
     let mut c = Cursor(bytes);
     let tids = c.take(8)?;
     let tid = i32::from_ne_bytes(tids[4..].try_into()?);
@@ -277,7 +280,7 @@ fn parse(bytes: &[u8]) -> Result<Option<Sample>> {
     ensure!(abi == 2, "perf sample is not 64-bit user mode");
     let mut values = vec![0; RegisterSet::COUNT];
     for (i, value) in values.iter_mut().enumerate() {
-        if REGS_MASK & (1 << i) != 0 {
+        if PERF_REGS_MASK & (1 << i) != 0 {
             *value = c.u64()?;
         }
     }
@@ -289,7 +292,7 @@ fn parse(bytes: &[u8]) -> Result<Option<Sample>> {
         usize::try_from(c.u64()?)?
     };
     ensure!(used <= length, "invalid perf dynamic stack size");
-    Ok(Some(Sample {
+    Ok(Some(RawSample {
         source: SampleSource::CpuClock,
         tid,
         time_ns,
@@ -355,7 +358,7 @@ mod tests {
             bytes.extend(value.to_ne_bytes());
         }
         for index in 0..RegisterSet::COUNT {
-            if REGS_MASK & (1 << index) != 0 {
+            if PERF_REGS_MASK & (1 << index) != 0 {
                 bytes.extend((index as u64 + 100).to_ne_bytes());
             }
         }
@@ -501,7 +504,7 @@ mod tests {
             b.extend(x.to_ne_bytes());
         }
         for i in 0..RegisterSet::COUNT {
-            if REGS_MASK & (1 << i) != 0 {
+            if PERF_REGS_MASK & (1 << i) != 0 {
                 b.extend((i as u64 + 100).to_ne_bytes());
             }
         }
