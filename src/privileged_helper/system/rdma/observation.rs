@@ -1,9 +1,9 @@
 //! One RDMA observation for a system snapshot.
 
 use super::super::ipoib;
-use super::codes::IbGid;
 use super::{RdmaPortInfo, RdmaRelation};
 use super::{nldev, ports, relations};
+use crate::ipc::rdma::IbGid;
 use crate::privileged_helper::process::ProcessId;
 use std::{collections::HashMap, path::Path, time::Instant};
 

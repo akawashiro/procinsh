@@ -289,3 +289,74 @@ fn unhex<'de, D: serde::Deserializer<'de>>(d: D) -> Result<u64, D::Error> {
     let s = <String as serde::Deserialize>::deserialize(d)?;
     u64::from_str_radix(s.trim_start_matches("0x"), 16).map_err(serde::de::Error::custom)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn codes_match_shared_json_contract() {
+        let cases: serde_json::Value = serde_json::from_str(include_str!(
+            "../../privileged_helper/test_support/rdma-codes.json"
+        ))
+        .unwrap();
+        for case in cases.as_array().unwrap() {
+            let code = case["code"].as_u64().unwrap();
+            let value = match case["group"].as_str().unwrap() {
+                "qp_type" => {
+                    let kind = RdmaQpType::from_code(code as u8);
+                    serde_json::to_value(kind).unwrap()
+                }
+                "qp_state" => {
+                    let kind = RdmaQpState::from_code(code as u8);
+                    serde_json::to_value(kind).unwrap()
+                }
+                "cm_state" => {
+                    let kind = RdmaCmState::from_code(code as u8);
+                    serde_json::to_value(kind).unwrap()
+                }
+                "port_space" => {
+                    let kind = RdmaPortSpace::from_code(code as u32);
+                    serde_json::to_value(kind).unwrap()
+                }
+                group => panic!("unknown group {group}"),
+            };
+            assert_eq!(value, case["value"], "{case}");
+        }
+    }
+
+    #[test]
+    fn gids_serialize_as_canonical_strings() {
+        let gid = IbGid::parse("fe80:0000:0000:0000:0002:c903:0028:45c7").unwrap();
+        assert_eq!(
+            serde_json::to_value(gid).unwrap(),
+            "fe80:0000:0000:0000:0002:c903:0028:45c7"
+        );
+    }
+
+    #[test]
+    fn cm_addresses_serialize_inet_and_ib() {
+        let address = RdmaAddress::Inet {
+            ip: "10.10.10.1".parse().unwrap(),
+            port: 20049,
+        };
+        assert_eq!(
+            serde_json::to_value(address).unwrap(),
+            serde_json::json!({"kind":"inet","ip":"10.10.10.1","port":20049})
+        );
+        let address = RdmaAddress::Ib {
+            gid: IbGid::parse("fe80:0000:0000:0000:0000:0000:0000:0051").unwrap(),
+            service_id: 0x0000_0000_0106_4e51,
+            pkey: 65535,
+        };
+        assert_eq!(
+            serde_json::to_value(address).unwrap(),
+            serde_json::json!({
+                "kind": "ib",
+                "gid": "fe80:0000:0000:0000:0000:0000:0000:0051",
+                "service_id": "0x0000000001064e51",
+                "pkey": 65535,
+            })
+        );
+    }
+}
