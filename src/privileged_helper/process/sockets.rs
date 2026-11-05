@@ -160,6 +160,18 @@ fn parse_diag(bytes: &[u8]) -> Result<(u64, SocketInfo)> {
     Ok((netlink::u32_at(bytes, 4)? as u64, info))
 }
 
+struct UnixSocketInfo {
+    inode: u64,
+    info: SocketInfo,
+}
+
+impl netlink::NetlinkReply for UnixSocketInfo {
+    fn decode(body: &[u8]) -> Result<Self> {
+        let (inode, info) = parse_diag(body)?;
+        Ok(Self { inode, info })
+    }
+}
+
 pub(super) fn diagnostic_socket() -> Result<OwnedFd> {
     netlink::open_socket(libc::NETLINK_SOCK_DIAG, "NETLINK_SOCK_DIAG")
 }
@@ -184,10 +196,9 @@ pub(super) fn unix_diag(
         sequence: 1,
         payload: &payload,
     };
-    let replies = netlink::dump(&fd, &request, deadline)?;
-    for body in replies {
-        let (inode, info) = parse_diag(&body)?;
-        result.insert(inode, info);
+    let replies = netlink::dump::<UnixSocketInfo>(&fd, &request, deadline)?;
+    for reply in replies {
+        result.insert(reply.inode, reply.info);
     }
     Ok(result)
 }
@@ -195,6 +206,7 @@ pub(super) fn unix_diag(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::privileged_helper::netlink::NetlinkReply;
 
     #[test]
     fn socket_connection_fallback_requires_positive_table_evidence() {
@@ -277,7 +289,7 @@ mod tests {
         bytes[0] = libc::AF_UNIX as u8;
         bytes[1] = 254;
         bytes[2] = 255;
-        let (_, info) = parse_diag(&bytes).unwrap();
+        let UnixSocketInfo { info, .. } = UnixSocketInfo::decode(&bytes).unwrap();
         assert_eq!(
             info.protocol,
             SocketProtocol::Unix {
@@ -297,11 +309,11 @@ mod tests {
         bytes[16..18].copy_from_slice(&8u16.to_ne_bytes());
         bytes[18..20].copy_from_slice(&2u16.to_ne_bytes());
         bytes[20..24].copy_from_slice(&99u32.to_ne_bytes());
-        let (inode, info) = parse_diag(&bytes).unwrap();
+        let UnixSocketInfo { inode, info } = UnixSocketInfo::decode(&bytes).unwrap();
         assert_eq!(inode, 42);
         assert_eq!(info.peer_inode, Some(99));
         bytes[16] = 0;
-        assert!(parse_diag(&bytes).is_err());
-        assert!(parse_diag(&[]).is_err());
+        assert!(UnixSocketInfo::decode(&bytes).is_err());
+        assert!(UnixSocketInfo::decode(&[]).is_err());
     }
 }

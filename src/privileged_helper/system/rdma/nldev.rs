@@ -201,7 +201,6 @@ fn parse_device(body: &[u8]) -> Result<(u32, String)> {
     ))
 }
 
-/// Reads queue pairs and CM IDs of every RDMA device visible in this network namespace.
 /// Whether a dump failed because the device does not implement it.
 fn unsupported(error: &anyhow::Error) -> bool {
     error
@@ -210,35 +209,83 @@ fn unsupported(error: &anyhow::Error) -> bool {
         .is_some_and(|code| code == libc::EOPNOTSUPP || code == libc::ENOTSUP)
 }
 
-fn parse_resource_replies(
-    bodies: Vec<Vec<u8>>,
-    command: u16,
+#[derive(Debug, PartialEq, Eq)]
+struct RdmaDeviceInfo {
+    index: u32,
+    name: String,
+}
+
+impl netlink::NetlinkReply for RdmaDeviceInfo {
+    fn decode(body: &[u8]) -> Result<Self> {
+        let (index, name) = parse_device(body)?;
+        Ok(Self { index, name })
+    }
+}
+
+struct QueuePairTable {
+    entries: Vec<QueuePairEntry>,
+}
+
+impl netlink::NetlinkReply for QueuePairTable {
+    fn decode(body: &[u8]) -> Result<Self> {
+        let (device, bodies) = entries(body, RES_QP, RES_QP_ENTRY)?;
+        let mut entries = Vec::with_capacity(bodies.len());
+        for body in bodies {
+            entries.push(parse_queue_pair(&device, body)?);
+        }
+        Ok(Self { entries })
+    }
+}
+
+struct CmIdTable {
+    entries: Vec<CmIdEntry>,
+}
+
+impl netlink::NetlinkReply for CmIdTable {
+    fn decode(body: &[u8]) -> Result<Self> {
+        let (device, bodies) = entries(body, RES_CM_ID, RES_CM_ID_ENTRY)?;
+        let mut entries = Vec::with_capacity(bodies.len());
+        for body in bodies {
+            entries.push(parse_cm_id(&device, body)?);
+        }
+        Ok(Self { entries })
+    }
+}
+
+fn read_queue_pairs(
+    fd: &std::os::fd::OwnedFd,
+    request: &NetlinkDumpRequest<'_>,
+    deadline: Instant,
     result: &mut NldevResources,
 ) -> Result<()> {
-    for body in bodies {
-        if command == CMD_RES_QP_GET {
-            let (device, list) = entries(&body, RES_QP, RES_QP_ENTRY)?;
-            for data in list {
-                if result.queue_pairs.len() >= QUEUE_PAIR_LIMIT {
-                    result.truncated = true;
-                    break;
-                }
-                result.queue_pairs.push(parse_queue_pair(&device, data)?);
-            }
-        } else {
-            let (device, list) = entries(&body, RES_CM_ID, RES_CM_ID_ENTRY)?;
-            for data in list {
-                result.cm_ids.push(parse_cm_id(&device, data)?);
-            }
-        }
+    let tables = netlink::dump::<QueuePairTable>(fd, request, deadline)?;
+    for table in tables {
+        let remaining = QUEUE_PAIR_LIMIT.saturating_sub(result.queue_pairs.len());
+        result.truncated |= table.entries.len() > remaining;
+        result
+            .queue_pairs
+            .extend(table.entries.into_iter().take(remaining));
     }
     Ok(())
 }
 
+fn read_cm_ids(
+    fd: &std::os::fd::OwnedFd,
+    request: &NetlinkDumpRequest<'_>,
+    deadline: Instant,
+    result: &mut NldevResources,
+) -> Result<()> {
+    let tables = netlink::dump::<CmIdTable>(fd, request, deadline)?;
+    for table in tables {
+        result.cm_ids.extend(table.entries);
+    }
+    Ok(())
+}
+
+/// Reads queue pairs and CM IDs of every RDMA device visible in this network namespace.
 pub(super) fn read_resources(deadline: Instant) -> Result<NldevResources> {
     let fd = netlink::open_socket(NETLINK_RDMA, "NETLINK_RDMA")?;
     let mut sequence = 1;
-    let mut devices = Vec::new();
     let request = NetlinkDumpRequest {
         label: "RDMA device dump",
         message_type: message_type(CMD_GET),
@@ -246,13 +293,10 @@ pub(super) fn read_resources(deadline: Instant) -> Result<NldevResources> {
         sequence,
         payload: &[],
     };
-    let replies = netlink::dump(&fd, &request, deadline)?;
-    for body in replies {
-        devices.push(parse_device(&body)?);
-    }
-    devices.sort_by(|a, b| a.1.cmp(&b.1));
+    let mut devices = netlink::dump::<RdmaDeviceInfo>(&fd, &request, deadline)?;
+    devices.sort_by(|a, b| a.name.cmp(&b.name));
     let mut result = NldevResources::default();
-    for (index, name) in devices {
+    for RdmaDeviceInfo { index, name } in devices {
         let mut payload = Vec::with_capacity(8);
         payload.extend_from_slice(&8u16.to_ne_bytes());
         payload.extend_from_slice(&DEV_INDEX.to_ne_bytes());
@@ -269,9 +313,10 @@ pub(super) fn read_resources(deadline: Instant) -> Result<NldevResources> {
                 sequence,
                 payload: &payload,
             };
-            let dumped = match netlink::dump(&fd, &request, deadline) {
-                Ok(bodies) => parse_resource_replies(bodies, command, &mut result),
-                Err(error) => Err(error),
+            let dumped = if command == CMD_RES_QP_GET {
+                read_queue_pairs(&fd, &request, deadline, &mut result)
+            } else {
+                read_cm_ids(&fd, &request, deadline, &mut result)
             };
             if let Err(error) = dumped {
                 ensure!(Instant::now() < deadline, "{error:#}");
@@ -291,6 +336,7 @@ pub(super) fn read_resources(deadline: Instant) -> Result<NldevResources> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::privileged_helper::netlink::NetlinkReply;
 
     #[test]
     fn unsupported_dumps_are_recognized_through_context() {
@@ -345,12 +391,7 @@ mod tests {
         let mut body = attribute(DEV_INDEX, &0u32.to_ne_bytes());
         body.extend(attribute(DEV_NAME, b"mlx4_0\0"));
         body.extend(attribute(0x8000 | RES_QP, &table));
-        let (device, list) = entries(&body, RES_QP, RES_QP_ENTRY).unwrap();
-        assert_eq!(device, "mlx4_0");
-        let parsed: Vec<_> = list
-            .iter()
-            .map(|data| parse_queue_pair(&device, data).unwrap())
-            .collect();
+        let parsed = QueuePairTable::decode(&body).unwrap().entries;
         assert_eq!(
             parsed[0],
             QueuePairEntry {
@@ -386,8 +427,9 @@ mod tests {
             (RES_CM_IDN, 0u32.to_ne_bytes().to_vec()),
             (RES_KERN_NAME, b"rpcrdma\0".to_vec()),
         ]));
-        let (device, list) = entries(&body, RES_CM_ID, RES_CM_ID_ENTRY).unwrap();
-        let cm = parse_cm_id(&device, list[0]).unwrap();
+        let mut table = CmIdTable::decode(&body).unwrap();
+        assert_eq!(table.entries.len(), 1);
+        let cm = table.entries.remove(0);
         assert_eq!(cm.device, "ibp133s0");
         assert_eq!(cm.qpn, Some(524));
         assert_eq!(cm.id, Some(0));
@@ -400,7 +442,7 @@ mod tests {
         assert!(parse_queue_pair("x", &attribute(RES_LQPN, &[1, 0, 0, 0])).is_err());
         assert!(entries(&attribute(RES_LQPN, &[1, 0, 0, 0]), RES_QP, RES_QP_ENTRY).is_err());
         assert_eq!(
-            parse_device(
+            RdmaDeviceInfo::decode(
                 &[
                     attribute(DEV_INDEX, &3u32.to_ne_bytes()),
                     attribute(DEV_NAME, b"rxe0\0")
@@ -408,7 +450,10 @@ mod tests {
                 .concat()
             )
             .unwrap(),
-            (3, "rxe0".into())
+            RdmaDeviceInfo {
+                index: 3,
+                name: "rxe0".into()
+            }
         );
     }
 }

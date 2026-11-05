@@ -6,7 +6,8 @@
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
 //! | [`NetlinkDumpRequest`] | `pub(super)` | `struct NetlinkDumpRequest` |
-//! | [`dump`] | `pub(super)` | `fn dump(fd: &`[`OwnedFd`]`, request: &`[`NetlinkDumpRequest`]`<'_>, deadline: `[`Instant`]`) -> `[`Result`]`<`[`Vec`]`<`[`Vec`]`<`[`u8`]`>>>` |
+//! | [`NetlinkReply`] | `pub(super)` | `trait NetlinkReply: Sized` |
+//! | [`dump`] | `pub(super)` | `fn dump<T: `[`NetlinkReply`]`>(fd: &`[`OwnedFd`]`, request: &`[`NetlinkDumpRequest`]`<'_>, deadline: `[`Instant`]`) -> `[`Result`]`<`[`Vec`]`<T>>` |
 //! | [`open_socket`] | `pub(super)` | `fn open_socket(protocol: `[`i32`]`, name: &`[`str`]`) -> `[`Result`]`<`[`OwnedFd`]`>` |
 //! | [`attributes`] | `pub(super)` | `fn attributes(bytes: &[`[`u8`]`]) -> `[`Result`]`<`[`Vec`]`<(`[`u16`]`, &[`[`u8`]`])>>` |
 //! | [`u32_at`] | `pub(super)` | `fn u32_at(bytes: &[`[`u8`]`], offset: `[`usize`]`) -> `[`Result`]`<`[`u32`]`>` |
@@ -81,15 +82,23 @@ pub(super) struct NetlinkDumpRequest<'a> {
     pub(super) payload: &'a [u8],
 }
 
-/// Sends the request and returns owned reply bodies in receive order after `NLMSG_DONE`.
+/// An owned protocol-specific value decoded from one Netlink data message.
+/// Implementations validate the body and must not borrow from the receive buffer.
+pub(super) trait NetlinkReply: Sized {
+    /// Decodes and validates one data-message body, excluding the Netlink header.
+    fn decode(body: &[u8]) -> Result<Self>;
+}
+
+/// Sends the request and returns decoded replies in receive order after `NLMSG_DONE`.
+/// Decoding starts only after the complete dump has passed transport validation.
 /// Control messages are excluded. Failed requests return no partial results.
 /// Interrupted dumps, replies from other senders or sequences, error messages and
 /// replies above 8 MiB fail. The deadline bounds the whole exchange.
-pub(super) fn dump(
+pub(super) fn dump<T: NetlinkReply>(
     fd: &OwnedFd,
     request: &NetlinkDumpRequest<'_>,
     deadline: Instant,
-) -> Result<Vec<Vec<u8>>> {
+) -> Result<Vec<T>> {
     let label = request.label;
     ensure!(Instant::now() < deadline, "{label} timed out");
     let mut kernel: libc::sockaddr_nl = unsafe { std::mem::zeroed() };
@@ -118,13 +127,13 @@ pub(super) fn dump(
     receive_replies(fd, request, deadline)
 }
 
-fn receive_replies(
+fn receive_replies<T: NetlinkReply>(
     fd: &OwnedFd,
     request: &NetlinkDumpRequest<'_>,
     deadline: Instant,
-) -> Result<Vec<Vec<u8>>> {
+) -> Result<Vec<T>> {
     let label = request.label;
-    let mut replies = Vec::new();
+    let mut replies: Vec<Vec<u8>> = Vec::new();
     let mut buffer = vec![0u8; 65536];
     let mut total = 0;
     loop {
@@ -199,7 +208,13 @@ fn receive_replies(
                                 .with_context(|| format!("{label} dump failed"));
                         }
                     }
-                    return Ok(replies);
+                    let mut decoded = Vec::with_capacity(replies.len());
+                    for body in replies {
+                        decoded.push(
+                            T::decode(&body).with_context(|| format!("{label} invalid reply"))?,
+                        );
+                    }
+                    return Ok(decoded);
                 }
                 NLMSG_ERROR => {
                     let code = u32_at(body, 0)? as i32;
@@ -230,7 +245,20 @@ mod tests {
         bytes
     }
 
-    fn receive_packets(packets: &[Vec<u8>]) -> Result<Vec<Vec<u8>>> {
+    #[derive(Debug, PartialEq, Eq)]
+    struct TestReply {
+        text: String,
+    }
+
+    impl NetlinkReply for TestReply {
+        fn decode(body: &[u8]) -> Result<Self> {
+            Ok(Self {
+                text: std::str::from_utf8(body)?.to_owned(),
+            })
+        }
+    }
+
+    fn receive_packets(packets: &[Vec<u8>]) -> Result<Vec<TestReply>> {
         // Unnamed datagrams exercise the receive loop with deterministic packets.
         // Their empty sender address leaves the zero-initialized nl_pid at zero.
         let (sender, receiver) = std::os::unix::net::UnixDatagram::pair()?;
@@ -264,7 +292,9 @@ mod tests {
         .unwrap();
         assert_eq!(
             replies,
-            [b"first".to_vec(), b"second".to_vec(), b"third".to_vec()]
+            ["first", "second", "third"].map(|text| TestReply {
+                text: text.to_owned()
+            })
         );
     }
 
@@ -293,6 +323,34 @@ mod tests {
                 Some(libc::EOPNOTSUPP)
             );
         }
+    }
+
+    #[test]
+    fn invalid_typed_reply_fails_the_complete_dump() {
+        let error = receive_packets(&[
+            message(20, 0, 7, b"valid"),
+            message(20, 0, 7, &[0xff]),
+            message(NLMSG_DONE, 0, 7, &[]),
+        ])
+        .unwrap_err();
+        assert!(error.downcast_ref::<std::str::Utf8Error>().is_some());
+        assert!(error.to_string().contains("test dump invalid reply"));
+    }
+
+    #[test]
+    fn failed_transport_is_reported_before_body_decoding() {
+        let error = receive_packets(&[
+            message(20, 0, 7, &[0xff]),
+            message(NLMSG_ERROR, 0, 7, &(-libc::EOPNOTSUPP).to_ne_bytes()),
+        ])
+        .unwrap_err();
+        assert_eq!(
+            error
+                .downcast_ref::<std::io::Error>()
+                .unwrap()
+                .raw_os_error(),
+            Some(libc::EOPNOTSUPP)
+        );
     }
 
     #[test]

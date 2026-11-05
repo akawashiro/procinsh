@@ -72,6 +72,17 @@ fn parse_neighbor(body: &[u8]) -> Result<Option<(IpAddr, String)>> {
     Ok(destination.zip(gid))
 }
 
+struct IpoibNeighborInfo {
+    address: IpAddr,
+    gid: String,
+}
+
+impl netlink::NetlinkReply for Option<IpoibNeighborInfo> {
+    fn decode(body: &[u8]) -> Result<Self> {
+        Ok(parse_neighbor(body)?.map(|(address, gid)| IpoibNeighborInfo { address, gid }))
+    }
+}
+
 /// Resolved IPoIB neighbors. An address seen with different GIDs is ambiguous and omitted.
 pub(super) fn ipoib_gids(deadline: Instant) -> Result<HashMap<IpAddr, String>> {
     let fd = netlink::open_socket(libc::NETLINK_ROUTE, "NETLINK_ROUTE")?;
@@ -84,18 +95,16 @@ pub(super) fn ipoib_gids(deadline: Instant) -> Result<HashMap<IpAddr, String>> {
         sequence: 1,
         payload: &[0u8; 12],
     };
-    let replies = netlink::dump(&fd, &request, deadline)?;
-    for body in replies {
-        if let Some((ip, gid)) = parse_neighbor(&body)? {
-            found
-                .entry(ip)
-                .and_modify(|known| {
-                    if known.as_ref() != Some(&gid) {
-                        *known = None;
-                    }
-                })
-                .or_insert(Some(gid));
-        }
+    let replies = netlink::dump::<Option<IpoibNeighborInfo>>(&fd, &request, deadline)?;
+    for IpoibNeighborInfo { address, gid } in replies.into_iter().flatten() {
+        found
+            .entry(address)
+            .and_modify(|known| {
+                if known.as_ref() != Some(&gid) {
+                    *known = None;
+                }
+            })
+            .or_insert(Some(gid));
     }
     Ok(found
         .into_iter()
@@ -106,6 +115,7 @@ pub(super) fn ipoib_gids(deadline: Instant) -> Result<HashMap<IpAddr, String>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::privileged_helper::netlink::NetlinkReply;
 
     fn attribute(kind: u16, data: &[u8]) -> Vec<u8> {
         let mut bytes = Vec::new();
@@ -130,23 +140,24 @@ mod tests {
             0x80, 0x00, 0x02, 0x22, 0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0xf4, 0x52, 0x14, 0x03, 0x00,
             0x80, 0xde, 0x51,
         ];
-        let (ip, gid) = parse_neighbor(&neighbor(0x04, &[10, 10, 10, 1], &hardware))
-            .unwrap()
-            .unwrap();
-        assert_eq!(ip.to_string(), "10.10.10.1");
+        let IpoibNeighborInfo { address, gid } =
+            Option::<IpoibNeighborInfo>::decode(&neighbor(0x04, &[10, 10, 10, 1], &hardware))
+                .unwrap()
+                .unwrap();
+        assert_eq!(address.to_string(), "10.10.10.1");
         assert_eq!(gid, "fe80:0000:0000:0000:f452:1403:0080:de51");
         // Ethernet neighbors and unresolved entries carry no GID.
         assert!(
-            parse_neighbor(&neighbor(0x02, &[192, 168, 2, 1], &[0xde; 6]))
+            Option::<IpoibNeighborInfo>::decode(&neighbor(0x02, &[192, 168, 2, 1], &[0xde; 6]))
                 .unwrap()
                 .is_none()
         );
         assert!(
-            parse_neighbor(&neighbor(NUD_FAILED, &[10, 10, 10, 1], &hardware))
+            Option::<IpoibNeighborInfo>::decode(&neighbor(NUD_FAILED, &[10, 10, 10, 1], &hardware))
                 .unwrap()
                 .is_none()
         );
-        assert!(parse_neighbor(&[0; 4]).is_err());
+        assert!(Option::<IpoibNeighborInfo>::decode(&[0; 4]).is_err());
     }
 
     #[test]
