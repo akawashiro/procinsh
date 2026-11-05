@@ -14,10 +14,9 @@
 //! | [`observe`] | `pub(super)` | `fn observe(sys: &`[`Path`](std::path::Path)`, processes: &`[`HashMap`](std::collections::HashMap)`<`[`i32`]`, `[`ProcessId`](crate::privileged_helper::process::ProcessId)`>, deadline: `[`Instant`](std::time::Instant)`) -> `[`observation::RdmaObservation`] |
 //!
 //! [`RdmaRelation`] refers to [`relations::RdmaEndpoint`], [`relations::RdmaCmInfo`],
-//! [`codes::RdmaAddress`] and [`codes::IbGid`]. Remote GIDs of IP destinations come
-//! from [`super::ipoib::ipoib_gids`].
+//! [`RdmaAddress`](crate::ipc::rdma::RdmaAddress) and [`IbGid`](crate::ipc::rdma::IbGid).
+//! Remote GIDs of IP destinations come from [`super::ipoib::ipoib_gids`].
 
-mod codes;
 mod nldev;
 mod observation;
 mod ports;

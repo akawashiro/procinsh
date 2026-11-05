@@ -4,7 +4,7 @@
 //! message. Resources of processes outside the caller's PID namespace are omitted
 //! by the kernel; kernel-owned resources are always reported.
 
-use super::codes::{RdmaAddress, RdmaCmState, RdmaPortSpace, RdmaQpState, RdmaQpType};
+use crate::ipc::rdma::{RdmaAddress, RdmaCmState, RdmaPortSpace, RdmaQpState, RdmaQpType};
 use crate::privileged_helper::netlink::{self, NetlinkDumpRequest};
 use anyhow::{Context, Result, ensure};
 use std::time::Instant;
