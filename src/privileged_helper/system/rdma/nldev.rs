@@ -239,14 +239,14 @@ pub(super) fn read_resources(deadline: Instant) -> Result<NldevResources> {
     let fd = netlink::open_socket(NETLINK_RDMA, "NETLINK_RDMA")?;
     let mut sequence = 1;
     let mut devices = Vec::new();
-    let replies = NetlinkDumpRequest {
+    let request = NetlinkDumpRequest {
         label: "RDMA device dump",
         message_type: message_type(CMD_GET),
         reply_type: message_type(CMD_GET),
         sequence,
         payload: &[],
-    }
-    .run(&fd, deadline)?;
+    };
+    let replies = netlink::dump(&fd, &request, deadline)?;
     for body in replies {
         devices.push(parse_device(&body)?);
     }
@@ -262,15 +262,14 @@ pub(super) fn read_resources(deadline: Instant) -> Result<NldevResources> {
             (CMD_RES_CM_ID_GET, "RDMA CM ID dump"),
         ] {
             sequence += 1;
-            let dumped = NetlinkDumpRequest {
+            let request = NetlinkDumpRequest {
                 label,
                 message_type: message_type(command),
                 reply_type: message_type(command),
                 sequence,
                 payload: &payload,
-            }
-            .run(&fd, deadline);
-            let dumped = match dumped {
+            };
+            let dumped = match netlink::dump(&fd, &request, deadline) {
                 Ok(bodies) => parse_resource_replies(bodies, command, &mut result),
                 Err(error) => Err(error),
             };

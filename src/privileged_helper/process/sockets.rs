@@ -172,19 +172,19 @@ pub(super) fn unix_diag(
 ) -> Result<HashMap<u64, SocketInfo>> {
     let fd = namespace.diagnostic_socket(deadline)?;
     // struct unix_diag_req
-    let mut request = [0u8; 24];
-    request[0] = libc::AF_UNIX as u8;
-    request[4..8].copy_from_slice(&u32::MAX.to_ne_bytes());
-    request[12..16].copy_from_slice(&5u32.to_ne_bytes()); // SHOW_NAME | SHOW_PEER
+    let mut payload = [0u8; 24];
+    payload[0] = libc::AF_UNIX as u8;
+    payload[4..8].copy_from_slice(&u32::MAX.to_ne_bytes());
+    payload[12..16].copy_from_slice(&5u32.to_ne_bytes()); // SHOW_NAME | SHOW_PEER
     let mut result = HashMap::new();
-    let replies = netlink::NetlinkDumpRequest {
+    let request = netlink::NetlinkDumpRequest {
         label: "UNIX diag",
         message_type: 20, // SOCK_DIAG_BY_FAMILY
         reply_type: 20,
         sequence: 1,
-        payload: &request,
-    }
-    .run(&fd, deadline)?;
+        payload: &payload,
+    };
+    let replies = netlink::dump(&fd, &request, deadline)?;
     for body in replies {
         let (inode, info) = parse_diag(&body)?;
         result.insert(inode, info);

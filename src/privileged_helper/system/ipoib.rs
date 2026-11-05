@@ -77,14 +77,14 @@ pub(super) fn ipoib_gids(deadline: Instant) -> Result<HashMap<IpAddr, String>> {
     let fd = netlink::open_socket(libc::NETLINK_ROUTE, "NETLINK_ROUTE")?;
     let mut found: HashMap<IpAddr, Option<String>> = HashMap::new();
     // struct ndmsg with AF_UNSPEC dumps every neighbor table.
-    let replies = NetlinkDumpRequest {
+    let request = NetlinkDumpRequest {
         label: "IPoIB neighbor dump",
         message_type: RTM_GETNEIGH,
         reply_type: RTM_NEWNEIGH,
         sequence: 1,
         payload: &[0u8; 12],
-    }
-    .run(&fd, deadline)?;
+    };
+    let replies = netlink::dump(&fd, &request, deadline)?;
     for body in replies {
         if let Some((ip, gid)) = parse_neighbor(&body)? {
             found
