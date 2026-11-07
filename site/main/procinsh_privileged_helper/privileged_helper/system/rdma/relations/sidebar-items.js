@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["build_rdma_endpoint","build_rdma_relations","format_rdma_relation_label","resolve_rdma_owner","same_connection"],"struct":["Endpoint"]};

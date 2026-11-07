@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["SubscribeError"],"fn":["collect_file_descriptors","collect_memory_maps","collect_process_observation","collect_thread_observation","inet_sockets","memory_maps","permission_help","read_auxiliary_vector","read_environment","read_procfs_fields","socket_text","timestamp_ms","unix_socket_peers","unix_sockets"]};

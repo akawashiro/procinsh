@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["activity","descriptors","details","hardware","history","relations","snapshot"]};

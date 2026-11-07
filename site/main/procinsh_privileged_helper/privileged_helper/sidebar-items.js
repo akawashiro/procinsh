@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["bpf_records","helper_service","launch","netlink","privileges","process","system"]};

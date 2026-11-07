@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["observe"],"struct":["RdmaObservation"]};

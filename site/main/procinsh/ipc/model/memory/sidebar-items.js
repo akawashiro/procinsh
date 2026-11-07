@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["MemoryKind"],"fn":["parse_map","parse_smaps"],"struct":["MappingSnapshot","MemoryMap","SmapsEntry"]};

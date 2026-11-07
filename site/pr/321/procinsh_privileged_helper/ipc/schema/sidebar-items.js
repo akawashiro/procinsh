@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_REQUEST","MAX_RESPONSE","SESSION_LEASE","TIMEOUT"],"enum":["AcquiredData","MonitorEvent","MonitorRequest","MonitorResponse","ProcessResource"],"struct":["HelperIdentity","ProcessId"],"type":["WireResponse"]};

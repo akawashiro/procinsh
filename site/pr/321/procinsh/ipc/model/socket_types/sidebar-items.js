@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AddressFamily","FdAccess","FdKind","SocketConnectionStatus","SocketProtocol","SocketState","SocketType"],"fn":["netlink_name"],"struct":["InetAddress"]};

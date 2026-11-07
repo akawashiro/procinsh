@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["pipe_attach_target"],"struct":["IpcActivityCollector"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["auxiliary_tag_metadata","format_process_metadata","parse_auxv","parse_environment"],"struct":["AuxEntry","EnvironmentEntry"]};

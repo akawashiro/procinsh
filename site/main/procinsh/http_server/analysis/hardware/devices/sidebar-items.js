@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["build_hardware_device","nvidia_information","shorten_pci_address"],"struct":["GpuInfoJson","HardwareDeviceJson","RdmaDeviceInfoJson"]};

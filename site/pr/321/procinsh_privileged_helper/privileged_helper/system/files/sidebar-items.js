@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["COVERAGE","MAX_AGGREGATES"],"struct":["Batch","FileActivityCollector"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["launch_privileged_helper","request_shutdown"],"static":["STOP"],"struct":["Cli"]};
