@@ -27,7 +27,7 @@
 //! | [`fn@threads`] | `pub(super)` | `fn threads (id: ProcessId) -> anyhow::Result<`[`ObservationData`](crate::ipc::acquisition::ObservationData)`>` |
 //! | [`fn@maps`] | `pub(super)` | `fn maps (id: ProcessId) -> anyhow::Result<`[`MemoryMaps`](crate::ipc::acquisition::MemoryMaps)`>` |
 //! | [`environment`] | `pub(super)` | `fn environment (id: ProcessId) -> anyhow::Result<`[`EnvironmentData`](crate::ipc::acquisition::EnvironmentData)`>` |
-//! | [`auxv`] | `pub(super)` | `fn auxv (id: ProcessId) -> anyhow::Result<`[`AuxData`](crate::ipc::acquisition::AuxData)`>` |
+//! | [`fn@auxv`] | `pub(super)` | `fn auxv (id: ProcessId) -> anyhow::Result<`[`AuxData`](crate::ipc::acquisition::AuxData)`>` |
 //! | [`fn@fds`] | `pub(super)` | `fn fds (id: ProcessId) -> anyhow::Result<`[`FileDescriptors`](crate::ipc::descriptors::FileDescriptors)`>` |
 //! | [`memory_maps`] | `pub(super)` | `fn memory_maps(pid: `[`i32`]`) -> `[`Result`](anyhow::Result)`<`[`Vec`]`<`[`MemoryMap`]`>>` |
 //! | [`fields`] | `pub(super)` | `fn fields(path: &`[`str`]`) -> `[`Result`](anyhow::Result)`<`[`HashMap`](std::collections::HashMap)`<`[`String`]`, `[`String`]`>>` |
