@@ -226,7 +226,12 @@ pub(in crate::privileged_helper::system) fn test_relation(qpn: u32) -> RdmaRelat
 mod tests {
     use super::*;
 
-    fn qp(device: &str, qpn: u32, remote: Option<u32>, owner: ResourceOwner) -> QueuePairEntry {
+    fn queue_pair_fixture(
+        device: &str,
+        qpn: u32,
+        remote: Option<u32>,
+        owner: ResourceOwner,
+    ) -> QueuePairEntry {
         QueuePairEntry {
             device: device.into(),
             port: Some(1),
@@ -238,7 +243,7 @@ mod tests {
         }
     }
 
-    fn cm(device: &str, qpn: u32, source: &str, destination: &str) -> CmIdEntry {
+    fn connection_id_fixture(device: &str, qpn: u32, source: &str, destination: &str) -> CmIdEntry {
         let address = |text: &str| {
             let address: std::net::SocketAddr = text.parse().unwrap();
             RdmaAddress::Inet {
@@ -258,7 +263,7 @@ mod tests {
         }
     }
 
-    fn port(device: &str, gid: &str) -> RdmaPortInfo {
+    fn rdma_port_fixture(device: &str, gid: &str) -> RdmaPortInfo {
         RdmaPortInfo {
             device: device.into(),
             port: 1,
@@ -277,16 +282,21 @@ mod tests {
     fn remote_qps_keep_cm_destination_and_neighbor_gid() {
         let resources = NldevResources {
             queue_pairs: vec![
-                qp(
+                queue_pair_fixture(
                     "ib0",
                     524,
                     Some(650),
                     ResourceOwner::Kernel("rdma_cm".into()),
                 ),
-                qp("ib0", 7, None, ResourceOwner::Process(99)),
-                qp("ib0", 8, None, ResourceOwner::Process(42)),
+                queue_pair_fixture("ib0", 7, None, ResourceOwner::Process(99)),
+                queue_pair_fixture("ib0", 8, None, ResourceOwner::Process(42)),
             ],
-            cm_ids: vec![cm("ib0", 524, "10.10.10.2:58985", "10.10.10.1:20049")],
+            cm_ids: vec![connection_id_fixture(
+                "ib0",
+                524,
+                "10.10.10.2:58985",
+                "10.10.10.1:20049",
+            )],
             ..Default::default()
         };
         let neighbors =
@@ -298,8 +308,12 @@ mod tests {
                 start_time_ticks: 7,
             },
         )]);
-        let result =
-            build_rdma_relations(&resources, &[port("ib0", LOCAL)], &neighbors, &processes);
+        let result = build_rdma_relations(
+            &resources,
+            &[rdma_port_fixture("ib0", LOCAL)],
+            &neighbors,
+            &processes,
+        );
         assert_eq!(result.len(), 3);
         let json = serde_json::to_value(&result[0]).unwrap();
         assert_eq!(json["id"], "rdma:ib0/1:524");
@@ -335,12 +349,12 @@ mod tests {
 
     #[test]
     fn local_pairs_need_unique_swaps_and_no_contradicting_addresses() {
-        let owner = || ResourceOwner::Process(1);
+        let process_owner_fixture = || ResourceOwner::Process(1);
         // Same device: a QPN swap identifies a loopback connection.
         let same = NldevResources {
             queue_pairs: vec![
-                qp("ib0", 20, Some(10), resolve_rdma_owner()),
-                qp("ib0", 10, Some(20), resolve_rdma_owner()),
+                queue_pair_fixture("ib0", 20, Some(10), process_owner_fixture()),
+                queue_pair_fixture("ib0", 10, Some(20), process_owner_fixture()),
             ],
             ..Default::default()
         };
@@ -352,8 +366,8 @@ mod tests {
         // Different devices without address evidence remain separate.
         let devices = NldevResources {
             queue_pairs: vec![
-                qp("ib0", 10, Some(20), resolve_rdma_owner()),
-                qp("ib1", 20, Some(10), resolve_rdma_owner()),
+                queue_pair_fixture("ib0", 10, Some(20), process_owner_fixture()),
+                queue_pair_fixture("ib1", 20, Some(10), process_owner_fixture()),
             ],
             ..Default::default()
         };
@@ -364,8 +378,8 @@ mod tests {
         // Swapped CM addresses confirm a pair across devices.
         let confirmed = NldevResources {
             cm_ids: vec![
-                cm("ib0", 10, "10.0.0.1:1", "10.0.0.2:2"),
-                cm("ib1", 20, "10.0.0.2:2", "10.0.0.1:1"),
+                connection_id_fixture("ib0", 10, "10.0.0.1:1", "10.0.0.2:2"),
+                connection_id_fixture("ib1", 20, "10.0.0.2:2", "10.0.0.1:1"),
             ],
             ..devices
         };
@@ -375,14 +389,14 @@ mod tests {
         );
         // A remote GID naming another port contradicts a same-device QPN swap.
         let contradicted = NldevResources {
-            cm_ids: vec![cm("ib0", 10, "10.0.0.1:1", "10.0.0.9:2")],
+            cm_ids: vec![connection_id_fixture("ib0", 10, "10.0.0.1:1", "10.0.0.9:2")],
             ..same
         };
         let neighbors =
             HashMap::from([("10.0.0.9".parse().unwrap(), IbGid::parse(REMOTE).unwrap())]);
         let result = build_rdma_relations(
             &contradicted,
-            &[port("ib0", LOCAL)],
+            &[rdma_port_fixture("ib0", LOCAL)],
             &neighbors,
             &HashMap::new(),
         );
@@ -390,14 +404,14 @@ mod tests {
         // An ambiguous swap is not paired.
         let ambiguous = NldevResources {
             queue_pairs: vec![
-                qp("ib0", 10, Some(20), resolve_rdma_owner()),
-                qp("ib1", 20, Some(10), resolve_rdma_owner()),
-                qp("ib2", 20, Some(10), resolve_rdma_owner()),
+                queue_pair_fixture("ib0", 10, Some(20), process_owner_fixture()),
+                queue_pair_fixture("ib1", 20, Some(10), process_owner_fixture()),
+                queue_pair_fixture("ib2", 20, Some(10), process_owner_fixture()),
             ],
             cm_ids: vec![
-                cm("ib0", 10, "10.0.0.1:1", "10.0.0.2:2"),
-                cm("ib1", 20, "10.0.0.2:2", "10.0.0.1:1"),
-                cm("ib2", 20, "10.0.0.2:2", "10.0.0.1:1"),
+                connection_id_fixture("ib0", 10, "10.0.0.1:1", "10.0.0.2:2"),
+                connection_id_fixture("ib1", 20, "10.0.0.2:2", "10.0.0.1:1"),
+                connection_id_fixture("ib2", 20, "10.0.0.2:2", "10.0.0.1:1"),
             ],
             ..Default::default()
         };

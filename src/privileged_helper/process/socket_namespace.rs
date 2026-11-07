@@ -78,7 +78,7 @@ mod tests {
 
     #[test]
     fn netns_reader_checks_identity_and_deadlines() {
-        let id = super::super::identity(std::process::id() as i32).unwrap();
+        let id = super::super::read_process_identity(std::process::id() as i32).unwrap();
         let reader = NetworkNamespaceReader::open(id).unwrap();
         assert_eq!(reader.key(), current_namespace());
         let mut stale = id;
