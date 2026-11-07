@@ -28,18 +28,19 @@ impl Target {
             .nth(1)
             .and_then(|v| u64::from_str_radix(v.trim_start_matches("0x"), 16).ok())
             .unwrap_or(0);
-        let id = process::identity(child.id() as i32).unwrap();
+        let id = process::read_process_identity(child.id() as i32).unwrap();
         std::thread::sleep(Duration::from_millis(30));
         Self { child, id, address }
     }
 
     pub(in crate::privileged_helper) fn assert_detached(&self) {
-        for tid in threads::tids(self.id.pid).unwrap() {
-            if let Ok(status) =
-                process::procfs::fields(&format!("/proc/{}/task/{tid}/status", self.id.pid))
-            {
+        for tid in threads::collect_thread_ids(self.id.pid).unwrap() {
+            if let Ok(status) = process::procfs::read_procfs_fields(&format!(
+                "/proc/{}/task/{tid}/status",
+                self.id.pid
+            )) {
                 assert_eq!(
-                    process::procfs::field_u64(&status, "TracerPid"),
+                    process::procfs::parse_procfs_u64_field(&status, "TracerPid"),
                     Some(0),
                     "TID {tid} remained traced"
                 );
@@ -100,9 +101,11 @@ impl NetworkNamespaceTarget {
         BufReader::new(child.stdout.take().unwrap())
             .read_line(&mut line)
             .unwrap();
-        let id = process::identity(child.id() as i32).unwrap();
-        let peer_id =
-            process::identity(line.split_whitespace().nth(1).unwrap().parse().unwrap()).unwrap();
+        let id = process::read_process_identity(child.id() as i32).unwrap();
+        let peer_id = process::read_process_identity(
+            line.split_whitespace().nth(1).unwrap().parse().unwrap(),
+        )
+        .unwrap();
         Self {
             target: Target {
                 child,

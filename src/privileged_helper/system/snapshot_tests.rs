@@ -13,7 +13,7 @@ fn netns_snapshot_resolves_multiple_namespaces_and_cross_namespace_holders() {
     use std::os::{fd::AsRawFd, unix::fs::MetadataExt};
     let first = process::NetworkNamespaceTarget::new(true);
     let second = process::NetworkNamespaceTarget::new(true);
-    let snapshot = super::collect();
+    let snapshot = super::collect_system_snapshot();
     let connects = |relation: &super::FdRelation,
                     a: (process::ProcessId, u32),
                     b: (process::ProcessId, u32)| {
@@ -58,7 +58,7 @@ fn netns_snapshot_resolves_multiple_namespaces_and_cross_namespace_holders() {
                 && connects(
                     relation,
                     (
-                        process::identity(std::process::id() as i32).unwrap(),
+                        process::read_process_identity(std::process::id() as i32).unwrap(),
                         fixture.inherited.as_raw_fd() as u32,
                     ),
                     (fixture.target.id, 0),
@@ -119,7 +119,7 @@ fn snapshot_and_fd_list_keep_unconnected_socket_kinds() {
             unsafe { OwnedFd::from_raw_fd(raw) }
         })
         .collect();
-    let id = process::identity(std::process::id() as i32).unwrap();
+    let id = process::read_process_identity(std::process::id() as i32).unwrap();
     process::require_socket_metadata(id, sockets[0].as_raw_fd());
     // Bind the Netlink socket so it has a peer-present connection status.
     let mut address: libc::sockaddr_nl = unsafe { std::mem::zeroed() };
@@ -134,8 +134,8 @@ fn snapshot_and_fd_list_keep_unconnected_socket_kinds() {
         },
         0
     );
-    let snapshot = super::collect();
-    let fds = serde_json::to_value(process::fds(id).unwrap()).unwrap();
+    let snapshot = super::collect_system_snapshot();
+    let fds = serde_json::to_value(process::collect_file_descriptors(id).unwrap()).unwrap();
     for (socket, &(_, _, _, protocol)) in sockets.iter().zip(&definitions) {
         let fd = socket.as_raw_fd() as u32;
         let relation = snapshot
@@ -183,10 +183,10 @@ fn socket_connection_status_is_retained_for_shared_listening_and_unconnected_fds
     let listener_duplicate = listener.try_clone().unwrap();
     let udp = UdpSocket::bind("127.0.0.1:0").unwrap();
     let udp_duplicate = udp.try_clone().unwrap();
-    let id = process::identity(std::process::id() as i32).unwrap();
+    let id = process::read_process_identity(std::process::id() as i32).unwrap();
     process::require_socket_metadata(id, listener.as_raw_fd());
-    let snapshot = super::collect();
-    let fds = serde_json::to_value(process::fds(id).unwrap()).unwrap();
+    let snapshot = super::collect_system_snapshot();
+    let fds = serde_json::to_value(process::collect_file_descriptors(id).unwrap()).unwrap();
     for (fd, expected) in [
         (listener.as_raw_fd(), SocketConnectionStatus::Listening),
         (udp.as_raw_fd(), SocketConnectionStatus::Unconnected),
@@ -232,7 +232,7 @@ fn snapshot_finds_pipe_and_unix_peers_and_bounds_work() {
         .unwrap();
     let parent = child.0.id() as i32;
     let peer_pid: i32 = line.split_whitespace().nth(2).unwrap().parse().unwrap();
-    let snapshot = super::collect();
+    let snapshot = super::collect_system_snapshot();
     assert!(snapshot.processes.iter().any(|n| n.identity.pid == parent));
     assert_eq!(
         snapshot
@@ -282,7 +282,7 @@ fn network_destination_survives_shared_socket_ownership() {
             .spawn()
             .unwrap(),
     );
-    let data = super::collect();
+    let data = super::collect_system_snapshot();
     for pid in [std::process::id() as i32, child.0.id() as i32] {
         let relation = data
             .fd_relations
@@ -317,7 +317,7 @@ fn network_destination_survives_shared_socket_ownership() {
 #[test]
 fn hardware_matches_sysfs_devices_and_their_upstream_chains() {
     use std::{fs, path::Path};
-    let snapshot = super::collect();
+    let snapshot = super::collect_system_snapshot();
     let devices: std::collections::HashMap<_, _> = snapshot
         .hardware_devices
         .iter()
@@ -381,7 +381,7 @@ fn rdma_snapshot_matches_sysfs_ports_and_kernel_management_queue_pairs() {
         })
         .collect();
     expected.sort();
-    let snapshot = super::collect();
+    let snapshot = super::collect_system_snapshot();
     let warnings: Vec<_> = snapshot
         .warnings
         .iter()

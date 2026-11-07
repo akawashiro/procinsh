@@ -5,7 +5,7 @@
 use super::client::MonitorClient;
 use crate::{
     http_server::analysis::snapshot::{
-        registers::{RegisterSet, from_sample},
+        registers::{RegisterSet, classify_sample_registers},
         symbol::{ElfCache, elf_address, instruction_address, resolve_frame},
         unwind::StackUnwinder,
     },
@@ -60,7 +60,7 @@ impl ObservationProcessor {
             .iter()
             .map(|process| (process.identity.pid, process.identity))
             .collect();
-        if crate::http_server::analysis::relations::build(&mut snapshot) {
+        if crate::http_server::analysis::relations::build_ipc_relations(&mut snapshot) {
             snapshot.warnings.push("Scan, mapping, or connection limit reached. Some process or FD information is missing.".into());
         }
         let sources = crate::http_server::analysis::hardware::HardwareSources::acquired(
@@ -160,7 +160,7 @@ impl ObservationProcessor {
             } => snapshot,
             _ => return Ok(()),
         };
-        crate::http_server::analysis::details::complete(value)?;
+        crate::http_server::analysis::details::format_process_metadata(value)?;
         let name = |record: &mut Value| {
             if let Some(object) = record.as_object_mut() {
                 object.remove("raw_ticks");
@@ -270,7 +270,10 @@ impl ObservationProcessor {
                     .back()
                     .is_none_or(|point| point.timestamp < current.timestamp)
                 {
-                    crate::http_server::analysis::history::push(&mut history.points, &observed);
+                    crate::http_server::analysis::history::append_history_observation(
+                        &mut history.points,
+                        &observed,
+                    );
                 }
                 history.sample = current;
                 history.observation = observed.clone();
@@ -288,7 +291,9 @@ impl ObservationProcessor {
         if value.get("raw_fd_owners").is_some() || value.get("raw_peer_keys").is_some() {
             let mut descriptors: crate::http_server::analysis::descriptors::FileDescriptors =
                 serde_json::from_value(value.take())?;
-            crate::http_server::analysis::descriptors::complete(&mut descriptors);
+            crate::http_server::analysis::descriptors::resolve_descriptor_relations(
+                &mut descriptors,
+            );
             *value = serde_json::to_value(descriptors)?;
             value.as_object_mut().unwrap().remove("raw_fd_owners");
             value.as_object_mut().unwrap().remove("raw_peer_keys");
@@ -333,8 +338,13 @@ impl ObservationProcessor {
             if !self.loaded.insert((id, epoch, map.start, map.inode)) {
                 continue;
             }
-            if let Ok(Some(file)) =
-                super::elf_reader::acquire(client, id, map.start, self.symbols.identity(map)).await
+            if let Ok(Some(file)) = super::elf_reader::acquire_mapped_elf_image(
+                client,
+                id,
+                map.start,
+                self.symbols.identity(map),
+            )
+            .await
             {
                 self.symbols.insert_image(map, &file);
             }
@@ -404,7 +414,7 @@ impl ObservationProcessor {
             }
             raw.insert(
                 "registers".into(),
-                serde_json::to_value(from_sample(&registers, maps))?,
+                serde_json::to_value(classify_sample_registers(&registers, maps))?,
             );
             raw.insert("call_stack".into(), serde_json::to_value(frames)?);
             raw.insert("unwind_stop".into(), Value::String(reason));

@@ -97,7 +97,7 @@ impl HelperIpcService {
                 id,
                 mapping_start,
                 ranges,
-            } => process::mapped_elf(id, mapping_start, ranges),
+            } => process::acquire_process_elf_ranges(id, mapping_start, ranges),
             MonitorRequest::Processes => Ok(MonitorResponse::Data(AcquiredData::Processes(
                 process::collect_processes()?,
             ))),
@@ -105,15 +105,21 @@ impl HelperIpcService {
                 process::validate_process_identity(id)?;
                 let data = match resource {
                     ProcessResource::Observation => {
-                        AcquiredData::Observation(process::observation(id)?)
+                        AcquiredData::Observation(process::collect_process_observation(id)?)
                     }
-                    ProcessResource::Threads => AcquiredData::Observation(process::threads(id)?),
-                    ProcessResource::Maps => AcquiredData::Maps(process::maps(id)?),
+                    ProcessResource::Threads => {
+                        AcquiredData::Observation(process::collect_thread_observation(id)?)
+                    }
+                    ProcessResource::Maps => AcquiredData::Maps(process::collect_memory_maps(id)?),
                     ProcessResource::Environment => {
-                        AcquiredData::Environment(process::environment(id)?)
+                        AcquiredData::Environment(process::read_environment(id)?)
                     }
-                    ProcessResource::Auxv => AcquiredData::Auxv(process::auxv(id)?),
-                    ProcessResource::Fds => AcquiredData::Fds(process::fds(id)?),
+                    ProcessResource::Auxv => {
+                        AcquiredData::Auxv(process::read_auxiliary_vector(id)?)
+                    }
+                    ProcessResource::Fds => {
+                        AcquiredData::Fds(process::collect_file_descriptors(id)?)
+                    }
                 };
                 process::validate_process_identity(id)?;
                 Ok(MonitorResponse::Data(data))
@@ -208,7 +214,7 @@ impl HelperIpcService {
     /// Poll for idle input so expired sessions are also reaped when the child
     /// stops sending requests. Once a frame begins, socket timeouts apply.
     pub(super) fn serve(mut self, mut socket: UnixStream) -> Result<()> {
-        transport::configure(&socket)?;
+        transport::configure_ipc_socket(&socket)?;
         loop {
             self.expire();
             let mut fd = libc::pollfd {

@@ -1,7 +1,7 @@
 //! Private privileged acquisition executable. It has no HTTP listener.
 //!
 //! # Interface
-//! No items are exported. Startup delegates to [`privileged_helper::run`].
+//! No items are exported. Startup delegates to [`privileged_helper::launch_privileged_helper`].
 #[cfg(test)]
 #[path = "test_http/presentation.rs"]
 mod http_server;
@@ -15,7 +15,7 @@ mod test_support;
 
 fn main() -> std::process::ExitCode {
     env_logger::init();
-    match privileged_helper::run() {
+    match privileged_helper::launch_privileged_helper() {
         Ok(()) => std::process::ExitCode::SUCCESS,
         Err(error) => {
             eprintln!("privileged helper: {error:#}");

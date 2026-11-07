@@ -4,6 +4,16 @@
 //! or UDP pair matches by reversed address tuples; an RDMA pair by swapped QPNs
 //! with remote GID or connection manager addresses as evidence. Only unique
 //! matches link, so NAT and duplicated tuples stay external.
+//!
+//! # Interface
+//! - [`LinkEnd`] (`pub(in crate::http_server)`): `struct LinkEnd`.
+//! - [`SocketLink`] (`pub(in crate::http_server)`): `struct SocketLink`.
+//! - [`RdmaEvidence`] (`pub(in crate::http_server)`): `struct RdmaEvidence`.
+//! - [`RdmaLink`] (`pub(in crate::http_server)`): `struct RdmaLink`.
+//! - [`CrossHostLinks`] (`pub(in crate::http_server)`): `struct CrossHostLinks`.
+//! - [`correlate_host_connections`] (`pub(in crate::http_server)`): `fn correlate_host_connections( hosts: &[(&str, &Value)], ) -> CrossHostLinks`.
+//!
+//! Supporting types: [`CrossHostLinks`], [`Value`].
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -106,7 +116,7 @@ fn entries<T: for<'de> Deserialize<'de>>(snapshot: &Value, name: &str) -> Vec<T>
         .collect()
 }
 
-fn routable(address: Address) -> bool {
+fn is_routable_address(address: Address) -> bool {
     address.port != 0 && !address.ip.is_unspecified() && !address.ip.is_loopback()
 }
 
@@ -124,7 +134,7 @@ fn socket_links(hosts: &[(&str, &Value)]) -> Vec<SocketLink> {
             let (Some(local), Some(remote)) = (socket.local, socket.remote) else {
                 continue;
             };
-            if !routable(local) || !routable(remote) {
+            if !is_routable_address(local) || !is_routable_address(remote) {
                 continue;
             }
             by_tuple
@@ -257,7 +267,9 @@ fn rdma_links(hosts: &[(&str, &Value)]) -> Vec<RdmaLink> {
 }
 
 /// Links between `hosts`, given as host names and their snapshots.
-pub(in crate::http_server) fn correlate(hosts: &[(&str, &Value)]) -> CrossHostLinks {
+pub(in crate::http_server) fn correlate_host_connections(
+    hosts: &[(&str, &Value)],
+) -> CrossHostLinks {
     CrossHostLinks {
         sockets: socket_links(hosts),
         rdma: rdma_links(hosts),
@@ -297,9 +309,9 @@ mod tests {
         )
     }
 
-    fn correlate(hosts: &[(&str, Value)]) -> CrossHostLinks {
+    fn correlate_host_connections(hosts: &[(&str, Value)]) -> CrossHostLinks {
         let hosts: Vec<_> = hosts.iter().map(|(name, s)| (*name, s)).collect();
-        super::correlate(&hosts)
+        super::correlate_host_connections(&hosts)
     }
 
     const GA: &str = "fe80:0000:0000:0000:0000:0000:0000:000a";
@@ -307,7 +319,7 @@ mod tests {
 
     #[test]
     fn reversed_unique_tuples_link_sockets_across_hosts() {
-        let links = correlate(&[
+        let links = correlate_host_connections(&[
             host(
                 "a",
                 vec![
@@ -342,7 +354,7 @@ mod tests {
             json!([{"a": {"host": "a", "relation": "x"}, "b": {"host": "b", "relation": "y"}}])
         );
         // The same host never links to itself, even with reversed tuples.
-        let single = correlate(&[host(
+        let single = correlate_host_connections(&[host(
             "a",
             vec![
                 tcp("x", "10.0.0.1:1", "10.0.0.2:2"),
@@ -357,7 +369,7 @@ mod tests {
     #[test]
     fn rdma_links_need_swapped_qpns_and_consistent_addresses() {
         // Remote GIDs naming each other's ports.
-        let links = correlate(&[
+        let links = correlate_host_connections(&[
             host("a", vec![], vec![qp("qa", 10, 20, Some(GB), None)], GA),
             host("b", vec![], vec![qp("qb", 20, 10, Some(GA), None)], GB),
         ]);
@@ -367,7 +379,7 @@ mod tests {
                 "evidence": {"gid": true, "cm": false}}])
         );
         // Swapped CM addresses, and a unique bare swap on the same link layer.
-        let cm = correlate(&[
+        let cm = correlate_host_connections(&[
             host(
                 "a",
                 vec![],
@@ -388,13 +400,13 @@ mod tests {
                 cm: true
             }
         );
-        let bare = correlate(&[
+        let bare = correlate_host_connections(&[
             host("a", vec![], vec![qp("qa", 10, 20, None, None)], GA),
             host("b", vec![], vec![qp("qb", 20, 10, None, None)], GB),
         ]);
         assert_eq!(bare.rdma.len(), 1);
         // A remote GID of a third machine contradicts the swap.
-        let contradicted = correlate(&[
+        let contradicted = correlate_host_connections(&[
             host(
                 "a",
                 vec![],
@@ -411,14 +423,15 @@ mod tests {
         ]);
         assert!(contradicted.rdma.is_empty());
         // An ambiguous bare swap stays external.
-        let ambiguous = correlate(&[
+        let ambiguous = correlate_host_connections(&[
             host("a", vec![], vec![qp("qa", 10, 20, None, None)], GA),
             host("b", vec![], vec![qp("qb", 20, 10, None, None)], GB),
             host("c", vec![], vec![qp("qc", 20, 10, None, None)], GB),
         ]);
         assert!(ambiguous.rdma.is_empty());
         // Malformed entries are ignored.
-        let malformed = correlate(&[host("a", vec![json!({"id": 1})], vec![json!("x")], GA)]);
+        let malformed =
+            correlate_host_connections(&[host("a", vec![json!({"id": 1})], vec![json!("x")], GA)]);
         assert_eq!(malformed, CrossHostLinks::default());
     }
 }

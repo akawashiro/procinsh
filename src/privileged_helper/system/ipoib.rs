@@ -47,7 +47,7 @@ fn parse_neighbor(body: &[u8]) -> Result<Option<(IpAddr, String)>> {
         return Ok(None);
     }
     let (mut destination, mut gid) = (None, None);
-    for (kind, data) in netlink::attributes(&body[12..])? {
+    for (kind, data) in netlink::parse_netlink_attributes(&body[12..])? {
         match kind {
             NDA_DST => {
                 destination = match data.len() {
@@ -84,7 +84,7 @@ pub(super) fn ipoib_gids(deadline: Instant) -> Result<HashMap<IpAddr, String>> {
         sequence: 1,
         payload: &[0u8; 12],
     };
-    let replies = netlink::dump(&fd, &request, deadline)?;
+    let replies = netlink::collect_netlink_dump(&fd, &request, deadline)?;
     for body in replies {
         if let Some((ip, gid)) = parse_neighbor(&body)? {
             found

@@ -1,12 +1,17 @@
 //! Every host on one SPACE stream. Snapshot, activity and gap payloads carry
 //! `"host"`; `hosts` lists the hosts and `links` the connections between them.
 //! Watching the merged view starts collection on every online agent.
+//!
+//! # Interface
+//! - [`build_merged_event_response`] (`pub(super)`): `async fn build_merged_event_response(s: Arc<AppState>) -> Result<Response, ApiError>`.
+//!
+//! Supporting types: [`ApiError`], [`AppState`], [`Arc`], [`Response`].
 
 use super::super::{
     AppState,
     client::{MonitorClient, ObservationSession},
     delivery::SnapshotEncoder,
-    hosts::{AgentLink, correlate},
+    hosts::{AgentLink, correlate_host_connections},
 };
 use super::process::ApiError;
 use crate::http_server::protocol::MonitorRequest;
@@ -24,7 +29,7 @@ use std::{
 use tokio::{sync::mpsc, task::JoinSet};
 
 /// Adds `"host"` to a JSON object payload.
-fn with_host(host: &str, data: &str) -> String {
+fn attach_host_identity(host: &str, data: &str) -> String {
     let host = serde_json::to_string(host).unwrap();
     match data.strip_prefix('{') {
         Some(rest) if rest.trim_start().starts_with('}') => format!("{{\"host\":{host}}}"),
@@ -38,7 +43,7 @@ type Outgoing = mpsc::Sender<(&'static str, String)>;
 type Latest = Arc<Mutex<BTreeMap<String, Arc<Value>>>>;
 
 /// Forwards one host's observation session until it closes or fails.
-async fn forward(
+async fn forward_host_events(
     state: Arc<AppState>,
     mut session: ObservationSession,
     host: String,
@@ -51,12 +56,16 @@ async fn forward(
     loop {
         let idle = event.is_none();
         if let Some(event) = event.take() {
-            let (messages, snapshot) = super::stream::encode(event, &mut delivery);
+            let (messages, snapshot) = super::stream::encode_sse_events(event, &mut delivery);
             if let Some(snapshot) = snapshot {
                 latest.lock().unwrap().insert(host.clone(), snapshot);
             }
             for (name, data) in messages {
-                if out.send((name, with_host(&host, &data))).await.is_err() {
+                if out
+                    .send((name, attach_host_identity(&host, &data)))
+                    .await
+                    .is_err()
+                {
                     return;
                 }
             }
@@ -90,7 +99,7 @@ async fn forward_remote(
         .observe(MonitorRequest::ObserveSystem)
         .await
     {
-        Ok(session) => forward(state, session, host, out, latest).await,
+        Ok(session) => forward_host_events(state, session, host, out, latest).await,
         Err(error) => log::warn!("merged view skips host {host}: {error:#}"),
     }
 }
@@ -101,7 +110,7 @@ enum Step {
     Tick,
 }
 
-pub(super) async fn response(s: Arc<AppState>) -> Result<Response, ApiError> {
+pub(super) async fn build_merged_event_response(s: Arc<AppState>) -> Result<Response, ApiError> {
     // The local host fails the request like the single-host view does.
     let local = s.client.observe(MonitorRequest::ObserveSystem).await?;
     let local_name = s.hosts.local().name.clone();
@@ -109,7 +118,7 @@ pub(super) async fn response(s: Arc<AppState>) -> Result<Response, ApiError> {
     let latest = Latest::default();
     // Dropping the stream drops the set, which aborts every forwarder and its session.
     let mut forwarders = JoinSet::new();
-    forwarders.spawn(forward(
+    forwarders.spawn(forward_host_events(
         s.clone(),
         local,
         local_name.clone(),
@@ -150,7 +159,7 @@ pub(super) async fn response(s: Arc<AppState>) -> Result<Response, ApiError> {
                         .map(|(name, snapshot)| (name.clone(), snapshot.clone()))
                         .collect();
                     let hosts: Vec<_> = snapshots.iter().map(|(name, snapshot)| (name.as_str(), &**snapshot)).collect();
-                    let current = serde_json::to_string(&correlate(&hosts)).unwrap();
+                    let current = serde_json::to_string(&correlate_host_connections(&hosts)).unwrap();
                     if current != links {
                         links = current;
                         yield Ok(Event::default().event("links").data(links.clone()));
@@ -174,8 +183,14 @@ pub(super) async fn response(s: Arc<AppState>) -> Result<Response, ApiError> {
 mod tests {
     #[test]
     fn host_is_added_to_object_payloads() {
-        assert_eq!(super::with_host("a", r#"{"x":1}"#), r#"{"host":"a","x":1}"#);
-        assert_eq!(super::with_host("a", "{}"), r#"{"host":"a"}"#);
-        assert_eq!(super::with_host("a\"b", "{}"), r#"{"host":"a\"b"}"#);
+        assert_eq!(
+            super::attach_host_identity("a", r#"{"x":1}"#),
+            r#"{"host":"a","x":1}"#
+        );
+        assert_eq!(super::attach_host_identity("a", "{}"), r#"{"host":"a"}"#);
+        assert_eq!(
+            super::attach_host_identity("a\"b", "{}"),
+            r#"{"host":"a\"b"}"#
+        );
     }
 }

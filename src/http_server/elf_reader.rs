@@ -1,7 +1,7 @@
 //! Acquire only ELF ranges selected by main, preserving one verified file identity.
 //!
 //! # Interface
-//! [`acquire`] (`pub(super)`): `async fn acquire(client: &MonitorClient, id: ProcessId, mapping_start: u64, known: Option<ElfFileId>) -> anyhow::Result<Option<ElfImage>>`.
+//! [`acquire_mapped_elf_image`] (`pub(super)`): `async fn acquire_mapped_elf_image(client: &MonitorClient, id: ProcessId, mapping_start: u64, known: Option<ElfFileId>) -> anyhow::Result<Option<ElfImage>>`.
 //! Supporting values: [`MonitorClient`], [`ProcessId`], [`ElfFileId`], [`ElfImage`].
 use super::client::MonitorClient;
 use crate::{
@@ -13,7 +13,7 @@ use crate::{
 };
 use anyhow::{Result, bail};
 
-async fn read(
+async fn request_mapped_file_ranges(
     client: &MonitorClient,
     id: ProcessId,
     mapping_start: u64,
@@ -32,13 +32,13 @@ async fn read(
     }
 }
 
-pub(super) async fn acquire(
+pub(super) async fn acquire_mapped_elf_image(
     client: &MonitorClient,
     id: ProcessId,
     mapping_start: u64,
     known: Option<ElfFileId>,
 ) -> Result<Option<ElfImage>> {
-    let Some(header) = read(
+    let Some(header) = request_mapped_file_ranges(
         client,
         id,
         mapping_start,
@@ -62,7 +62,9 @@ pub(super) async fn acquire(
             _ => image.sections()?,
         };
         for ranges in ranges.chunks(MAX_RANGES) {
-            let Some(data) = read(client, id, mapping_start, ranges.to_vec()).await? else {
+            let Some(data) =
+                request_mapped_file_ranges(client, id, mapping_start, ranges.to_vec()).await?
+            else {
                 return Ok(None);
             };
             image.extend(data)?;

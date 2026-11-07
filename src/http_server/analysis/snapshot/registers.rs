@@ -6,10 +6,10 @@
 //! | --- | --- | --- |
 //! | [`RegisterMapping`] | `pub` | `struct RegisterMapping` |
 //! | [`Register`] | `pub` | `struct Register` |
-//! | [`classify`] | `pub` | `fn classify(name: &str, role: RegisterRole, value: u64, maps: &[MemoryMap]) -> Register` |
+//! | [`classify_register_value`] | `pub` | `fn classify_register_value(name: &str, role: RegisterRole, value: u64, maps: &[MemoryMap]) -> Register` |
 //! | [`RegisterRole`] | `pub` | `enum RegisterRole` |
 //! | [`RegisterSet`] | `pub` | `struct RegisterSet` |
-//! | [`from_sample`] | `pub` | `fn from_sample(r: &RegisterSet, maps: &[MemoryMap]) -> Vec<Register>` |
+//! | [`classify_sample_registers`] | `pub` | `fn classify_sample_registers(r: &RegisterSet, maps: &[MemoryMap]) -> Vec<Register>` |
 //!
 //! Mapping arguments use [`MemoryMap`]; classification values use [`MemoryKind`].
 
@@ -63,7 +63,12 @@ impl serde::Serialize for crate::ipc::registers::Register {
     }
 }
 
-pub fn classify(name: &str, role: RegisterRole, value: u64, maps: &[MemoryMap]) -> Register {
+pub fn classify_register_value(
+    name: &str,
+    role: RegisterRole,
+    value: u64,
+    maps: &[MemoryMap],
+) -> Register {
     let map = maps.iter().find(|m| m.contains(value));
     Register {
         name: name.into(),
@@ -105,11 +110,11 @@ impl<'de> serde::Deserialize<'de> for RegisterSet {
     }
 }
 
-pub fn from_sample(r: &RegisterSet, maps: &[MemoryMap]) -> Vec<Register> {
+pub fn classify_sample_registers(r: &RegisterSet, maps: &[MemoryMap]) -> Vec<Register> {
     REGISTERS
         .iter()
         .filter(|&&(_, role, _)| role != RegisterRole::Flags || r.flags_available)
-        .map(|&(name, role, index)| classify(name, role, r.values[index], maps))
+        .map(|&(name, role, index)| classify_register_value(name, role, r.values[index], maps))
         .collect()
 }
 
@@ -196,7 +201,7 @@ mod tests {
     #[cfg(target_arch = "x86_64")]
     #[test]
     fn x86_64_sample_keeps_order_and_marks_pc_sp_fp_and_flags() {
-        let registers = from_sample(
+        let registers = classify_sample_registers(
             &RegisterSet {
                 flags_available: true,
                 ..RegisterSet::default()
@@ -228,7 +233,7 @@ mod tests {
             "1000-2000 rw-p 00000000 08:01 42 /tmp/a [b]",
         )
         .unwrap();
-        let register = classify("RAX", RegisterRole::General, 0x1008, &[map]);
+        let register = classify_register_value("RAX", RegisterRole::General, 0x1008, &[map]);
         assert_eq!(register.kind, MemoryKind::File);
         assert_eq!(register.offset, Some(8));
         let json = serde_json::to_value(register).unwrap();
@@ -238,7 +243,7 @@ mod tests {
         );
         assert_eq!(json["offset"], "0x8");
         assert_eq!(json["role"], "general");
-        let integer = classify("RAX", RegisterRole::General, u64::MAX, &[]);
+        let integer = classify_register_value("RAX", RegisterRole::General, u64::MAX, &[]);
         assert_eq!(integer.kind, MemoryKind::Integer);
         assert!(integer.mapping.is_none() && integer.offset.is_none());
         assert_eq!(
@@ -278,7 +283,7 @@ mod tests {
             ..RegisterSet::default()
         };
         r.values = (0..34).collect();
-        let displayed = from_sample(&r, &[]);
+        let displayed = classify_sample_registers(&r, &[]);
         assert_eq!(displayed.len(), 34);
         for (name, role, value) in [
             ("PC", RegisterRole::Pc, 32),
@@ -291,7 +296,7 @@ mod tests {
             assert_eq!((register.role, register.value), (role, value));
         }
         r.flags_available = false;
-        let displayed = from_sample(&r, &[]);
+        let displayed = classify_sample_registers(&r, &[]);
         assert_eq!(displayed.len(), 33);
         assert!(displayed.iter().all(|r| r.name != "PSTATE"));
     }

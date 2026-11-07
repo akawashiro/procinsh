@@ -6,9 +6,9 @@
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
 //! | [`NetlinkDumpRequest`] | `pub(super)` | `struct NetlinkDumpRequest` |
-//! | [`dump`] | `pub(super)` | `fn dump(fd: &`[`OwnedFd`]`, request: &`[`NetlinkDumpRequest`]`<'_>, deadline: `[`Instant`]`) -> `[`Result`]`<`[`Vec`]`<`[`Vec`]`<`[`u8`]`>>>` |
+//! | [`collect_netlink_dump`] | `pub(super)` | `fn collect_netlink_dump(fd: &`[`OwnedFd`]`, request: &`[`NetlinkDumpRequest`]`<'_>, deadline: `[`Instant`]`) -> `[`Result`]`<`[`Vec`]`<`[`Vec`]`<`[`u8`]`>>>` |
 //! | [`open_socket`] | `pub(super)` | `fn open_socket(protocol: `[`i32`]`, name: &`[`str`]`) -> `[`Result`]`<`[`OwnedFd`]`>` |
-//! | [`attributes`] | `pub(super)` | `fn attributes(bytes: &[`[`u8`]`]) -> `[`Result`]`<`[`Vec`]`<(`[`u16`]`, &[`[`u8`]`])>>` |
+//! | [`parse_netlink_attributes`] | `pub(super)` | `fn parse_netlink_attributes(bytes: &[`[`u8`]`]) -> `[`Result`]`<`[`Vec`]`<(`[`u16`]`, &[`[`u8`]`])>>` |
 //! | [`u32_at`] | `pub(super)` | `fn u32_at(bytes: &[`[`u8`]`], offset: `[`usize`]`) -> `[`Result`]`<`[`u32`]`>` |
 
 use anyhow::{Context, Result, bail, ensure};
@@ -53,7 +53,7 @@ pub(super) fn u32_at(bytes: &[u8], offset: usize) -> Result<u32> {
 
 /// Splits a 4-byte aligned attribute stream into `(type, payload)` pairs.
 /// The nested and byte-order flags are removed from the type.
-pub(super) fn attributes(bytes: &[u8]) -> Result<Vec<(u16, &[u8])>> {
+pub(super) fn parse_netlink_attributes(bytes: &[u8]) -> Result<Vec<(u16, &[u8])>> {
     let mut result = Vec::new();
     let mut offset = 0;
     while offset < bytes.len() {
@@ -85,7 +85,7 @@ pub(super) struct NetlinkDumpRequest<'a> {
 /// Control messages are excluded. Failed requests return no partial results.
 /// Interrupted dumps, replies from other senders or sequences, error messages and
 /// replies above 8 MiB fail. The deadline bounds the whole exchange.
-pub(super) fn dump(
+pub(super) fn collect_netlink_dump(
     fd: &OwnedFd,
     request: &NetlinkDumpRequest<'_>,
     deadline: Instant,
@@ -331,14 +331,17 @@ mod tests {
     fn attributes_strip_flags_skip_padding_and_reject_bad_lengths() {
         let mut bytes = attribute(0x8000 | 19, &attribute(20, &[1, 2, 3]));
         bytes.extend(attribute(2, b"mlx\0"));
-        let parsed = attributes(&bytes).unwrap();
+        let parsed = parse_netlink_attributes(&bytes).unwrap();
         assert_eq!(parsed.len(), 2);
         assert_eq!(parsed[0].0, 19);
-        assert_eq!(attributes(parsed[0].1).unwrap()[0], (20, &[1u8, 2, 3][..]));
+        assert_eq!(
+            parse_netlink_attributes(parsed[0].1).unwrap()[0],
+            (20, &[1u8, 2, 3][..])
+        );
         assert_eq!(parsed[1], (2, &b"mlx\0"[..]));
         bytes[0] = 3;
-        assert!(attributes(&bytes).is_err());
-        assert!(attributes(&[8, 0, 1]).is_err());
-        assert!(attributes(&[]).unwrap().is_empty());
+        assert!(parse_netlink_attributes(&bytes).is_err());
+        assert!(parse_netlink_attributes(&[8, 0, 1]).is_err());
+        assert!(parse_netlink_attributes(&[]).unwrap().is_empty());
     }
 }

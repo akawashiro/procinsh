@@ -15,7 +15,7 @@
 //! | [`HostInfo`] | `pub(super)` | `struct HostInfo` |
 //! | [`RemoteHost`] | `pub(super)` | `enum RemoteHost` |
 //! | [`AgentLink`] | `pub(super)` | `struct AgentLink` |
-//! | [`correlate`](fn@correlate) | `pub(super)` | `fn correlate(hosts: &[(&`[`str`]`, &`[`Value`](serde_json::Value)`)]) -> `[`correlate::CrossHostLinks`] |
+//! | [`correlate_host_connections`](fn@correlate_host_connections) | `pub(super)` | `fn correlate_host_connections(hosts: &[(&`[`str`]`, &`[`Value`](serde_json::Value)`)]) -> `[`correlate::CrossHostLinks`] |
 //! | [`ALL_HOSTS`] | `pub(super)` | `const ALL_HOSTS: &str = "all"` |
 //! | [`valid_host_name`] | `pub(crate)` | `fn valid_host_name(name: &`[`str`]`) -> `[`bool`] |
 //! | [`run_agent_listener`] | `pub(super)` | `async fn run_agent_listener(listener: `[`TcpListener`](tokio::net::TcpListener)`, registry: `[`Arc`](std::sync::Arc)`<`[`HostRegistry`]`>, token: `[`Option`]`<`[`Arc`](std::sync::Arc)`<`[`str`]`>>, shutdown: `[`watch::Receiver`](tokio::sync::watch::Receiver)`<`[`bool`]`>)` |
@@ -31,7 +31,7 @@ mod listener;
 mod registry;
 mod wire;
 pub(super) use connector::run_hub_connector;
-pub(super) use correlate::correlate;
+pub(super) use correlate::correlate_host_connections;
 pub(super) use identity::ALL_HOSTS;
 pub(super) use identity::HostInfo;
 pub(crate) use identity::valid_host_name;

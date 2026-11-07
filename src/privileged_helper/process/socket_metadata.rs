@@ -184,7 +184,7 @@ fn option(fd: &OwnedFd, name: i32) -> Result<u32> {
 pub(in crate::privileged_helper) fn additional_sockets(pid: i32) -> HashMap<u64, SocketInfo> {
     let mut result = HashMap::new();
     for name in ["netlink", "raw", "raw6", "packet"] {
-        if let Ok(text) = sockets::read_text(&format!("/proc/{pid}/net/{name}")) {
+        if let Ok(text) = sockets::read_socket_table(&format!("/proc/{pid}/net/{name}")) {
             result.extend(parse_table(&text, name));
         }
     }
@@ -266,7 +266,9 @@ mod tests {
     };
 
     fn reader() -> SocketMetadataReader {
-        SocketMetadataReader::new(super::super::identity(std::process::id() as i32).unwrap())
+        SocketMetadataReader::new(
+            super::super::read_process_identity(std::process::id() as i32).unwrap(),
+        )
     }
 
     fn read_socket(reader: &mut SocketMetadataReader, fd: i32) -> SocketProtocol {
@@ -305,7 +307,7 @@ mod tests {
     fn socket_path_descriptors_allow_a_later_usable_descriptor() {
         use std::{ffi::CString, net::UdpSocket};
         let socket = UdpSocket::bind("127.0.0.1:0").unwrap();
-        let id = super::super::identity(std::process::id() as i32).unwrap();
+        let id = super::super::read_process_identity(std::process::id() as i32).unwrap();
         require_socket_metadata(id, socket.as_raw_fd());
         let usable = socket.try_clone().unwrap();
         let name = CString::new(format!("/proc/self/fd/{}", socket.as_raw_fd())).unwrap();
@@ -320,7 +322,8 @@ mod tests {
             read_metadata(&mut reader, usable.as_raw_fd()).connection_status,
             SocketConnectionStatus::Unconnected
         );
-        let descriptors = serde_json::to_value(super::super::fds(id).unwrap()).unwrap();
+        let descriptors =
+            serde_json::to_value(super::super::collect_file_descriptors(id).unwrap()).unwrap();
         for fd in [first.as_raw_fd(), path.as_raw_fd(), usable.as_raw_fd()] {
             let entry = descriptors["entries"]
                 .as_array()
@@ -341,7 +344,7 @@ mod tests {
         };
         let udp = UdpSocket::bind("127.0.0.1:0").unwrap();
         require_socket_metadata(
-            super::super::identity(std::process::id() as i32).unwrap(),
+            super::super::read_process_identity(std::process::id() as i32).unwrap(),
             udp.as_raw_fd(),
         );
         let mut reader = reader();
@@ -418,7 +421,7 @@ mod tests {
         assert!(tcp >= 0);
         let tcp = unsafe { OwnedFd::from_raw_fd(tcp) };
         require_socket_metadata(
-            super::super::identity(std::process::id() as i32).unwrap(),
+            super::super::read_process_identity(std::process::id() as i32).unwrap(),
             tcp.as_raw_fd(),
         );
         let udp = unsafe { libc::socket(libc::AF_INET, libc::SOCK_DGRAM | libc::SOCK_CLOEXEC, 0) };
@@ -487,7 +490,7 @@ mod tests {
     fn changed_process_and_descriptor_identities_are_rejected() {
         let socket = UnixDatagram::unbound().unwrap();
         require_socket_metadata(
-            super::super::identity(std::process::id() as i32).unwrap(),
+            super::super::read_process_identity(std::process::id() as i32).unwrap(),
             socket.as_raw_fd(),
         );
         let meta = fs::metadata(format!("/proc/self/fd/{}", socket.as_raw_fd())).unwrap();

@@ -5,11 +5,11 @@
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
 //! | [`SocketInfo`] | `pub(in crate::privileged_helper)` | `struct SocketInfo` |
-//! | [`read_text`] | `pub(super)` | `fn read_text(path: &`[`str`]`) -> `[`Result`]`<`[`String`]`>` |
-//! | [`parse_inet`] | `pub(super)` | `fn parse_inet(text: &`[`str`]`, protocol: `[`SocketProtocol`]`) -> `[`HashMap`]`<`[`u64`]`, `[`SocketInfo`]`>` |
-//! | [`parse_unix`] | `pub(super)` | `fn parse_unix(text: &`[`str`]`) -> `[`HashMap`]`<`[`u64`]`, `[`SocketInfo`]`>` |
+//! | [`read_socket_table`] | `pub(super)` | `fn read_socket_table(path: &`[`str`]`) -> `[`Result`]`<`[`String`]`>` |
+//! | [`parse_inet_socket_table`] | `pub(super)` | `fn parse_inet_socket_table(text: &`[`str`]`, protocol: `[`SocketProtocol`]`) -> `[`HashMap`]`<`[`u64`]`, `[`SocketInfo`]`>` |
+//! | [`parse_unix_socket_table`] | `pub(super)` | `fn parse_unix_socket_table(text: &`[`str`]`) -> `[`HashMap`]`<`[`u64`]`, `[`SocketInfo`]`>` |
 //! | [`diagnostic_socket`] | `pub(super)` | `fn diagnostic_socket() -> `[`Result`]`<`[`OwnedFd`]`>` |
-//! | [`unix_diag`] | `pub(super)` | `fn unix_diag(namespace: &`[`NetworkNamespaceReader`]`, deadline: `[`Instant`]`) -> `[`Result`]`<`[`HashMap`]`<`[`u64`]`, `[`SocketInfo`]`>>` |
+//! | [`collect_unix_socket_peers`] | `pub(super)` | `fn collect_unix_socket_peers(namespace: &`[`NetworkNamespaceReader`]`, deadline: `[`Instant`]`) -> `[`Result`]`<`[`HashMap`]`<`[`u64`]`, `[`SocketInfo`]`>>` |
 
 use super::socket_namespace::NetworkNamespaceReader;
 use crate::privileged_helper::netlink;
@@ -29,7 +29,7 @@ use std::{
 
 pub(in crate::privileged_helper) use crate::ipc::model::sockets::SocketInfo;
 
-pub(super) fn read_text(path: &str) -> Result<String> {
+pub(super) fn read_socket_table(path: &str) -> Result<String> {
     let mut bytes = Vec::new();
     File::open(path)?
         .take(4 * 1024 * 1024 + 1)
@@ -41,7 +41,7 @@ pub(super) fn read_text(path: &str) -> Result<String> {
     Ok(String::from_utf8_lossy(&bytes).into_owned())
 }
 
-fn address(text: &str) -> Result<SocketAddr> {
+fn parse_procfs_socket_address(text: &str) -> Result<SocketAddr> {
     let (ip, port) = text.split_once(':').context("missing port")?;
     ensure!(
         ip.bytes().all(|b| b.is_ascii_hexdigit()),
@@ -66,7 +66,10 @@ fn address(text: &str) -> Result<SocketAddr> {
     Ok(SocketAddr::new(ip, u16::from_str_radix(port, 16)?))
 }
 
-pub(super) fn parse_inet(text: &str, protocol: SocketProtocol) -> HashMap<u64, SocketInfo> {
+pub(super) fn parse_inet_socket_table(
+    text: &str,
+    protocol: SocketProtocol,
+) -> HashMap<u64, SocketInfo> {
     text.lines()
         .skip(1)
         .filter_map(|line| {
@@ -80,8 +83,8 @@ pub(super) fn parse_inet(text: &str, protocol: SocketProtocol) -> HashMap<u64, S
                 SocketInfo {
                     protocol,
                     state: Some(SocketState::inet(u32::from_str_radix(f.get(3)?, 16).ok()?)),
-                    local: Some(address(f.get(1)?).ok()?),
-                    remote: Some(address(f.get(2)?).ok()?),
+                    local: Some(parse_procfs_socket_address(f.get(1)?).ok()?),
+                    remote: Some(parse_procfs_socket_address(f.get(2)?).ok()?),
                     path: None,
                     peer_inode: None,
                 },
@@ -90,7 +93,7 @@ pub(super) fn parse_inet(text: &str, protocol: SocketProtocol) -> HashMap<u64, S
         .collect()
 }
 
-pub(super) fn parse_unix(text: &str) -> HashMap<u64, SocketInfo> {
+pub(super) fn parse_unix_socket_table(text: &str) -> HashMap<u64, SocketInfo> {
     text.lines()
         .skip(1)
         .filter_map(|line| {
@@ -126,7 +129,7 @@ pub(super) fn parse_unix(text: &str) -> HashMap<u64, SocketInfo> {
         .collect()
 }
 
-fn parse_diag(bytes: &[u8]) -> Result<(u64, SocketInfo)> {
+fn parse_unix_diag_message(bytes: &[u8]) -> Result<(u64, SocketInfo)> {
     ensure!(
         bytes.len() >= 16 && bytes[0] == libc::AF_UNIX as u8,
         "invalid UNIX diag message"
@@ -141,7 +144,7 @@ fn parse_diag(bytes: &[u8]) -> Result<(u64, SocketInfo)> {
         path: None,
         peer_inode: None,
     };
-    for (kind, data) in netlink::attributes(&bytes[16..])? {
+    for (kind, data) in netlink::parse_netlink_attributes(&bytes[16..])? {
         if kind == 2 {
             let inode = netlink::u32_at(data, 0)? as u64;
             info.peer_inode = (inode != 0).then_some(inode);
@@ -166,7 +169,7 @@ pub(super) fn diagnostic_socket() -> Result<OwnedFd> {
 
 // The socket keeps its creation namespace even when queried by another thread.
 // Query only metadata. No endpoint is opened, consumed, or modified.
-pub(super) fn unix_diag(
+pub(super) fn collect_unix_socket_peers(
     namespace: &NetworkNamespaceReader,
     deadline: Instant,
 ) -> Result<HashMap<u64, SocketInfo>> {
@@ -184,9 +187,9 @@ pub(super) fn unix_diag(
         sequence: 1,
         payload: &payload,
     };
-    let replies = netlink::dump(&fd, &request, deadline)?;
+    let replies = netlink::collect_netlink_dump(&fd, &request, deadline)?;
     for body in replies {
-        let (inode, info) = parse_diag(&body)?;
+        let (inode, info) = parse_unix_diag_message(&body)?;
         result.insert(inode, info);
     }
     Ok(result)
@@ -229,22 +232,24 @@ mod tests {
     #[test]
     fn parses_ipv4_ipv6_and_mapped_addresses() {
         assert_eq!(
-            address("0100007F:1F90").unwrap().to_string(),
+            parse_procfs_socket_address("0100007F:1F90")
+                .unwrap()
+                .to_string(),
             "127.0.0.1:8080"
         );
         assert_eq!(
-            address("00000000000000000000000001000000:0050")
+            parse_procfs_socket_address("00000000000000000000000001000000:0050")
                 .unwrap()
                 .to_string(),
             "[::1]:80"
         );
         assert_eq!(
-            address("0000000000000000FFFF00000100007F:0050")
+            parse_procfs_socket_address("0000000000000000FFFF00000100007F:0050")
                 .unwrap()
                 .to_string(),
             "127.0.0.1:80"
         );
-        assert!(address("bad").is_err());
+        assert!(parse_procfs_socket_address("bad").is_err());
     }
 
     #[test]
@@ -253,7 +258,7 @@ mod tests {
         let protocol = SocketProtocol::Tcp {
             family: AddressFamily::Ipv4,
         };
-        let table = parse_inet(
+        let table = parse_inet_socket_table(
             "header\n0: 0100007F:1F90 0200007F:0050 FE 0:0 0:0 0 0 0 18446744073709551615\n",
             protocol,
         );
@@ -261,7 +266,7 @@ mod tests {
         assert_eq!(info.protocol, protocol);
         assert_eq!(info.state, Some(SocketState::UnknownInet(254)));
         assert_eq!(info.local.unwrap().port(), 8080);
-        let unix = parse_unix(
+        let unix = parse_unix_socket_table(
             "header\n000: 2 0 00010000 0001 01 42 /tmp/name with spaces\n000: 2 0 0 00FF FF 43\n",
         );
         assert_eq!(unix[&42].state, Some(SocketState::Listen));
@@ -277,7 +282,7 @@ mod tests {
         bytes[0] = libc::AF_UNIX as u8;
         bytes[1] = 254;
         bytes[2] = 255;
-        let (_, info) = parse_diag(&bytes).unwrap();
+        let (_, info) = parse_unix_diag_message(&bytes).unwrap();
         assert_eq!(
             info.protocol,
             SocketProtocol::Unix {
@@ -297,11 +302,11 @@ mod tests {
         bytes[16..18].copy_from_slice(&8u16.to_ne_bytes());
         bytes[18..20].copy_from_slice(&2u16.to_ne_bytes());
         bytes[20..24].copy_from_slice(&99u32.to_ne_bytes());
-        let (inode, info) = parse_diag(&bytes).unwrap();
+        let (inode, info) = parse_unix_diag_message(&bytes).unwrap();
         assert_eq!(inode, 42);
         assert_eq!(info.peer_inode, Some(99));
         bytes[16] = 0;
-        assert!(parse_diag(&bytes).is_err());
-        assert!(parse_diag(&[]).is_err());
+        assert!(parse_unix_diag_message(&bytes).is_err());
+        assert!(parse_unix_diag_message(&[]).is_err());
     }
 }

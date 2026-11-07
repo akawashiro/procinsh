@@ -39,7 +39,7 @@ pub(in crate::http_server) async fn run_hub_connector(
     loop {
         let started = Instant::now();
         let result = tokio::select! {
-            result = session(&address, &info, token.as_deref(), &client) => result,
+            result = run_agent_session(&address, &info, token.as_deref(), &client) => result,
             _ = shutdown.changed() => return,
         };
         match result {
@@ -89,7 +89,7 @@ impl Sessions {
     }
 }
 
-async fn answer(
+async fn answer_monitor_request(
     client: &MonitorClient,
     sessions: &Sessions,
     request: MonitorRequest,
@@ -112,7 +112,7 @@ async fn answer(
     response
 }
 
-async fn session(
+async fn run_agent_session(
     address: &str,
     info: &HostInfo,
     token: Option<&str>,
@@ -122,7 +122,7 @@ async fn session(
         .await
         .context("connect timed out")??;
     stream.set_nodelay(true)?;
-    wire::write(
+    wire::write_host_message(
         &mut stream,
         Message::Hello {
             protocol: wire::PROTOCOL,
@@ -135,7 +135,7 @@ async fn session(
         },
     )
     .await?;
-    match timeout(CONNECT_TIMEOUT, wire::read(&mut stream))
+    match timeout(CONNECT_TIMEOUT, wire::read_host_message(&mut stream))
         .await
         .context("hub welcome timed out")??
     {
@@ -148,14 +148,14 @@ async fn session(
     let (outgoing, mut sending) = mpsc::channel::<Message>(CONCURRENT_REQUESTS + 8);
     let writing = tokio::spawn(async move {
         while let Some(message) = sending.recv().await {
-            wire::write(&mut writer, message).await?;
+            wire::write_host_message(&mut writer, message).await?;
         }
         anyhow::Ok(())
     });
     let (messages, mut incoming) = mpsc::channel(8);
     let reading = tokio::spawn(async move {
         loop {
-            let message = wire::read(&mut reader).await;
+            let message = wire::read_host_message(&mut reader).await;
             let failed = message.is_err();
             if messages.send(message).await.is_err() || failed {
                 break;
@@ -181,7 +181,7 @@ async fn session(
                             let (client, sessions, outgoing) =
                                 (client.clone(), sessions.clone(), outgoing.clone());
                             tokio::spawn(async move {
-                                let response = answer(&client, &sessions, request).await;
+                                let response = answer_monitor_request(&client, &sessions, request).await;
                                 let _ = outgoing.send(Message::Response { id, response }).await;
                                 drop(permit);
                             });

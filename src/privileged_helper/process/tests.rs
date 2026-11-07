@@ -24,7 +24,7 @@ fn netns_fd_list_resolves_peers_separately_from_shared_holders() {
     use std::os::fd::AsRawFd;
     for separate in [false, true] {
         let fixture = process::NetworkNamespaceTarget::new(separate);
-        let details = process::fds::read(fixture.target.id).unwrap();
+        let details = process::fds::collect_file_descriptors(fixture.target.id).unwrap();
         let entry = details.entries.iter().find(|entry| entry.fd == 61).unwrap();
         assert_eq!(entry.state, Some(SocketState::Connected));
         assert_eq!(
@@ -47,7 +47,7 @@ fn netns_fd_list_resolves_peers_separately_from_shared_holders() {
                 .any(|holder| holder.process_id == fixture.peer_id && holder.fd == 63)
         );
         let inherited = details.entries.iter().find(|entry| entry.fd == 0).unwrap();
-        let self_id = process::identity(std::process::id() as i32).unwrap();
+        let self_id = process::read_process_identity(std::process::id() as i32).unwrap();
         assert!(
             inherited
                 .holders
@@ -61,12 +61,12 @@ fn netns_fd_list_resolves_peers_separately_from_shared_holders() {
 #[test]
 fn memory_partial_reads_and_map_statistics() {
     let target = Target::new("mmap_test");
-    let data = memory::read_raw(target.id.pid, target.address, 25).unwrap();
+    let data = memory::read_process_memory(target.id.pid, target.address, 25).unwrap();
     assert!(data.starts_with(b"procinsh mmap fixture"));
     let page = process::procfs::page_size();
-    let data = memory::read_raw(target.id.pid, target.address + page - 8, 16).unwrap();
+    let data = memory::read_process_memory(target.id.pid, target.address + page - 8, 16).unwrap();
     assert_eq!(data.len(), 8);
-    assert!(memory::read_raw(target.id.pid, target.address + page, 16).is_err());
+    assert!(memory::read_process_memory(target.id.pid, target.address + page, 16).is_err());
     let maps = maps::read_smaps(target.id.pid).unwrap();
     assert!(
         maps.iter()
@@ -78,7 +78,7 @@ fn memory_partial_reads_and_map_statistics() {
 fn environment_and_auxv_read_child_metadata_and_reject_stale_identity() {
     let mut target = Target::new("sleeping");
     let environment: EnvironmentSnapshot = serde_json::from_value(
-        serde_json::to_value(process::environment(target.id).unwrap()).unwrap(),
+        serde_json::to_value(process::read_environment(target.id).unwrap()).unwrap(),
     )
     .unwrap();
     assert_eq!(environment.process_id, target.id);
@@ -103,9 +103,10 @@ fn environment_and_auxv_read_child_metadata_and_reject_stale_identity() {
             .as_deref(),
         Some("")
     );
-    let auxv: AuxVectorSnapshot =
-        serde_json::from_value(serde_json::to_value(process::auxv(target.id).unwrap()).unwrap())
-            .unwrap();
+    let auxv: AuxVectorSnapshot = serde_json::from_value(
+        serde_json::to_value(process::read_auxiliary_vector(target.id).unwrap()).unwrap(),
+    )
+    .unwrap();
     assert_eq!(auxv.process_id, target.id);
     assert!(auxv.captured_at > 0);
     assert_eq!(auxv.word_bits, 64);
@@ -139,12 +140,12 @@ fn environment_and_auxv_read_child_metadata_and_reject_stale_identity() {
         start_time_ticks: target.id.start_time_ticks + 1,
         ..target.id
     };
-    assert!(process::environment(stale).is_err());
-    assert!(process::auxv(stale).is_err());
+    assert!(process::read_environment(stale).is_err());
+    assert!(process::read_auxiliary_vector(stale).is_err());
     target.child.kill().unwrap();
     target.child.wait().unwrap();
-    assert!(process::environment(target.id).is_err());
-    assert!(process::auxv(target.id).is_err());
+    assert!(process::read_environment(target.id).is_err());
+    assert!(process::read_auxiliary_vector(target.id).is_err());
 }
 
 #[test]
@@ -160,8 +161,8 @@ fn pipe_unix_tcp_udp_peers_are_distinct_from_shared_descriptors() {
     .unwrap()
     .parse()
     .unwrap();
-    let child_id = process::identity(child).unwrap();
-    let details = process::fds::read(target.id).unwrap();
+    let child_id = process::read_process_identity(child).unwrap();
+    let details = process::fds::collect_file_descriptors(target.id).unwrap();
     for fd in [60, 61, 62, 64] {
         let entry = details.entries.iter().find(|e| e.fd == fd).unwrap();
         assert!(
@@ -191,7 +192,7 @@ fn pipe_unix_tcp_udp_peers_are_distinct_from_shared_descriptors() {
         start_time_ticks: target.id.start_time_ticks + 1,
         ..target.id
     };
-    assert!(process::fds::read(stale).is_err());
+    assert!(process::fds::collect_file_descriptors(stale).is_err());
     unsafe {
         libc::kill(child, libc::SIGTERM);
     }
@@ -201,7 +202,7 @@ fn pipe_unix_tcp_udp_peers_are_distinct_from_shared_descriptors() {
         }
         std::thread::sleep(Duration::from_millis(5));
     }
-    let after = process::fds::read(target.id).unwrap();
+    let after = process::fds::collect_file_descriptors(target.id).unwrap();
     assert!(
         !after
             .entries

@@ -1,3 +1,11 @@
+//! Encode observation events and build server-sent-event responses.
+//!
+//! # Interface
+//! - [`encode_sse_events`] (`pub(super)`): `fn encode_sse_events( event: MonitorEvent, delivery: &mut SnapshotEncoder, ) -> (Vec<(&'static str, String)>, Option<Arc<Value>>)`.
+//! - [`build_sse_response`] (`pub(super)`): `fn build_sse_response( state: Arc<AppState>, mut session: ObservationSession, ) -> Response`.
+//!
+//! Supporting types: [`AppState`], [`Arc`], [`MonitorEvent`], [`ObservationSession`], [`Response`], [`SnapshotEncoder`], [`Value`].
+
 use super::super::{AppState, client::ObservationSession, delivery::SnapshotEncoder};
 use crate::http_server::protocol::MonitorEvent;
 use axum::response::{
@@ -14,7 +22,7 @@ use std::{
 // HTTP formatting, JSON output, delta selection and SSE recovery all happen
 // in the HTTP worker. IPC carries complete structured observations.
 /// SSE events for `event`, and the complete snapshot it carries, if any.
-pub(super) fn encode(
+pub(super) fn encode_sse_events(
     event: MonitorEvent,
     delivery: &mut SnapshotEncoder,
 ) -> (Vec<(&'static str, String)>, Option<Arc<Value>>) {
@@ -50,7 +58,10 @@ pub(super) fn encode(
     }
 }
 
-pub(super) fn response(state: Arc<AppState>, mut session: ObservationSession) -> Response {
+pub(super) fn build_sse_response(
+    state: Arc<AppState>,
+    mut session: ObservationSession,
+) -> Response {
     let stream = async_stream::stream! {
         let mut delivery = SnapshotEncoder::default();
         let mut event = session.initial.take();
@@ -58,7 +69,7 @@ pub(super) fn response(state: Arc<AppState>, mut session: ObservationSession) ->
         loop {
             let idle = event.is_none();
             if let Some(event) = event.take() {
-                for (name, data) in encode(event, &mut delivery).0 {
+                for (name, data) in encode_sse_events(event, &mut delivery).0 {
                     let path = if name == "observation" { "/api/processes/events" } else { "/api/system/events" };
                     log::debug!("SSE {path} event={name} payload_bytes={}", data.len());
                     yield Ok::<_, Infallible>(Event::default().event(name).data(data));

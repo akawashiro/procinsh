@@ -4,7 +4,7 @@
 //!
 //! | Definition | Visibility | Signature |
 //! | --- | --- | --- |
-//! | [`run`] | `pub(crate)` | `fn run() -> anyhow::Result<()>` |
+//! | [`launch_privileged_helper`] | `pub(crate)` | `fn launch_privileged_helper() -> anyhow::Result<()>` |
 //! | [`bpf_records`] | `pub(crate)` | `mod bpf_records` |
 //!
 //! Shared resource identities live in [`resource`]; socket metadata and descriptor
@@ -15,7 +15,7 @@
 mod api;
 mod launch;
 mod privileges;
-pub(crate) use launch::run;
+pub(crate) use launch::launch_privileged_helper;
 mod helper_service;
 #[cfg(test)]
 #[path = "../http_server/middleware.rs"]

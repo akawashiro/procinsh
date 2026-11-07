@@ -1,11 +1,11 @@
 //! Acquire bounded auxiliary-vector words and selected strings from target memory.
 //!
 //! # Interface
-//! - [`auxv`] (`pub(super)`): `fn auxv(id: ProcessId) -> anyhow::Result<AuxData>`.
+//! - [`read_auxiliary_vector`] (`pub(super)`): `fn read_auxiliary_vector(id: ProcessId) -> anyhow::Result<AuxData>`.
 //!
 //! Process identities use [`ProcessId`]; captured words and strings use [`AuxData`](crate::ipc::acquisition::AuxData).
 
-use super::procfs::read_limited;
+use super::procfs::read_bounded_bytes;
 use super::{ProcessId, memory, permission_help, timestamp_ms, validate_process_identity};
 use anyhow::{Context, Result, bail, ensure};
 use std::{fs::File, io::Read};
@@ -26,7 +26,7 @@ fn elf_word_bytes(ident: &[u8]) -> Result<usize> {
 }
 
 fn read_string(pid: i32, address: u64) -> Result<String> {
-    let bytes = memory::read_raw(pid, address, 4096)?;
+    let bytes = memory::read_process_memory(pid, address, 4096)?;
     let end = bytes
         .iter()
         .position(|b| *b == 0)
@@ -34,12 +34,12 @@ fn read_string(pid: i32, address: u64) -> Result<String> {
     Ok(String::from_utf8_lossy(&bytes[..end]).into_owned())
 }
 
-pub(super) fn auxv(id: ProcessId) -> Result<crate::ipc::acquisition::AuxData> {
+pub(super) fn read_auxiliary_vector(id: ProcessId) -> Result<crate::ipc::acquisition::AuxData> {
     validate_process_identity(id)?;
     let mut ident = [0; 16];
     File::open(format!("/proc/{}/exe", id.pid))?.read_exact(&mut ident)?;
     let width = elf_word_bytes(&ident)?;
-    let bytes = read_limited(File::open(format!("/proc/{}/auxv", id.pid))?, MAX_AUXV)
+    let bytes = read_bounded_bytes(File::open(format!("/proc/{}/auxv", id.pid))?, MAX_AUXV)
         .map_err(|e| anyhow::anyhow!(permission_help("/proc/PID/auxv", e)))?;
     let mut strings = Vec::new();
     let mut terminated = false;

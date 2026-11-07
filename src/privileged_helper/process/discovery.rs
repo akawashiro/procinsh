@@ -1,3 +1,13 @@
+//! Enumerate processes and acquire process summaries and user names.
+//!
+//! # Interface
+//! - [`ProcessSummary`] (`pub`): `struct ProcessSummary`.
+//! - [`collect_process_summary`] (`pub(super)`): `fn collect_process_summary( stat: &procfs::Stat, users: &HashMap<u32, String>, ) -> ProcessSummary`.
+//! - [`read_user_names`] (`pub(super)`): `fn read_user_names() -> HashMap<u32, String>`.
+//! - [`collect_processes`] (`pub(in crate::privileged_helper)`): `fn collect_processes() -> Result<Vec<ProcessSummary>>`.
+//!
+//! Supporting types: [`HashMap`], [`ProcessSummary`], [`procfs::Stat`].
+
 // Visibility is scoped to the consumers of the parent process façade.
 use super::{ProcessId, procfs};
 use anyhow::Result;
@@ -5,9 +15,12 @@ use std::{collections::HashMap, fs};
 
 pub use crate::ipc::acquisition::ProcessSummary;
 
-pub(super) fn summary(stat: &procfs::Stat, users: &HashMap<u32, String>) -> ProcessSummary {
+pub(super) fn collect_process_summary(
+    stat: &procfs::Stat,
+    users: &HashMap<u32, String>,
+) -> ProcessSummary {
     let base = format!("/proc/{}", stat.pid);
-    let (uid, euid) = procfs::fields(&format!("{base}/status"))
+    let (uid, euid) = procfs::read_procfs_fields(&format!("{base}/status"))
         .ok()
         .map(|f| parse_uids(f.get("Uid").map(String::as_str).unwrap_or("")))
         .unwrap_or((None, None));
@@ -32,7 +45,7 @@ pub(super) fn summary(stat: &procfs::Stat, users: &HashMap<u32, String>) -> Proc
         euid,
         effective_username: euid.and_then(|u| users.get(&u).cloned()),
         state: stat.state.clone(),
-        started_at: started_at(stat.start_time),
+        started_at: read_process_start_time(stat.start_time),
         cpu_percent: None,
         rss_bytes: stat.rss,
         thread_count: stat.thread_count,
@@ -41,7 +54,7 @@ pub(super) fn summary(stat: &procfs::Stat, users: &HashMap<u32, String>) -> Proc
     }
 }
 
-fn started_at(ticks: u64) -> Option<u64> {
+fn read_process_start_time(ticks: u64) -> Option<u64> {
     // Avoid reading /proc/stat for every process in the discovery loop.
     static BOOT_TIME: std::sync::OnceLock<Option<u64>> = std::sync::OnceLock::new();
     let boot = *BOOT_TIME.get_or_init(|| {
@@ -59,7 +72,7 @@ fn start_timestamp(boot_seconds: u64, ticks: u64, ticks_per_second: f64) -> Opti
         .checked_add((ticks as f64 / ticks_per_second * 1000.0) as u64)
 }
 
-pub(super) fn users() -> HashMap<u32, String> {
+pub(super) fn read_user_names() -> HashMap<u32, String> {
     {
         fs::read_to_string("/etc/passwd")
             .unwrap_or_default()
@@ -74,7 +87,7 @@ pub(super) fn users() -> HashMap<u32, String> {
 
 /// Scans protected procfs for process summaries and raw CPU counters.
 pub(in crate::privileged_helper) fn collect_processes() -> Result<Vec<ProcessSummary>> {
-    let users = users();
+    let users = read_user_names();
     let mut result = Vec::new();
     for entry in fs::read_dir("/proc")?.flatten() {
         let Some(pid) = entry
@@ -84,10 +97,10 @@ pub(in crate::privileged_helper) fn collect_processes() -> Result<Vec<ProcessSum
         else {
             continue;
         };
-        let Ok(stat) = procfs::read_stat(&format!("/proc/{pid}/stat")) else {
+        let Ok(stat) = procfs::read_process_stat(&format!("/proc/{pid}/stat")) else {
             continue;
         };
-        result.push(summary(&stat, &users));
+        result.push(collect_process_summary(&stat, &users));
     }
     Ok(result)
 }

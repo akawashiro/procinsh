@@ -17,11 +17,11 @@ pub(in crate::privileged_helper::process) fn capture_sample(
     id: ProcessId,
 ) -> Result<ProcessSample> {
     process::validate_process_identity(id)?;
-    let stat = procfs::read_stat(&format!("/proc/{}/stat", id.pid))?;
+    let stat = procfs::read_process_stat(&format!("/proc/{}/stat", id.pid))?;
     let now = crate::ipc::model::process::monotonic_ns();
-    let ts: Vec<_> = threads::tids(id.pid)?
+    let ts: Vec<_> = threads::collect_thread_ids(id.pid)?
         .into_iter()
-        .filter_map(|tid| threads::read(id.pid, tid).ok())
+        .filter_map(|tid| threads::read_thread_sample(id.pid, tid).ok())
         .collect();
     // /proc/PID/status contains only the leader's context switches: sum all live threads.
     let voluntary = ts
@@ -32,7 +32,7 @@ pub(in crate::privileged_helper::process) fn capture_sample(
         .iter()
         .map(|t| t.nonvoluntary_context_switches)
         .sum::<Option<u64>>();
-    let io = procfs::read_io(id.pid).ok();
+    let io = procfs::read_process_io_stats(id.pid).ok();
     process::validate_process_identity(id)?;
     Ok(ProcessSample {
         timestamp: process::timestamp_ms(),
@@ -58,7 +58,7 @@ mod tests {
     use super::*;
 
     fn sample() -> ProcessSample {
-        let id = process::identity(std::process::id() as i32).unwrap();
+        let id = process::read_process_identity(std::process::id() as i32).unwrap();
         let mut sample = capture_sample(id).unwrap();
         sample.threads.truncate(1);
         sample.ticks = 100;

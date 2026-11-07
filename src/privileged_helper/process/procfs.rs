@@ -6,13 +6,13 @@
 //! - [`IoStats`]: `struct IoStats`, re-exported from [`crate::ipc::model::process::IoStats`].
 //! - [`page_size`]: `fn page_size() -> u64`.
 //! - [`ticks_per_second`]: `fn ticks_per_second() -> f64`.
-//! - [`parse_stat`]: `fn parse_stat(text: &str) -> anyhow::Result<Stat>`.
-//! - [`read_limited`]: `fn read_limited(reader: impl std::io::Read, limit: usize) -> anyhow::Result<Vec<u8>>`.
-//! - [`read_text`]: `fn read_text(path: &str) -> anyhow::Result<String>`.
-//! - [`read_stat`]: `fn read_stat(path: &str) -> anyhow::Result<Stat>`.
-//! - [`fields`]: `fn fields(path: &str) -> anyhow::Result<HashMap<String, String>>`.
-//! - [`field_u64`]: `fn field_u64(fields: &HashMap<String, String>, key: &str) -> Option<u64>`.
-//! - [`read_io`]: `fn read_io(pid: i32) -> anyhow::Result<IoStats>`.
+//! - [`parse_process_stat`]: `fn parse_process_stat(text: &str) -> anyhow::Result<Stat>`.
+//! - [`read_bounded_bytes`]: `fn read_bounded_bytes(reader: impl std::io::Read, limit: usize) -> anyhow::Result<Vec<u8>>`.
+//! - [`read_procfs_text`]: `fn read_procfs_text(path: &str) -> anyhow::Result<String>`.
+//! - [`read_process_stat`]: `fn read_process_stat(path: &str) -> anyhow::Result<Stat>`.
+//! - [`read_procfs_fields`]: `fn read_procfs_fields(path: &str) -> anyhow::Result<HashMap<String, String>>`.
+//! - [`parse_procfs_u64_field`]: `fn parse_procfs_u64_field(fields: &HashMap<String, String>, key: &str) -> Option<u64>`.
+//! - [`read_process_io_stats`]: `fn read_process_io_stats(pid: i32) -> anyhow::Result<IoStats>`.
 //!
 //! Field maps use [`HashMap`]; bounded readers implement [`Read`].
 
@@ -46,7 +46,7 @@ pub(super) fn ticks_per_second() -> f64 {
     unsafe { libc::sysconf(libc::_SC_CLK_TCK) }.max(1) as f64
 }
 
-pub(super) fn parse_stat(text: &str) -> Result<Stat> {
+pub(super) fn parse_process_stat(text: &str) -> Result<Stat> {
     let open = text.find('(').context("stat: missing comm")?;
     let close = text.rfind(')').context("stat: missing comm end")?;
     ensure!(close > open, "stat: invalid comm");
@@ -83,7 +83,7 @@ pub(super) fn parse_stat(text: &str) -> Result<Stat> {
 }
 
 /// Read at most `limit` bytes, rejecting input that contains any additional byte.
-pub(super) fn read_limited(reader: impl Read, limit: usize) -> Result<Vec<u8>> {
+pub(super) fn read_bounded_bytes(reader: impl Read, limit: usize) -> Result<Vec<u8>> {
     let mut bytes = Vec::new();
     reader.take(limit as u64 + 1).read_to_end(&mut bytes)?;
     ensure!(
@@ -94,7 +94,7 @@ pub(super) fn read_limited(reader: impl Read, limit: usize) -> Result<Vec<u8>> {
 }
 
 /// Bounds procfs text allocation even when a target creates very large maps.
-pub(super) fn read_text(path: &str) -> Result<String> {
+pub(super) fn read_procfs_text(path: &str) -> Result<String> {
     const MAX_TEXT: u64 = 16 * 1024 * 1024;
     let mut text = String::new();
     fs::File::open(path)?
@@ -107,29 +107,31 @@ pub(super) fn read_text(path: &str) -> Result<String> {
     Ok(text)
 }
 
-pub(super) fn read_stat(path: &str) -> Result<Stat> {
-    parse_stat(&read_text(path).with_context(|| format!("read {path}"))?)
+pub(super) fn read_process_stat(path: &str) -> Result<Stat> {
+    parse_process_stat(&read_procfs_text(path).with_context(|| format!("read {path}"))?)
 }
 
-pub(super) fn fields(path: &str) -> Result<HashMap<String, String>> {
-    Ok(read_text(path)?
+pub(super) fn read_procfs_fields(path: &str) -> Result<HashMap<String, String>> {
+    Ok(read_procfs_text(path)?
         .lines()
         .filter_map(|line| line.split_once(':'))
         .map(|(k, v)| (k.to_owned(), v.trim().to_owned()))
         .collect())
 }
 
-pub(super) fn field_u64(fields: &HashMap<String, String>, key: &str) -> Option<u64> {
+pub(super) fn parse_procfs_u64_field(fields: &HashMap<String, String>, key: &str) -> Option<u64> {
     fields.get(key)?.split_whitespace().next()?.parse().ok()
 }
 
 pub(super) use crate::ipc::model::process::IoStats;
 
-pub(super) fn read_io(pid: i32) -> Result<IoStats> {
-    let f = fields(&format!("/proc/{pid}/io"))?;
+pub(super) fn read_process_io_stats(pid: i32) -> Result<IoStats> {
+    let f = read_procfs_fields(&format!("/proc/{pid}/io"))?;
     Ok(IoStats {
-        read_bytes: field_u64(&f, "read_bytes").ok_or_else(|| anyhow!("missing read_bytes"))?,
-        write_bytes: field_u64(&f, "write_bytes").ok_or_else(|| anyhow!("missing write_bytes"))?,
+        read_bytes: parse_procfs_u64_field(&f, "read_bytes")
+            .ok_or_else(|| anyhow!("missing read_bytes"))?,
+        write_bytes: parse_procfs_u64_field(&f, "write_bytes")
+            .ok_or_else(|| anyhow!("missing write_bytes"))?,
     })
 }
 
@@ -147,14 +149,14 @@ mod tests {
         f[15] = "-40";
         f[19] = "918";
         f[21] = "-1";
-        let stat = parse_stat(&format!("42 (a ) tricky (name)) {}", f.join(" "))).unwrap();
+        let stat = parse_process_stat(&format!("42 (a ) tricky (name)) {}", f.join(" "))).unwrap();
         assert_eq!(stat.name, "a ) tricky (name)");
         assert_eq!(stat.parent_pid, 7);
         assert_eq!(stat.ticks, 23);
         assert_eq!(stat.priority, -40);
         assert_eq!(stat.start_time, 918);
         assert_eq!(stat.rss, 0);
-        assert!(parse_stat("42 (bad) S").is_err());
+        assert!(parse_process_stat("42 (bad) S").is_err());
     }
 }
 
@@ -164,7 +166,7 @@ mod limit_tests {
 
     #[test]
     fn read_limited_rejects_oversized_input() {
-        assert!(read_limited(&b"1234"[..], 3).is_err());
+        assert!(read_bounded_bytes(&b"1234"[..], 3).is_err());
     }
 
     #[test]
@@ -173,7 +175,7 @@ mod limit_tests {
             std::env::temp_dir().join(format!("procinsh-procfs-limit-{}", std::process::id()));
         let file = fs::File::create(&path).unwrap();
         file.set_len(16 * 1024 * 1024 + 1).unwrap();
-        let result = read_text(path.to_str().unwrap());
+        let result = read_procfs_text(path.to_str().unwrap());
         fs::remove_file(path).unwrap();
         assert!(result.unwrap_err().to_string().contains("16 MiB limit"));
     }

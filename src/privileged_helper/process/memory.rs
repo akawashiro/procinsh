@@ -1,3 +1,12 @@
+//! Read bounded target-process memory and manage the acquisition privacy flag.
+//!
+//! # Interface
+//! - [`MAX_READ`] (`pub(super)`): `const MAX_READ: usize`.
+//! - [`enable_privacy`] (`pub(in crate::privileged_helper)`): `fn enable_privacy()`.
+//! - [`privacy_enabled`] (`pub(in crate::privileged_helper)`): `fn privacy_enabled() -> bool`.
+//! - [`read_process_memory`] (`pub(super)`): `fn read_process_memory(pid: i32, address: u64, length: usize) -> Result<Vec<u8>>`.
+//!
+
 use super::permission_help;
 use anyhow::{Result, bail, ensure};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -11,12 +20,15 @@ pub(in crate::privileged_helper) fn enable_privacy() {
     PRIVACY.store(true, Ordering::Relaxed);
 }
 
-pub(in crate::privileged_helper) fn privacy() -> bool {
+pub(in crate::privileged_helper) fn privacy_enabled() -> bool {
     PRIVACY.load(Ordering::Relaxed)
 }
 
-pub(super) fn read_raw(pid: i32, address: u64, length: usize) -> Result<Vec<u8>> {
-    ensure!(!privacy(), "Process memory is not read in privacy mode.");
+pub(super) fn read_process_memory(pid: i32, address: u64, length: usize) -> Result<Vec<u8>> {
+    ensure!(
+        !privacy_enabled(),
+        "Process memory is not read in privacy mode."
+    );
     ensure!(
         (1..=MAX_READ).contains(&length),
         "length must be 1..=65536 bytes"
@@ -55,10 +67,10 @@ mod tests {
         let value = *b"procinsh";
         let pid = std::process::id() as i32;
         assert_eq!(
-            read_raw(pid, value.as_ptr() as u64, value.len()).unwrap(),
+            read_process_memory(pid, value.as_ptr() as u64, value.len()).unwrap(),
             value
         );
-        assert!(read_raw(pid, 0, MAX_READ + 1).is_err());
-        assert!(read_raw(pid, u64::MAX, 16).is_err());
+        assert!(read_process_memory(pid, 0, MAX_READ + 1).is_err());
+        assert!(read_process_memory(pid, u64::MAX, 16).is_err());
     }
 }

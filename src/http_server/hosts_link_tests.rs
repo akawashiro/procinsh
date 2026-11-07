@@ -16,7 +16,7 @@ use std::{
 use tokio::{net::TcpListener, sync::watch, time::timeout};
 use tower::ServiceExt;
 
-fn info(name: &str) -> hosts::HostInfo {
+fn host_info_fixture(name: &str) -> hosts::HostInfo {
     hosts::HostInfo {
         name: name.into(),
         machine_id: format!("{name}-machine"),
@@ -24,7 +24,7 @@ fn info(name: &str) -> hosts::HostInfo {
     }
 }
 
-fn tcp(id: &str, local: (&str, u16), remote: (&str, u16)) -> Value {
+fn create_tcp_listener(id: &str, local: (&str, u16), remote: (&str, u16)) -> Value {
     json!({"id": id, "peer": null, "shared": false, "candidate":false,"label":"TCP","endpoint":{"process_id":{"pid":7,"start_time_ticks":1},"fd":3,"fd_count":1,"resource":{"device":{"major":0,"minor":0},"inode":"1","kind":"socket"},"kind":"socket","access":"read_write","connection_status":null}, "socket": {
         "protocol": {"kind": "tcp", "family": "ipv4"}, "state": {"kind": "established"},
         "local": {"ip": local.0, "port": local.1}, "remote": {"ip": remote.0, "port": remote.1},
@@ -44,7 +44,7 @@ fn scripted_helper(
             let response: WireResponse = match request {
                 MonitorRequest::Processes => {
                     Ok(MonitorResponse::Data(AcquiredData::Processes(vec![
-                        summary(
+                        process_summary_fixture(
                             host,
                             ProcessId {
                                 pid: 7,
@@ -87,7 +87,9 @@ fn scripted_helper(
                     sessions += 1;
                     Ok(MonitorResponse::Started {
                         session: sessions,
-                        initial: MonitorEvent::Observation(Arc::new(detail(host, id))),
+                        initial: MonitorEvent::Observation(Arc::new(process_detail_fixture(
+                            host, id,
+                        ))),
                     })
                 }
                 MonitorRequest::MappedElf { .. } => Ok(MonitorResponse::Elf(None)),
@@ -108,7 +110,7 @@ fn scripted_helper(
     MonitorClient::new(application).unwrap()
 }
 
-fn request(path: &str) -> Request<Body> {
+fn build_http_request(path: &str) -> Request<Body> {
     Request::builder()
         .uri(path)
         .header("host", "127.0.0.1:8080")
@@ -116,7 +118,7 @@ fn request(path: &str) -> Request<Body> {
         .unwrap()
 }
 
-async fn until(what: &str, mut condition: impl FnMut() -> bool) {
+async fn wait_until(what: &str, mut condition: impl FnMut() -> bool) {
     timeout(Duration::from_secs(20), async {
         while !condition() {
             tokio::time::sleep(Duration::from_millis(50)).await;
@@ -127,7 +129,7 @@ async fn until(what: &str, mut condition: impl FnMut() -> bool) {
 }
 
 /// The next SSE event as `(name, data)`, skipping keep-alive comments.
-async fn next_event(body: &mut Body) -> (String, Value) {
+async fn receive_next_sse_event(body: &mut Body) -> (String, Value) {
     loop {
         let frame = timeout(
             Duration::from_secs(20),
@@ -148,8 +150,8 @@ async fn next_event(body: &mut Body) -> (String, Value) {
     }
 }
 
-async fn json(app: &axum::Router, path: &str) -> (StatusCode, Value) {
-    let response = app.clone().oneshot(request(path)).await.unwrap();
+async fn decode_sse_json(app: &axum::Router, path: &str) -> (StatusCode, Value) {
+    let response = app.clone().oneshot(build_http_request(path)).await.unwrap();
     let status = response.status();
     let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
         .await
@@ -160,8 +162,8 @@ async fn json(app: &axum::Router, path: &str) -> (StatusCode, Value) {
     )
 }
 
-async fn events(app: &axum::Router, path: &str) -> Body {
-    let response = app.clone().oneshot(request(path)).await.unwrap();
+async fn decode_sse_events(app: &axum::Router, path: &str) -> Body {
+    let response = app.clone().oneshot(build_http_request(path)).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK, "{path}");
     response.into_body()
 }
@@ -172,15 +174,15 @@ async fn hub_serves_agent_processes_details_and_space_until_offline() {
     let agent_closed = Arc::new(Mutex::new(Vec::new()));
     let hub_client = scripted_helper(
         "hub",
-        tcp("x", ("10.0.0.1", 5000), ("10.0.0.2", 443)),
+        create_tcp_listener("x", ("10.0.0.1", 5000), ("10.0.0.2", 443)),
         hub_closed.clone(),
     );
     let agent_client = scripted_helper(
         "agent",
-        tcp("y", ("10.0.0.2", 443), ("10.0.0.1", 5000)),
+        create_tcp_listener("y", ("10.0.0.2", 443), ("10.0.0.1", 5000)),
         agent_closed.clone(),
     );
-    let registry = Arc::new(hosts::HostRegistry::new(info("hub")));
+    let registry = Arc::new(hosts::HostRegistry::new(host_info_fixture("hub")));
     let state = Arc::new(AppState::remote(
         Duration::from_secs(1),
         hub_client,
@@ -202,7 +204,7 @@ async fn hub_serves_agent_processes_details_and_space_until_offline() {
     let (stop_wrong, _) = watch::channel(false);
     let wrong = tokio::spawn(hosts::run_hub_connector(
         address.to_string(),
-        info("intruder"),
+        host_info_fixture("intruder"),
         Some("guess".into()),
         MonitorClient::unavailable(),
         stop_wrong.subscribe(),
@@ -210,16 +212,16 @@ async fn hub_serves_agent_processes_details_and_space_until_offline() {
     let (stop_agent, _) = watch::channel(false);
     let agent = tokio::spawn(hosts::run_hub_connector(
         address.to_string(),
-        info("agent-a"),
+        host_info_fixture("agent-a"),
         token,
         agent_client,
         stop_agent.subscribe(),
     ));
-    until("agent online", || {
+    wait_until("agent online", || {
         matches!(registry.remote("agent-a"), hosts::RemoteHost::Online(_))
     })
     .await;
-    let (status, list) = json(&app, "/api/hosts").await;
+    let (status, list) = decode_sse_json(&app, "/api/hosts").await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(list["local"], "hub");
     let names: Vec<_> = list["hosts"]
@@ -245,19 +247,19 @@ async fn hub_serves_agent_processes_details_and_space_until_offline() {
 
     // The process list and details go to the selected host's helper.
     assert_eq!(
-        json(&app, "/api/processes").await.1[0]["name"],
+        decode_sse_json(&app, "/api/processes").await.1[0]["name"],
         json!("hub")
     );
     assert_eq!(
-        json(&app, "/api/processes?host=hub").await.1[0]["name"],
+        decode_sse_json(&app, "/api/processes?host=hub").await.1[0]["name"],
         json!("hub")
     );
     assert_eq!(
-        json(&app, "/api/processes?host=agent-a").await.1[0]["name"],
+        decode_sse_json(&app, "/api/processes?host=agent-a").await.1[0]["name"],
         json!("agent")
     );
     assert_eq!(
-        json(
+        decode_sse_json(
             &app,
             "/api/processes/maps?host=agent-a&pid=7&start_time_ticks=1"
         )
@@ -265,7 +267,7 @@ async fn hub_serves_agent_processes_details_and_space_until_offline() {
         .1["error"],
         json!("agent")
     );
-    let (status, error) = json(
+    let (status, error) = decode_sse_json(
         &app,
         "/api/processes/maps?host=agent-a&pid=404&start_time_ticks=1",
     )
@@ -273,33 +275,33 @@ async fn hub_serves_agent_processes_details_and_space_until_offline() {
     assert_eq!(status, StatusCode::GONE, "helper errors keep their status");
     assert!(error["error"].as_str().unwrap().contains("Process exited"));
     assert_eq!(
-        json(&app, "/api/processes?host=nowhere").await.0,
+        decode_sse_json(&app, "/api/processes?host=nowhere").await.0,
         StatusCode::NOT_FOUND
     );
     assert_eq!(
-        json(&app, "/api/processes?host=all").await.0,
+        decode_sse_json(&app, "/api/processes?host=all").await.0,
         StatusCode::BAD_REQUEST
     );
 
     // Process events stream from the agent; leaving closes the agent's session.
-    let mut body = events(
+    let mut body = decode_sse_events(
         &app,
         "/api/processes/events?host=agent-a&pid=7&start_time_ticks=1",
     )
     .await;
-    let (name, observation) = next_event(&mut body).await;
+    let (name, observation) = receive_next_sse_event(&mut body).await;
     assert_eq!(name, "observation");
     assert_eq!(observation["summary"]["name"], "agent");
     assert_eq!(observation["summary"]["identity"]["pid"], 7);
     drop(body);
-    until("agent session closed", || {
+    wait_until("agent session closed", || {
         agent_closed.lock().unwrap().contains(&1)
     })
     .await;
 
     // A single remote host's SPACE stream.
-    let mut body = events(&app, "/api/system/events?host=agent-a").await;
-    let (name, snapshot) = next_event(&mut body).await;
+    let mut body = decode_sse_events(&app, "/api/system/events?host=agent-a").await;
+    let (name, snapshot) = receive_next_sse_event(&mut body).await;
     assert_eq!(
         (name.as_str(), &snapshot["warnings"][0]),
         ("snapshot", &json!("agent"))
@@ -308,12 +310,12 @@ async fn hub_serves_agent_processes_details_and_space_until_offline() {
     drop(body);
 
     // The merged view tags each host and links the TCP connection between them.
-    let mut body = events(&app, "/api/system/events?host=all").await;
+    let mut body = decode_sse_events(&app, "/api/system/events?host=all").await;
     let mut origins = std::collections::BTreeMap::new();
     let mut links = None;
     let mut hosts_seen = false;
     while origins.len() < 2 || links.is_none() || !hosts_seen {
-        match next_event(&mut body).await {
+        match receive_next_sse_event(&mut body).await {
             (name, data) if name == "snapshot" => {
                 origins.insert(
                     data["host"].as_str().unwrap().to_owned(),
@@ -345,15 +347,15 @@ async fn hub_serves_agent_processes_details_and_space_until_offline() {
     // The agent leaves: requests fail as unavailable and the host is listed offline.
     stop_agent.send_replace(true);
     agent.await.unwrap();
-    until("agent offline", || {
+    wait_until("agent offline", || {
         matches!(registry.remote("agent-a"), hosts::RemoteHost::Offline)
     })
     .await;
     assert_eq!(
-        json(&app, "/api/processes?host=agent-a").await.0,
+        decode_sse_json(&app, "/api/processes?host=agent-a").await.0,
         StatusCode::SERVICE_UNAVAILABLE
     );
-    let (_, list) = json(&app, "/api/hosts").await;
+    let (_, list) = decode_sse_json(&app, "/api/hosts").await;
     assert_eq!(list["hosts"][1]["status"]["state"], "offline");
     assert!(
         list["hosts"]
@@ -363,7 +365,7 @@ async fn hub_serves_agent_processes_details_and_space_until_offline() {
             .all(|h| h["name"] != "intruder")
     );
     loop {
-        match next_event(&mut body).await {
+        match receive_next_sse_event(&mut body).await {
             (name, data) if name == "hosts" && data["hosts"][1]["status"]["state"] == "offline" => {
                 break;
             }
@@ -376,7 +378,10 @@ async fn hub_serves_agent_processes_details_and_space_until_offline() {
     shutdown.send_replace(true);
 }
 
-fn summary(host: &str, identity: ProcessId) -> crate::ipc::acquisition::ProcessSummary {
+fn process_summary_fixture(
+    host: &str,
+    identity: ProcessId,
+) -> crate::ipc::acquisition::ProcessSummary {
     crate::ipc::acquisition::ProcessSummary {
         identity,
         parent_pid: 0,
@@ -397,10 +402,13 @@ fn summary(host: &str, identity: ProcessId) -> crate::ipc::acquisition::ProcessS
     }
 }
 
-fn detail(host: &str, id: ProcessId) -> crate::ipc::acquisition::ProcessDetailSnapshot {
+fn process_detail_fixture(
+    host: &str,
+    id: ProcessId,
+) -> crate::ipc::acquisition::ProcessDetailSnapshot {
     let sample=serde_json::from_value(json!({"timestamp":1,"process_id":id,"rss_bytes":0,"vms_bytes":0,"minor_faults":0,"major_faults":0,"voluntary_context_switches":null,"nonvoluntary_context_switches":null,"io":null,"threads":[],"cpu":0,"nice":0,"priority":20,"ticks":0,"measured_at":0})).unwrap();
     crate::ipc::acquisition::ProcessDetailSnapshot {
-        summary: summary(host, id),
+        summary: process_summary_fixture(host, id),
         exited: false,
         error: None,
         observation: None,

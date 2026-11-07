@@ -7,9 +7,9 @@
 //! | [`HardwareSources`] | `pub` | `struct HardwareSources` |
 //! | [`HardwareObservation`] | `pub` | `struct HardwareObservation` |
 
-use super::devices::{HardwareDevice, device};
+use super::devices::{HardwareDevice, build_hardware_device};
 use super::handles::DeviceHandleCollector;
-use super::paths::{HardwarePath, paths};
+use super::paths::{HardwarePath, build_hardware_paths};
 use super::pci::{online_numa_nodes, read_topology};
 use std::{
     collections::{HashMap, HashSet},
@@ -70,7 +70,7 @@ impl HardwareSources {
     }
     #[cfg(test)]
     pub(super) fn fixture(sys: PathBuf, proc: PathBuf) -> Self {
-        let files = super::acquisition::capture(&sys, &proc);
+        let files = super::acquisition::collect_hardware_files(&sys, &proc);
         Self::at(sys, proc, files)
     }
 }
@@ -89,10 +89,10 @@ impl HardwareObservation {
     pub fn observe(sources: &HardwareSources) -> Self {
         let nodes = read_topology(sources, &sources.sys);
         Self {
-            paths: paths(&nodes, online_numa_nodes(sources, &sources.sys)),
+            paths: build_hardware_paths(&nodes, online_numa_nodes(sources, &sources.sys)),
             devices: nodes
                 .iter()
-                .map(|n| device(sources, n, &sources.proc))
+                .map(|n| build_hardware_device(sources, n, &sources.proc))
                 .collect(),
         }
     }
@@ -127,7 +127,7 @@ mod tests {
         let f = fixture::workstation("captured-only");
         let sys = f.sys();
         let proc = f.proc();
-        let files = super::super::acquisition::capture(&sys, &proc);
+        let files = super::super::acquisition::collect_hardware_files(&sys, &proc);
         assert!(!files.truncated);
         let encoded = crate::ipc::codec::encode(&files, 16 * 1024 * 1024).unwrap();
         let captured = crate::ipc::codec::decode(&encoded).unwrap();

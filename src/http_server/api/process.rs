@@ -1,5 +1,22 @@
+//! Serve process metadata and observation HTTP endpoints.
+//!
+//! # Interface
+//! - [`ApiError`] (`pub(super)`): `struct ApiError`.
+//! - [`ProcessQuery`] (`pub(super)`): `struct ProcessQuery`.
+//! - [`get_server_config`] (`pub(super)`): `async fn get_server_config(State(s): State<Arc<AppState>>) -> Json<Value>`.
+//! - [`list_processes`] (`pub(super)`): `async fn list_processes( State(s): State<Arc<AppState>>, Query(query): Query<HostQuery>, ) -> ApiResult`.
+//! - [`get_process_observation`] (`pub(super)`): `async fn get_process_observation( State(s): State<Arc<AppState>>, Query(query): Query<ProcessQuery>, ) -> ApiResult`.
+//! - [`get_process_threads`] (`pub(super)`): `async fn get_process_threads( State(s): State<Arc<AppState>>, Query(query): Query<ProcessQuery>, ) -> ApiResult`.
+//! - [`get_process_maps`] (`pub(super)`): `async fn get_process_maps( State(s): State<Arc<AppState>>, Query(query): Query<ProcessQuery>, ) -> ApiResult`.
+//! - [`get_process_environment`] (`pub(super)`): `async fn get_process_environment( State(s): State<Arc<AppState>>, Query(query): Query<ProcessQuery>, ) -> ApiResult`.
+//! - [`get_process_file_descriptors`] (`pub(super)`): `async fn get_process_file_descriptors( State(s): State<Arc<AppState>>, Query(query): Query<ProcessQuery>, ) -> ApiResult`.
+//! - [`get_process_auxiliary_vector`] (`pub(super)`): `async fn get_process_auxiliary_vector( State(s): State<Arc<AppState>>, Query(query): Query<ProcessQuery>, ) -> ApiResult`.
+//! - [`stream_process_events`] (`pub(super)`): `async fn stream_process_events( State(s): State<Arc<AppState>>, Query(query): Query<ProcessQuery>, ) -> Result<Response, ApiError>`.
+//!
+//! Supporting types: [`ApiError`], [`ApiResult`], [`AppState`], [`Arc`], [`HostQuery`], [`Json`], [`ProcessQuery`], [`Query`], [`Response`], [`State`], [`Value`].
+
 use super::super::AppState;
-use super::hosts::{HostQuery, client};
+use super::hosts::{HostQuery, resolve_host_client};
 use crate::http_server::protocol::{MonitorRequest, MonitorResponse, ProcessId, ProcessResource};
 use axum::{
     Json,
@@ -44,7 +61,7 @@ impl From<anyhow::Error> for ApiError {
 }
 type ApiResult = Result<Json<Value>, ApiError>;
 
-pub(super) async fn config(State(s): State<Arc<AppState>>) -> Json<Value> {
+pub(super) async fn get_server_config(State(s): State<Arc<AppState>>) -> Json<Value> {
     Json(
         json!({"version":env!("CARGO_PKG_VERSION"),"interval_ms":s.interval.as_millis(),"history_seconds":60}),
     )
@@ -67,8 +84,12 @@ impl ProcessQuery {
     }
 }
 
-async fn request(state: &AppState, host: Option<&str>, request: MonitorRequest) -> ApiResult {
-    match client(state, host)?.request(request).await? {
+async fn request_process_data(
+    state: &AppState,
+    host: Option<&str>,
+    request: MonitorRequest,
+) -> ApiResult {
+    match resolve_host_client(state, host)?.request(request).await? {
         MonitorResponse::Data(value) => Ok(Json(value)),
         _ => Err(anyhow::anyhow!("unexpected monitor IPC response").into()),
     }
@@ -78,54 +99,58 @@ pub(super) async fn list_processes(
     State(s): State<Arc<AppState>>,
     Query(query): Query<HostQuery>,
 ) -> ApiResult {
-    request(&s, query.host.as_deref(), MonitorRequest::Processes).await
+    request_process_data(&s, query.host.as_deref(), MonitorRequest::Processes).await
 }
 
-pub(super) async fn stats(
+pub(super) async fn get_process_observation(
     State(s): State<Arc<AppState>>,
     Query(query): Query<ProcessQuery>,
 ) -> ApiResult {
-    resource(&s, query, ProcessResource::Observation).await
+    request_process_resource(&s, query, ProcessResource::Observation).await
 }
 
-pub(super) async fn threads(
+pub(super) async fn get_process_threads(
     State(s): State<Arc<AppState>>,
     Query(query): Query<ProcessQuery>,
 ) -> ApiResult {
-    resource(&s, query, ProcessResource::Threads).await
+    request_process_resource(&s, query, ProcessResource::Threads).await
 }
 
-pub(super) async fn maps(
+pub(super) async fn get_process_maps(
     State(s): State<Arc<AppState>>,
     Query(query): Query<ProcessQuery>,
 ) -> ApiResult {
-    resource(&s, query, ProcessResource::Maps).await
+    request_process_resource(&s, query, ProcessResource::Maps).await
 }
 
-pub(super) async fn environment(
+pub(super) async fn get_process_environment(
     State(s): State<Arc<AppState>>,
     Query(query): Query<ProcessQuery>,
 ) -> ApiResult {
-    resource(&s, query, ProcessResource::Environment).await
+    request_process_resource(&s, query, ProcessResource::Environment).await
 }
 
-pub(super) async fn fds(
+pub(super) async fn get_process_file_descriptors(
     State(s): State<Arc<AppState>>,
     Query(query): Query<ProcessQuery>,
 ) -> ApiResult {
-    resource(&s, query, ProcessResource::Fds).await
+    request_process_resource(&s, query, ProcessResource::Fds).await
 }
 
-pub(super) async fn auxv(
+pub(super) async fn get_process_auxiliary_vector(
     State(s): State<Arc<AppState>>,
     Query(query): Query<ProcessQuery>,
 ) -> ApiResult {
-    resource(&s, query, ProcessResource::Auxv).await
+    request_process_resource(&s, query, ProcessResource::Auxv).await
 }
 
-async fn resource(state: &AppState, query: ProcessQuery, resource: ProcessResource) -> ApiResult {
+async fn request_process_resource(
+    state: &AppState,
+    query: ProcessQuery,
+    resource: ProcessResource,
+) -> ApiResult {
     let id = query.id();
-    request(
+    request_process_data(
         state,
         query.host.as_deref(),
         MonitorRequest::Process { id, resource },
@@ -133,12 +158,12 @@ async fn resource(state: &AppState, query: ProcessQuery, resource: ProcessResour
     .await
 }
 
-pub(super) async fn events(
+pub(super) async fn stream_process_events(
     State(s): State<Arc<AppState>>,
     Query(query): Query<ProcessQuery>,
 ) -> Result<Response, ApiError> {
-    let session = client(&s, query.host.as_deref())?
+    let session = resolve_host_client(&s, query.host.as_deref())?
         .observe(MonitorRequest::ObserveProcess { id: query.id() })
         .await?;
-    Ok(super::stream::response(s, session))
+    Ok(super::stream::build_sse_response(s, session))
 }

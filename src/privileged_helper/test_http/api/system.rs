@@ -17,7 +17,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub(super) async fn events(State(s): State<Arc<AppState>>) -> Result<Response, StatusCode> {
+pub(super) async fn stream_system_events(
+    State(s): State<Arc<AppState>>,
+) -> Result<Response, StatusCode> {
     let mut subscription = s.system_monitor.subscribe().map_err(|error| match error {
         SubscribeError::Stopped => StatusCode::SERVICE_UNAVAILABLE,
         SubscribeError::TooManySubscribers => StatusCode::TOO_MANY_REQUESTS,

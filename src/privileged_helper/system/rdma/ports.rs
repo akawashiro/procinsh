@@ -1,16 +1,33 @@
 //! Local RDMA port addresses and link state from sysfs.
+//!
+//! # Interface
+//! - [`RdmaQpType`] (`pub(in crate::privileged_helper::system)`): `enum RdmaQpType`.
+//! - [`RdmaQpState`] (`pub(in crate::privileged_helper::system)`): `enum RdmaQpState`.
+//! - [`RdmaCmState`] (`pub(in crate::privileged_helper::system)`): `enum RdmaCmState`.
+//! - [`RdmaPortSpace`] (`pub(in crate::privileged_helper::system)`): `enum RdmaPortSpace`.
+//! - [`IbGid`] (`pub(in crate::privileged_helper::system)`): `struct IbGid`.
+//! - [`RdmaAddress`] (`pub(in crate::privileged_helper::system)`): `enum RdmaAddress`.
+//! - [`RdmaPortInfo`] (`pub(in crate::privileged_helper::system)`): `struct RdmaPortInfo`.
+//! - [`RdmaEndpointOwner`] (`pub(in crate::privileged_helper::system)`): `enum RdmaEndpointOwner`.
+//! - [`RdmaEndpoint`] (`pub(in crate::privileged_helper::system)`): `struct RdmaEndpoint`.
+//! - [`RdmaCmInfo`] (`pub(in crate::privileged_helper::system)`): `struct RdmaCmInfo`.
+//! - [`RdmaRelation`] (`pub(in crate::privileged_helper::system)`): `struct RdmaRelation`.
+//! - [`list_rdma_devices`] (`pub(super)`): `fn list_rdma_devices(root: &Path) -> Vec<String>`.
+//! - [`read_rdma_ports`] (`pub(super)`): `fn read_rdma_ports(root: &Path) -> Vec<RdmaPortInfo>`.
+//!
+//! Supporting types: [`Path`], [`RdmaPortInfo`].
 
 use std::{fs, path::Path};
 
 pub(in crate::privileged_helper::system) use crate::ipc::rdma::*;
 
-fn text(path: &Path) -> Option<String> {
+fn read_sysfs_text(path: &Path) -> Option<String> {
     let value = fs::read_to_string(path).ok()?;
     let value = value.trim();
     (!value.is_empty()).then(|| value.to_owned())
 }
 
-fn names(path: &Path) -> Vec<String> {
+fn list_directory_names(path: &Path) -> Vec<String> {
     let mut names: Vec<_> = fs::read_dir(path)
         .into_iter()
         .flatten()
@@ -22,15 +39,15 @@ fn names(path: &Path) -> Vec<String> {
 }
 
 /// Device names under `root` (`/sys/class/infiniband`).
-pub(super) fn devices(root: &Path) -> Vec<String> {
-    names(root)
+pub(super) fn list_rdma_devices(root: &Path) -> Vec<String> {
+    list_directory_names(root)
 }
 
-pub(super) fn read_ports(root: &Path) -> Vec<RdmaPortInfo> {
+pub(super) fn read_rdma_ports(root: &Path) -> Vec<RdmaPortInfo> {
     let mut result = Vec::new();
-    for device in devices(root) {
+    for device in list_rdma_devices(root) {
         let ports = root.join(&device).join("ports");
-        let mut numbers: Vec<u32> = names(&ports)
+        let mut numbers: Vec<u32> = list_directory_names(&ports)
             .iter()
             .filter_map(|name| name.parse().ok())
             .collect();
@@ -40,16 +57,16 @@ pub(super) fn read_ports(root: &Path) -> Vec<RdmaPortInfo> {
             result.push(RdmaPortInfo {
                 device: device.clone(),
                 port,
-                link_layer: text(&path.join("link_layer")),
-                state: text(&path.join("state")).map(|s| {
+                link_layer: read_sysfs_text(&path.join("link_layer")),
+                state: read_sysfs_text(&path.join("state")).map(|s| {
                     s.split_once(": ")
                         .map_or(s.clone(), |(_, name)| name.into())
                 }),
-                lid: text(&path.join("lid"))
+                lid: read_sysfs_text(&path.join("lid"))
                     .and_then(|s| u32::from_str_radix(s.trim_start_matches("0x"), 16).ok())
                     .filter(|lid| *lid != 0),
-                gid: text(&path.join("gids/0")).and_then(|s| IbGid::parse(&s)),
-                rate: text(&path.join("rate")),
+                gid: read_sysfs_text(&path.join("gids/0")).and_then(|s| IbGid::parse(&s)),
+                rate: read_sysfs_text(&path.join("rate")),
             });
         }
     }
@@ -92,8 +109,8 @@ mod tests {
             fs::write(path.join("link_layer"), "InfiniBand\n").unwrap();
         }
         fs::create_dir_all(root.join("rxe0")).unwrap();
-        let ports = read_ports(&root);
-        assert_eq!(devices(&root), ["mlx4_0", "rxe0"]);
+        let ports = read_rdma_ports(&root);
+        assert_eq!(list_rdma_devices(&root), ["mlx4_0", "rxe0"]);
         assert_eq!(ports.iter().map(|p| p.port).collect::<Vec<_>>(), [1, 2, 10]);
         assert_eq!(
             serde_json::to_value(&ports[0]).unwrap(),

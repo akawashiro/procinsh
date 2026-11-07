@@ -78,7 +78,7 @@ mod tests {
 
     #[test]
     fn netns_reader_checks_identity_and_deadlines() {
-        let id = super::super::identity(std::process::id() as i32).unwrap();
+        let id = super::super::read_process_identity(std::process::id() as i32).unwrap();
         let reader = NetworkNamespaceReader::open(id).unwrap();
         assert_eq!(reader.key(), current_namespace());
         let mut stale = id;
@@ -88,11 +88,14 @@ mod tests {
         let inode = fs::metadata(format!("/proc/self/fd/{}", socket.as_raw_fd()))
             .unwrap()
             .ino();
-        let diag =
-            super::super::sockets::unix_diag(&reader, Instant::now() + Duration::from_millis(500))
-                .unwrap();
+        let diag = super::super::sockets::collect_unix_socket_peers(
+            &reader,
+            Instant::now() + Duration::from_millis(500),
+        )
+        .unwrap();
         assert!(diag[&inode].peer_inode.is_some());
-        let error = super::super::sockets::unix_diag(&reader, Instant::now()).unwrap_err();
+        let error =
+            super::super::sockets::collect_unix_socket_peers(&reader, Instant::now()).unwrap_err();
         assert!(error.to_string().contains("timed out"));
     }
 
@@ -126,8 +129,11 @@ mod tests {
         assert_eq!(current_namespace(), original);
         drop(fixture);
         // The pinned namespace remains queryable after its representative exits.
-        super::super::sockets::unix_diag(&reader, Instant::now() + Duration::from_millis(500))
-            .unwrap();
+        super::super::sockets::collect_unix_socket_peers(
+            &reader,
+            Instant::now() + Duration::from_millis(500),
+        )
+        .unwrap();
         assert_eq!(current_namespace(), original);
     }
 
@@ -158,7 +164,7 @@ mod tests {
                 error.to_string().contains("Operation not permitted"),
                 "{error:#}"
             );
-            let details = super::super::fds::read(id).unwrap();
+            let details = super::super::fds::collect_file_descriptors(id).unwrap();
             let socket = details.entries.iter().find(|entry| entry.fd == 61).unwrap();
             assert_eq!(
                 socket.state,

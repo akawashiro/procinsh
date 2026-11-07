@@ -1,3 +1,11 @@
+//! Bind HTTP and agent listeners and manage application shutdown.
+//!
+//! # Interface
+//! - [`ServerConfig`] (`pub(crate)`): `struct ServerConfig`.
+//! - [`serve_http_requests`] (`pub(super)`): `async fn serve_http_requests( config: ServerConfig, client: super::client::MonitorClient, ) -> Result<()>`.
+//!
+//! Supporting types: [`ServerConfig`], [`super::client::MonitorClient`].
+
 use super::{
     AppState,
     hosts::{self, HostInfo, HostRegistry},
@@ -24,7 +32,10 @@ pub(crate) struct ServerConfig {
 /// Bind every address before serving, then share collectors across listeners.
 /// Each listener validates requests against its own bound address. A shutdown
 /// signal or a listener failure stops all listeners and joins the collectors.
-pub(super) async fn run(config: ServerConfig, client: super::client::MonitorClient) -> Result<()> {
+pub(super) async fn serve_http_requests(
+    config: ServerConfig,
+    client: super::client::MonitorClient,
+) -> Result<()> {
     let listen = &config.listen;
     ensure!(!listen.is_empty(), "no HTTP listen addresses specified");
     let mut listeners = Vec::with_capacity(listen.len());

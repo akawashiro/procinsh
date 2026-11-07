@@ -5,7 +5,7 @@ use std::{sync::Arc, time::Duration};
 use axum::body::Body;
 use tower::ServiceExt;
 
-fn app() -> Router {
+fn build_test_app() -> Router {
     router(
         Arc::new(AppState::new(Duration::from_secs(1))),
         "127.0.0.1:8080".parse().unwrap(),
@@ -17,7 +17,7 @@ async fn headers_report_the_binary_revision_on_all_pages() {
     let sha = env!("PROCINSH_BUILD_GIT_SHA");
     let dirty = env!("PROCINSH_BUILD_GIT_DIRTY") == "true";
     for path in ["/", "/list", "/process/1", "/space"] {
-        let response = app()
+        let response = build_test_app()
             .oneshot(
                 Request::builder()
                     .uri(path)
@@ -68,7 +68,7 @@ async fn security_and_embedded_resources() {
         if let Some(origin) = origin {
             req = req.header("origin", origin);
         }
-        let response = app()
+        let response = build_test_app()
             .oneshot(req.body(Body::empty()).unwrap())
             .await
             .unwrap();
@@ -84,7 +84,7 @@ async fn static_assets_support_head_and_preserve_unknown_method_responses() {
         ("POST", "/api/missing", 404),
         ("GET", "/assets/missing.js", 404),
     ] {
-        let response = app()
+        let response = build_test_app()
             .oneshot(
                 Request::builder()
                     .method(method)
@@ -118,7 +118,7 @@ async fn gzip_negotiation_and_resources() {
         "/api/processes".to_owned(),
     ]);
     for page in ["/list", "/process/1", "/space"] {
-        let response = app()
+        let response = build_test_app()
             .oneshot(
                 Request::builder()
                     .uri(page)
@@ -150,13 +150,13 @@ async fn gzip_negotiation_and_resources() {
                 .body(Body::empty())
                 .unwrap()
         };
-        let plain = app().oneshot(request("identity")).await.unwrap();
+        let plain = build_test_app().oneshot(request("identity")).await.unwrap();
         assert_eq!(plain.status(), 200);
         assert!(!plain.headers().contains_key("content-encoding"));
         let plain = axum::body::to_bytes(plain.into_body(), usize::MAX)
             .await
             .unwrap();
-        let gzip = app().oneshot(request("gzip")).await.unwrap();
+        let gzip = build_test_app().oneshot(request("gzip")).await.unwrap();
         if plain.len() <= 256 {
             assert!(!gzip.headers().contains_key("content-encoding"));
             let body = axum::body::to_bytes(gzip.into_body(), usize::MAX)
@@ -187,7 +187,7 @@ async fn gzip_negotiation_and_resources() {
         }
     }
     for encoding in ["identity", "gzip;q=0", "br"] {
-        let response = app()
+        let response = build_test_app()
             .oneshot(
                 Request::builder()
                     .uri("/")
@@ -201,7 +201,7 @@ async fn gzip_negotiation_and_resources() {
         assert!(!response.headers().contains_key("content-encoding"));
     }
     for path in ["/missing", "/api/config"] {
-        let response = app()
+        let response = build_test_app()
             .oneshot(
                 Request::builder()
                     .uri(path)
@@ -219,7 +219,7 @@ async fn gzip_negotiation_and_resources() {
 #[tokio::test]
 async fn gzip_sse_flushes_before_stream_ends() {
     use axum::body::HttpBody;
-    let response = app()
+    let response = build_test_app()
         .oneshot(
             Request::builder()
                 .uri("/api/system/events")

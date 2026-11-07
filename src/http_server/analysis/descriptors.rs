@@ -9,7 +9,7 @@
 //! | [`FileDescriptorInfo`] | `pub` | `struct FileDescriptorInfo` |
 //! | [`FileDescriptors`] | `pub` | `struct FileDescriptors` |
 //! | [`Owner`] | `pub` | `struct Owner` |
-//! | [`complete`] | `pub` | `fn complete(data: &mut FileDescriptors)` |
+//! | [`resolve_descriptor_relations`] | `pub` | `fn resolve_descriptor_relations(data: &mut FileDescriptors)` |
 
 pub use crate::ipc::descriptors::{Endpoint, FileDescriptorInfo, FileDescriptors, Key, Owner};
 use crate::{http_server::model::socket_types::*, ipc::schema::ProcessId};
@@ -171,7 +171,7 @@ fn pipe_opposite(a: Option<u32>, b: Option<u32>) -> bool {
     )
 }
 
-pub fn complete(data: &mut FileDescriptors) {
+pub fn resolve_descriptor_relations(data: &mut FileDescriptors) {
     let id = data.process_id;
     let owners: HashMap<_, _> = std::mem::take(&mut data.raw_fd_owners)
         .into_iter()

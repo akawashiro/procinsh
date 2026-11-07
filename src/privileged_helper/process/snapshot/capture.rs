@@ -112,7 +112,7 @@ impl Sampler {
         for (&tid, thread) in &mut self.threads {
             thread.ptrace_error = None;
             thread.latest.error = thread.setup_error.clone();
-            match super::ptrace::capture(tid, maps) {
+            match super::ptrace::capture_thread_snapshot(tid, maps) {
                 Ok(sample) => process_sample(
                     self.id.pid,
                     #[cfg(test)]
@@ -151,7 +151,7 @@ impl Sampler {
         {
             for map in maps.iter().filter(|map| map.executable && map.inode != 0) {
                 if self.symbols.get(map).is_none()
-                    && let Some(file) = process::elf::read(self.id.pid, map)
+                    && let Some(file) = process::elf::read_mapped_elf_file(self.id.pid, map)
                 {
                     self.symbols.insert(map, file);
                 }
@@ -159,8 +159,9 @@ impl Sampler {
             self.unwind.refresh(maps, &self.symbols);
         }
         let mut alive = BTreeSet::new();
-        for tid in super::super::threads::tids(self.id.pid)? {
-            let Ok(stat) = procfs::read_stat(&format!("/proc/{}/task/{tid}/stat", self.id.pid))
+        for tid in super::super::threads::collect_thread_ids(self.id.pid)? {
+            let Ok(stat) =
+                procfs::read_process_stat(&format!("/proc/{}/task/{tid}/stat", self.id.pid))
             else {
                 continue;
             };
@@ -334,7 +335,7 @@ fn process_sample(
         cpu: sample.cpu,
         lost_samples: lost,
         #[cfg(test)]
-        registers: registers::from_sample(r, maps),
+        registers: registers::classify_sample_registers(r, maps),
         #[cfg(not(test))]
         registers: Vec::new(),
         raw_registers: Some(r.clone()),
@@ -430,7 +431,7 @@ mod live_tests {
                 .stdout(Stdio::from(stdout))
                 .spawn()
                 .unwrap();
-            let id = process::identity(child.id() as i32).unwrap();
+            let id = process::read_process_identity(child.id() as i32).unwrap();
             let mut controller = Self {
                 target: Target {
                     child,
