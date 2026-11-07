@@ -31,7 +31,7 @@ pub struct FileDescriptors {
 pub struct FileDescriptorInfo {
     pub fd: u32,
     pub kind: FdKind,
-    pub inode: String,
+    pub inode: u64,
     pub target: String,
     pub access: FdAccess,
     pub protocol: Option<SocketProtocol>,
@@ -41,7 +41,7 @@ pub struct FileDescriptorInfo {
     pub local: Option<InetAddress>,
     pub remote: Option<InetAddress>,
     pub path: Option<String>,
-    pub peer_inode: Option<String>,
+    pub peer_inode: Option<u64>,
     pub peers: Vec<Endpoint>,
     pub holders: Vec<Endpoint>,
     pub note: String,

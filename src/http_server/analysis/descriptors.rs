@@ -56,13 +56,36 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::descriptors::Endpoint {
     }
 }
 
+// Preserve decimal strings in JSON while retaining native inode values in IPC.
+fn serialize_optional_inode<S: serde::Serializer>(
+    value: &Option<u64>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    match value {
+        Some(inode) => serializer.collect_str(inode),
+        None => serializer.serialize_none(),
+    }
+}
+
+fn deserialize_optional_inode<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<u64>, D::Error> {
+    <Option<String> as serde::Deserialize>::deserialize(deserializer)?
+        .map(|value| value.parse().map_err(serde::de::Error::custom))
+        .transpose()
+}
+
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::descriptors::FileDescriptorInfo")]
 struct FileDescriptorInfoJson {
     pub fd: u32,
     pub kind: FdKind,
-    pub inode: String,
+    #[serde(
+        serialize_with = "crate::http_server::model::resource::decimal",
+        deserialize_with = "crate::http_server::model::resource::deserialize_decimal"
+    )]
+    pub inode: u64,
     pub target: String,
     pub access: FdAccess,
     pub protocol: Option<SocketProtocol>,
@@ -72,7 +95,12 @@ struct FileDescriptorInfoJson {
     pub local: Option<InetAddress>,
     pub remote: Option<InetAddress>,
     pub path: Option<String>,
-    pub peer_inode: Option<String>,
+    #[serde(
+        default,
+        serialize_with = "serialize_optional_inode",
+        deserialize_with = "deserialize_optional_inode"
+    )]
+    pub peer_inode: Option<u64>,
     pub peers: Vec<Endpoint>,
     pub holders: Vec<Endpoint>,
     pub note: String,
@@ -202,6 +230,77 @@ pub fn complete(data: &mut FileDescriptors) {
                 "Peer PID unknown (remote, unconnected, exited, unobserved, or access denied)"
             }
             .into();
+        }
+    }
+}
+
+#[cfg(test)]
+mod inode_tests {
+    use super::*;
+
+    fn descriptor_with_inodes(inode: u64, peer_inode: Option<u64>) -> Descriptor {
+        Descriptor {
+            fd: 3,
+            kind: FdKind::Pipe,
+            inode,
+            target: format!("pipe:[{inode}]"),
+            access: FdAccess::Read,
+            protocol: None,
+            state: None,
+            connection_status: None,
+            local: None,
+            remote: None,
+            path: None,
+            peer_inode,
+            peers: Vec::new(),
+            holders: Vec::new(),
+            note: String::new(),
+            key: Key {
+                kind: FdKind::Pipe,
+                device: 0,
+                inode,
+            },
+            mode: Some(0),
+            socket_device: None,
+        }
+    }
+
+    #[test]
+    fn native_inodes_preserve_decimal_json_and_ipc_precision() {
+        for inode in [0, (1u64 << 53) + 1, u64::MAX] {
+            for peer_inode in [None, Some(inode)] {
+                let descriptor = descriptor_with_inodes(inode, peer_inode);
+                let json = serde_json::to_value(&descriptor).unwrap();
+                assert_eq!(json["inode"], inode.to_string());
+                assert_eq!(
+                    json["peer_inode"],
+                    peer_inode.map_or(serde_json::Value::Null, |value| value.to_string().into())
+                );
+                let parsed: Descriptor = serde_json::from_value(json).unwrap();
+                assert_eq!((parsed.inode, parsed.peer_inode), (inode, peer_inode));
+                let bytes = crate::ipc::codec::encode(&descriptor, 4096).unwrap();
+                let decoded: Descriptor = crate::ipc::codec::decode(&bytes).unwrap();
+                assert_eq!((decoded.inode, decoded.peer_inode), (inode, peer_inode));
+            }
+        }
+    }
+
+    #[test]
+    fn optional_peer_inode_accepts_missing_and_null_but_rejects_invalid_numbers() {
+        let mut json = serde_json::to_value(descriptor_with_inodes(42, None)).unwrap();
+        json.as_object_mut().unwrap().remove("peer_inode");
+        assert!(
+            serde_json::from_value::<Descriptor>(json.clone())
+                .unwrap()
+                .peer_inode
+                .is_none()
+        );
+        for invalid in ["-1", "18446744073709551616", "invalid"] {
+            for field in ["inode", "peer_inode"] {
+                let mut invalid_json = json.clone();
+                invalid_json[field] = invalid.into();
+                assert!(serde_json::from_value::<Descriptor>(invalid_json).is_err());
+            }
         }
     }
 }
