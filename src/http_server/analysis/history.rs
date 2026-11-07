@@ -6,7 +6,7 @@
 //! | --- | --- | --- |
 //! | [`append_history_observation`] | `pub` | `fn append_history_observation(history: &mut VecDeque<HistoryPoint>, observation: &ProcessObservation)` |
 //!
-//! Shared signature types: [`HistoryPoint`](crate::ipc::history::HistoryPoint).
+//! Shared signature types: [`HistoryPoint`].
 
 //! History observations use [`ProcessObservation`].
 

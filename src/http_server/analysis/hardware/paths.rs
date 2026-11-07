@@ -6,7 +6,7 @@
 //! | --- | --- | --- |
 //! | [`build_hardware_paths`] | `pub` | `fn build_hardware_paths(nodes: &[PciNode], numa_nodes: usize) -> Vec<HardwarePath>` |
 //!
-//! Shared signature types: [`HardwarePath`](crate::ipc::hardware::HardwarePath).
+//! Shared signature types: [`HardwarePath`].
 
 use crate::ipc::hardware::{HardwarePath, PathClass};
 use std::collections::HashMap;

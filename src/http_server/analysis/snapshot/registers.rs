@@ -9,7 +9,7 @@
 //!
 //! Mapping arguments use [`MemoryMap`]; classification values use [`MemoryKind`].
 //!
-//! Shared signature types: [`RegisterRole`](crate::ipc::registers::RegisterRole), [`RegisterSet`](crate::ipc::registers::RegisterSet), [`Register`](crate::ipc::registers::Register).
+//! Shared signature types: [`RegisterRole`], [`RegisterSet`], [`Register`].
 
 use crate::ipc::model::memory::{MemoryKind, MemoryMap};
 use crate::ipc::registers::{Register, RegisterMapping, RegisterRole, RegisterSet};

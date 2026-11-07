@@ -11,7 +11,7 @@
 //!
 //! Process identities use [`ProcessId`]; lookup tables use [`HashMap`].
 //!
-//! Shared signature types: [`SignalEvent`](crate::ipc::activity::SignalEvent), [`SignalSample`](crate::ipc::activity::SignalSample).
+//! Shared signature types: [`SignalEvent`], [`SignalSample`].
 
 use crate::ipc::activity::{
     CpuActivity, CpuCounters, FileActivity, IpcActivity, IpcEvent, ProcessKey, RawActivity,

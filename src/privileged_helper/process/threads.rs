@@ -7,7 +7,7 @@
 //! | [`collect_thread_ids`] | `pub(super)` | `fn collect_thread_ids(pid: i32) -> Result<Vec<i32>>` |
 //! | [`read_thread_sample`] | `pub(super)` | `fn read_thread_sample(pid: i32, tid: i32) -> Result<ThreadSample>` |
 //!
-//! Shared signature types: [`ThreadSample`](crate::ipc::model::threads::ThreadSample).
+//! Shared signature types: [`ThreadSample`].
 
 use super::procfs::{self, Stat};
 use crate::ipc::model::threads::{SchedulerPolicy, ThreadSample, parse_cpu_affinity};

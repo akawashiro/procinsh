@@ -6,7 +6,7 @@
 //! | --- | --- | --- |
 //! | [`build_hardware_device`] | `pub` | `fn build_hardware_device(sources: &HardwareSources, node: &PciNode, proc: &Path) -> HardwareDevice` |
 //!
-//! Shared signature types: [`HardwareDevice`](crate::ipc::hardware::HardwareDevice).
+//! Shared signature types: [`HardwareDevice`].
 
 use super::observation::HardwareSources;
 use crate::ipc::hardware::{GpuInfo, HardwareDevice, RdmaDeviceInfo};

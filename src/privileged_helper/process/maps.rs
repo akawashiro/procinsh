@@ -8,7 +8,7 @@
 //! | [`read_smaps`] | `pub(super)` | `fn read_smaps(pid: i32) -> Result<Vec<SmapsEntry>>` |
 //! | [`read_memory_rollup`] | `pub(super)` | `fn read_memory_rollup(pid: i32) -> Option<MemoryRollup>` |
 //!
-//! Shared signature types: [`MemoryMap`](crate::ipc::model::memory::MemoryMap), [`MemoryRollup`](crate::ipc::acquisition::MemoryRollup), [`SmapsEntry`](crate::ipc::model::memory::SmapsEntry).
+//! Shared signature types: [`MemoryMap`], [`MemoryRollup`], [`SmapsEntry`].
 
 use super::procfs::read_procfs_text;
 use crate::ipc::model::memory::{MemoryMap, SmapsEntry, parse_map, parse_smaps};

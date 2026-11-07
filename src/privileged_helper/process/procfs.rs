@@ -15,7 +15,7 @@
 //!
 //! Field maps use [`HashMap`]; bounded readers implement [`Read`].
 //!
-//! Shared signature types: [`IoStats`](crate::ipc::model::process::IoStats).
+//! Shared signature types: [`IoStats`].
 
 use anyhow::{Context, Result, anyhow, ensure};
 use std::{collections::HashMap, fs, io::Read};

@@ -7,7 +7,7 @@
 //! | [`initial_observation`] | `pub` | `fn initial_observation(current: &ProcessSample) -> ProcessObservation` |
 //! | [`next_observation`] | `pub` | `fn next_observation(previous: &ProcessSample, current: &ProcessSample) -> ProcessObservation` |
 //!
-//! Shared signature types: [`ProcessObservation`](crate::ipc::model::process::ProcessObservation), [`ProcessSample`](crate::ipc::model::process::ProcessSample).
+//! Shared signature types: [`ProcessObservation`], [`ProcessSample`].
 
 use crate::ipc::model::process::{
     IoStats, ProcessObservation, ProcessSample, Rates, ticks_per_second,

@@ -4,7 +4,7 @@
 //! [`capture_sample`] (`pub(super)`): `fn capture_sample(id: ProcessId) -> anyhow::Result<ProcessSample>`.
 //! Shared observation values and calculations come from [`crate::ipc::model::process`].
 //!
-//! Shared signature types: [`ProcessSample`](crate::ipc::model::process::ProcessSample).
+//! Shared signature types: [`ProcessSample`].
 
 #[cfg(test)]
 use crate::ipc::model::process::IoStats;

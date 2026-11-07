@@ -2,8 +2,6 @@
 //!
 //! # Interface
 //! [`HardwareSources`] (`pub(super)`): `struct HardwareSources` supplies the sysfs root.
-//!
-//! Shared signature types: [`acquisition`](crate::http_server::analysis::hardware::observation::acquisition).
 #[cfg(not(test))]
 pub(super) struct HardwareSources {
     pub sys: std::path::PathBuf,
