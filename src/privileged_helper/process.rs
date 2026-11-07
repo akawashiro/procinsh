@@ -10,13 +10,14 @@
 //! | [`ProcessMonitor`] | `pub(super)` | `struct `[`ProcessMonitor`] |
 //! | [`SubscribeError`] | `pub(super)` | `enum `[`SubscribeError`] |
 //! | [`SocketMetadataReader`] | `pub(super)` | `struct `[`SocketMetadataReader`] |
-//! | [`NetworkNamespaceReader`] | `pub(super)` | `struct `[`NetworkNamespaceReader`] |
+//! | [`NetworkNamespace`] | `pub(super)` | `struct `[`NetworkNamespace`] |
 //! | [`SocketMetadata`] | `pub(super)` | `struct `[`SocketMetadata`] |
 //!
 //! ## Functions
 //!
 //! | Definition | Visibility | Signature |
 //! | --- | --- | --- |
+//! | [`open_network_namespace`] | `pub(super)` | `fn open_network_namespace(id: `[`crate::ipc::schema::ProcessId`]`) -> `[`Result`](anyhow::Result)`<`[`NetworkNamespace`]`>` |
 //! | [`collect_processes`] | `pub(super)` | `fn collect_processes() -> `[`anyhow::Result`]`<`[`Vec`]`<`[`ProcessSummary`](crate::ipc::acquisition::ProcessSummary)`>>` |
 //! | [`validate_process_identity`] | `pub(super)` | `fn validate_process_identity(id: `[`crate::ipc::schema::ProcessId`]`) -> `[`Result`](anyhow::Result)`<()>` |
 //! | [`collect_process_observation`] | `pub(super)` | `fn collect_process_observation (id: `[`crate::ipc::schema::ProcessId`]`) -> `[`anyhow::Result`]`<`[`ObservationData`](crate::ipc::acquisition::ObservationData)`>` |
@@ -30,7 +31,7 @@
 //! | [`socket_text`] | `pub(super)` | `fn socket_text(path: &`[`str`]`) -> `[`Result`](anyhow::Result)`<`[`String`]`>` |
 //! | [`inet_sockets`] | `pub(super)` | `fn inet_sockets(text: &`[`str`]`, protocol: `[`crate::ipc::model::socket_types::SocketProtocol`]`) -> `[`HashMap`](std::collections::HashMap)`<`[`u64`]`, `[`crate::ipc::model::sockets::SocketInfo`]`>` |
 //! | [`unix_sockets`] | `pub(super)` | `fn unix_sockets(text: &`[`str`]`) -> `[`HashMap`](std::collections::HashMap)`<`[`u64`]`, `[`crate::ipc::model::sockets::SocketInfo`]`>` |
-//! | [`unix_socket_peers`] | `pub(super)` | `fn unix_socket_peers(namespace: &`[`NetworkNamespaceReader`]`, deadline: `[`Instant`](std::time::Instant)`) -> `[`Result`](anyhow::Result)`<`[`HashMap`](std::collections::HashMap)`<`[`u64`]`, `[`crate::ipc::model::sockets::SocketInfo`]`>>` |
+//! | [`unix_socket_peers`] | `pub(super)` | `fn unix_socket_peers(namespace: &`[`NetworkNamespace`]`, deadline: `[`Instant`](std::time::Instant)`) -> `[`Result`](anyhow::Result)`<`[`HashMap`](std::collections::HashMap)`<`[`u64`]`, `[`crate::ipc::model::sockets::SocketInfo`]`>>` |
 //! | [`additional_sockets`] | `pub(super)` | `fn additional_sockets(pid: `[`i32`]`) -> `[`HashMap`](std::collections::HashMap)`<`[`u64`]`, `[`crate::ipc::model::sockets::SocketInfo`]`>` |
 //! | [`acquire_process_elf_ranges`] | `pub(super)` | `fn acquire_process_elf_ranges(id: `[`crate::ipc::schema::ProcessId`]`, mapping_start: u64, ranges: `[`Vec`]`<`[`crate::ipc::elf::FileRange`]`>) -> `[`anyhow::Result`]`<`[`crate::ipc::schema::MonitorResponse`]`>` |
 //! | [`timestamp_ms`] | `pub(super)` | `fn timestamp_ms() -> `[`u64`] |
@@ -73,7 +74,7 @@ pub(super) use resources::{
     read_procfs_fields, socket_text, timestamp_ms, unix_socket_peers, unix_sockets,
 };
 pub(super) use socket_metadata::{SocketMetadata, SocketMetadataReader, additional_sockets};
-pub(super) use socket_namespace::NetworkNamespaceReader;
+pub(super) use socket_namespace::{NetworkNamespace, open_network_namespace};
 #[cfg(test)]
 mod test_support;
 #[cfg(test)]

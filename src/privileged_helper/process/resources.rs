@@ -15,7 +15,7 @@
 //! - [`socket_text`] (`pub(in crate::privileged_helper)`): `fn socket_text(path: &str) -> `[`Result`]`<`[`String`]`>`.
 //! - [`inet_sockets`] (`pub(in crate::privileged_helper)`): `fn inet_sockets( text: &str, protocol: `[`crate::ipc::model::socket_types::SocketProtocol`]`, ) -> `[`std::collections::HashMap`]`<u64, `[`SocketInfo`]`>`.
 //! - [`unix_sockets`] (`pub(in crate::privileged_helper)`): `fn unix_sockets( text: &str, ) -> `[`std::collections::HashMap`]`<u64, `[`SocketInfo`]`>`.
-//! - [`unix_socket_peers`] (`pub(in crate::privileged_helper)`): `fn unix_socket_peers( namespace: &`[`super::NetworkNamespaceReader`]`, deadline: `[`std::time::Instant`]`, ) -> `[`Result`]`<`[`std::collections::HashMap`]`<u64, `[`SocketInfo`]`>>`.
+//! - [`unix_socket_peers`] (`pub(in crate::privileged_helper)`): `fn unix_socket_peers( namespace: &`[`super::NetworkNamespace`]`, deadline: `[`std::time::Instant`]`, ) -> `[`Result`]`<`[`std::collections::HashMap`]`<u64, `[`SocketInfo`]`>>`.
 
 use anyhow::Result;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -139,7 +139,7 @@ pub(in crate::privileged_helper) fn unix_sockets(
 }
 
 pub(in crate::privileged_helper) fn unix_socket_peers(
-    namespace: &super::NetworkNamespaceReader,
+    namespace: &super::NetworkNamespace,
     deadline: std::time::Instant,
 ) -> Result<std::collections::HashMap<u64, SocketInfo>> {
     sockets::collect_unix_socket_peers(namespace, deadline)

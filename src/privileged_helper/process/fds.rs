@@ -230,7 +230,7 @@ fn socket_table(
             .get(inode)
             .is_some_and(|s| matches!(s.protocol, SocketProtocol::Unix { .. }))
     }) {
-        let diag = super::NetworkNamespaceReader::open(id).and_then(|namespace| {
+        let diag = super::open_network_namespace(id).and_then(|namespace| {
             sockets::collect_unix_socket_peers(
                 &namespace,
                 deadline.min(Instant::now() + Duration::from_millis(750)),
