@@ -9,8 +9,8 @@
 //! | [`NeighborSnapshot`] | `pub(in crate::privileged_helper)` | `struct NeighborSnapshot` |
 //! | [`SystemSnapshot`] | `pub(in crate::privileged_helper)` | `struct SystemSnapshot` |
 //! | [`process_from_summary`] | `pub(super)` | `fn process_from_summary(summary: `[`ProcessSummary`]`, parent_id: `[`Option`]`<`[`ProcessId`]`>) -> `[`ProcessSnapshot`] |
-//! | [`collect`] | `pub(super)` | `fn collect() -> `[`SystemSnapshot`] |
-//! | [`collect_from`] | `pub(super)` | `fn collect_from(sources: &`[`HardwareSources`]`) -> `[`SystemSnapshot`] |
+//! | [`collect_system_snapshot`] | `pub(super)` | `fn collect_system_snapshot() -> `[`SystemSnapshot`] |
+//! | [`collect_system_snapshot_from_sources`] | `pub(super)` | `fn collect_system_snapshot_from_sources(sources: &`[`HardwareSources`]`) -> `[`SystemSnapshot`] |
 
 #[cfg(test)]
 use super::hardware::HardwareObservation;
@@ -114,23 +114,25 @@ pub(super) fn process_from_summary(
     }
 }
 
-pub(super) fn collect() -> SystemSnapshot {
-    collect_from(&HardwareSources::default())
+pub(super) fn collect_system_snapshot() -> SystemSnapshot {
+    collect_system_snapshot_from_sources(&HardwareSources::default())
 }
 
 /// Collects with hardware read from `sources`, which tests point at fixtures.
-pub(super) fn collect_from(sources: &HardwareSources) -> SystemSnapshot {
+pub(super) fn collect_system_snapshot_from_sources(sources: &HardwareSources) -> SystemSnapshot {
     let mut result = SystemSnapshot {
         captured_at: process::timestamp_ms(),
         ..Default::default()
     };
     #[cfg(not(test))]
     {
-        result.raw_hardware = super::hardware_capture::capture(&sources.sys, &sources.proc);
+        result.raw_hardware =
+            super::hardware_capture::collect_hardware_files(&sources.sys, &sources.proc);
     }
     #[cfg(test)]
     {
-        result.raw_hardware = super::acquisition::capture(&sources.sys, &sources.proc);
+        result.raw_hardware =
+            super::acquisition::collect_hardware_files(&sources.sys, &sources.proc);
     }
     if result.raw_hardware.truncated {
         result
@@ -295,10 +297,13 @@ pub(super) fn collect_from(sources: &HardwareSources) -> SystemSnapshot {
                     {
                         metadata.insert(resource, observed);
                     }
-                    let flags = process::fields(&format!("/proc/{pid}/fdinfo/{number}"))
-                        .ok()
-                        .and_then(|f| f.get("flags").and_then(|v| u32::from_str_radix(v, 8).ok()))
-                        .unwrap_or(u32::MAX);
+                    let flags =
+                        process::read_procfs_fields(&format!("/proc/{pid}/fdinfo/{number}"))
+                            .ok()
+                            .and_then(|f| {
+                                f.get("flags").and_then(|v| u32::from_str_radix(v, 8).ok())
+                            })
+                            .unwrap_or(u32::MAX);
                     endpoints.push(FdEndpoint {
                         process_id: n.identity,
                         fd: number,
@@ -399,7 +404,7 @@ pub(super) fn collect_from(sources: &HardwareSources) -> SystemSnapshot {
         .collect();
     #[cfg(test)]
     {
-        truncated |= crate::http_server::analysis::relations::build(&mut result);
+        truncated |= crate::http_server::analysis::relations::build_ipc_relations(&mut result);
     }
     add_remote_gids(&mut result, &inode_ns, sources);
     let pids = result
@@ -407,7 +412,7 @@ pub(super) fn collect_from(sources: &HardwareSources) -> SystemSnapshot {
         .iter()
         .map(|p| (p.identity.pid, p.identity))
         .collect();
-    let observed = rdma::observe(
+    let observed = rdma::collect_rdma_observation(
         &sources.sys,
         &pids,
         Instant::now() + Duration::from_millis(300),

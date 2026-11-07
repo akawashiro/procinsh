@@ -144,7 +144,7 @@ impl ProcessMonitor {
                             {
                                 let o = next_observation(&_previous_sample, &current);
                                 _previous_sample = current.clone();
-                                history::push(&mut target.history, &o);
+                                history::append_history_observation(&mut target.history, &o);
                                 target.observation = Some(o);
                             }
                             target.process_sample = current;
@@ -210,8 +210,8 @@ pub(in crate::privileged_helper::process) fn capture_target(
     id: ProcessId,
 ) -> Result<(ProcessDetailSnapshot, ProcessSample)> {
     process::validate_process_identity(id)?;
-    let stat = procfs::read_stat(&format!("/proc/{}/stat", id.pid))?;
-    let summary = process::summary(&stat, &process::users());
+    let stat = procfs::read_process_stat(&format!("/proc/{}/stat", id.pid))?;
+    let summary = process::collect_process_summary(&stat, &process::read_user_names());
     ensure!(summary.identity == id, "Process exited (PID reused)");
     let sample = capture_sample(id)?;
     #[cfg(test)]
@@ -219,7 +219,7 @@ pub(in crate::privileged_helper::process) fn capture_target(
     #[cfg(test)]
     let mut history = VecDeque::new();
     #[cfg(test)]
-    history::push(&mut history, &observation);
+    history::append_history_observation(&mut history, &observation);
     let mut target = ProcessDetailSnapshot {
         summary,
         process_sample: sample.clone(),
@@ -254,7 +254,7 @@ fn refresh_maps(target: &mut ProcessDetailSnapshot) {
                 log::info!("memory maps recovered pid={}", id.pid);
             }
             target.maps_captured_at = Some(process::timestamp_ms());
-            target.rollup = maps::rollup(id.pid);
+            target.rollup = maps::read_memory_rollup(id.pid);
         }
         Err(e) => {
             target.maps.clear();

@@ -14,27 +14,37 @@ pub(super) struct SnapshotEncoder {
     sequence: u64,
 }
 
-fn key(value: &Value, field: &str) -> String {
+fn field_identity_key(value: &Value, field: &str) -> String {
     value[field].to_string()
 }
 
-fn delta(old: &[Value], current: &[Value], field: &str) -> Option<Value> {
-    let previous: HashMap<_, _> = old.iter().map(|v| (key(v, field), v)).collect();
-    let live: std::collections::HashSet<_> = current.iter().map(|v| key(v, field)).collect();
+fn build_array_delta(old: &[Value], current: &[Value], field: &str) -> Option<Value> {
+    let previous: HashMap<_, _> = old
+        .iter()
+        .map(|v| (field_identity_key(v, field), v))
+        .collect();
+    let live: std::collections::HashSet<_> = current
+        .iter()
+        .map(|v| field_identity_key(v, field))
+        .collect();
     let upsert: Vec<_> = current
         .iter()
-        .filter(|v| previous.get(&key(v, field)).is_none_or(|p| *p != *v))
+        .filter(|v| {
+            previous
+                .get(&field_identity_key(v, field))
+                .is_none_or(|p| *p != *v)
+        })
         .collect();
     let remove: Vec<_> = old
         .iter()
-        .filter(|v| !live.contains(&key(v, field)))
+        .filter(|v| !live.contains(&field_identity_key(v, field)))
         .map(|v| &v[field])
         .collect();
     let delta = json!({"upsert":upsert,"remove":remove});
     (delta.to_string().len() + 6 < serde_json::to_vec(current).unwrap().len()).then_some(delta)
 }
 
-fn entries(value: &Value) -> &[Value] {
+fn snapshot_array_entries(value: &Value) -> &[Value] {
     value.as_array().map(Vec::as_slice).unwrap_or_default()
 }
 
@@ -51,14 +61,14 @@ impl SnapshotEncoder {
                 .is_none_or(|last| now.duration_since(last) >= Duration::from_secs(60));
         let mut output = (*snapshot).clone();
         let old = self.previous.as_deref().unwrap_or(&Value::Null);
-        let previous: HashMap<_, _> = entries(&old["processes"])
+        let previous: HashMap<_, _> = snapshot_array_entries(&old["processes"])
             .iter()
-            .map(|p| (key(p, "identity"), p))
+            .map(|p| (field_identity_key(p, "identity"), p))
             .collect();
         let mut epochs = HashMap::new();
         if let Some(processes) = output["processes"].as_array_mut() {
             for p in processes {
-                let id = key(p, "identity");
+                let id = field_identity_key(p, "identity");
                 let before = previous.get(&id);
                 let unchanged = !full && before.is_some_and(|old| old["maps"] == p["maps"]);
                 if unchanged {
@@ -66,8 +76,11 @@ impl SnapshotEncoder {
                     p.as_object_mut().unwrap().remove("maps");
                 } else if !full
                     && let Some(before) = before
-                    && let Some(change) =
-                        delta(entries(&before["maps"]), entries(&p["maps"]), "start")
+                    && let Some(change) = build_array_delta(
+                        snapshot_array_entries(&before["maps"]),
+                        snapshot_array_entries(&p["maps"]),
+                        "start",
+                    )
                 {
                     p.as_object_mut().unwrap().remove("maps");
                     p["maps_delta"] = change;
@@ -78,7 +91,11 @@ impl SnapshotEncoder {
         // RDMA ports are small and always sent whole.
         for field in ["fd_relations", "rdma_relations", "device_handles"] {
             if !full
-                && let Some(change) = delta(entries(&old[field]), entries(&output[field]), "id")
+                && let Some(change) = build_array_delta(
+                    snapshot_array_entries(&old[field]),
+                    snapshot_array_entries(&output[field]),
+                    "id",
+                )
             {
                 output.as_object_mut().unwrap().remove(field);
                 output[format!("{field}_delta")] = change;

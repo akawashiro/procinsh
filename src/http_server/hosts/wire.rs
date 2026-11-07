@@ -59,7 +59,7 @@ pub(super) enum Message {
     Pong,
 }
 
-fn encode(message: &Message) -> Result<(u8, Vec<u8>)> {
+fn encode_host_message(message: &Message) -> Result<(u8, Vec<u8>)> {
     let json = serde_json::to_vec(message)?;
     if json.len() <= COMPRESS_ABOVE {
         return Ok((PLAIN, json));
@@ -69,7 +69,7 @@ fn encode(message: &Message) -> Result<(u8, Vec<u8>)> {
     Ok((GZIP, encoder.finish()?))
 }
 
-fn decode(encoding: u8, payload: &[u8]) -> Result<Message> {
+fn decode_host_message(encoding: u8, payload: &[u8]) -> Result<Message> {
     match encoding {
         PLAIN => Ok(serde_json::from_slice(payload)?),
         GZIP => {
@@ -85,7 +85,7 @@ fn decode(encoding: u8, payload: &[u8]) -> Result<Message> {
     }
 }
 
-pub(super) async fn read(reader: &mut (impl AsyncRead + Unpin)) -> Result<Message> {
+pub(super) async fn read_host_message(reader: &mut (impl AsyncRead + Unpin)) -> Result<Message> {
     let length = reader.read_u32().await? as usize;
     ensure!(
         (2..=MAX_FRAME_BYTES).contains(&length),
@@ -95,18 +95,21 @@ pub(super) async fn read(reader: &mut (impl AsyncRead + Unpin)) -> Result<Messag
     let mut payload = vec![0; length - 1];
     reader.read_exact(&mut payload).await?;
     if payload.len() > BLOCKING_ABOVE {
-        tokio::task::spawn_blocking(move || decode(encoding, &payload)).await?
+        tokio::task::spawn_blocking(move || decode_host_message(encoding, &payload)).await?
     } else {
-        decode(encoding, &payload)
+        decode_host_message(encoding, &payload)
     }
 }
 
-pub(super) async fn write(writer: &mut (impl AsyncWrite + Unpin), message: Message) -> Result<()> {
+pub(super) async fn write_host_message(
+    writer: &mut (impl AsyncWrite + Unpin),
+    message: Message,
+) -> Result<()> {
     let large = matches!(&message, Message::Response { .. });
     let (encoding, payload) = if large {
-        tokio::task::spawn_blocking(move || encode(&message)).await??
+        tokio::task::spawn_blocking(move || encode_host_message(&message)).await??
     } else {
-        encode(&message)?
+        encode_host_message(&message)?
     };
     ensure!(
         payload.len() < MAX_FRAME_BYTES,
@@ -139,9 +142,11 @@ mod tests {
     #[tokio::test]
     async fn messages_round_trip_compressed_and_reject_bad_frames() {
         let mut buffer = Vec::new();
-        write(&mut buffer, Message::Ping).await.unwrap();
+        write_host_message(&mut buffer, Message::Ping)
+            .await
+            .unwrap();
         let mut request = Vec::new();
-        write(
+        write_host_message(
             &mut request,
             Message::Request {
                 id: 3,
@@ -151,14 +156,14 @@ mod tests {
         .await
         .unwrap();
         assert!(matches!(
-            read(&mut request.as_slice()).await.unwrap(),
+            read_host_message(&mut request.as_slice()).await.unwrap(),
             Message::Request {
                 id: 3,
                 request: MonitorRequest::Poll { session: 42 }
             }
         ));
         let large = json!({"processes": vec!["x".repeat(100); 100]});
-        write(
+        write_host_message(
             &mut buffer,
             Message::Response {
                 id: 7,
@@ -170,16 +175,22 @@ mod tests {
         assert_eq!(buffer[4], PLAIN);
         assert!(buffer.len() < 2000, "the repeated response is compressed");
         let mut reader = buffer.as_slice();
-        assert!(matches!(read(&mut reader).await.unwrap(), Message::Ping));
+        assert!(matches!(
+            read_host_message(&mut reader).await.unwrap(),
+            Message::Ping
+        ));
         let Message::Response {
             id: 7,
             response: Ok(MonitorResponse::Data(data)),
-        } = read(&mut reader).await.unwrap()
+        } = read_host_message(&mut reader).await.unwrap()
         else {
             panic!("response expected");
         };
         assert_eq!(data, large);
-        assert!(read(&mut reader).await.is_err(), "end of stream");
+        assert!(
+            read_host_message(&mut reader).await.is_err(),
+            "end of stream"
+        );
         for frame in [
             [0u8, 0, 0, 1, PLAIN].to_vec(),
             ((MAX_FRAME_BYTES + 1) as u32).to_be_bytes().to_vec(),
@@ -188,7 +199,7 @@ mod tests {
             [0, 0, 0, 2, PLAIN, b'{'].to_vec(),
             [0, 0, 0, 8, PLAIN, b'"', b'n', b'o', b'p', b'e', b'"', b' '].to_vec(),
         ] {
-            assert!(read(&mut frame.as_slice()).await.is_err());
+            assert!(read_host_message(&mut frame.as_slice()).await.is_err());
         }
     }
 

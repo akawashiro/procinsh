@@ -35,7 +35,7 @@ impl ReverseDnsResolver {
                         Ok(ip) => ip,
                         Err(_) => break,
                     };
-                    let name = reverse(ip);
+                    let name = reverse_lookup_hostname(ip);
                     let ttl = if name.is_some() { 300 } else { 60 };
                     cache.lock().unwrap().insert(
                         ip,
@@ -76,7 +76,7 @@ impl ReverseDnsResolver {
     }
 }
 
-fn reverse(ip: IpAddr) -> Option<String> {
+fn reverse_lookup_hostname(ip: IpAddr) -> Option<String> {
     let mut host = [0 as libc::c_char; 1025];
     let addr = SocketAddr::new(ip, 0);
     let result = match addr {

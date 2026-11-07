@@ -3,9 +3,9 @@ pub(in crate::privileged_helper) use crate::ipc::schema::ProcessId;
 use anyhow::{Result, bail, ensure};
 
 #[cfg(test)]
-pub(in crate::privileged_helper) fn identity(pid: i32) -> Result<ProcessId> {
+pub(in crate::privileged_helper) fn read_process_identity(pid: i32) -> Result<ProcessId> {
     ensure!(pid > 0, "PID must be positive");
-    let stat = procfs::read_stat(&format!("/proc/{pid}/stat"))?;
+    let stat = procfs::read_process_stat(&format!("/proc/{pid}/stat"))?;
     Ok(ProcessId {
         pid,
         start_time_ticks: stat.start_time,
@@ -14,7 +14,7 @@ pub(in crate::privileged_helper) fn identity(pid: i32) -> Result<ProcessId> {
 
 pub(in crate::privileged_helper) fn validate_process_identity(id: ProcessId) -> Result<()> {
     ensure!(id.pid > 0, "PID must be positive");
-    let stat = match procfs::read_stat(&format!("/proc/{}/stat", id.pid)) {
+    let stat = match procfs::read_process_stat(&format!("/proc/{}/stat", id.pid)) {
         Ok(stat) => stat,
         Err(error) => {
             if error

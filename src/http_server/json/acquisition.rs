@@ -240,7 +240,7 @@ impl serde::Serialize for ObservationData {
 impl serde::Serialize for EnvironmentData {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         let mut value = serde_json::json!({"process_id":self.process_id,"captured_at":self.captured_at,"raw_environment":self.raw_environment});
-        crate::http_server::analysis::details::complete(&mut value)
+        crate::http_server::analysis::details::format_process_metadata(&mut value)
             .map_err(serde::ser::Error::custom)?;
         serde::Serialize::serialize(&value, s)
     }
@@ -248,7 +248,7 @@ impl serde::Serialize for EnvironmentData {
 impl serde::Serialize for AuxData {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         let mut value = serde_json::json!({"process_id":self.process_id,"captured_at":self.captured_at,"word_bits":self.word_bits,"raw_auxv":self.raw_auxv,"raw_aux_strings":self.raw_aux_strings});
-        crate::http_server::analysis::details::complete(&mut value)
+        crate::http_server::analysis::details::format_process_metadata(&mut value)
             .map_err(serde::ser::Error::custom)?;
         serde::Serialize::serialize(&value, s)
     }

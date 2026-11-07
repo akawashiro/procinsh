@@ -7,7 +7,7 @@
 //! | [`read_maps`] | `pub(super)` | `fn read_maps(pid: i32) -> Result<Vec<MemoryMap>>` |
 //! | [`read_smaps`] | `pub(super)` | `fn read_smaps(pid: i32) -> Result<Vec<SmapsEntry>>` |
 //! | [`MemoryRollup`] | `pub(super)` | `struct MemoryRollup` |
-//! | [`rollup`] | `pub(super)` | `fn rollup(pid: i32) -> Option<MemoryRollup>` |
+//! | [`read_memory_rollup`] | `pub(super)` | `fn read_memory_rollup(pid: i32) -> Option<MemoryRollup>` |
 //! | [`MemoryKind`] | `pub(in crate::privileged_helper)` | `enum MemoryKind` |
 //! | [`MappingSnapshot`] | `pub(in crate::privileged_helper)` | `struct MappingSnapshot` |
 //! | [`MemoryMap`] | `pub(in crate::privileged_helper)` | `struct MemoryMap` |
@@ -15,12 +15,12 @@
 //! | [`parse_map`] | `pub(in crate::privileged_helper)` | `fn parse_map(line: &str) -> Result<MemoryMap>` |
 //! | [`parse_smaps`] | `pub(in crate::privileged_helper)` | `fn parse_smaps(text: &str) -> Result<Vec<SmapsEntry>>` |
 
-use super::procfs::read_text;
+use super::procfs::read_procfs_text;
 pub(in crate::privileged_helper) use crate::ipc::model::memory::*;
 use anyhow::Result;
 
 pub(super) fn read_maps(pid: i32) -> Result<Vec<MemoryMap>> {
-    read_text(&format!("/proc/{pid}/maps"))?
+    read_procfs_text(&format!("/proc/{pid}/maps"))?
         .lines()
         .map(parse_map)
         .collect()
@@ -28,7 +28,7 @@ pub(super) fn read_maps(pid: i32) -> Result<Vec<MemoryMap>> {
 
 /// Reads smaps, falling back to maps without usage measurements if smaps cannot be read.
 pub(super) fn read_smaps(pid: i32) -> Result<Vec<SmapsEntry>> {
-    if let Ok(text) = read_text(&format!("/proc/{pid}/smaps")) {
+    if let Ok(text) = read_procfs_text(&format!("/proc/{pid}/smaps")) {
         return parse_smaps(&text);
     }
     Ok(read_maps(pid)?.into_iter().map(SmapsEntry::from).collect())
@@ -36,9 +36,9 @@ pub(super) fn read_smaps(pid: i32) -> Result<Vec<SmapsEntry>> {
 
 pub use crate::ipc::acquisition::MemoryRollup;
 
-pub(super) fn rollup(pid: i32) -> Option<MemoryRollup> {
-    let f = super::procfs::fields(&format!("/proc/{pid}/smaps_rollup")).ok()?;
-    let bytes = |k| super::procfs::field_u64(&f, k).and_then(|v| v.checked_mul(1024));
+pub(super) fn read_memory_rollup(pid: i32) -> Option<MemoryRollup> {
+    let f = super::procfs::read_procfs_fields(&format!("/proc/{pid}/smaps_rollup")).ok()?;
+    let bytes = |k| super::procfs::parse_procfs_u64_field(&f, k).and_then(|v| v.checked_mul(1024));
     Some(MemoryRollup {
         rss_bytes: bytes("Rss"),
         pss_bytes: bytes("Pss"),

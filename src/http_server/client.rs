@@ -33,7 +33,7 @@ impl MonitorClient {
         Self(Arc::new(Backend::Unavailable))
     }
     pub(super) fn new(mut socket: UnixStream) -> Result<Self> {
-        transport::configure(&socket)?;
+        transport::configure_ipc_socket(&socket)?;
         let shutdown = socket.try_clone()?;
         let (sender, mut receiver) = mpsc::channel::<PendingRequest>(64);
         std::thread::Builder::new()
@@ -81,7 +81,8 @@ impl MonitorClient {
             MonitorRequest::Poll { session } => Some(*session),
             _ => None,
         };
-        let mut response = super::protocol::response(self.exchange(request).await?)?;
+        let mut response =
+            super::protocol::convert_monitor_response(self.exchange(request).await?)?;
         if let Backend::Remote {
             processor,
             closed_sessions,

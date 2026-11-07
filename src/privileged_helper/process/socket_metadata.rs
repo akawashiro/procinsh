@@ -184,7 +184,7 @@ fn option(fd: &OwnedFd, name: i32) -> Result<u32> {
 pub(in crate::privileged_helper) fn additional_sockets(pid: i32) -> HashMap<u64, SocketInfo> {
     let mut result = HashMap::new();
     for name in ["netlink", "raw", "raw6", "packet"] {
-        if let Ok(text) = sockets::read_text(&format!("/proc/{pid}/net/{name}")) {
+        if let Ok(text) = sockets::read_socket_table(&format!("/proc/{pid}/net/{name}")) {
             result.extend(parse_table(&text, name));
         }
     }

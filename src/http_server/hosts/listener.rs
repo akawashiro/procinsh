@@ -46,13 +46,13 @@ pub(in crate::http_server) async fn run_agent_listener(
     }
 }
 
-async fn handshake(
+async fn accept_agent_handshake(
     stream: &mut TcpStream,
     registry: &HostRegistry,
     token: Option<&str>,
     link: Arc<AgentLink>,
 ) -> Result<(String, u64)> {
-    let hello = timeout(HANDSHAKE_TIMEOUT, wire::read(stream))
+    let hello = timeout(HANDSHAKE_TIMEOUT, wire::read_host_message(stream))
         .await
         .context("agent hello timed out")??;
     let Message::Hello {
@@ -91,7 +91,7 @@ async fn handshake(
     };
     match admitted {
         Ok(id) => {
-            wire::write(
+            wire::write_host_message(
                 stream,
                 Message::Welcome {
                     protocol: wire::PROTOCOL,
@@ -102,7 +102,7 @@ async fn handshake(
             Ok((info.name, id))
         }
         Err(reason) => {
-            wire::write(
+            wire::write_host_message(
                 stream,
                 Message::Reject {
                     reason: reason.clone(),
@@ -124,9 +124,10 @@ async fn serve_agent(
     stream.set_nodelay(true)?;
     let (link, outgoing) = AgentLink::new();
     let link = Arc::new(link);
-    let (name, id) = handshake(&mut stream, registry, token.as_deref(), link.clone()).await?;
+    let (name, id) =
+        accept_agent_handshake(&mut stream, registry, token.as_deref(), link.clone()).await?;
     log::info!("agent {name} connected from {peer}");
-    let result = relay(stream, &link, outgoing, &mut shutdown, || {
+    let result = relay_agent_messages(stream, &link, outgoing, &mut shutdown, || {
         registry.is_current(&name, id)
     })
     .await;
@@ -138,7 +139,7 @@ async fn serve_agent(
 
 /// Moves requests to the agent and its responses back until the link fails,
 /// idles, is replaced, or the hub shuts down.
-async fn relay(
+async fn relay_agent_messages(
     stream: TcpStream,
     link: &AgentLink,
     mut outgoing: tokio::sync::mpsc::Receiver<Message>,
@@ -150,7 +151,7 @@ async fn relay(
     let (messages, mut incoming) = tokio::sync::mpsc::channel(8);
     let reading = tokio::spawn(async move {
         loop {
-            let message = wire::read(&mut reader).await;
+            let message = wire::read_host_message(&mut reader).await;
             let failed = message.is_err();
             if messages.send(message).await.is_err() || failed {
                 break;
@@ -160,7 +161,7 @@ async fn relay(
     let (written, mut write_failed) = tokio::sync::oneshot::channel();
     let writing = tokio::spawn(async move {
         while let Some(message) = outgoing.recv().await {
-            if let Err(error) = wire::write(&mut writer, message).await {
+            if let Err(error) = wire::write_host_message(&mut writer, message).await {
                 let _ = written.send(error);
                 return;
             }

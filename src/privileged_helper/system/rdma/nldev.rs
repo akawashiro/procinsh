@@ -81,20 +81,20 @@ fn message_type(command: u16) -> u16 {
     (RDMA_NL_NLDEV << 10) + command
 }
 
-fn string(data: &[u8]) -> String {
+fn decode_attribute_string(data: &[u8]) -> String {
     let end = data.iter().position(|b| *b == 0).unwrap_or(data.len());
     String::from_utf8_lossy(&data[..end]).into_owned()
 }
 
-fn u32_value(data: &[u8]) -> Result<u32> {
+fn parse_u32_attribute(data: &[u8]) -> Result<u32> {
     netlink::u32_at(data, 0)
 }
 
-fn u8_value(data: &[u8]) -> Result<u8> {
+fn parse_u8_attribute(data: &[u8]) -> Result<u8> {
     data.first().copied().context("short RDMA attribute")
 }
 
-fn owner(pid: Option<u32>, kernel: Option<String>) -> ResourceOwner {
+fn parse_resource_owner(pid: Option<u32>, kernel: Option<String>) -> ResourceOwner {
     match (pid, kernel) {
         (_, Some(name)) => ResourceOwner::Kernel(name),
         (Some(pid), None) if pid != 0 => ResourceOwner::Process(pid),
@@ -104,16 +104,16 @@ fn owner(pid: Option<u32>, kernel: Option<String>) -> ResourceOwner {
 
 /// Device name and the resource entries of one dump message. A message holding
 /// the entry attributes at top level is treated as a single entry.
-fn entries(body: &[u8], table: u16, entry: u16) -> Result<(String, Vec<&[u8]>)> {
+fn parse_resource_entries(body: &[u8], table: u16, entry: u16) -> Result<(String, Vec<&[u8]>)> {
     let mut device = None;
     let mut found = Vec::new();
     let mut flat = false;
-    for (kind, data) in netlink::attributes(body)? {
+    for (kind, data) in netlink::parse_netlink_attributes(body)? {
         match kind {
-            DEV_NAME => device = Some(string(data)),
+            DEV_NAME => device = Some(decode_attribute_string(data)),
             RES_LQPN | RES_PS => flat = true,
             kind if kind == table => {
-                for (kind, data) in netlink::attributes(data)? {
+                for (kind, data) in netlink::parse_netlink_attributes(data)? {
                     if kind == entry {
                         found.push(data);
                     }
@@ -132,15 +132,15 @@ fn parse_queue_pair(device: &str, data: &[u8]) -> Result<QueuePairEntry> {
     let (mut port, mut qpn, mut remote_qpn, mut qp_type, mut state) =
         (None, None, None, None, None);
     let (mut pid, mut kernel) = (None, None);
-    for (kind, data) in netlink::attributes(data)? {
+    for (kind, data) in netlink::parse_netlink_attributes(data)? {
         match kind {
-            PORT_INDEX => port = Some(u32_value(data)?),
-            RES_LQPN => qpn = Some(u32_value(data)?),
-            RES_RQPN => remote_qpn = Some(u32_value(data)?),
-            RES_TYPE => qp_type = Some(RdmaQpType::from_code(u8_value(data)?)),
-            RES_STATE => state = Some(RdmaQpState::from_code(u8_value(data)?)),
-            RES_PID => pid = Some(u32_value(data)?),
-            RES_KERN_NAME => kernel = Some(string(data)),
+            PORT_INDEX => port = Some(parse_u32_attribute(data)?),
+            RES_LQPN => qpn = Some(parse_u32_attribute(data)?),
+            RES_RQPN => remote_qpn = Some(parse_u32_attribute(data)?),
+            RES_TYPE => qp_type = Some(RdmaQpType::from_code(parse_u8_attribute(data)?)),
+            RES_STATE => state = Some(RdmaQpState::from_code(parse_u8_attribute(data)?)),
+            RES_PID => pid = Some(parse_u32_attribute(data)?),
+            RES_KERN_NAME => kernel = Some(decode_attribute_string(data)),
             _ => {}
         }
     }
@@ -152,7 +152,7 @@ fn parse_queue_pair(device: &str, data: &[u8]) -> Result<QueuePairEntry> {
         remote_qpn: remote_qpn.filter(|q| *q != 0),
         qp_type: qp_type.context("RDMA QP without type")?,
         state: state.context("RDMA QP without state")?,
-        owner: owner(pid, kernel),
+        owner: parse_resource_owner(pid, kernel),
     })
 }
 
@@ -160,14 +160,14 @@ fn parse_cm_id(device: &str, data: &[u8]) -> Result<CmIdEntry> {
     let (mut id, mut qpn, mut state, mut port_space) = (None, None, None, None);
     let (mut source, mut destination) = (None, None);
     let (mut pid, mut kernel) = (None, None);
-    for (kind, data) in netlink::attributes(data)? {
+    for (kind, data) in netlink::parse_netlink_attributes(data)? {
         match kind {
-            RES_PID => pid = Some(u32_value(data)?),
-            RES_KERN_NAME => kernel = Some(string(data)),
-            RES_CM_IDN => id = Some(u32_value(data)?),
-            RES_LQPN => qpn = Some(u32_value(data)?),
-            RES_STATE => state = Some(RdmaCmState::from_code(u8_value(data)?)),
-            RES_PS => port_space = Some(RdmaPortSpace::from_code(u32_value(data)?)),
+            RES_PID => pid = Some(parse_u32_attribute(data)?),
+            RES_KERN_NAME => kernel = Some(decode_attribute_string(data)),
+            RES_CM_IDN => id = Some(parse_u32_attribute(data)?),
+            RES_LQPN => qpn = Some(parse_u32_attribute(data)?),
+            RES_STATE => state = Some(RdmaCmState::from_code(parse_u8_attribute(data)?)),
+            RES_PS => port_space = Some(RdmaPortSpace::from_code(parse_u32_attribute(data)?)),
             RES_SRC_ADDR => source = RdmaAddress::decode(data),
             RES_DST_ADDR => destination = RdmaAddress::decode(data),
             _ => {}
@@ -181,17 +181,17 @@ fn parse_cm_id(device: &str, data: &[u8]) -> Result<CmIdEntry> {
         port_space: port_space.context("RDMA CM ID without port space")?,
         source,
         destination,
-        owner: owner(pid, kernel),
+        owner: parse_resource_owner(pid, kernel),
     })
 }
 
 /// Device indexes and names from a `RDMA_NLDEV_CMD_GET` reply body.
 fn parse_device(body: &[u8]) -> Result<(u32, String)> {
     let (mut index, mut name) = (None, None);
-    for (kind, data) in netlink::attributes(body)? {
+    for (kind, data) in netlink::parse_netlink_attributes(body)? {
         match kind {
-            DEV_INDEX => index = Some(u32_value(data)?),
-            DEV_NAME => name = Some(string(data)),
+            DEV_INDEX => index = Some(parse_u32_attribute(data)?),
+            DEV_NAME => name = Some(decode_attribute_string(data)),
             _ => {}
         }
     }
@@ -217,7 +217,7 @@ fn parse_resource_replies(
 ) -> Result<()> {
     for body in bodies {
         if command == CMD_RES_QP_GET {
-            let (device, list) = entries(&body, RES_QP, RES_QP_ENTRY)?;
+            let (device, list) = parse_resource_entries(&body, RES_QP, RES_QP_ENTRY)?;
             for data in list {
                 if result.queue_pairs.len() >= QUEUE_PAIR_LIMIT {
                     result.truncated = true;
@@ -226,7 +226,7 @@ fn parse_resource_replies(
                 result.queue_pairs.push(parse_queue_pair(&device, data)?);
             }
         } else {
-            let (device, list) = entries(&body, RES_CM_ID, RES_CM_ID_ENTRY)?;
+            let (device, list) = parse_resource_entries(&body, RES_CM_ID, RES_CM_ID_ENTRY)?;
             for data in list {
                 result.cm_ids.push(parse_cm_id(&device, data)?);
             }
@@ -246,7 +246,7 @@ pub(super) fn read_resources(deadline: Instant) -> Result<NldevResources> {
         sequence,
         payload: &[],
     };
-    let replies = netlink::dump(&fd, &request, deadline)?;
+    let replies = netlink::collect_netlink_dump(&fd, &request, deadline)?;
     for body in replies {
         devices.push(parse_device(&body)?);
     }
@@ -269,7 +269,7 @@ pub(super) fn read_resources(deadline: Instant) -> Result<NldevResources> {
                 sequence,
                 payload: &payload,
             };
-            let dumped = match netlink::dump(&fd, &request, deadline) {
+            let dumped = match netlink::collect_netlink_dump(&fd, &request, deadline) {
                 Ok(bodies) => parse_resource_replies(bodies, command, &mut result),
                 Err(error) => Err(error),
             };
@@ -345,7 +345,7 @@ mod tests {
         let mut body = attribute(DEV_INDEX, &0u32.to_ne_bytes());
         body.extend(attribute(DEV_NAME, b"mlx4_0\0"));
         body.extend(attribute(0x8000 | RES_QP, &table));
-        let (device, list) = entries(&body, RES_QP, RES_QP_ENTRY).unwrap();
+        let (device, list) = parse_resource_entries(&body, RES_QP, RES_QP_ENTRY).unwrap();
         assert_eq!(device, "mlx4_0");
         let parsed: Vec<_> = list
             .iter()
@@ -386,7 +386,7 @@ mod tests {
             (RES_CM_IDN, 0u32.to_ne_bytes().to_vec()),
             (RES_KERN_NAME, b"rpcrdma\0".to_vec()),
         ]));
-        let (device, list) = entries(&body, RES_CM_ID, RES_CM_ID_ENTRY).unwrap();
+        let (device, list) = parse_resource_entries(&body, RES_CM_ID, RES_CM_ID_ENTRY).unwrap();
         let cm = parse_cm_id(&device, list[0]).unwrap();
         assert_eq!(cm.device, "ibp133s0");
         assert_eq!(cm.qpn, Some(524));
@@ -398,7 +398,10 @@ mod tests {
         assert_eq!(cm.owner, ResourceOwner::Kernel("rpcrdma".into()));
         assert!(parse_cm_id("x", &attribute(RES_STATE, &[5])).is_err());
         assert!(parse_queue_pair("x", &attribute(RES_LQPN, &[1, 0, 0, 0])).is_err());
-        assert!(entries(&attribute(RES_LQPN, &[1, 0, 0, 0]), RES_QP, RES_QP_ENTRY).is_err());
+        assert!(
+            parse_resource_entries(&attribute(RES_LQPN, &[1, 0, 0, 0]), RES_QP, RES_QP_ENTRY)
+                .is_err()
+        );
         assert_eq!(
             parse_device(
                 &[

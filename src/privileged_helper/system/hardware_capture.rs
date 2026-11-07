@@ -1,7 +1,7 @@
 //! Bounded reads of fixed hardware attributes, without interpreting their values.
 //!
 //! # Interface
-//! [`capture`] (`pub(crate)`): `fn capture(sys: &Path, proc: &Path) -> HardwareFiles`.
+//! [`collect_hardware_files`] (`pub(crate)`): `fn collect_hardware_files(sys: &Path, proc: &Path) -> HardwareFiles`.
 //! [`HardwareFiles`] contains only owned text, directory names and resolved paths.
 use crate::ipc::hardware::HardwareFiles;
 use std::{collections::HashSet, fs, io::Read, path::Path};
@@ -122,7 +122,7 @@ impl HardwareReader {
 }
 
 /// Reads only known read-only attributes; never opens PCI config or BAR memory.
-pub(crate) fn capture(sys: &Path, proc: &Path) -> HardwareFiles {
+pub(crate) fn collect_hardware_files(sys: &Path, proc: &Path) -> HardwareFiles {
     let mut reader = HardwareReader::default();
     reader.text(&sys.join("devices/system/node/online"));
     reader.text(&proc.join("devices"));

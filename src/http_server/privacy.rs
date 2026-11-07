@@ -1,8 +1,8 @@
 //! Privacy mode: mask sensitive text before a reply leaves this process.
 //!
 //! # Interface
-//! - [`enable`] (`pub(super)`): `fn enable(level: u8) -> anyhow::Result<()>`.
-//! - [`enabled`] (`pub(super)`): `fn enabled() -> bool`.
+//! - [`configure_privacy`] (`pub(super)`): `fn configure_privacy(level: u8) -> anyhow::Result<()>`.
+//! - [`privacy_enabled`] (`pub(super)`): `fn privacy_enabled() -> bool`.
 //! - [`scrub_response`] (`pub(super)`): `fn scrub_response(response: &mut MonitorResponse)`.
 //! - [`pseudonym`] (`pub(super)`): `fn pseudonym(value: &str) -> String`.
 //!
@@ -182,7 +182,7 @@ impl Privacy {
 }
 
 /// Turns privacy mode on for this process. `level` is logblur's 1–4.
-pub(super) fn enable(level: u8) -> Result<()> {
+pub(super) fn configure_privacy(level: u8) -> Result<()> {
     let mut key = [0; 32];
     std::fs::File::open("/dev/urandom")
         .and_then(|mut random| random.read_exact(&mut key))
@@ -208,7 +208,7 @@ pub(super) fn enable(level: u8) -> Result<()> {
     Ok(())
 }
 
-pub(super) fn enabled() -> bool {
+pub(super) fn privacy_enabled() -> bool {
     PRIVACY.get().is_some()
 }
 

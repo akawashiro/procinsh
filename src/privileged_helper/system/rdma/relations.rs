@@ -25,7 +25,10 @@ impl Endpoint<'_> {
     }
 }
 
-fn owner(owner: &ResourceOwner, processes: &HashMap<i32, ProcessId>) -> RdmaEndpointOwner {
+fn resolve_rdma_owner(
+    owner: &ResourceOwner,
+    processes: &HashMap<i32, ProcessId>,
+) -> RdmaEndpointOwner {
     match owner {
         ResourceOwner::Kernel(name) => RdmaEndpointOwner::Kernel { name: name.clone() },
         ResourceOwner::Process(pid) => match processes.get(&(*pid as i32)) {
@@ -36,9 +39,12 @@ fn owner(owner: &ResourceOwner, processes: &HashMap<i32, ProcessId>) -> RdmaEndp
     }
 }
 
-fn endpoint(entry: &QueuePairEntry, processes: &HashMap<i32, ProcessId>) -> RdmaEndpoint {
+fn build_rdma_endpoint(
+    entry: &QueuePairEntry,
+    processes: &HashMap<i32, ProcessId>,
+) -> RdmaEndpoint {
     RdmaEndpoint {
-        owner: owner(&entry.owner, processes),
+        owner: resolve_rdma_owner(&entry.owner, processes),
         device: entry.device.clone(),
         port: entry.port,
         qpn: entry.qpn,
@@ -76,7 +82,7 @@ fn same_connection(a: &Endpoint, b: &Endpoint, gids: &HashMap<(&str, u32), IbGid
     a.entry.device == b.entry.device || evidence.contains(&Some(true))
 }
 
-fn label(endpoint: &Endpoint, peer: Option<&Endpoint>) -> String {
+fn format_rdma_relation_label(endpoint: &Endpoint, peer: Option<&Endpoint>) -> String {
     let entry = endpoint.entry;
     let mut label = format!("RDMA {} QP {}", entry.qp_type, entry.qpn);
     if let Some(peer) = peer {
@@ -96,7 +102,7 @@ fn label(endpoint: &Endpoint, peer: Option<&Endpoint>) -> String {
 
 /// Builds one relation per unpaired QP and one per QP pair on this host.
 /// `processes` maps PIDs of this snapshot to their identities.
-pub(super) fn relations(
+pub(super) fn build_rdma_relations(
     resources: &NldevResources,
     ports: &[RdmaPortInfo],
     neighbors: &HashMap<IpAddr, IbGid>,
@@ -175,12 +181,12 @@ pub(super) fn relations(
                 Some(peer) => format!("{}/{}", first_endpoint.id(), peer.id()),
                 None => first_endpoint.id(),
             },
-            endpoint: endpoint(first_endpoint.entry, processes),
-            peer: second_endpoint.map(|peer| endpoint(peer.entry, processes)),
+            endpoint: build_rdma_endpoint(first_endpoint.entry, processes),
+            peer: second_endpoint.map(|peer| build_rdma_endpoint(peer.entry, processes)),
             remote_qpn: first_endpoint.entry.remote_qpn,
             cm: first_endpoint.cm.map(|cm| RdmaCmInfo {
                 id: cm.id,
-                owner: owner(&cm.owner, processes),
+                owner: resolve_rdma_owner(&cm.owner, processes),
                 state: cm.state,
                 port_space: cm.port_space,
                 source: cm.source,
@@ -188,7 +194,7 @@ pub(super) fn relations(
             }),
             remote_gid: first_endpoint.remote_gid,
             remote_hostname: None,
-            label: label(first_endpoint, second_endpoint),
+            label: format_rdma_relation_label(first_endpoint, second_endpoint),
         });
     }
     result
@@ -292,7 +298,8 @@ mod tests {
                 start_time_ticks: 7,
             },
         )]);
-        let result = relations(&resources, &[port("ib0", LOCAL)], &neighbors, &processes);
+        let result =
+            build_rdma_relations(&resources, &[port("ib0", LOCAL)], &neighbors, &processes);
         assert_eq!(result.len(), 3);
         let json = serde_json::to_value(&result[0]).unwrap();
         assert_eq!(json["id"], "rdma:ib0/1:524");
@@ -332,12 +339,12 @@ mod tests {
         // Same device: a QPN swap identifies a loopback connection.
         let same = NldevResources {
             queue_pairs: vec![
-                qp("ib0", 20, Some(10), owner()),
-                qp("ib0", 10, Some(20), owner()),
+                qp("ib0", 20, Some(10), resolve_rdma_owner()),
+                qp("ib0", 10, Some(20), resolve_rdma_owner()),
             ],
             ..Default::default()
         };
-        let result = relations(&same, &[], &HashMap::new(), &HashMap::new());
+        let result = build_rdma_relations(&same, &[], &HashMap::new(), &HashMap::new());
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].id, "rdma:ib0/1:10/rdma:ib0/1:20");
         assert_eq!(result[0].peer.as_ref().unwrap().qpn, 20);
@@ -345,13 +352,13 @@ mod tests {
         // Different devices without address evidence remain separate.
         let devices = NldevResources {
             queue_pairs: vec![
-                qp("ib0", 10, Some(20), owner()),
-                qp("ib1", 20, Some(10), owner()),
+                qp("ib0", 10, Some(20), resolve_rdma_owner()),
+                qp("ib1", 20, Some(10), resolve_rdma_owner()),
             ],
             ..Default::default()
         };
         assert_eq!(
-            relations(&devices, &[], &HashMap::new(), &HashMap::new()).len(),
+            build_rdma_relations(&devices, &[], &HashMap::new(), &HashMap::new()).len(),
             2
         );
         // Swapped CM addresses confirm a pair across devices.
@@ -363,7 +370,7 @@ mod tests {
             ..devices
         };
         assert_eq!(
-            relations(&confirmed, &[], &HashMap::new(), &HashMap::new()).len(),
+            build_rdma_relations(&confirmed, &[], &HashMap::new(), &HashMap::new()).len(),
             1
         );
         // A remote GID naming another port contradicts a same-device QPN swap.
@@ -373,7 +380,7 @@ mod tests {
         };
         let neighbors =
             HashMap::from([("10.0.0.9".parse().unwrap(), IbGid::parse(REMOTE).unwrap())]);
-        let result = relations(
+        let result = build_rdma_relations(
             &contradicted,
             &[port("ib0", LOCAL)],
             &neighbors,
@@ -383,9 +390,9 @@ mod tests {
         // An ambiguous swap is not paired.
         let ambiguous = NldevResources {
             queue_pairs: vec![
-                qp("ib0", 10, Some(20), owner()),
-                qp("ib1", 20, Some(10), owner()),
-                qp("ib2", 20, Some(10), owner()),
+                qp("ib0", 10, Some(20), resolve_rdma_owner()),
+                qp("ib1", 20, Some(10), resolve_rdma_owner()),
+                qp("ib2", 20, Some(10), resolve_rdma_owner()),
             ],
             cm_ids: vec![
                 cm("ib0", 10, "10.0.0.1:1", "10.0.0.2:2"),
@@ -395,7 +402,7 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(
-            relations(&ambiguous, &[], &HashMap::new(), &HashMap::new()).len(),
+            build_rdma_relations(&ambiguous, &[], &HashMap::new(), &HashMap::new()).len(),
             3
         );
     }

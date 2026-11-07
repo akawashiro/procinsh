@@ -1,7 +1,7 @@
 //! Validates the inherited private endpoint and owns helper lifetime.
 //!
 //! # Interface
-//! [`run`] (`pub(crate)`): `fn run() -> anyhow::Result<()>`.
+//! [`launch_privileged_helper`] (`pub(crate)`): `fn launch_privileged_helper() -> anyhow::Result<()>`.
 use super::helper_service::{CollectorManager, HelperIpcService};
 use crate::ipc::{schema::*, transport};
 use anyhow::{Result, ensure};
@@ -35,11 +35,11 @@ struct Cli {
 
 static STOP: AtomicBool = AtomicBool::new(false);
 
-extern "C" fn stop(_: i32) {
+extern "C" fn request_shutdown(_: i32) {
     STOP.store(true, Ordering::Relaxed);
 }
 
-pub(crate) fn run() -> Result<()> {
+pub(crate) fn launch_privileged_helper() -> Result<()> {
     let cli = Cli::parse();
     let parent = cli.parent_pid;
     if cli.privacy {
@@ -69,7 +69,7 @@ pub(crate) fn run() -> Result<()> {
     );
     super::privileges::restrict_helper_privileges()?;
     let mut action: libc::sigaction = unsafe { std::mem::zeroed() };
-    action.sa_sigaction = stop as *const () as libc::sighandler_t;
+    action.sa_sigaction = request_shutdown as *const () as libc::sighandler_t;
     unsafe {
         libc::sigemptyset(&mut action.sa_mask);
     }

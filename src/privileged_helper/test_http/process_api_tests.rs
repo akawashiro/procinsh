@@ -6,7 +6,7 @@ use axum::{
 use std::{sync::Arc, time::Duration};
 use tower::ServiceExt;
 
-fn request(path: &str) -> Request<Body> {
+fn build_http_request(path: &str) -> Request<Body> {
     Request::builder()
         .uri(path)
         .header("host", "127.0.0.1:8080")
@@ -14,11 +14,11 @@ fn request(path: &str) -> Request<Body> {
         .unwrap()
 }
 
-fn query(id: super::process::ProcessId) -> String {
+fn process_query_string(id: super::process::ProcessId) -> String {
     format!("pid={}&start_time_ticks={}", id.pid, id.start_time_ticks)
 }
 
-async fn next(body: &mut Body) -> serde_json::Value {
+async fn read_next_sse_json(body: &mut Body) -> serde_json::Value {
     use axum::body::HttpBody;
     let frame = tokio::time::timeout(
         Duration::from_secs(3),
@@ -48,7 +48,7 @@ async fn explicit_identity_is_required_without_selection() {
     let target = super::process::Target::new("sleeping");
     let id = target.id;
     for method in ["GET", "POST", "DELETE"] {
-        let mut req = request("/api/target");
+        let mut req = build_http_request("/api/target");
         *req.method_mut() = method.parse().unwrap();
         assert_eq!(app.clone().oneshot(req).await.unwrap().status(), 404);
     }
@@ -71,7 +71,7 @@ async fn explicit_identity_is_required_without_selection() {
         "/api/processes/process",
         "/api/system/snapshot",
     ] {
-        let mut req = request(path);
+        let mut req = build_http_request(path);
         if path == "/api/target/snapshot" {
             *req.method_mut() = "POST".parse().unwrap();
         }
@@ -83,7 +83,7 @@ async fn explicit_identity_is_required_without_selection() {
     }
     assert_eq!(
         app.clone()
-            .oneshot(request("/api/processes"))
+            .oneshot(build_http_request("/api/processes"))
             .await
             .unwrap()
             .status(),
@@ -106,7 +106,11 @@ async fn explicit_identity_is_required_without_selection() {
         ] {
             let uri = format!("/api/processes/{path}{args}");
             assert_eq!(
-                app.clone().oneshot(request(&uri)).await.unwrap().status(),
+                app.clone()
+                    .oneshot(build_http_request(&uri))
+                    .await
+                    .unwrap()
+                    .status(),
                 400,
                 "{uri}"
             );
@@ -115,15 +119,19 @@ async fn explicit_identity_is_required_without_selection() {
             start_time_ticks: id.start_time_ticks + 1,
             ..id
         };
-        let uri = format!("/api/processes/{path}?{}", query(stale));
+        let uri = format!("/api/processes/{path}?{}", process_query_string(stale));
         assert_eq!(
-            app.clone().oneshot(request(&uri)).await.unwrap().status(),
+            app.clone()
+                .oneshot(build_http_request(&uri))
+                .await
+                .unwrap()
+                .status(),
             410,
             "{uri}"
         );
     }
     for body in ["{}", "{\"pid\":1}", "{\"start_time_ticks\":1}"] {
-        let mut req = request("/api/processes/snapshot");
+        let mut req = build_http_request("/api/processes/snapshot");
         *req.method_mut() = "POST".parse().unwrap();
         req.headers_mut()
             .insert("content-type", "application/json".parse().unwrap());
@@ -140,7 +148,10 @@ async fn explicit_identity_is_required_without_selection() {
     ] {
         let response = app
             .clone()
-            .oneshot(request(&format!("/api/processes/{path}?{}", query(id))))
+            .oneshot(build_http_request(&format!(
+                "/api/processes/{path}?{}",
+                process_query_string(id)
+            )))
             .await
             .unwrap();
         assert_eq!(response.status(), 200, "{path}");
@@ -172,44 +183,73 @@ async fn target_streams_have_independent_lifetimes_and_histories() {
     // also sample the collector threads created by each additional session.
     let target = super::process::Target::new("sleeping");
     let id = target.id;
-    let uri = format!("/api/processes/events?{}", query(id));
+    let uri = format!("/api/processes/events?{}", process_query_string(id));
     let mut a = app
         .clone()
-        .oneshot(request(&uri))
+        .oneshot(build_http_request(&uri))
         .await
         .unwrap()
         .into_body();
-    assert_eq!(next(&mut a).await["history"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        read_next_sse_json(&mut a).await["history"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
     tokio::time::sleep(Duration::from_millis(250)).await;
-    assert!(next(&mut a).await["history"].as_array().unwrap().len() >= 2);
+    assert!(
+        read_next_sse_json(&mut a).await["history"]
+            .as_array()
+            .unwrap()
+            .len()
+            >= 2
+    );
     let mut b = app
         .clone()
-        .oneshot(request(&uri))
+        .oneshot(build_http_request(&uri))
         .await
         .unwrap()
         .into_body();
-    assert_eq!(next(&mut b).await["history"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        read_next_sse_json(&mut b).await["history"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
     assert_eq!(state.monitoring.observer_count(), 2);
     drop(a);
     assert_eq!(state.monitoring.observer_count(), 1);
-    assert_eq!(next(&mut b).await["summary"]["identity"]["pid"], id.pid);
+    assert_eq!(
+        read_next_sse_json(&mut b).await["summary"]["identity"]["pid"],
+        id.pid
+    );
     let mut bodies = vec![b];
     for _ in 1..32 {
-        let response = app.clone().oneshot(request(&uri)).await.unwrap();
+        let response = app.clone().oneshot(build_http_request(&uri)).await.unwrap();
         assert_eq!(response.status(), 200);
         bodies.push(response.into_body());
     }
     assert_eq!(
-        app.clone().oneshot(request(&uri)).await.unwrap().status(),
+        app.clone()
+            .oneshot(build_http_request(&uri))
+            .await
+            .unwrap()
+            .status(),
         429
     );
     drop(bodies.pop()); // Unpolled streams must release their slot too.
-    let response = app.clone().oneshot(request(&uri)).await.unwrap();
+    let response = app.clone().oneshot(build_http_request(&uri)).await.unwrap();
     assert_eq!(response.status(), 200);
     bodies.push(response.into_body());
     state.stop();
     assert_eq!(
-        app.clone().oneshot(request(&uri)).await.unwrap().status(),
+        app.clone()
+            .oneshot(build_http_request(&uri))
+            .await
+            .unwrap()
+            .status(),
         503
     );
     for body in bodies {
@@ -225,7 +265,7 @@ async fn target_streams_have_independent_lifetimes_and_histories() {
 #[tokio::test]
 async fn closing_a_session_stops_its_collector() {
     let state = Arc::new(AppState::new(Duration::from_millis(100)));
-    let id = super::process::identity(std::process::id() as i32).unwrap();
+    let id = super::process::read_process_identity(std::process::id() as i32).unwrap();
     let session = state
         .monitoring
         .observe(id, state.monitoring.reserve().unwrap())

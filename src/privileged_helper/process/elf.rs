@@ -2,7 +2,7 @@
 //!
 //! # Interface
 //!
-//! [`acquire`] (`pub(super)`): `fn acquire(pid: i32, map: &MemoryMap, ranges: &[FileRange]) -> anyhow::Result<MonitorResponse>`.
+//! [`read_mapped_file_ranges`] (`pub(super)`): `fn read_mapped_file_ranges(pid: i32, map: &MemoryMap, ranges: &[FileRange]) -> anyhow::Result<MonitorResponse>`.
 //! Supporting types: [`MemoryMap`], [`FileRange`], [`MonitorResponse`](crate::ipc::schema::MonitorResponse).
 
 use crate::ipc::elf::{
@@ -68,7 +68,7 @@ fn matching_file(pid: i32, map: &MemoryMap) -> Option<(fs::File, fs::Metadata)> 
     })
 }
 
-pub(super) fn acquire(
+pub(super) fn read_mapped_file_ranges(
     pid: i32,
     map: &MemoryMap,
     ranges: &[FileRange],
@@ -115,12 +115,12 @@ pub(super) fn acquire(
 }
 
 #[cfg(test)]
-pub(in crate::privileged_helper::process) fn read(
+pub(in crate::privileged_helper::process) fn read_mapped_elf_file(
     pid: i32,
     map: &MemoryMap,
 ) -> Option<crate::http_server::analysis::snapshot::symbol::ElfFile> {
     let length = matching_file(pid, map)?.1.len();
-    match acquire(pid, map, &[FileRange { offset: 0, length }]).ok()? {
+    match read_mapped_file_ranges(pid, map, &[FileRange { offset: 0, length }]).ok()? {
         crate::ipc::schema::MonitorResponse::Elf(Some(file)) => {
             Some(crate::http_server::analysis::snapshot::symbol::ElfFile {
                 identity: file.identity,
@@ -151,9 +151,9 @@ mod tests {
         ))
         .unwrap();
         let pid = std::process::id() as i32;
-        let captured = read(pid, &map).unwrap();
+        let captured = read_mapped_elf_file(pid, &map).unwrap();
         assert_eq!(captured.bytes, b"captured file");
-        let crate::ipc::schema::MonitorResponse::Elf(Some(partial)) = acquire(
+        let crate::ipc::schema::MonitorResponse::Elf(Some(partial)) = read_mapped_file_ranges(
             pid,
             &map,
             &[FileRange {
@@ -166,7 +166,7 @@ mod tests {
         };
         assert_eq!(partial.chunks[0].bytes, b"ptur");
         assert!(
-            acquire(
+            read_mapped_file_ranges(
                 pid,
                 &map,
                 &[FileRange {
@@ -177,7 +177,7 @@ mod tests {
             .is_err()
         );
         assert!(
-            acquire(
+            read_mapped_file_ranges(
                 pid,
                 &map,
                 &vec![
@@ -193,13 +193,13 @@ mod tests {
         let (mut descriptor, _) = matching_file(pid, &map).unwrap();
         fs::rename(&path, root.join("pinned")).unwrap();
         fs::write(&path, b"replacement").unwrap();
-        assert!(read(pid, &map).is_none());
+        assert!(read_mapped_elf_file(pid, &map).is_none());
         let mut pinned = Vec::new();
         descriptor.read_to_end(&mut pinned).unwrap();
         assert_eq!(pinned, b"captured file");
         let mut wrong = map.clone();
         wrong.inode = 0;
-        assert!(read(pid, &wrong).is_none());
+        assert!(read_mapped_elf_file(pid, &wrong).is_none());
         let large = root.join("large");
         fs::File::create(&large)
             .unwrap()
@@ -214,7 +214,7 @@ mod tests {
             large.display()
         ))
         .unwrap();
-        assert!(read(pid, &large_map).is_none());
+        assert!(read_mapped_elf_file(pid, &large_map).is_none());
         fs::remove_dir_all(root).unwrap();
     }
 }

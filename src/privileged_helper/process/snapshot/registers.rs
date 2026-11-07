@@ -11,4 +11,4 @@
 pub(super) use crate::ipc::registers::*;
 
 #[cfg(test)]
-pub(super) use crate::http_server::analysis::snapshot::registers::from_sample;
+pub(super) use crate::http_server::analysis::snapshot::registers::classify_sample_registers;

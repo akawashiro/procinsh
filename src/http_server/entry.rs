@@ -5,7 +5,7 @@
 //! with links to the defining items and their source.
 //!
 //! # Interface
-//! No items are exported. Startup delegates to [`http_server::run`].
+//! No items are exported. Startup delegates to [`http_server::launch_http_server`].
 
 #[path = "root.rs"]
 mod http_server;
@@ -116,7 +116,7 @@ fn load_config(explicit: Option<&Path>) -> Result<ConfigFile> {
 
 /// Options given on the command line replace the config file's value; a
 /// repeatable option given at least once replaces the whole list.
-fn merge(cli: Cli, config: ConfigFile) -> Cli {
+fn merge_cli_configuration(cli: Cli, config: ConfigFile) -> Cli {
     let or_config = |cli: Vec<SocketAddr>, config: Vec<SocketAddr>| {
         if cli.is_empty() { config } else { cli }
     };
@@ -165,7 +165,7 @@ fn main() -> std::process::ExitCode {
             )
         })
         .init();
-    match run() {
+    match run_application() {
         Ok(()) => std::process::ExitCode::SUCCESS,
         Err(error) => {
             log::error!("{error:#}");
@@ -174,10 +174,10 @@ fn main() -> std::process::ExitCode {
     }
 }
 
-fn run() -> Result<()> {
+fn run_application() -> Result<()> {
     let cli = Cli::parse();
     let config = load_config(cli.config.as_deref())?;
-    let cli = merge(cli, config);
+    let cli = merge_cli_configuration(cli, config);
     for address in &cli.listen {
         ensure!(
             address.ip().is_loopback() || cli.allow_non_loopback,
@@ -204,7 +204,7 @@ fn run() -> Result<()> {
         (1..=4).contains(&privacy_level),
         "invalid privacy level {privacy_level}: use 1-4"
     );
-    http_server::run(http_server::ServerConfig {
+    http_server::launch_http_server(http_server::ServerConfig {
         listen: cli.listen,
         accept_agents: cli.accept_agents,
         connect: cli.connect,
@@ -222,15 +222,15 @@ mod tests {
         Cli::parse_from(std::iter::once("procinsh").chain(args.iter().copied()))
     }
 
-    fn config(text: &str) -> ConfigFile {
+    fn parse_config_fixture(text: &str) -> ConfigFile {
         toml::from_str(text).unwrap()
     }
 
     #[test]
     fn config_supplies_options_the_command_line_omits() {
-        let merged = merge(
+        let merged = merge_cli_configuration(
             parse(&[]),
-            config(
+            parse_config_fixture(
                 r#"
                 listen = ["127.0.0.1:9090"]
                 allow-non-loopback = true
@@ -252,9 +252,11 @@ mod tests {
 
     #[test]
     fn command_line_overrides_config() {
-        let merged = merge(
+        let merged = merge_cli_configuration(
             parse(&["--listen", "127.0.0.1:7070", "--host-name", "cli"]),
-            config("listen = [\"127.0.0.1:9090\", \"[::1]:9090\"]\nhost-name = \"file\""),
+            parse_config_fixture(
+                "listen = [\"127.0.0.1:9090\", \"[::1]:9090\"]\nhost-name = \"file\"",
+            ),
         );
         assert_eq!(merged.listen, ["127.0.0.1:7070".parse().unwrap()]);
         assert_eq!(merged.host_name.as_deref(), Some("cli"));
@@ -262,12 +264,15 @@ mod tests {
 
     #[test]
     fn privacy_comes_from_either_source() {
-        let merged = merge(parse(&[]), config("privacy = true\nprivacy-level = 2"));
+        let merged = merge_cli_configuration(
+            parse(&[]),
+            parse_config_fixture("privacy = true\nprivacy-level = 2"),
+        );
         assert!(merged.privacy);
         assert_eq!(merged.privacy_level, Some(2));
-        let merged = merge(
+        let merged = merge_cli_configuration(
             parse(&["--privacy-level", "4"]),
-            config("privacy-level = 2"),
+            parse_config_fixture("privacy-level = 2"),
         );
         assert!(!merged.privacy);
         assert_eq!(merged.privacy_level, Some(4));
@@ -276,7 +281,7 @@ mod tests {
 
     #[test]
     fn listen_defaults_to_loopback_8080() {
-        let merged = merge(parse(&[]), ConfigFile::default());
+        let merged = merge_cli_configuration(parse(&[]), ConfigFile::default());
         assert_eq!(merged.listen, ["127.0.0.1:8080".parse().unwrap()]);
     }
 

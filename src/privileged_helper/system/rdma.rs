@@ -11,7 +11,7 @@
 //! | --- | --- | --- |
 //! | [`RdmaRelation`] | `pub(super)` | `struct RdmaRelation` |
 //! | [`RdmaPortInfo`] | `pub(super)` | `struct RdmaPortInfo` |
-//! | [`observe`] | `pub(super)` | `fn observe(sys: &`[`Path`](std::path::Path)`, processes: &`[`HashMap`](std::collections::HashMap)`<`[`i32`]`, `[`ProcessId`](crate::privileged_helper::process::ProcessId)`>, deadline: `[`Instant`](std::time::Instant)`) -> `[`observation::RdmaObservation`] |
+//! | [`collect_rdma_observation`] | `pub(super)` | `fn collect_rdma_observation(sys: &`[`Path`](std::path::Path)`, processes: &`[`HashMap`](std::collections::HashMap)`<`[`i32`]`, `[`ProcessId`](crate::privileged_helper::process::ProcessId)`>, deadline: `[`Instant`](std::time::Instant)`) -> `[`observation::RdmaObservation`] |
 //!
 //! [`RdmaRelation`] refers to [`relations::RdmaEndpoint`], [`relations::RdmaCmInfo`],
 //! [`RdmaAddress`](crate::ipc::rdma::RdmaAddress) and [`IbGid`](crate::ipc::rdma::IbGid).
@@ -21,7 +21,7 @@ mod nldev;
 mod observation;
 mod ports;
 mod relations;
-pub(super) use observation::observe;
+pub(super) use observation::collect_rdma_observation;
 pub(super) use ports::RdmaPortInfo;
 pub(super) use relations::RdmaRelation;
 #[cfg(test)]

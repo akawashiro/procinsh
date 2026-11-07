@@ -6,7 +6,7 @@
 //! | --- | --- | --- |
 //! | [`SchedulerPolicy`] | `pub` | `enum SchedulerPolicy` |
 //! | [`CpuRange`] | `pub` | `struct CpuRange` |
-//! | [`affinity`] | `pub` | `fn affinity(text: &str) -> Option<Vec<CpuRange>>` |
+//! | [`parse_cpu_affinity`] | `pub` | `fn parse_cpu_affinity(text: &str) -> Option<Vec<CpuRange>>` |
 //! | [`ThreadObservation`] | `pub` | `struct ThreadObservation` |
 //! | [`ThreadSample`] | `pub` | `struct ThreadSample` |
 
@@ -140,21 +140,21 @@ mod tests {
     #[test]
     fn affinity_ranges_and_unknown_scheduler_keep_values() {
         assert_eq!(
-            affinity("0-3,8"),
+            parse_cpu_affinity("0-3,8"),
             Some(vec![
                 CpuRange { start: 0, end: 3 },
                 CpuRange { start: 8, end: 8 }
             ])
         );
         assert_eq!(
-            affinity("4294967295"),
+            parse_cpu_affinity("4294967295"),
             Some(vec![CpuRange {
                 start: u32::MAX,
                 end: u32::MAX
             }])
         );
         for text in ["", "3-1", "1,", "1-2-3", "4294967296", "x"] {
-            assert!(affinity(text).is_none());
+            assert!(parse_cpu_affinity(text).is_none());
         }
         assert_eq!(
             serde_json::to_value(SchedulerPolicy::from_code(99)).unwrap(),

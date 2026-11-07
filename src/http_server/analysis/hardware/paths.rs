@@ -6,7 +6,7 @@
 //! | --- | --- | --- |
 //! | [`PathClass`] | `pub` | `enum PathClass` |
 //! | [`HardwarePath`] | `pub` | `struct HardwarePath` |
-//! | [`paths`] | `pub` | `fn paths(nodes: &[PciNode], numa_nodes: usize) -> Vec<HardwarePath>` |
+//! | [`build_hardware_paths`] | `pub` | `fn build_hardware_paths(nodes: &[PciNode], numa_nodes: usize) -> Vec<HardwarePath>` |
 
 use super::pci::{HardwareRole, PciNode, PcieLink};
 pub use crate::ipc::hardware::{HardwarePath, PathClass};
@@ -83,7 +83,7 @@ fn chain<'a>(node: &'a PciNode, nodes: &HashMap<&str, &'a PciNode>) -> Vec<&'a P
 
 /// Paths between every pair of endpoints. With one online NUMA node, devices
 /// without a NUMA node share it.
-pub fn paths(nodes: &[PciNode], numa_nodes: usize) -> Vec<HardwarePath> {
+pub fn build_hardware_paths(nodes: &[PciNode], numa_nodes: usize) -> Vec<HardwarePath> {
     let by_address: HashMap<&str, &PciNode> =
         nodes.iter().map(|n| (n.address.as_str(), n)).collect();
     let endpoints: Vec<_> = nodes
@@ -185,7 +185,7 @@ mod tests {
     fn classes_match_nvidia_topology_and_find_the_bottleneck() {
         let f = fixture::workstation("paths");
         let nodes = read_topology(&f.sources(), &f.sys());
-        let found = paths(&nodes, 1);
+        let found = build_hardware_paths(&nodes, 1);
         // This machine: GPU and HCA under different host bridges of one NUMA node.
         let (class, via, bottleneck) = class_of(&found, "0000:01:00.0", "0000:85:00.0");
         assert_eq!(class, PathClass::Node);
@@ -201,14 +201,14 @@ mod tests {
             })
         );
         assert_eq!(
-            paths(&nodes, 2)[0].class,
+            build_hardware_paths(&nodes, 2)[0].class,
             PathClass::Sys,
             "unknown NUMA on a multi-node host"
         );
 
         let f = fixture::switched("paths-switched");
         let nodes = read_topology(&f.sources(), &f.sys());
-        let found = paths(&nodes, 2);
+        let found = build_hardware_paths(&nodes, 2);
         // Two GPUs behind one switch.
         let (class, via, _) = class_of(&found, "0000:03:00.0", "0000:04:00.0");
         assert_eq!(class, PathClass::Pix);

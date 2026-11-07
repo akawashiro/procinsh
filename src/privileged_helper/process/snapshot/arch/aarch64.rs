@@ -7,7 +7,7 @@
 //!
 //! Captured values use [`RegisterSet`].
 use crate::ipc::registers::RegisterSet;
-use crate::privileged_helper::process::snapshot::ptrace::request;
+use crate::privileged_helper::process::snapshot::ptrace::perform_ptrace_request;
 use anyhow::{Result, ensure};
 use std::ptr;
 
@@ -24,7 +24,7 @@ pub(in crate::privileged_helper::process::snapshot) fn read_registers(
         iov_base: values.as_mut_ptr().cast(),
         iov_len: std::mem::size_of_val(&values),
     };
-    request(
+    perform_ptrace_request(
         libc::PTRACE_GETREGSET,
         tid,
         libc::NT_PRSTATUS as usize,
@@ -40,7 +40,7 @@ pub(in crate::privileged_helper::process::snapshot) fn read_registers(
         iov_base: masks.as_mut_ptr().cast(),
         iov_len: std::mem::size_of_val(&masks),
     };
-    let code_pac_mask = request(
+    let code_pac_mask = perform_ptrace_request(
         libc::PTRACE_GETREGSET,
         tid,
         0x406,

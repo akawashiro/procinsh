@@ -16,7 +16,7 @@ pub(super) struct HostQuery {
 }
 
 /// `{"local": name, "hosts": [summary...]}` with the local host first.
-pub(super) async fn hosts(State(s): State<Arc<AppState>>) -> Json<Value> {
+pub(super) async fn list_hosts(State(s): State<Arc<AppState>>) -> Json<Value> {
     Json(json!({
         "local": s.hosts.local().name,
         "hosts": s.hosts.summaries(),
@@ -24,7 +24,10 @@ pub(super) async fn hosts(State(s): State<Arc<AppState>>) -> Json<Value> {
 }
 
 /// The helper of `host`: this machine's own, or a remote host's through its agent link.
-pub(super) fn client(s: &AppState, host: Option<&str>) -> Result<MonitorClient, ApiError> {
+pub(super) fn resolve_host_client(
+    s: &AppState,
+    host: Option<&str>,
+) -> Result<MonitorClient, ApiError> {
     let Some(host) = host.filter(|host| *host != s.hosts.local().name) else {
         return Ok(s.client.clone());
     };

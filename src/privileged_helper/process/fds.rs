@@ -9,7 +9,7 @@
 //! | [`Owner`] | `pub(super)` | `struct Owner` |
 //! | [`FileDescriptorInfo`] | `pub(super)` | `struct FileDescriptorInfo` |
 //! | [`FileDescriptors`] | `pub(super)` | `struct FileDescriptors` |
-//! | [`read`] | `pub(super)` | `fn read(id: `[`ProcessId`]`) -> `[`Result`]`<`[`FileDescriptors`]`>` |
+//! | [`collect_file_descriptors`] | `pub(super)` | `fn collect_file_descriptors(id: `[`ProcessId`]`) -> `[`Result`]`<`[`FileDescriptors`]`>` |
 
 use super::{
     ProcessId, permission_help, procfs,
@@ -33,19 +33,19 @@ pub(super) use crate::ipc::descriptors::{
     Endpoint, FileDescriptorInfo, FileDescriptors, Key, Owner,
 };
 
-fn inode(link: &str, prefix: &str) -> Option<u64> {
+fn parse_link_inode(link: &str, prefix: &str) -> Option<u64> {
     link.strip_prefix(prefix)?.strip_suffix(']')?.parse().ok()
 }
 
-fn resource(path: &std::path::Path, link: &str, fifo: bool) -> Option<Key> {
-    if let Some(inode) = inode(link, "socket:[") {
+fn identify_descriptor_resource(path: &std::path::Path, link: &str, fifo: bool) -> Option<Key> {
+    if let Some(inode) = parse_link_inode(link, "socket:[") {
         return Some(Key {
             kind: FdKind::Socket,
             device: 0,
             inode,
         });
     }
-    if let Some(inode) = inode(link, "pipe:[") {
+    if let Some(inode) = parse_link_inode(link, "pipe:[") {
         return Some(Key {
             kind: FdKind::Pipe,
             device: 0,
@@ -65,8 +65,8 @@ fn resource(path: &std::path::Path, link: &str, fifo: bool) -> Option<Key> {
     None
 }
 
-fn mode(pid: i32, fd: u32) -> Option<u32> {
-    let fields = procfs::fields(&format!("/proc/{pid}/fdinfo/{fd}")).ok()?;
+fn read_descriptor_access_mode(pid: i32, fd: u32) -> Option<u32> {
+    let fields = procfs::read_procfs_fields(&format!("/proc/{pid}/fdinfo/{fd}")).ok()?;
     // O_PATH descriptors cannot send or receive, even if O_ACCMODE is zero.
     let flags = u32::from_str_radix(fields.get("flags")?, 8).ok()?;
     if flags & libc::O_PATH as u32 != 0 {
@@ -75,11 +75,11 @@ fn mode(pid: i32, fd: u32) -> Option<u32> {
     Some(flags & libc::O_ACCMODE as u32)
 }
 
-fn access(mode: Option<u32>) -> FdAccess {
+fn descriptor_access_from_mode(mode: Option<u32>) -> FdAccess {
     FdAccess::from_mode(mode)
 }
 
-fn owners(
+fn collect_descriptor_owners(
     keys: &HashSet<Key>,
     deadline: Instant,
     warnings: &mut Vec<String>,
@@ -101,7 +101,7 @@ fn owners(
             );
             break;
         }
-        let Ok(stat) = procfs::read_stat(&format!("/proc/{pid}/stat")) else {
+        let Ok(stat) = procfs::read_process_stat(&format!("/proc/{pid}/stat")) else {
             continue;
         };
         let id = ProcessId {
@@ -143,11 +143,12 @@ fn owners(
                     continue;
                 }
             };
-            let Some(key) = resource(&entry.path(), &link, fifo).filter(|k| keys.contains(k))
+            let Some(key) = identify_descriptor_resource(&entry.path(), &link, fifo)
+                .filter(|k| keys.contains(k))
             else {
                 continue;
             };
-            let mode = mode(pid, fd);
+            let mode = read_descriptor_access_mode(pid, fd);
             found.push((
                 key,
                 Owner {
@@ -155,7 +156,7 @@ fn owners(
                         process_id: id,
                         name: stat.name.clone(),
                         fd,
-                        access: access(mode),
+                        access: descriptor_access_from_mode(mode),
                         relation: String::new(),
                     },
                     mode,
@@ -218,11 +219,11 @@ fn socket_table(
             },
         ),
     ] {
-        match sockets::read_text(&format!("/proc/{pid}/net/{file}")) {
+        match sockets::read_socket_table(&format!("/proc/{pid}/net/{file}")) {
             Ok(text) => result.extend(if file == "unix" {
-                sockets::parse_unix(&text)
+                sockets::parse_unix_socket_table(&text)
             } else {
-                sockets::parse_inet(&text, protocol)
+                sockets::parse_inet_socket_table(&text, protocol)
             }),
             Err(e) => warnings.push(format!(
                 "Could not read connection information from {file}: {e}"
@@ -235,7 +236,7 @@ fn socket_table(
             .is_some_and(|s| matches!(s.protocol, SocketProtocol::Unix { .. }))
     }) {
         let diag = super::NetworkNamespaceReader::open(id).and_then(|namespace| {
-            sockets::unix_diag(
+            sockets::collect_unix_socket_peers(
                 &namespace,
                 deadline.min(Instant::now() + Duration::from_millis(750)),
             )
@@ -252,7 +253,7 @@ fn socket_table(
 
 type InetKey = (bool, SocketAddr, SocketAddr);
 
-fn inet_key(info: &SocketInfo) -> Option<InetKey> {
+fn connected_socket_key(info: &SocketInfo) -> Option<InetKey> {
     if !info.protocol.is_tcp_or_udp() {
         return None;
     }
@@ -265,7 +266,7 @@ fn inet_key(info: &SocketInfo) -> Option<InetKey> {
     Some((info.protocol.is_tcp(), local, remote))
 }
 
-pub(super) fn read(id: ProcessId) -> Result<FileDescriptors> {
+pub(super) fn collect_file_descriptors(id: ProcessId) -> Result<FileDescriptors> {
     validate_process_identity(id)?;
     let deadline = Instant::now() + Duration::from_secs(3);
     let mut warnings = Vec::new();
@@ -290,16 +291,16 @@ pub(super) fn read(id: ProcessId) -> Result<FileDescriptors> {
             continue;
         };
         let link = link.to_string_lossy().into_owned();
-        let Some(key) = resource(&entry.path(), &link, true) else {
+        let Some(key) = identify_descriptor_resource(&entry.path(), &link, true) else {
             continue;
         };
-        let mode = mode(id.pid, fd);
+        let mode = read_descriptor_access_mode(id.pid, fd);
         entries.push(FileDescriptorInfo {
             fd,
             kind: key.kind,
             inode: key.inode.to_string(),
             target: link,
-            access: access(mode),
+            access: descriptor_access_from_mode(mode),
             protocol: None,
             state: None,
             connection_status: (key.kind == FdKind::Socket)
@@ -408,7 +409,7 @@ pub(super) fn read(id: ProcessId) -> Result<FileDescriptors> {
     }
     let mut reversed: HashMap<InetKey, Vec<u64>> = HashMap::new();
     for (&inode, info) in &sockets {
-        if let Some(key) = inet_key(info) {
+        if let Some(key) = connected_socket_key(info) {
             reversed.entry(key).or_default().push(inode);
         }
     }
@@ -428,7 +429,7 @@ pub(super) fn read(id: ProcessId) -> Result<FileDescriptors> {
             if let Some(inode) = info.peer_inode {
                 entry.peer_inode = Some(inode.to_string());
                 peers.push(inode);
-            } else if let Some((tcp, local, remote)) = inet_key(info)
+            } else if let Some((tcp, local, remote)) = connected_socket_key(info)
                 && let Some(inodes) = reversed.get(&(tcp, remote, local))
             {
                 peers.extend(inodes.iter().copied().filter(|i| *i != entry.key.inode));
@@ -448,7 +449,7 @@ pub(super) fn read(id: ProcessId) -> Result<FileDescriptors> {
     let owners = if keys.is_empty() {
         HashMap::new()
     } else {
-        owners(&keys, deadline, &mut warnings)?
+        collect_descriptor_owners(&keys, deadline, &mut warnings)?
     };
     validate_process_identity(id)?;
     let result = FileDescriptors {
@@ -462,7 +463,7 @@ pub(super) fn read(id: ProcessId) -> Result<FileDescriptors> {
     #[cfg(test)]
     let result = {
         let mut result = result;
-        crate::http_server::analysis::descriptors::complete(&mut result);
+        crate::http_server::analysis::descriptors::resolve_descriptor_relations(&mut result);
         result
     };
     Ok(result)
@@ -484,7 +485,7 @@ mod tests {
             path: None,
             peer_inode: None,
         };
-        assert!(inet_key(&info).is_none());
+        assert!(connected_socket_key(&info).is_none());
         info.state = Some(SocketState::Established);
         let transport = info.protocol;
         info.protocol = SocketProtocol::from_codes(
@@ -492,10 +493,10 @@ mod tests {
             libc::SOCK_RAW as u32,
             libc::IPPROTO_TCP as u32,
         );
-        assert!(inet_key(&info).is_none());
+        assert!(connected_socket_key(&info).is_none());
         info.protocol = transport;
-        assert!(inet_key(&info).is_some());
+        assert!(connected_socket_key(&info).is_some());
         info.remote = Some("0.0.0.0:0".parse().unwrap());
-        assert!(inet_key(&info).is_none());
+        assert!(connected_socket_key(&info).is_none());
     }
 }

@@ -1,24 +1,24 @@
 //! Acquire bounded environment bytes after checking privacy and process identity.
 //!
 //! # Interface
-//! - [`environment`] (`pub(super)`): `fn environment(id: ProcessId) -> anyhow::Result<EnvironmentData>`.
+//! - [`read_environment`] (`pub(super)`): `fn read_environment(id: ProcessId) -> anyhow::Result<EnvironmentData>`.
 //!
 //! Process identities use [`ProcessId`]; captured bytes use [`EnvironmentData`](crate::ipc::acquisition::EnvironmentData).
 
-use super::procfs::read_limited;
+use super::procfs::read_bounded_bytes;
 use super::{ProcessId, memory, permission_help, timestamp_ms, validate_process_identity};
 use anyhow::{Result, ensure};
 use std::fs::File;
 
 const MAX_ENVIRONMENT: usize = 1024 * 1024;
 
-pub(super) fn environment(id: ProcessId) -> Result<crate::ipc::acquisition::EnvironmentData> {
+pub(super) fn read_environment(id: ProcessId) -> Result<crate::ipc::acquisition::EnvironmentData> {
     ensure!(
-        !memory::privacy(),
+        !memory::privacy_enabled(),
         "Environment variables are not read in privacy mode."
     );
     validate_process_identity(id)?;
-    let bytes = read_limited(
+    let bytes = read_bounded_bytes(
         File::open(format!("/proc/{}/environ", id.pid))?,
         MAX_ENVIRONMENT,
     )

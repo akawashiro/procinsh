@@ -66,7 +66,7 @@ unsafe impl Send for PerfEventReader {}
 
 /// The user stack copied with each sample; none in privacy mode.
 fn user_stack_bytes() -> u32 {
-    if crate::privileged_helper::process::privacy() {
+    if crate::privileged_helper::process::privacy_enabled() {
         0
     } else {
         16384
@@ -197,7 +197,7 @@ impl PerfEventReader {
                 let misc = u16::from_ne_bytes(header[4..6].try_into()?);
                 match kind {
                     PERF_RECORD_SAMPLE => {
-                        let sample = parse(&bytes)?;
+                        let sample = parse_perf_sample(&bytes)?;
                         if self.context_switch {
                             self.pending = sample;
                         } else if sample.is_some() {
@@ -267,7 +267,7 @@ impl<'a> Cursor<'a> {
     }
 }
 
-fn parse(bytes: &[u8]) -> Result<Option<RawSample>> {
+fn parse_perf_sample(bytes: &[u8]) -> Result<Option<RawSample>> {
     let mut c = Cursor(bytes);
     let tids = c.take(8)?;
     let tid = i32::from_ne_bytes(tids[4..].try_into()?);
@@ -511,7 +511,7 @@ mod tests {
         b.extend(16u64.to_ne_bytes());
         b.extend([1; 16]);
         b.extend(8u64.to_ne_bytes());
-        let s = parse(&b).unwrap().unwrap();
+        let s = parse_perf_sample(&b).unwrap().unwrap();
         assert_eq!((s.tid, s.cpu, s.time_ns), (42, Some(7), 123));
         assert_eq!(s.registers.values[8], 108);
         assert_eq!(s.registers.flags_available, cfg!(target_arch = "x86_64"));
@@ -521,7 +521,7 @@ mod tests {
 
         assert_eq!(s.stack.len(), 8);
         for n in 0..b.len() {
-            assert!(parse(&b[..n]).is_err());
+            assert!(parse_perf_sample(&b[..n]).is_err());
         }
     }
 }

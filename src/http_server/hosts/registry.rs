@@ -238,7 +238,7 @@ mod tests {
         }
     }
 
-    fn link() -> Arc<AgentLink> {
+    fn agent_link_fixture() -> Arc<AgentLink> {
         Arc::new(AgentLink::new().0)
     }
 
@@ -246,19 +246,31 @@ mod tests {
     fn names_are_unique_per_machine_and_reconnects_replace_links() {
         let registry = HostRegistry::new(info("hub", "h"));
         let mut changes = registry.changes();
-        assert!(registry.admit(info("hub", "x"), link()).is_err());
-        assert!(registry.admit(info("all", "x"), link()).is_err());
-        let first = registry.admit(info("b", "m1"), link()).unwrap();
+        assert!(
+            registry
+                .admit(info("hub", "x"), agent_link_fixture())
+                .is_err()
+        );
+        assert!(
+            registry
+                .admit(info("all", "x"), agent_link_fixture())
+                .is_err()
+        );
+        let first = registry
+            .admit(info("b", "m1"), agent_link_fixture())
+            .unwrap();
         assert!(changes.has_changed().unwrap());
         changes.mark_unchanged();
         assert!(
             registry
-                .admit(info("b", "m2"), link())
+                .admit(info("b", "m2"), agent_link_fixture())
                 .err()
                 .unwrap()
                 .contains("another machine")
         );
-        let second = registry.admit(info("b", "m1"), link()).unwrap();
+        let second = registry
+            .admit(info("b", "m1"), agent_link_fixture())
+            .unwrap();
         assert!(first != second && !registry.is_current("b", first));
         registry.disconnected("b", first);
         assert!(
@@ -269,7 +281,9 @@ mod tests {
         assert!(matches!(registry.remote("b"), RemoteHost::Offline));
         assert!(matches!(registry.remote("c"), RemoteHost::Unknown));
         // Another machine may take the name of an offline host.
-        registry.admit(info("b", "m2"), link()).unwrap();
+        registry
+            .admit(info("b", "m2"), agent_link_fixture())
+            .unwrap();
         let names: Vec<_> = registry
             .summaries()
             .into_iter()
@@ -278,11 +292,13 @@ mod tests {
         assert_eq!(names, [("hub".into(), true), ("b".into(), false)]);
         assert_eq!(registry.online().len(), 1);
         for i in 0..HOST_LIMIT - 1 {
-            registry.admit(info(&format!("n{i}"), "m"), link()).unwrap();
+            registry
+                .admit(info(&format!("n{i}"), "m"), agent_link_fixture())
+                .unwrap();
         }
         assert!(
             registry
-                .admit(info("over", "m"), link())
+                .admit(info("over", "m"), agent_link_fixture())
                 .err()
                 .unwrap()
                 .contains("at most")

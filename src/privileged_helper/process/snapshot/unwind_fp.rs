@@ -1,7 +1,7 @@
 use crate::privileged_helper::process::maps::MemoryMap;
 use crate::privileged_helper::process::snapshot::stack::StackFrame;
 
-pub(super) fn walk(
+pub(super) fn unwind_frame_pointers(
     rip: u64,
     rsp: u64,
     rbp: u64,
@@ -65,7 +65,7 @@ mod tests {
                 .unwrap(),
         ];
         let mut reads = 0;
-        let (frames, reason) = walk(0x3010, 0x1000, 0x1100, &maps, |_| {
+        let (frames, reason) = unwind_frame_pointers(0x3010, 0x1000, 0x1100, &maps, |_| {
             reads += 1;
             let mut b = [0; 16];
             b[..8].copy_from_slice(&0x1100u64.to_ne_bytes());
@@ -75,7 +75,7 @@ mod tests {
         assert_eq!(frames.len(), 2);
         assert_eq!(reads, 1);
         assert!(reason.contains("non-increasing"));
-        let (_, reason) = walk(0x3010, 0x1000, 0x1ff8, &maps, |_| {
+        let (_, reason) = unwind_frame_pointers(0x3010, 0x1000, 0x1ff8, &maps, |_| {
             panic!("out of range read")
         });
         assert!(reason.contains("outside"));

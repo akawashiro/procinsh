@@ -17,7 +17,7 @@ pub(in crate::privileged_helper::system) struct RdmaObservation {
 /// Observes RDMA resources visible in the collector's network and PID namespaces,
 /// with devices and ports read under the sysfs root `sys`. Failures become
 /// warnings; an IPoIB neighbor failure only omits remote GIDs.
-pub(in crate::privileged_helper::system) fn observe(
+pub(in crate::privileged_helper::system) fn collect_rdma_observation(
     sys: &Path,
     processes: &HashMap<i32, ProcessId>,
     deadline: Instant,
@@ -25,10 +25,10 @@ pub(in crate::privileged_helper::system) fn observe(
     let root = &sys.join("class/infiniband");
     let mut result = RdmaObservation::default();
     // Opening NETLINK_RDMA can autoload ib_core; a host without devices is not queried.
-    if ports::devices(root).is_empty() {
+    if ports::list_rdma_devices(root).is_empty() {
         return result;
     }
-    result.ports = ports::read_ports(root);
+    result.ports = ports::read_rdma_ports(root);
     let resources = match nldev::read_resources(deadline) {
         Ok(resources) => resources,
         Err(error) => {
@@ -63,6 +63,7 @@ pub(in crate::privileged_helper::system) fn observe(
                 .push(format!("RDMA remote GIDs unavailable: {error:#}")),
         }
     }
-    result.relations = relations::relations(&resources, &result.ports, &neighbors, processes);
+    result.relations =
+        relations::build_rdma_relations(&resources, &result.ports, &neighbors, processes);
     result
 }

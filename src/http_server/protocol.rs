@@ -3,7 +3,7 @@
 //! # Interface
 //! - [`MonitorEvent`] (`pub(super)`): `enum MonitorEvent`.
 //! - [`MonitorResponse`] (`pub(super)`): `enum MonitorResponse`.
-//! - [`response`] (`pub(super)`): `fn response(raw: crate::ipc::schema::MonitorResponse) -> anyhow::Result<MonitorResponse>`.
+//! - [`convert_monitor_response`] (`pub(super)`): `fn convert_monitor_response(raw: crate::ipc::schema::MonitorResponse) -> anyhow::Result<MonitorResponse>`.
 //!
 //! - [`HelperIdentity`] (`pub(super)`): `struct HelperIdentity` from [`crate::ipc::schema`].
 //! - [`MonitorRequest`] (`pub(super)`): `enum MonitorRequest` from [`crate::ipc::schema`].
@@ -50,7 +50,7 @@ pub(super) enum MonitorResponse {
     Closed,
 }
 
-fn event(raw: crate::ipc::schema::MonitorEvent) -> Result<MonitorEvent> {
+fn convert_monitor_event(raw: crate::ipc::schema::MonitorEvent) -> Result<MonitorEvent> {
     use crate::ipc::schema;
     Ok(match raw {
         schema::MonitorEvent::Observation(value) => {
@@ -66,7 +66,9 @@ fn event(raw: crate::ipc::schema::MonitorEvent) -> Result<MonitorEvent> {
     })
 }
 
-pub(super) fn response(raw: crate::ipc::schema::MonitorResponse) -> Result<MonitorResponse> {
+pub(super) fn convert_monitor_response(
+    raw: crate::ipc::schema::MonitorResponse,
+) -> Result<MonitorResponse> {
     use crate::ipc::schema::{self, AcquiredData};
     Ok(match raw {
         schema::MonitorResponse::Data(value) => MonitorResponse::Data(match value {
@@ -80,10 +82,10 @@ pub(super) fn response(raw: crate::ipc::schema::MonitorResponse) -> Result<Monit
         schema::MonitorResponse::Elf(_) => anyhow::bail!("unexpected mapped file reply"),
         schema::MonitorResponse::Started { session, initial } => MonitorResponse::Started {
             session,
-            initial: event(initial)?,
+            initial: convert_monitor_event(initial)?,
         },
         schema::MonitorResponse::Event { event: raw, closed } => MonitorResponse::Event {
-            event: raw.map(event).transpose()?,
+            event: raw.map(convert_monitor_event).transpose()?,
             closed,
         },
         schema::MonitorResponse::Closed => MonitorResponse::Closed,

@@ -5,7 +5,7 @@
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
 //! | [`HistoryPoint`] | `pub` | `struct HistoryPoint` |
-//! | [`push`] | `pub` | `fn push(history: &mut VecDeque<HistoryPoint>, observation: &ProcessObservation)` |
+//! | [`append_history_observation`] | `pub` | `fn append_history_observation(history: &mut VecDeque<HistoryPoint>, observation: &ProcessObservation)` |
 
 //! History observations use [`ProcessObservation`].
 
@@ -28,7 +28,10 @@ impl serde::Serialize for crate::ipc::history::HistoryPoint {
     }
 }
 
-pub fn push(history: &mut VecDeque<HistoryPoint>, observation: &ProcessObservation) {
+pub fn append_history_observation(
+    history: &mut VecDeque<HistoryPoint>,
+    observation: &ProcessObservation,
+) {
     let cutoff = observation.timestamp.saturating_sub(60_000);
     history.push_back(HistoryPoint {
         timestamp: observation.timestamp,

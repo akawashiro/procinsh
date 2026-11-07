@@ -4,14 +4,14 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`build`] | `pub` | `fn build(result: &mut SystemSnapshot) -> bool` |
+//! | [`build_ipc_relations`] | `pub` | `fn build_ipc_relations(result: &mut SystemSnapshot) -> bool` |
 //!
 //! Input and output values are defined by [`SystemSnapshot`].
 
 use crate::http_server::model::{resource::*, socket_types::*, system::*};
 use std::collections::{HashMap, HashSet};
 
-pub fn build(result: &mut SystemSnapshot) -> bool {
+pub fn build_ipc_relations(result: &mut SystemSnapshot) -> bool {
     let mut owners: HashMap<_, _> = std::mem::take(&mut result.raw_owners).into_iter().collect();
     let infos: HashMap<_, _> = std::mem::take(&mut result.raw_sockets)
         .into_iter()

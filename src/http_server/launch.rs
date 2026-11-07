@@ -82,10 +82,10 @@ impl Drop for HelperSupervisor {
     }
 }
 
-pub(crate) fn run(config: super::ServerConfig) -> Result<()> {
+pub(crate) fn launch_http_server(config: super::ServerConfig) -> Result<()> {
     let path = std::env::current_exe()?.with_file_name("procinsh-privileged-helper");
     if let Some(level) = config.privacy_level {
-        super::privacy::enable(level)?;
+        super::privacy::configure_privacy(level)?;
         log::info!("privacy mode at level {level}: environments and process memory are not read");
     }
     privileges::close_inherited()?;
@@ -110,7 +110,7 @@ pub(crate) fn run(config: super::ServerConfig) -> Result<()> {
                 "--parent-pid",
                 &std::process::id().to_string(),
             ]);
-        if super::privacy::enabled() {
+        if super::privacy::privacy_enabled() {
             command.arg("--privacy");
         }
         // Only the private endpoint and stdio survive exec. No inspection FDs
@@ -160,7 +160,7 @@ pub(crate) fn run(config: super::ServerConfig) -> Result<()> {
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
-    let result = runtime.block_on(super::server::run(config, client));
+    let result = runtime.block_on(super::server::serve_http_requests(config, client));
     runtime.shutdown_timeout(Duration::from_secs(1));
     result
 }

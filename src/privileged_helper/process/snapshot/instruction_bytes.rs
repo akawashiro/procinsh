@@ -26,7 +26,7 @@ impl InstructionBytes {
             return result;
         };
         let length = (map.end - rip).min(MAX_BYTES as u64) as usize;
-        match memory::read_raw(pid, rip, length) {
+        match memory::read_process_memory(pid, rip, length) {
             Ok(bytes) => {
                 if bytes.len() < length {
                     result.error = Some(format!(

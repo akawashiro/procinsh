@@ -1,5 +1,5 @@
 use super::super::{AppState, hosts::ALL_HOSTS};
-use super::hosts::{HostQuery, client};
+use super::hosts::{HostQuery, resolve_host_client};
 use super::process::ApiError;
 use crate::http_server::protocol::MonitorRequest;
 use axum::{
@@ -8,15 +8,15 @@ use axum::{
 };
 use std::sync::Arc;
 
-pub(super) async fn events(
+pub(super) async fn stream_system_events(
     State(s): State<Arc<AppState>>,
     Query(query): Query<HostQuery>,
 ) -> Result<Response, ApiError> {
     if query.host.as_deref() == Some(ALL_HOSTS) {
-        return super::merged::response(s).await;
+        return super::merged::build_merged_event_response(s).await;
     }
-    let session = client(&s, query.host.as_deref())?
+    let session = resolve_host_client(&s, query.host.as_deref())?
         .observe(MonitorRequest::ObserveSystem)
         .await?;
-    Ok(super::stream::response(s, session))
+    Ok(super::stream::build_sse_response(s, session))
 }

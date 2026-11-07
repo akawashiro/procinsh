@@ -8,7 +8,7 @@
 //! | [`parse_environment`] | `pub` | `fn parse_environment(bytes: &[u8]) -> Vec<EnvironmentEntry>` |
 //! | [`AuxEntry`] | `pub` | `struct AuxEntry` |
 //! | [`parse_auxv`] | `pub` | `fn parse_auxv(bytes: &[u8], word_bytes: usize) -> Result<Vec<AuxEntry>>` |
-//! | [`complete`] | `pub` | `fn complete(value: &mut serde_json::Value) -> Result<()>` |
+//! | [`format_process_metadata`] | `pub` | `fn format_process_metadata(value: &mut serde_json::Value) -> Result<()>` |
 
 use anyhow::{Result, bail, ensure};
 use serde::Serialize;
@@ -51,7 +51,7 @@ pub struct AuxEntry {
     pub text_error: Option<String>,
 }
 
-fn aux_info(tag: u64) -> (&'static str, &'static str, &'static str) {
+fn auxiliary_tag_metadata(tag: u64) -> (&'static str, &'static str, &'static str) {
     match tag {
         0 => ("AT_NULL", "number", "End of vector"),
         1 => ("AT_IGNORE", "number", "Ignored entry"),
@@ -104,7 +104,7 @@ pub fn parse_auxv(bytes: &[u8], word_bytes: usize) -> Result<Vec<AuxEntry>> {
         };
         let tag = word(&pair[..word_bytes]);
         let value = word(&pair[word_bytes..]);
-        let (name, kind, description) = aux_info(tag);
+        let (name, kind, description) = auxiliary_tag_metadata(tag);
         entries.push(AuxEntry {
             tag: tag.to_string(),
             name: if name == "AT_UNKNOWN" {
@@ -127,7 +127,7 @@ pub fn parse_auxv(bytes: &[u8], word_bytes: usize) -> Result<Vec<AuxEntry>> {
     bail!("Incomplete auxv (AT_NULL is missing).")
 }
 
-pub fn complete(value: &mut serde_json::Value) -> Result<()> {
+pub fn format_process_metadata(value: &mut serde_json::Value) -> Result<()> {
     if value.get("raw_environment").is_some() {
         let bytes: Vec<u8> = serde_json::from_value(
             value

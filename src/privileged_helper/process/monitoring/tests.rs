@@ -9,7 +9,7 @@ fn discovery_rates_history_and_process_exit() {
     assert!(initial.iter().any(|p| p.identity == target.id));
     let app = Arc::new(ProcessMonitor::new(Duration::from_millis(100)));
     let session = app.observe(target.id, app.reserve().unwrap()).unwrap();
-    let other_id = process::identity(std::process::id() as i32).unwrap();
+    let other_id = process::read_process_identity(std::process::id() as i32).unwrap();
     let other = app.observe(other_id, app.reserve().unwrap()).unwrap();
     std::thread::sleep(Duration::from_millis(350));
     {

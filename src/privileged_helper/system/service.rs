@@ -169,7 +169,7 @@ impl SystemMonitor {
                     continue;
                 }
                 if full.elapsed() >= Duration::from_secs(1) {
-                    let data = snapshot::collect();
+                    let data = snapshot::collect_system_snapshot();
                     if data.warnings != previous_warnings {
                         if data.warnings.is_empty() {
                             log::info!("System snapshot recovered");

@@ -6,7 +6,7 @@
 //! | --- | --- | --- |
 //! | [`SchedulerPolicy`] | `pub` | `enum SchedulerPolicy` |
 //! | [`CpuRange`] | `pub` | `struct CpuRange` |
-//! | [`affinity`] | `pub` | `fn affinity(text: &str) -> Option<Vec<CpuRange>>` |
+//! | [`parse_cpu_affinity`] | `pub` | `fn parse_cpu_affinity(text: &str) -> Option<Vec<CpuRange>>` |
 //! | [`ThreadObservation`] | `pub` | `struct ThreadObservation` |
 //! | [`ThreadSample`] | `pub` | `struct ThreadSample` |
 
@@ -42,7 +42,7 @@ pub struct CpuRange {
     pub end: u32,
 }
 
-pub fn affinity(text: &str) -> Option<Vec<CpuRange>> {
+pub fn parse_cpu_affinity(text: &str) -> Option<Vec<CpuRange>> {
     text.split(',')
         .map(|item| {
             let (start, end) = item.split_once('-').unwrap_or((item, item));

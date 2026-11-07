@@ -7,7 +7,7 @@
 //! | [`GpuInfo`] | `pub` | `struct GpuInfo` |
 //! | [`RdmaDeviceInfo`] | `pub` | `struct RdmaDeviceInfo` |
 //! | [`HardwareDevice`] | `pub` | `struct HardwareDevice` |
-//! | [`device`] | `pub` | `fn device(sources: &HardwareSources, node: &PciNode, proc: &Path) -> HardwareDevice` |
+//! | [`build_hardware_device`] | `pub` | `fn build_hardware_device(sources: &HardwareSources, node: &PciNode, proc: &Path) -> HardwareDevice` |
 
 use super::observation::HardwareSources;
 use super::pci::{BarInfo, HardwareKind, HardwareRole, PciNode, PcieLinkInfo};
@@ -120,11 +120,15 @@ fn nvidia_information(
         .collect()
 }
 
-fn short(address: &str) -> &str {
+fn shorten_pci_address(address: &str) -> &str {
     address.strip_prefix("0000:").unwrap_or(address)
 }
 
-pub fn device(sources: &HardwareSources, node: &PciNode, proc: &Path) -> HardwareDevice {
+pub fn build_hardware_device(
+    sources: &HardwareSources,
+    node: &PciNode,
+    proc: &Path,
+) -> HardwareDevice {
     let hex = |value: Option<u32>, width: usize| value.map(|v| format!("0x{v:0width$x}"));
     let gpu = (node.kind == Some(HardwareKind::Gpu)).then(|| {
         let info = nvidia_information(sources, proc, &node.address);
@@ -163,21 +167,27 @@ pub fn device(sources: &HardwareSources, node: &PciNode, proc: &Path) -> Hardwar
         (HardwareRole::HostBridge, _) => {
             format!("Host bridge {}", node.address.trim_start_matches("pci"))
         }
-        (HardwareRole::RootPort, _) => format!("Root port {}", short(&node.address)),
-        (HardwareRole::SwitchPort, _) => format!("Switch port {}", short(&node.address)),
+        (HardwareRole::RootPort, _) => format!("Root port {}", shorten_pci_address(&node.address)),
+        (HardwareRole::SwitchPort, _) => {
+            format!("Switch port {}", shorten_pci_address(&node.address))
+        }
         (_, Some(HardwareKind::Gpu)) => gpu
             .as_ref()
             .and_then(|g| g.model.clone())
-            .unwrap_or_else(|| format!("GPU {}", short(&node.address))),
+            .unwrap_or_else(|| format!("GPU {}", shorten_pci_address(&node.address))),
         (_, Some(HardwareKind::Rdma)) if !rdma.is_empty() => rdma
             .iter()
             .map(|d| d.name.as_str())
             .collect::<Vec<_>>()
             .join(", "),
-        (_, Some(HardwareKind::Rdma)) => format!("RDMA NIC {}", short(&node.address)),
-        (_, Some(HardwareKind::Accelerator)) => format!("Accelerator {}", short(&node.address)),
-        (_, Some(HardwareKind::NvSwitch)) => format!("NVSwitch {}", short(&node.address)),
-        (_, None) => short(&node.address).to_owned(),
+        (_, Some(HardwareKind::Rdma)) => format!("RDMA NIC {}", shorten_pci_address(&node.address)),
+        (_, Some(HardwareKind::Accelerator)) => {
+            format!("Accelerator {}", shorten_pci_address(&node.address))
+        }
+        (_, Some(HardwareKind::NvSwitch)) => {
+            format!("NVSwitch {}", shorten_pci_address(&node.address))
+        }
+        (_, None) => shorten_pci_address(&node.address).to_owned(),
     };
     HardwareDevice {
         address: node.address.clone(),

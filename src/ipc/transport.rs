@@ -1,7 +1,7 @@
 //! Bounded native-endian binary framing over private Unix streams.
 //!
 //! # Interface
-//! - [`configure`] (`pub`): `fn configure(socket: &UnixStream) -> anyhow::Result<()>`.
+//! - [`configure_ipc_socket`] (`pub`): `fn configure_ipc_socket(socket: &UnixStream) -> anyhow::Result<()>`.
 //! - [`send`] (`pub`): `fn send<T: Wire>(socket: &mut UnixStream, value: &T, limit: usize) -> anyhow::Result<()>`.
 //! - [`read`] (`pub`): `fn read<T: Wire>(socket: &mut UnixStream, limit: usize) -> anyhow::Result<T>`.
 //! - [`read_timeout`] (`pub`): `fn read_timeout<T: Wire>(socket: &mut UnixStream, limit: usize, timeout: Duration) -> anyhow::Result<T>`.
@@ -14,7 +14,7 @@ use std::io::{Read, Write};
 use std::os::unix::net::UnixStream;
 use std::time::{Duration, Instant};
 
-pub fn configure(socket: &UnixStream) -> Result<()> {
+pub fn configure_ipc_socket(socket: &UnixStream) -> Result<()> {
     socket.set_read_timeout(Some(TIMEOUT))?;
     socket.set_write_timeout(Some(TIMEOUT))?;
     Ok(())
@@ -50,7 +50,7 @@ pub fn read_timeout<T: Wire>(
     codec::decode(&bytes).context("invalid monitor IPC message")
 }
 
-fn remaining(deadline: Instant) -> std::io::Result<Duration> {
+fn remaining_io_timeout(deadline: Instant) -> std::io::Result<Duration> {
     deadline
         .checked_duration_since(Instant::now())
         .filter(|d| !d.is_zero())
@@ -63,7 +63,7 @@ fn read_until(
     deadline: Instant,
 ) -> std::io::Result<()> {
     while !bytes.is_empty() {
-        socket.set_read_timeout(Some(remaining(deadline)?))?;
+        socket.set_read_timeout(Some(remaining_io_timeout(deadline)?))?;
         match socket.read(bytes) {
             Ok(0) => {
                 return Err(std::io::Error::new(
@@ -85,7 +85,7 @@ fn write_until(
     deadline: Instant,
 ) -> std::io::Result<()> {
     while !bytes.is_empty() {
-        socket.set_write_timeout(Some(remaining(deadline)?))?;
+        socket.set_write_timeout(Some(remaining_io_timeout(deadline)?))?;
         match socket.write(bytes) {
             Ok(0) => {
                 return Err(std::io::Error::new(

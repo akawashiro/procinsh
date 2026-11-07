@@ -164,7 +164,7 @@ pub struct PciNode {
     pub bars: Vec<BarInfo>,
 }
 
-fn hex(sources: &HardwareSources, path: &Path) -> Option<u32> {
+fn read_sysfs_hex(sources: &HardwareSources, path: &Path) -> Option<u32> {
     u32::from_str_radix(sources.text(path)?.trim_start_matches("0x"), 16).ok()
 }
 
@@ -186,7 +186,7 @@ fn is_host_bridge(name: &str) -> bool {
     })
 }
 
-fn link_speed(sources: &HardwareSources, path: &Path) -> Option<f64> {
+fn read_pcie_link_speed(sources: &HardwareSources, path: &Path) -> Option<f64> {
     sources
         .text(path)?
         .split_whitespace()
@@ -196,18 +196,18 @@ fn link_speed(sources: &HardwareSources, path: &Path) -> Option<f64> {
         .filter(|s: &f64| *s > 0.0)
 }
 
-fn link(sources: &HardwareSources, dir: &Path, prefix: &str) -> Option<PcieLink> {
+fn read_pcie_link(sources: &HardwareSources, dir: &Path, prefix: &str) -> Option<PcieLink> {
     let width: u32 = sources
         .text(&dir.join(format!("{prefix}_link_width")))?
         .parse()
         .ok()?;
     Some(PcieLink {
-        speed_gts: link_speed(sources, &dir.join(format!("{prefix}_link_speed")))?,
+        speed_gts: read_pcie_link_speed(sources, &dir.join(format!("{prefix}_link_speed")))?,
         width: (width > 0).then_some(width)?,
     })
 }
 
-fn bars(sources: &HardwareSources, dir: &Path) -> Vec<BarInfo> {
+fn read_pci_bar_sizes(sources: &HardwareSources, dir: &Path) -> Vec<BarInfo> {
     const IORESOURCE_MEM: u64 = 0x200;
     const IORESOURCE_PREFETCH: u64 = 0x2000;
     sources
@@ -234,7 +234,7 @@ fn bars(sources: &HardwareSources, dir: &Path) -> Vec<BarInfo> {
 }
 
 /// The kind of a device worth showing; BMC display adapters are not GPUs.
-fn kind(
+fn classify_pci_device(
     sources: &HardwareSources,
     dir: &Path,
     class: u32,
@@ -254,7 +254,7 @@ fn kind(
     }
 }
 
-fn node(
+fn build_pci_node(
     sources: &HardwareSources,
     address: &str,
     parent: Option<String>,
@@ -275,9 +275,15 @@ fn node(
         },
         parent,
         kind,
-        class: (!host).then(|| hex(sources, &dir.join("class"))).flatten(),
-        vendor_id: (!host).then(|| hex(sources, &dir.join("vendor"))).flatten(),
-        device_id: (!host).then(|| hex(sources, &dir.join("device"))).flatten(),
+        class: (!host)
+            .then(|| read_sysfs_hex(sources, &dir.join("class")))
+            .flatten(),
+        vendor_id: (!host)
+            .then(|| read_sysfs_hex(sources, &dir.join("vendor")))
+            .flatten(),
+        device_id: (!host)
+            .then(|| read_sysfs_hex(sources, &dir.join("device")))
+            .flatten(),
         driver: sources
             .link(&dir.join("driver"))
             .and_then(|p| Some(p.file_name()?.to_string_lossy().into_owned())),
@@ -285,8 +291,8 @@ fn node(
             .text(&dir.join("numa_node"))
             .and_then(|n| n.parse().ok()),
         link: (!host && awake).then(|| PcieLinkInfo {
-            current: link(sources, &dir, "current"),
-            max: link(sources, &dir, "max"),
+            current: read_pcie_link(sources, &dir, "current"),
+            max: read_pcie_link(sources, &dir, "max"),
         }),
         power_state: sources.text(&dir.join("power_state")),
         runtime_status,
@@ -294,7 +300,7 @@ fn node(
             .link(&dir.join("iommu_group"))
             .and_then(|p| p.file_name()?.to_str()?.parse().ok()),
         bars: if kind.is_some() {
-            bars(sources, &dir)
+            read_pci_bar_sizes(sources, &dir)
         } else {
             vec![]
         },
@@ -309,9 +315,9 @@ pub fn read_topology(sources: &HardwareSources, sys: &Path) -> Vec<PciNode> {
         let Some(dir) = sources.link(&sys.join("bus/pci/devices").join(&name)) else {
             continue;
         };
-        let class = hex(sources, &dir.join("class")).unwrap_or_default();
-        let vendor = hex(sources, &dir.join("vendor"));
-        let Some(kind) = kind(sources, &dir, class, vendor) else {
+        let class = read_sysfs_hex(sources, &dir.join("class")).unwrap_or_default();
+        let vendor = read_sysfs_hex(sources, &dir.join("vendor"));
+        let Some(kind) = classify_pci_device(sources, &dir, class, vendor) else {
             continue;
         };
         // The chain from the host bridge: pci0000:80 / 0000:80:03.4 / 0000:85:00.0.
@@ -348,7 +354,7 @@ pub fn read_topology(sources: &HardwareSources, sys: &Path) -> Vec<PciNode> {
             }
             nodes.insert(
                 address.clone(),
-                node(
+                build_pci_node(
                     sources,
                     address,
                     parent,

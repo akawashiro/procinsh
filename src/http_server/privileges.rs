@@ -22,7 +22,7 @@ struct CapabilitySet {
     inheritable: u32,
 }
 
-fn check(result: libc::c_long, operation: &str) -> Result<()> {
+fn check_syscall_result(result: libc::c_long, operation: &str) -> Result<()> {
     if result < 0 {
         return Err(io::Error::last_os_error()).context(operation.to_owned());
     }
@@ -35,7 +35,7 @@ fn capabilities() -> Result<[CapabilitySet; 2]> {
         pid: 0,
     };
     let mut data = [CapabilitySet::default(); 2];
-    check(
+    check_syscall_result(
         unsafe { libc::syscall(libc::SYS_capget, &mut header, data.as_mut_ptr()) },
         "capget",
     )?;
@@ -47,14 +47,14 @@ fn set_capabilities(data: &[CapabilitySet; 2]) -> Result<()> {
         version: 0x20080522,
         pid: 0,
     };
-    check(
+    check_syscall_result(
         unsafe { libc::syscall(libc::SYS_capset, &header, data.as_ptr()) },
         "capset",
     )
 }
 
 fn prctl(option: i32, arg: libc::c_ulong, operation: &str) -> Result<()> {
-    check(
+    check_syscall_result(
         unsafe { libc::prctl(option, arg, 0, 0, 0) } as libc::c_long,
         operation,
     )
@@ -63,7 +63,7 @@ fn prctl(option: i32, arg: libc::c_ulong, operation: &str) -> Result<()> {
 /// Close inherited resources before creating the socketpair or any runtime.
 /// Preserve only stdio; requires Linux close_range support.
 pub(super) fn close_inherited() -> Result<()> {
-    check(
+    check_syscall_result(
         unsafe { libc::syscall(libc::SYS_close_range, 3_u32, u32::MAX, 0_u32) },
         "close inherited resources",
     )
