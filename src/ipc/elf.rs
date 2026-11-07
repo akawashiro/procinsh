@@ -8,6 +8,7 @@
 //! - [`MAX_FILE_SIZE`] (`pub`): `const MAX_FILE_SIZE: u64`.
 //! - [`MAX_READ_SIZE`] (`pub`): `const MAX_READ_SIZE: u64`.
 //! - [`MAX_RANGES`] (`pub`): `const MAX_RANGES: usize`.
+/// Device, inode, length and nanosecond modification time of a verified file.
 pub type ElfFileId = (u64, u64, u64, i64, i64);
 pub const MAX_FILE_SIZE: u64 = 128 * 1024 * 1024;
 pub const MAX_READ_SIZE: u64 = 64 * 1024 * 1024;

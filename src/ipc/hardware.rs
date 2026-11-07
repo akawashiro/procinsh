@@ -182,6 +182,7 @@ pub struct PcieLinkInfo {
     pub max: Option<PcieLink>,
 }
 
+/// The negotiated or maximum link of a device to its upstream port.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PcieLink {
     pub speed_gts: f64,

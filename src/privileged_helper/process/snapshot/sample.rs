@@ -1,3 +1,9 @@
+//! Native register and stack samples with a monotonic collection clock.
+//!
+//! # Interface
+//! - [`RawSample`] (`pub(super)`): `struct RawSample`.
+//! - [`monotonic_ns`] (`pub(super)`): `fn monotonic_ns() -> u64`.
+
 use crate::ipc::acquisition::SampleSource;
 use crate::ipc::registers::RegisterSet;
 pub(super) struct RawSample {

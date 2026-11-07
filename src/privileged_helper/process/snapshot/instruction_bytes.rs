@@ -1,7 +1,8 @@
 //! Capture bounded instruction bytes from the sampled PC for main-side decoding.
 //!
 //! # Interface
-//! [`crate::ipc::acquisition::InstructionBytes`] (`pub(super)`): `struct InstructionBytes`.
+//! No named types or functions are exported. Capture methods are implemented on
+//! [`InstructionBytes`], defined in the shared acquisition module.
 
 use crate::{ipc::model::memory::MemoryMap, privileged_helper::process::memory};
 
@@ -46,7 +47,6 @@ impl InstructionBytes {
 
 #[cfg(test)]
 mod tests {
-
     use crate::ipc::acquisition::InstructionBytes;
 
     #[test]

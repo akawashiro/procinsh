@@ -167,7 +167,6 @@ const MAX_SYMBOLS: usize = 262_144;
 const MAX_UNITS: usize = 16_384;
 const MAX_CACHE_BYTES: u64 = 128 * 1024 * 1024;
 
-/// Device, inode, length and nanosecond modification time of a verified file.
 use crate::ipc::elf::ElfFileId;
 #[cfg(test)]
 pub struct ElfFile {

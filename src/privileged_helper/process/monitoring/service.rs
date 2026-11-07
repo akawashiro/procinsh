@@ -1,3 +1,14 @@
+//! Manage process observation sessions, collection workers and shutdown.
+//!
+//! # Interface
+//! - [`ProcessMonitor`] (`pub(in crate::privileged_helper)`): `struct ProcessMonitor`.
+//! - [`ObservationPermit`] (`pub(in crate::privileged_helper)`): `struct ObservationPermit`.
+//! - [`ObservationSession`] (`pub(in crate::privileged_helper)`): `struct ObservationSession`.
+//! - [`capture_target`] (`pub(in crate::privileged_helper::process)`):
+//!   `fn capture_target(id: ProcessId) -> anyhow::Result<(ProcessDetailSnapshot, ProcessSample)>`.
+//!
+//! Shared values use [`ProcessId`], [`ProcessDetailSnapshot`] and [`ProcessSample`].
+
 #[cfg(test)]
 use crate::http_server::model::process::{initial_observation, next_observation};
 #[cfg(test)]
@@ -22,8 +33,6 @@ use std::{
 };
 use tokio::sync::watch;
 
-/// SSE observation state with detailed maps and independently aged live samples.
-/// Map entries flatten structural mappings with optional RSS/PSS measurements.
 use crate::ipc::acquisition::ProcessDetailSnapshot;
 /// Manages process observation sessions, collector workers and shutdown.
 pub(in crate::privileged_helper) struct ProcessMonitor {

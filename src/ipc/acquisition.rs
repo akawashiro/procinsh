@@ -92,6 +92,8 @@ pub struct LiveSample {
     pub unwind_stop: String,
     pub error: Option<String>,
 }
+/// SSE observation state with detailed maps and independently aged live samples.
+/// Map entries flatten structural mappings with optional RSS/PSS measurements.
 #[derive(Clone, Debug)]
 pub struct ProcessDetailSnapshot {
     pub summary: ProcessSummary,

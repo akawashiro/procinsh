@@ -1,4 +1,8 @@
 //! Regular-file activity, independent of IPC/CPU availability.
+//!
+//! # Interface
+//! [`FileActivityCollector`] (`pub(super)`): `struct FileActivityCollector`.
+
 #[cfg(test)]
 use crate::ipc::model::resource::{DeviceId, FileIdentity};
 use anyhow::{Context, Result};

@@ -1,3 +1,8 @@
+//! Collect and retain bounded process snapshots from perf and ptrace samples.
+//!
+//! # Interface
+//! [`Sampler`] (`pub(in crate::privileged_helper::process)`): `struct Sampler`.
+
 use super::sample::monotonic_ns;
 #[cfg(test)]
 use crate::http_server::analysis::snapshot::{

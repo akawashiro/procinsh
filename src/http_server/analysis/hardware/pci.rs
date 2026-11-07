@@ -65,7 +65,6 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::hardware::HardwareKind {
     }
 }
 
-/// The negotiated or maximum link of a device to its upstream port.
 use crate::ipc::hardware::PcieLink;
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(dead_code)]
