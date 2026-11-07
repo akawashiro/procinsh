@@ -1,3 +1,21 @@
+//! Read bounded procfs data and decode process counters.
+//!
+//! # Interface
+//! All entries below have `pub(super)` visibility.
+//! - [`Stat`]: `struct Stat`.
+//! - [`IoStats`]: `struct IoStats`, re-exported from [`crate::ipc::model::process::IoStats`].
+//! - [`page_size`]: `fn page_size() -> u64`.
+//! - [`ticks_per_second`]: `fn ticks_per_second() -> f64`.
+//! - [`parse_stat`]: `fn parse_stat(text: &str) -> anyhow::Result<Stat>`.
+//! - [`read_limited`]: `fn read_limited(reader: impl std::io::Read, limit: usize) -> anyhow::Result<Vec<u8>>`.
+//! - [`read_text`]: `fn read_text(path: &str) -> anyhow::Result<String>`.
+//! - [`read_stat`]: `fn read_stat(path: &str) -> anyhow::Result<Stat>`.
+//! - [`fields`]: `fn fields(path: &str) -> anyhow::Result<HashMap<String, String>>`.
+//! - [`field_u64`]: `fn field_u64(fields: &HashMap<String, String>, key: &str) -> Option<u64>`.
+//! - [`read_io`]: `fn read_io(pid: i32) -> anyhow::Result<IoStats>`.
+//!
+//! Field maps use [`HashMap`]; bounded readers implement [`Read`].
+
 use anyhow::{Context, Result, anyhow, ensure};
 use std::{collections::HashMap, fs, io::Read};
 
@@ -62,6 +80,17 @@ pub(super) fn parse_stat(text: &str) -> Result<Stat> {
         cpu: signed(36)? as i32,
         policy: number(38)? as u32,
     })
+}
+
+/// Read at most `limit` bytes, rejecting input that contains any additional byte.
+pub(super) fn read_limited(reader: impl Read, limit: usize) -> Result<Vec<u8>> {
+    let mut bytes = Vec::new();
+    reader.take(limit as u64 + 1).read_to_end(&mut bytes)?;
+    ensure!(
+        bytes.len() <= limit,
+        "The read limit of {limit} bytes was exceeded."
+    );
+    Ok(bytes)
 }
 
 /// Bounds procfs text allocation even when a target creates very large maps.
@@ -132,6 +161,12 @@ mod tests {
 #[cfg(test)]
 mod limit_tests {
     use super::*;
+
+    #[test]
+    fn read_limited_rejects_oversized_input() {
+        assert!(read_limited(&b"1234"[..], 3).is_err());
+    }
+
     #[test]
     fn rejects_oversized_procfs_text_before_parsing() {
         let path =

@@ -78,7 +78,7 @@ fn memory_partial_reads_and_map_statistics() {
 fn environment_and_auxv_read_child_metadata_and_reject_stale_identity() {
     let mut target = Target::new("sleeping");
     let environment: EnvironmentSnapshot = serde_json::from_value(
-        serde_json::to_value(process::details::environment(target.id).unwrap()).unwrap(),
+        serde_json::to_value(process::environment(target.id).unwrap()).unwrap(),
     )
     .unwrap();
     assert_eq!(environment.process_id, target.id);
@@ -103,10 +103,9 @@ fn environment_and_auxv_read_child_metadata_and_reject_stale_identity() {
             .as_deref(),
         Some("")
     );
-    let auxv: AuxVectorSnapshot = serde_json::from_value(
-        serde_json::to_value(process::details::auxv(target.id).unwrap()).unwrap(),
-    )
-    .unwrap();
+    let auxv: AuxVectorSnapshot =
+        serde_json::from_value(serde_json::to_value(process::auxv(target.id).unwrap()).unwrap())
+            .unwrap();
     assert_eq!(auxv.process_id, target.id);
     assert!(auxv.captured_at > 0);
     assert_eq!(auxv.word_bits, 64);
@@ -140,12 +139,12 @@ fn environment_and_auxv_read_child_metadata_and_reject_stale_identity() {
         start_time_ticks: target.id.start_time_ticks + 1,
         ..target.id
     };
-    assert!(process::details::environment(stale).is_err());
-    assert!(process::details::auxv(stale).is_err());
+    assert!(process::environment(stale).is_err());
+    assert!(process::auxv(stale).is_err());
     target.child.kill().unwrap();
     target.child.wait().unwrap();
-    assert!(process::details::environment(target.id).is_err());
-    assert!(process::details::auxv(target.id).is_err());
+    assert!(process::environment(target.id).is_err());
+    assert!(process::auxv(target.id).is_err());
 }
 
 #[test]

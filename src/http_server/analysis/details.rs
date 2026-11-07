@@ -164,3 +164,41 @@ pub fn complete(value: &mut serde_json::Value) -> Result<()> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn environment_preserves_duplicates_empty_values_and_equals() {
+        let entries = parse_environment(b"X=a=b\0EMPTY=\0X=second\0ODD\0RAW=\xff\0");
+        assert_eq!(entries.len(), 5);
+        assert_eq!(entries[0].value.as_deref(), Some("a=b"));
+        assert_eq!(entries[1].value.as_deref(), Some(""));
+        assert_eq!(entries[2].name, "X");
+        assert!(entries[3].value.is_none());
+        assert_eq!(entries[4].value.as_deref(), Some("\u{fffd}"));
+        assert!(parse_environment(b"").is_empty());
+        assert_eq!(parse_environment(b"X=last").len(), 1);
+    }
+
+    #[test]
+    fn auxv_handles_32_and_64_bits_unknown_tags_and_terminator() {
+        for word_bytes in [4, 8] {
+            let mut bytes = Vec::new();
+            for word in [6u64, 4096, 9, 0xf1234567, 999, 42, 0, 0] {
+                bytes.extend_from_slice(&word.to_le_bytes()[..word_bytes]);
+            }
+            let entries = parse_auxv(&bytes, word_bytes).unwrap();
+            assert_eq!(entries[0].name, "AT_PAGESZ");
+            assert_eq!(entries[1].value, 0xf1234567);
+            assert_eq!(entries[1].kind, "address");
+            assert_eq!(entries[2].name, "AT_UNKNOWN_999");
+            assert_eq!(entries[3].name, "AT_NULL");
+            assert!(parse_auxv(&bytes[..bytes.len() - 1], word_bytes).is_err());
+            bytes.extend_from_slice(&[123]); // padding past AT_NULL is ignored
+            assert_eq!(parse_auxv(&bytes, word_bytes).unwrap().len(), 4);
+        }
+        assert!(parse_auxv(&[], 8).is_err());
+    }
+}
