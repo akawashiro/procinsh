@@ -1,10 +1,8 @@
 //! Encode observation events and build server-sent-event responses.
 //!
 //! # Interface
-//! - [`encode_sse_events`] (`pub(super)`): `fn encode_sse_events( event: MonitorEvent, delivery: &mut SnapshotEncoder, ) -> (Vec<(&'static str, String)>, Option<Arc<Value>>)`.
-//! - [`build_sse_response`] (`pub(super)`): `fn build_sse_response( state: Arc<AppState>, mut session: ObservationSession, ) -> Response`.
-//!
-//! Supporting types: [`AppState`], [`Arc`], [`MonitorEvent`], [`ObservationSession`], [`Response`], [`SnapshotEncoder`], [`Value`].
+//! - [`encode_sse_events`] (`pub(super)`): `fn encode_sse_events( event: `[`MonitorEvent`]`, delivery: &mut `[`SnapshotEncoder`]`, ) -> (`[`Vec`]`<(&'static str, `[`String`]`)>, `[`Option`]`<`[`Arc`]`<`[`Value`]`>>)`.
+//! - [`build_sse_response`] (`pub(super)`): `fn build_sse_response( state: `[`Arc`]`<`[`AppState`]`>, mut session: `[`ObservationSession`]`, ) -> `[`Response`].
 
 use super::super::{AppState, client::ObservationSession, delivery::SnapshotEncoder};
 use crate::http_server::protocol::MonitorEvent;

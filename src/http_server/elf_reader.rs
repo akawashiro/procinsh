@@ -1,8 +1,8 @@
 //! Acquire only ELF ranges selected by main, preserving one verified file identity.
 //!
 //! # Interface
-//! [`acquire_mapped_elf_image`] (`pub(super)`): `async fn acquire_mapped_elf_image(client: &MonitorClient, id: ProcessId, mapping_start: u64, known: Option<ElfFileId>) -> anyhow::Result<Option<ElfImage>>`.
-//! Supporting values: [`MonitorClient`], [`ProcessId`], [`ElfFileId`], [`ElfImage`].
+//! [`acquire_mapped_elf_image`] (`pub(super)`): `async fn acquire_mapped_elf_image(client: &`[`MonitorClient`]`, id: `[`ProcessId`]`, mapping_start: u64, known: `[`Option`]`<`[`ElfFileId`]`>) -> `[`anyhow::Result`]`<`[`Option`]`<`[`ElfImage`]`>>`.
+
 use super::client::MonitorClient;
 use crate::{
     http_server::analysis::snapshot::symbol::ElfImage,

@@ -4,9 +4,7 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`resolve_descriptor_relations`] | `pub` | `fn resolve_descriptor_relations(data: &mut FileDescriptors)` |
-//!
-//! Shared signature types: [`FileDescriptors`].
+//! | [`resolve_descriptor_relations`] | `pub` | `fn resolve_descriptor_relations(data: &mut `[`FileDescriptors`]`)` |
 
 use crate::ipc::descriptors::{Endpoint, FileDescriptorInfo, FileDescriptors, Key, Owner};
 use crate::ipc::{

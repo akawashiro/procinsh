@@ -10,11 +10,9 @@
 //! - [`AgentResponse`] (`pub(super)`): `type AgentResponse = Result<crate::http_server::protocol::MonitorResponse, String>`.
 //! - [`PROTOCOL`] (`pub(super)`): `const PROTOCOL: u32`.
 //! - [`Message`] (`pub(super)`): `enum Message`.
-//! - [`read_host_message`] (`pub(super)`): `async fn read_host_message(reader: &mut (impl AsyncRead + Unpin)) -> Result<Message>`.
-//! - [`write_host_message`] (`pub(super)`): `async fn write_host_message( writer: &mut (impl AsyncWrite + Unpin), message: Message, ) -> Result<()>`.
+//! - [`read_host_message`] (`pub(super)`): `async fn read_host_message(reader: &mut (impl `[`AsyncRead`]` + `[`Unpin`]`)) -> `[`Result`]`<`[`Message`]`>`.
+//! - [`write_host_message`] (`pub(super)`): `async fn write_host_message( writer: &mut (impl `[`AsyncWrite`]` + `[`Unpin`]`), message: `[`Message`]`, ) -> `[`Result`]`<()>`.
 //! - [`same_secret`] (`pub(super)`): `fn same_secret(expected: &str, actual: &str) -> bool`.
-//!
-//! Supporting types: [`AsyncRead`], [`AsyncWrite`], [`Message`].
 
 use crate::ipc::schema::{MAX_RESPONSE, MonitorRequest};
 use anyhow::{Context, Result, bail, ensure};

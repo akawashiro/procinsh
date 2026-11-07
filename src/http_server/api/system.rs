@@ -1,9 +1,7 @@
 //! Serve local, remote and merged system observation streams.
 //!
 //! # Interface
-//! - [`stream_system_events`] (`pub(super)`): `async fn stream_system_events( State(s): State<Arc<AppState>>, Query(query): Query<HostQuery>, ) -> Result<Response, ApiError>`.
-//!
-//! Supporting types: [`ApiError`], [`AppState`], [`Arc`], [`HostQuery`], [`Query`], [`Response`], [`State`].
+//! - [`stream_system_events`] (`pub(super)`): `async fn stream_system_events( `[`State`]`(s): `[`State`]`<`[`Arc`]`<`[`AppState`]`>>, `[`Query`]`(query): `[`Query`]`<`[`HostQuery`]`>, ) -> `[`Result`]`<`[`Response`]`, `[`ApiError`]`>`.
 
 use super::super::{AppState, hosts::ALL_HOSTS};
 use super::hosts::{HostQuery, resolve_host_client};

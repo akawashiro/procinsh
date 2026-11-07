@@ -4,11 +4,9 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`read_maps`] | `pub(super)` | `fn read_maps(pid: i32) -> Result<Vec<MemoryMap>>` |
-//! | [`read_smaps`] | `pub(super)` | `fn read_smaps(pid: i32) -> Result<Vec<SmapsEntry>>` |
-//! | [`read_memory_rollup`] | `pub(super)` | `fn read_memory_rollup(pid: i32) -> Option<MemoryRollup>` |
-//!
-//! Shared signature types: [`MemoryMap`], [`MemoryRollup`], [`SmapsEntry`].
+//! | [`read_maps`] | `pub(super)` | `fn read_maps(pid: i32) -> `[`Result`]`<`[`Vec`]`<`[`MemoryMap`]`>>` |
+//! | [`read_smaps`] | `pub(super)` | `fn read_smaps(pid: i32) -> `[`Result`]`<`[`Vec`]`<`[`SmapsEntry`]`>>` |
+//! | [`read_memory_rollup`] | `pub(super)` | `fn read_memory_rollup(pid: i32) -> `[`Option`]`<`[`MemoryRollup`]`>` |
 
 use super::procfs::read_procfs_text;
 use crate::ipc::model::memory::{MemoryMap, SmapsEntry, parse_map, parse_smaps};

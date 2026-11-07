@@ -2,9 +2,7 @@
 //! queue pairs connected within this host.
 //!
 //! # Interface
-//! - [`build_rdma_relations`] (`pub(super)`): `fn build_rdma_relations( resources: &NldevResources, ports: &[RdmaPortInfo], neighbors: &HashMap<IpAddr, IbGid>, processes: &HashMap<i32, ProcessId>, ) -> Vec<RdmaRelation>`.
-//!
-//! Supporting types: [`HashMap`], [`crate::ipc::rdma::IbGid`], [`IpAddr`], [`NldevResources`], [`ProcessId`], [`crate::ipc::rdma::RdmaPortInfo`], [`crate::ipc::rdma::RdmaRelation`].
+//! - [`build_rdma_relations`] (`pub(super)`): `fn build_rdma_relations( resources: &`[`NldevResources`]`, ports: &[`[`crate::ipc::rdma::RdmaPortInfo`]`], neighbors: &`[`HashMap`]`<`[`IpAddr`]`, `[`crate::ipc::rdma::IbGid`]`>, processes: &`[`HashMap`]`<i32, `[`ProcessId`]`>, ) -> `[`Vec`]`<`[`crate::ipc::rdma::RdmaRelation`]`>`.
 
 use super::nldev::{CmIdEntry, NldevResources, QueuePairEntry, ResourceOwner};
 use crate::ipc::schema::ProcessId;

@@ -1,10 +1,9 @@
 //! Stopped-thread capture for initial and periodic sampling. The guard owns the attachment on every error path.
 //!
 //! # Interface
-//! - [`perform_ptrace_request`] (`pub(super)`): `fn perform_ptrace_request( operation: libc::c_uint, tid: i32, address: usize, data: usize, ) -> Result<()>`.
-//! - [`capture_thread_snapshot`] (`pub(super)`): `fn capture_thread_snapshot(tid: i32, maps: &[MemoryMap]) -> Result<RawSample>`.
-//!
-//! Supporting types: [`MemoryMap`], [`RawSample`].
+//! - [`perform_ptrace_request`] (`pub(super)`): `fn perform_ptrace_request( operation: libc::c_uint, tid: i32, address: usize, data: usize, ) -> `[`Result`]`<()>`.
+//! - [`capture_thread_snapshot`] (`pub(super)`): `fn capture_thread_snapshot(tid: i32, maps: &[`[`MemoryMap`]`]) -> `[`Result`]`<`[`RawSample`]`>`.
+
 #[cfg(target_arch = "aarch64")]
 use super::arch::aarch64::read_registers;
 #[cfg(target_arch = "x86_64")]

@@ -6,12 +6,9 @@
 //! | --- | --- | --- |
 //! | [`ElfImage`] | `pub` | `struct ElfImage` |
 //! | [`ElfCache`] | `pub` | `struct ElfCache` |
-//! | [`elf_address`] | `pub` | `fn elf_address(address: u64, map: &MemoryMap, elf: &ElfSymbols, page: u64) -> Option<u64>` |
+//! | [`elf_address`] | `pub` | `fn elf_address(address: u64, map: &`[`MemoryMap`](crate::ipc::model::memory::MemoryMap)`, elf: &`[`cache::ElfSymbols`]`, page: u64) -> `[`Option`]`<u64>` |
 //! | [`instruction_address`] | `pub` | `fn instruction_address(address: u64, return_address: bool) -> u64` |
-//! | [`resolve_frame`] | `pub` | `fn resolve_frame(address: u64, elf: &ElfSymbols) -> Option<SymbolInfo>` |
-//!
-//! Lookup helpers use [`cache::ElfSymbols`] and [`resolve::SymbolInfo`].
-//! Mapping arguments use [`MemoryMap`](crate::ipc::model::memory::MemoryMap).
+//! | [`resolve_frame`] | `pub` | `fn resolve_frame(address: u64, elf: &`[`cache::ElfSymbols`]`) -> `[`Option`]`<`[`resolve::SymbolInfo`]`>` |
 
 mod cache;
 mod image;

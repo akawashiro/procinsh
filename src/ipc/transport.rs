@@ -1,12 +1,11 @@
 //! Bounded native-endian binary framing over private Unix streams.
 //!
 //! # Interface
-//! - [`configure_ipc_socket`] (`pub`): `fn configure_ipc_socket(socket: &UnixStream) -> anyhow::Result<()>`.
-//! - [`send`] (`pub`): `fn send<T: Wire>(socket: &mut UnixStream, value: &T, limit: usize) -> anyhow::Result<()>`.
-//! - [`read`] (`pub`): `fn read<T: Wire>(socket: &mut UnixStream, limit: usize) -> anyhow::Result<T>`.
-//! - [`read_timeout`] (`pub`): `fn read_timeout<T: Wire>(socket: &mut UnixStream, limit: usize, timeout: Duration) -> anyhow::Result<T>`.
-//!
-//! Supporting types: [`UnixStream`], [`Wire`], [`Duration`].
+//! - [`configure_ipc_socket`] (`pub`): `fn configure_ipc_socket(socket: &`[`UnixStream`]`) -> `[`anyhow::Result`]`<()>`.
+//! - [`send`] (`pub`): `fn send<T: `[`Wire`]`>(socket: &mut `[`UnixStream`]`, value: &T, limit: usize) -> `[`anyhow::Result`]`<()>`.
+//! - [`read`] (`pub`): `fn read<T: `[`Wire`]`>(socket: &mut `[`UnixStream`]`, limit: usize) -> `[`anyhow::Result`]`<T>`.
+//! - [`read_timeout`] (`pub`): `fn read_timeout<T: `[`Wire`]`>(socket: &mut `[`UnixStream`]`, limit: usize, timeout: `[`Duration`]`) -> `[`anyhow::Result`]`<T>`.
+
 use super::codec::{self, Wire};
 use super::schema::TIMEOUT;
 use anyhow::{Context, Result, ensure};

@@ -1,9 +1,7 @@
 //! Launch the HTTP runtime and supervise its privileged helper.
 //!
 //! # Interface
-//! - [`launch_http_server`] (`pub(crate)`): `fn launch_http_server(config: super::ServerConfig) -> Result<()>`.
-//!
-//! Supporting types: [`super::ServerConfig`].
+//! - [`launch_http_server`] (`pub(crate)`): `fn launch_http_server(config: `[`super::ServerConfig`]`) -> `[`Result`]`<()>`.
 
 use super::{client::MonitorClient, privileges};
 use crate::ipc::schema::{HelperIdentity, MAX_REQUEST};

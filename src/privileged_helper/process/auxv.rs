@@ -1,9 +1,7 @@
 //! Acquire bounded auxiliary-vector words and selected strings from target memory.
 //!
 //! # Interface
-//! - [`read_auxiliary_vector`] (`pub(super)`): `fn read_auxiliary_vector(id: ProcessId) -> anyhow::Result<AuxData>`.
-//!
-//! Process identities use [`ProcessId`]; captured words and strings use [`AuxData`](crate::ipc::acquisition::AuxData).
+//! - [`read_auxiliary_vector`] (`pub(super)`): `fn read_auxiliary_vector(id: `[`ProcessId`]`) -> `[`anyhow::Result`]`<`[`AuxData`](crate::ipc::acquisition::AuxData)`>`.
 
 use super::procfs::read_bounded_bytes;
 use anyhow::{Context, Result, bail, ensure};

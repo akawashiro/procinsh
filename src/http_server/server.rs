@@ -2,9 +2,7 @@
 //!
 //! # Interface
 //! - [`ServerConfig`] (`pub(crate)`): `struct ServerConfig`.
-//! - [`serve_http_requests`] (`pub(super)`): `async fn serve_http_requests( config: ServerConfig, client: super::client::MonitorClient, ) -> Result<()>`.
-//!
-//! Supporting types: [`ServerConfig`], [`super::client::MonitorClient`].
+//! - [`serve_http_requests`] (`pub(super)`): `async fn serve_http_requests( config: `[`ServerConfig`]`, client: `[`super::client::MonitorClient`]`, ) -> `[`Result`]`<()>`.
 
 use super::{
     AppState,

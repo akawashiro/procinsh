@@ -6,10 +6,8 @@
 //! | --- | --- | --- |
 //! | [`SymbolInfo`] | `pub` | `struct SymbolInfo` |
 //! | [`instruction_address`] | `pub` | `fn instruction_address(address: u64, return_address: bool) -> u64` |
-//! | [`elf_address`] | `pub` | `fn elf_address(address: u64, map: &MemoryMap, elf: &ElfSymbols, page: u64) -> Option<u64>` |
-//! | [`resolve_frame`] | `pub` | `fn resolve_frame(address: u64, elf: &ElfSymbols) -> Option<SymbolInfo>` |
-//!
-//! Resolution uses [`MemoryMap`], [`ElfSymbols`] and [`SourceFrame`].
+//! | [`elf_address`] | `pub` | `fn elf_address(address: u64, map: &`[`MemoryMap`]`, elf: &`[`ElfSymbols`]`, page: u64) -> `[`Option`]`<u64>` |
+//! | [`resolve_frame`] | `pub` | `fn resolve_frame(address: u64, elf: &`[`ElfSymbols`]`) -> `[`Option`]`<`[`SymbolInfo`]`>` |
 
 use super::cache::ElfSymbols;
 use crate::ipc::{model::memory::MemoryMap, stack::SourceFrame};

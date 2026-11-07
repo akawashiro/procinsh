@@ -4,9 +4,7 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`build_ipc_relations`] | `pub` | `fn build_ipc_relations(result: &mut SystemSnapshot) -> bool` |
-//!
-//! Input and output values are defined by [`SystemSnapshot`].
+//! | [`build_ipc_relations`] | `pub` | `fn build_ipc_relations(result: &mut `[`SystemSnapshot`]`) -> bool` |
 
 use crate::ipc::model::{
     resource::IpcKind,
