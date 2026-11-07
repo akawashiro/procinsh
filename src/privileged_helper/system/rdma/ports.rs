@@ -1,10 +1,8 @@
 //! Local RDMA port addresses and link state from sysfs.
 //!
 //! # Interface
-//! - [`list_rdma_devices`] (`pub(super)`): `fn list_rdma_devices(root: &Path) -> Vec<String>`.
-//! - [`read_rdma_ports`] (`pub(super)`): `fn read_rdma_ports(root: &Path) -> Vec<RdmaPortInfo>`.
-//!
-//! Supporting types: [`Path`], [`crate::ipc::rdma::RdmaPortInfo`].
+//! - [`list_rdma_devices`] (`pub(super)`): `fn list_rdma_devices(root: &`[`Path`]`) -> `[`Vec`]`<`[`String`]`>`.
+//! - [`read_rdma_ports`] (`pub(super)`): `fn read_rdma_ports(root: &`[`Path`]`) -> `[`Vec`]`<`[`crate::ipc::rdma::RdmaPortInfo`]`>`.
 
 use std::{fs, path::Path};
 

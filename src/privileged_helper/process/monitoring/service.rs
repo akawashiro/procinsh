@@ -5,9 +5,7 @@
 //! - [`ObservationPermit`] (`pub(in crate::privileged_helper)`): `struct ObservationPermit`.
 //! - [`ObservationSession`] (`pub(in crate::privileged_helper)`): `struct ObservationSession`.
 //! - [`capture_target`] (`pub(in crate::privileged_helper::process)`):
-//!   `fn capture_target(id: ProcessId) -> anyhow::Result<(ProcessDetailSnapshot, ProcessSample)>`.
-//!
-//! Shared values use [`ProcessId`], [`ProcessDetailSnapshot`] and [`ProcessSample`].
+//!   `fn capture_target(id: `[`ProcessId`]`) -> `[`anyhow::Result`]`<(`[`ProcessDetailSnapshot`]`, `[`ProcessSample`]`)>`.
 
 #[cfg(test)]
 use crate::http_server::model::process::{initial_observation, next_observation};

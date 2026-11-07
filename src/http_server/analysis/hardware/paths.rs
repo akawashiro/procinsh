@@ -4,9 +4,7 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`build_hardware_paths`] | `pub` | `fn build_hardware_paths(nodes: &[PciNode], numa_nodes: usize) -> Vec<HardwarePath>` |
-//!
-//! Shared signature types: [`HardwarePath`].
+//! | [`build_hardware_paths`] | `pub` | `fn build_hardware_paths(nodes: &[`[`PciNode`]`], numa_nodes: usize) -> `[`Vec`]`<`[`HardwarePath`]`>` |
 
 use crate::ipc::hardware::{HardwarePath, PathClass};
 use std::collections::HashMap;

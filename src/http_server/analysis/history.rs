@@ -4,11 +4,7 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`append_history_observation`] | `pub` | `fn append_history_observation(history: &mut VecDeque<HistoryPoint>, observation: &ProcessObservation)` |
-//!
-//! Shared signature types: [`HistoryPoint`].
-
-//! History observations use [`ProcessObservation`].
+//! | [`append_history_observation`] | `pub` | `fn append_history_observation(history: &mut `[`VecDeque`]`<`[`HistoryPoint`]`>, observation: &`[`ProcessObservation`]`)` |
 
 use crate::ipc::history::HistoryPoint;
 use crate::ipc::model::process::ProcessObservation;

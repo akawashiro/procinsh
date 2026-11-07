@@ -4,10 +4,8 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`initial_observation`] | `pub` | `fn initial_observation(current: &ProcessSample) -> ProcessObservation` |
-//! | [`next_observation`] | `pub` | `fn next_observation(previous: &ProcessSample, current: &ProcessSample) -> ProcessObservation` |
-//!
-//! Shared signature types: [`ProcessObservation`], [`ProcessSample`].
+//! | [`initial_observation`] | `pub` | `fn initial_observation(current: &`[`ProcessSample`]`) -> `[`ProcessObservation`] |
+//! | [`next_observation`] | `pub` | `fn next_observation(previous: &`[`ProcessSample`]`, current: &`[`ProcessSample`]`) -> `[`ProcessObservation`] |
 
 use crate::ipc::model::process::{
     IoStats, ProcessObservation, ProcessSample, Rates, ticks_per_second,

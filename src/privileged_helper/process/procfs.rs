@@ -5,17 +5,13 @@
 //! - [`Stat`]: `struct Stat`.
 //! - [`page_size`]: `fn page_size() -> u64`.
 //! - [`ticks_per_second`]: `fn ticks_per_second() -> f64`.
-//! - [`parse_process_stat`]: `fn parse_process_stat(text: &str) -> anyhow::Result<Stat>`.
-//! - [`read_bounded_bytes`]: `fn read_bounded_bytes(reader: impl std::io::Read, limit: usize) -> anyhow::Result<Vec<u8>>`.
-//! - [`read_procfs_text`]: `fn read_procfs_text(path: &str) -> anyhow::Result<String>`.
-//! - [`read_process_stat`]: `fn read_process_stat(path: &str) -> anyhow::Result<Stat>`.
-//! - [`read_procfs_fields`]: `fn read_procfs_fields(path: &str) -> anyhow::Result<HashMap<String, String>>`.
-//! - [`parse_procfs_u64_field`]: `fn parse_procfs_u64_field(fields: &HashMap<String, String>, key: &str) -> Option<u64>`.
-//! - [`read_process_io_stats`]: `fn read_process_io_stats(pid: i32) -> anyhow::Result<IoStats>`.
-//!
-//! Field maps use [`HashMap`]; bounded readers implement [`Read`].
-//!
-//! Shared signature types: [`IoStats`].
+//! - [`parse_process_stat`]: `fn parse_process_stat(text: &str) -> `[`anyhow::Result`]`<`[`Stat`]`>`.
+//! - [`read_bounded_bytes`]: `fn read_bounded_bytes(reader: impl `[`std::io::Read`]`, limit: usize) -> `[`anyhow::Result`]`<`[`Vec`]`<u8>>`.
+//! - [`read_procfs_text`]: `fn read_procfs_text(path: &str) -> `[`anyhow::Result`]`<`[`String`]`>`.
+//! - [`read_process_stat`]: `fn read_process_stat(path: &str) -> `[`anyhow::Result`]`<`[`Stat`]`>`.
+//! - [`read_procfs_fields`]: `fn read_procfs_fields(path: &str) -> `[`anyhow::Result`]`<`[`HashMap`]`<`[`String`]`, `[`String`]`>>`.
+//! - [`parse_procfs_u64_field`]: `fn parse_procfs_u64_field(fields: &`[`HashMap`]`<`[`String`]`, `[`String`]`>, key: &str) -> `[`Option`]`<u64>`.
+//! - [`read_process_io_stats`]: `fn read_process_io_stats(pid: i32) -> `[`anyhow::Result`]`<`[`IoStats`]`>`.
 
 use anyhow::{Context, Result, anyhow, ensure};
 use std::{collections::HashMap, fs, io::Read};

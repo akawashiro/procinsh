@@ -1,9 +1,7 @@
 //! Acquire bounded environment bytes after checking privacy and process identity.
 //!
 //! # Interface
-//! - [`read_environment`] (`pub(super)`): `fn read_environment(id: ProcessId) -> anyhow::Result<EnvironmentData>`.
-//!
-//! Process identities use [`ProcessId`]; captured bytes use [`EnvironmentData`](crate::ipc::acquisition::EnvironmentData).
+//! - [`read_environment`] (`pub(super)`): `fn read_environment(id: `[`ProcessId`]`) -> `[`anyhow::Result`]`<`[`EnvironmentData`](crate::ipc::acquisition::EnvironmentData)`>`.
 
 use super::procfs::read_bounded_bytes;
 use anyhow::{Result, ensure};

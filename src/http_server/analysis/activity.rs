@@ -5,13 +5,9 @@
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
 //! | [`FileBatch`] | `pub` | `struct FileBatch` |
-//! | [`resolve_signal`] | `pub` | `fn resolve_signal( sample: SignalSample, processes: &HashMap<i32, ProcessId>, ) -> Option<SignalEvent>` |
+//! | [`resolve_signal`] | `pub` | `fn resolve_signal( sample: `[`SignalSample`]`, processes: &`[`HashMap`]`<i32, `[`ProcessId`]`>, ) -> `[`Option`]`<`[`SignalEvent`]`>` |
 //! | [`ActivityBatch`] | `pub` | `struct ActivityBatch` |
 //! | [`ActivityProcessor`] | `pub` | `struct ActivityProcessor` |
-//!
-//! Process identities use [`ProcessId`]; lookup tables use [`HashMap`].
-//!
-//! Shared signature types: [`SignalEvent`], [`SignalSample`].
 
 use crate::ipc::activity::{
     CpuActivity, CpuCounters, FileActivity, IpcActivity, IpcEvent, ProcessKey, RawActivity,

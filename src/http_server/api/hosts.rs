@@ -2,10 +2,8 @@
 //!
 //! # Interface
 //! - [`HostQuery`] (`pub(super)`): `struct HostQuery`.
-//! - [`list_hosts`] (`pub(super)`): `async fn list_hosts(State(s): State<Arc<AppState>>) -> Json<Value>`.
-//! - [`resolve_host_client`] (`pub(super)`): `fn resolve_host_client( s: &AppState, host: Option<&str>, ) -> Result<MonitorClient, ApiError>`.
-//!
-//! Supporting types: [`ApiError`], [`AppState`], [`Arc`], [`Json`], [`MonitorClient`], [`State`], [`Value`].
+//! - [`list_hosts`] (`pub(super)`): `async fn list_hosts(`[`State`]`(s): `[`State`]`<`[`Arc`]`<`[`AppState`]`>>) -> `[`Json`]`<`[`Value`]`>`.
+//! - [`resolve_host_client`] (`pub(super)`): `fn resolve_host_client( s: &`[`AppState`]`, host: `[`Option`]`<&str>, ) -> `[`Result`]`<`[`MonitorClient`]`, `[`ApiError`]`>`.
 
 use super::super::{
     AppState,

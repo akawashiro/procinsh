@@ -1,11 +1,9 @@
 //! Enumerate processes and acquire process summaries and user names.
 //!
 //! # Interface
-//! - [`collect_process_summary`] (`pub(super)`): `fn collect_process_summary( stat: &procfs::Stat, users: &HashMap<u32, String>, ) -> ProcessSummary`.
-//! - [`read_user_names`] (`pub(super)`): `fn read_user_names() -> HashMap<u32, String>`.
-//! - [`collect_processes`] (`pub(in crate::privileged_helper)`): `fn collect_processes() -> Result<Vec<ProcessSummary>>`.
-//!
-//! Supporting types: [`HashMap`], [`crate::ipc::acquisition::ProcessSummary`], [`procfs::Stat`].
+//! - [`collect_process_summary`] (`pub(super)`): `fn collect_process_summary( stat: &`[`procfs::Stat`]`, users: &`[`HashMap`]`<u32, `[`String`]`>, ) -> `[`crate::ipc::acquisition::ProcessSummary`].
+//! - [`read_user_names`] (`pub(super)`): `fn read_user_names() -> `[`HashMap`]`<u32, `[`String`]`>`.
+//! - [`collect_processes`] (`pub(in crate::privileged_helper)`): `fn collect_processes() -> `[`Result`]`<`[`Vec`]`<`[`crate::ipc::acquisition::ProcessSummary`]`>>`.
 
 // Visibility is scoped to the consumers of the parent process façade.
 use anyhow::Result;

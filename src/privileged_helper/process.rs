@@ -17,14 +17,14 @@
 //!
 //! | Definition | Visibility | Signature |
 //! | --- | --- | --- |
-//! | [`collect_processes`] | `pub(super)` | `fn collect_processes() -> anyhow::Result<Vec<ProcessSummary>>` |
+//! | [`collect_processes`] | `pub(super)` | `fn collect_processes() -> `[`anyhow::Result`]`<`[`Vec`]`<`[`ProcessSummary`](crate::ipc::acquisition::ProcessSummary)`>>` |
 //! | [`validate_process_identity`] | `pub(super)` | `fn validate_process_identity(id: `[`crate::ipc::schema::ProcessId`]`) -> `[`Result`](anyhow::Result)`<()>` |
-//! | [`collect_process_observation`] | `pub(super)` | `fn collect_process_observation (id: ProcessId) -> anyhow::Result<`[`ObservationData`](crate::ipc::acquisition::ObservationData)`>` |
-//! | [`collect_thread_observation`] | `pub(super)` | `fn collect_thread_observation (id: ProcessId) -> anyhow::Result<`[`ObservationData`](crate::ipc::acquisition::ObservationData)`>` |
-//! | [`collect_memory_maps`] | `pub(super)` | `fn collect_memory_maps (id: ProcessId) -> anyhow::Result<`[`MemoryMaps`](crate::ipc::acquisition::MemoryMaps)`>` |
-//! | [`read_environment`] | `pub(super)` | `fn read_environment (id: ProcessId) -> anyhow::Result<`[`EnvironmentData`](crate::ipc::acquisition::EnvironmentData)`>` |
-//! | [`read_auxiliary_vector`] | `pub(super)` | `fn read_auxiliary_vector (id: ProcessId) -> anyhow::Result<`[`AuxData`](crate::ipc::acquisition::AuxData)`>` |
-//! | [`collect_file_descriptors`] | `pub(super)` | `fn collect_file_descriptors (id: ProcessId) -> anyhow::Result<`[`FileDescriptors`](crate::ipc::descriptors::FileDescriptors)`>` |
+//! | [`collect_process_observation`] | `pub(super)` | `fn collect_process_observation (id: `[`crate::ipc::schema::ProcessId`]`) -> `[`anyhow::Result`]`<`[`ObservationData`](crate::ipc::acquisition::ObservationData)`>` |
+//! | [`collect_thread_observation`] | `pub(super)` | `fn collect_thread_observation (id: `[`crate::ipc::schema::ProcessId`]`) -> `[`anyhow::Result`]`<`[`ObservationData`](crate::ipc::acquisition::ObservationData)`>` |
+//! | [`collect_memory_maps`] | `pub(super)` | `fn collect_memory_maps (id: `[`crate::ipc::schema::ProcessId`]`) -> `[`anyhow::Result`]`<`[`MemoryMaps`](crate::ipc::acquisition::MemoryMaps)`>` |
+//! | [`read_environment`] | `pub(super)` | `fn read_environment (id: `[`crate::ipc::schema::ProcessId`]`) -> `[`anyhow::Result`]`<`[`EnvironmentData`](crate::ipc::acquisition::EnvironmentData)`>` |
+//! | [`read_auxiliary_vector`] | `pub(super)` | `fn read_auxiliary_vector (id: `[`crate::ipc::schema::ProcessId`]`) -> `[`anyhow::Result`]`<`[`AuxData`](crate::ipc::acquisition::AuxData)`>` |
+//! | [`collect_file_descriptors`] | `pub(super)` | `fn collect_file_descriptors (id: `[`crate::ipc::schema::ProcessId`]`) -> `[`anyhow::Result`]`<`[`FileDescriptors`](crate::ipc::descriptors::FileDescriptors)`>` |
 //! | [`memory_maps`] | `pub(super)` | `fn memory_maps(pid: `[`i32`]`) -> `[`Result`](anyhow::Result)`<`[`Vec`]`<`[`crate::ipc::model::memory::MemoryMap`]`>>` |
 //! | [`read_procfs_fields`] | `pub(super)` | `fn read_procfs_fields(path: &`[`str`]`) -> `[`Result`](anyhow::Result)`<`[`HashMap`](std::collections::HashMap)`<`[`String`]`, `[`String`]`>>` |
 //! | [`socket_text`] | `pub(super)` | `fn socket_text(path: &`[`str`]`) -> `[`Result`](anyhow::Result)`<`[`String`]`>` |
@@ -32,14 +32,13 @@
 //! | [`unix_sockets`] | `pub(super)` | `fn unix_sockets(text: &`[`str`]`) -> `[`HashMap`](std::collections::HashMap)`<`[`u64`]`, `[`crate::ipc::model::sockets::SocketInfo`]`>` |
 //! | [`unix_socket_peers`] | `pub(super)` | `fn unix_socket_peers(namespace: &`[`NetworkNamespaceReader`]`, deadline: `[`Instant`](std::time::Instant)`) -> `[`Result`](anyhow::Result)`<`[`HashMap`](std::collections::HashMap)`<`[`u64`]`, `[`crate::ipc::model::sockets::SocketInfo`]`>>` |
 //! | [`additional_sockets`] | `pub(super)` | `fn additional_sockets(pid: `[`i32`]`) -> `[`HashMap`](std::collections::HashMap)`<`[`u64`]`, `[`crate::ipc::model::sockets::SocketInfo`]`>` |
-//! | [`acquire_process_elf_ranges`] | `pub(super)` | `fn acquire_process_elf_ranges(id: ProcessId, mapping_start: u64, ranges: Vec<crate::ipc::elf::FileRange>) -> anyhow::Result<crate::ipc::schema::MonitorResponse>` |
+//! | [`acquire_process_elf_ranges`] | `pub(super)` | `fn acquire_process_elf_ranges(id: `[`crate::ipc::schema::ProcessId`]`, mapping_start: u64, ranges: `[`Vec`]`<`[`crate::ipc::elf::FileRange`]`>) -> `[`anyhow::Result`]`<`[`crate::ipc::schema::MonitorResponse`]`>` |
 //! | [`timestamp_ms`] | `pub(super)` | `fn timestamp_ms() -> `[`u64`] |
 //! | [`enable_privacy`] | `pub(super)` | `fn enable_privacy()` |
 //! | [`privacy_enabled`] | `pub(super)` | `fn privacy_enabled() -> `[`bool`] |
 //!
 //! Mapped ELF byte replies use [`MappedFileData`](crate::ipc::elf::MappedFileData).
-//!
-//! Shared signature types: [`ProcessSummary`](crate::ipc::acquisition::ProcessSummary).
+
 pub(super) use monitoring::ObservationSession;
 mod auxv;
 mod discovery;

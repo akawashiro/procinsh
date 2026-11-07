@@ -11,9 +11,7 @@
 //! - [`RdmaEvidence`] (`pub(in crate::http_server)`): `struct RdmaEvidence`.
 //! - [`RdmaLink`] (`pub(in crate::http_server)`): `struct RdmaLink`.
 //! - [`CrossHostLinks`] (`pub(in crate::http_server)`): `struct CrossHostLinks`.
-//! - [`correlate_host_connections`] (`pub(in crate::http_server)`): `fn correlate_host_connections( hosts: &[(&str, &Value)], ) -> CrossHostLinks`.
-//!
-//! Supporting types: [`CrossHostLinks`], [`Value`].
+//! - [`correlate_host_connections`] (`pub(in crate::http_server)`): `fn correlate_host_connections( hosts: &[(&str, &`[`Value`]`)], ) -> `[`CrossHostLinks`].
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

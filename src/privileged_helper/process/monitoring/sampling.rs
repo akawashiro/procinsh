@@ -1,10 +1,8 @@
 //! Acquire raw process/thread counters with monotonic timestamps.
 //!
 //! # Interface
-//! [`capture_sample`] (`pub(super)`): `fn capture_sample(id: ProcessId) -> anyhow::Result<ProcessSample>`.
+//! [`capture_sample`] (`pub(super)`): `fn capture_sample(id: `[`ProcessId`]`) -> `[`anyhow::Result`]`<`[`ProcessSample`]`>`.
 //! Shared observation values and calculations come from [`crate::ipc::model::process`].
-//!
-//! Shared signature types: [`ProcessSample`].
 
 #[cfg(test)]
 use crate::ipc::model::process::IoStats;

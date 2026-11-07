@@ -4,12 +4,8 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`classify_register_value`] | `pub` | `fn classify_register_value(name: &str, role: RegisterRole, value: u64, maps: &[MemoryMap]) -> Register` |
-//! | [`classify_sample_registers`] | `pub` | `fn classify_sample_registers(r: &RegisterSet, maps: &[MemoryMap]) -> Vec<Register>` |
-//!
-//! Mapping arguments use [`MemoryMap`]; classification values use [`MemoryKind`].
-//!
-//! Shared signature types: [`RegisterRole`], [`RegisterSet`], [`Register`].
+//! | [`classify_register_value`] | `pub` | `fn classify_register_value(name: &str, role: `[`RegisterRole`]`, value: u64, maps: &[`[`MemoryMap`]`]) -> `[`Register`] |
+//! | [`classify_sample_registers`] | `pub` | `fn classify_sample_registers(r: &`[`RegisterSet`]`, maps: &[`[`MemoryMap`]`]) -> `[`Vec`]`<`[`Register`]`>` |
 
 use crate::ipc::model::memory::{MemoryKind, MemoryMap};
 use crate::ipc::registers::{Register, RegisterMapping, RegisterRole, RegisterSet};
