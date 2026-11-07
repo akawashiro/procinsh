@@ -1,5 +1,5 @@
 use super::{
-    MemoryMap, ProcessId, aux, env,
+    MemoryMap, ProcessId, env,
     maps::{self},
     monitoring, procfs,
     sockets::{self, SocketInfo},
@@ -74,7 +74,7 @@ pub(in crate::privileged_helper) fn environment(
 pub(in crate::privileged_helper) fn auxv(
     id: ProcessId,
 ) -> Result<crate::ipc::acquisition::AuxData> {
-    aux::auxv(id)
+    super::auxv::auxv(id)
 }
 
 pub(in crate::privileged_helper) fn fds(
