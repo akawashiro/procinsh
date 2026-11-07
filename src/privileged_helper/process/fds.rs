@@ -297,7 +297,7 @@ pub(super) fn read(id: ProcessId) -> Result<FileDescriptors> {
         entries.push(FileDescriptorInfo {
             fd,
             kind: key.kind,
-            inode: key.inode.to_string(),
+            inode: key.inode,
             target: link,
             access: access(mode),
             protocol: None,
@@ -426,7 +426,7 @@ pub(super) fn read(id: ProcessId) -> Result<FileDescriptors> {
             entry.path = info.path.clone();
             let mut peers = Vec::new();
             if let Some(inode) = info.peer_inode {
-                entry.peer_inode = Some(inode.to_string());
+                entry.peer_inode = Some(inode);
                 peers.push(inode);
             } else if let Some((tcp, local, remote)) = inet_key(info)
                 && let Some(inodes) = reversed.get(&(tcp, remote, local))
