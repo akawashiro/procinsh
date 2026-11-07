@@ -8,9 +8,9 @@
 //! | [`parse_inet_socket_table`] | `pub(super)` | `fn parse_inet_socket_table(text: &`[`str`]`, protocol: `[`SocketProtocol`]`) -> `[`HashMap`]`<`[`u64`]`, `[`crate::ipc::model::sockets::SocketInfo`]`>` |
 //! | [`parse_unix_socket_table`] | `pub(super)` | `fn parse_unix_socket_table(text: &`[`str`]`) -> `[`HashMap`]`<`[`u64`]`, `[`crate::ipc::model::sockets::SocketInfo`]`>` |
 //! | [`diagnostic_socket`] | `pub(super)` | `fn diagnostic_socket() -> `[`Result`]`<`[`OwnedFd`]`>` |
-//! | [`collect_unix_socket_peers`] | `pub(super)` | `fn collect_unix_socket_peers(namespace: &`[`NetworkNamespaceReader`]`, deadline: `[`Instant`]`) -> `[`Result`]`<`[`HashMap`]`<`[`u64`]`, `[`crate::ipc::model::sockets::SocketInfo`]`>>` |
+//! | [`collect_unix_socket_peers`] | `pub(super)` | `fn collect_unix_socket_peers(namespace: &`[`NetworkNamespace`]`, deadline: `[`Instant`]`) -> `[`Result`]`<`[`HashMap`]`<`[`u64`]`, `[`crate::ipc::model::sockets::SocketInfo`]`>>` |
 
-use super::socket_namespace::NetworkNamespaceReader;
+use super::socket_namespace::{NetworkNamespace, open_namespace_diagnostic_socket};
 
 use crate::ipc::model::socket_types::{SocketProtocol, SocketState, SocketType};
 use crate::privileged_helper::netlink;
@@ -168,10 +168,10 @@ pub(super) fn diagnostic_socket() -> Result<OwnedFd> {
 // The socket keeps its creation namespace even when queried by another thread.
 // Query only metadata. No endpoint is opened, consumed, or modified.
 pub(super) fn collect_unix_socket_peers(
-    namespace: &NetworkNamespaceReader,
+    namespace: &NetworkNamespace,
     deadline: Instant,
 ) -> Result<HashMap<u64, SocketInfo>> {
-    let fd = namespace.diagnostic_socket(deadline)?;
+    let fd = open_namespace_diagnostic_socket(namespace, deadline)?;
     // struct unix_diag_req
     let mut payload = [0u8; 24];
     payload[0] = libc::AF_UNIX as u8;

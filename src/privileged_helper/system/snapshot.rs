@@ -158,7 +158,7 @@ pub(super) fn collect_system_snapshot_from_sources(sources: &HardwareSources) ->
     let mut infos = HashMap::new();
     let mut inode_ns = HashMap::new();
     let mut namespaces = HashSet::new();
-    let mut namespace_readers = Vec::new();
+    let mut network_namespaces = Vec::new();
     let mut denied = 0;
     let mut metadata: HashMap<IpcIdentity, process::SocketMetadata> = HashMap::new();
     let mut truncated = false;
@@ -191,8 +191,8 @@ pub(super) fn collect_system_snapshot_from_sources(sources: &HardwareSources) ->
         if let Ok(ns) = fs::metadata(format!("/proc/{pid}/ns/net"))
             && namespaces.insert((ns.dev(), ns.ino()))
         {
-            match process::NetworkNamespaceReader::open(n.identity) {
-                Ok(reader) => namespace_readers.push((n.identity, reader)),
+            match process::open_network_namespace(n.identity) {
+                Ok(namespace) => network_namespaces.push((n.identity, namespace)),
                 Err(e) => result
                     .warnings
                     .push(format!("UNIX peer namespace for PID {pid}: {e:#}")),
@@ -337,7 +337,7 @@ pub(super) fn collect_system_snapshot_from_sources(sources: &HardwareSources) ->
         }
     }
     let diag_deadline = Instant::now() + Duration::from_millis(500);
-    for (id, namespace) in namespace_readers {
+    for (id, namespace) in network_namespaces {
         if Instant::now() >= diag_deadline {
             result.warnings.push(
                 "UNIX peer namespace scan reached its 500ms limit. Some peers may be missing."
@@ -350,7 +350,7 @@ pub(super) fn collect_system_snapshot_from_sources(sources: &HardwareSources) ->
             Err(e) => result.warnings.push(format!(
                 "UNIX peer for PID {} / namespace {:?}: {e:#}",
                 id.pid,
-                namespace.key()
+                (namespace.device, namespace.inode)
             )),
         }
     }
