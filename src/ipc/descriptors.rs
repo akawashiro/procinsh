@@ -1,3 +1,12 @@
+//! Native file descriptor observations, resource identities, peers and holders for IPC.
+//!
+//! # Interface
+//! - [`FileDescriptorInfo`] (`pub`): `struct FileDescriptorInfo`.
+//! - [`FileDescriptors`] (`pub`): `struct FileDescriptors`.
+//! - [`Endpoint`] (`pub`): `struct Endpoint`.
+//! - [`Key`] (`pub`): `struct Key`.
+//! - [`Owner`] (`pub`): `struct Owner`.
+
 use crate::ipc::{model::socket_types::*, schema::ProcessId};
 
 #[derive(Debug)]
@@ -10,14 +19,16 @@ pub struct Owner {
 pub struct FileDescriptors {
     pub process_id: ProcessId,
     pub captured_at: u64,
-    pub entries: Vec<Descriptor>,
+    pub entries: Vec<FileDescriptorInfo>,
     pub warnings: Vec<String>,
     pub raw_fd_owners: Vec<(Key, Vec<Owner>)>,
     pub raw_peer_keys: Vec<(u32, Vec<Key>)>,
 }
 
+/// Metadata for one file descriptor, including its resource, peers and shared holders.
+/// `fd` is the descriptor number within the owning process.
 #[derive(Debug)]
-pub struct Descriptor {
+pub struct FileDescriptorInfo {
     pub fd: u32,
     pub kind: FdKind,
     pub inode: String,
@@ -66,7 +77,7 @@ crate::ipc::codec::wire_struct!(FileDescriptors {
     raw_peer_keys
 });
 
-crate::ipc::codec::wire_struct!(Descriptor {
+crate::ipc::codec::wire_struct!(FileDescriptorInfo {
     fd,
     kind,
     inode,

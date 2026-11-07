@@ -6,12 +6,12 @@
 //! | --- | --- | --- |
 //! | [`Key`] | `pub` | `struct Key` |
 //! | [`Endpoint`] | `pub` | `struct Endpoint` |
-//! | [`Descriptor`] | `pub` | `struct Descriptor` |
+//! | [`FileDescriptorInfo`] | `pub` | `struct FileDescriptorInfo` |
 //! | [`FileDescriptors`] | `pub` | `struct FileDescriptors` |
 //! | [`Owner`] | `pub` | `struct Owner` |
 //! | [`complete`] | `pub` | `fn complete(data: &mut FileDescriptors)` |
 
-pub use crate::ipc::descriptors::{Descriptor, Endpoint, FileDescriptors, Key, Owner};
+pub use crate::ipc::descriptors::{Endpoint, FileDescriptorInfo, FileDescriptors, Key, Owner};
 use crate::{http_server::model::socket_types::*, ipc::schema::ProcessId};
 use std::collections::HashMap;
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -58,8 +58,8 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::descriptors::Endpoint {
 
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(dead_code)]
-#[serde(remote = "crate::ipc::descriptors::Descriptor")]
-struct DescriptorJson {
+#[serde(remote = "crate::ipc::descriptors::FileDescriptorInfo")]
+struct FileDescriptorInfoJson {
     pub fd: u32,
     pub kind: FdKind,
     pub inode: String,
@@ -80,15 +80,15 @@ struct DescriptorJson {
     pub mode: Option<u32>,
     pub socket_device: Option<u64>,
 }
-impl serde::Serialize for crate::ipc::descriptors::Descriptor {
+impl serde::Serialize for crate::ipc::descriptors::FileDescriptorInfo {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        DescriptorJson::serialize(self, s)
+        FileDescriptorInfoJson::serialize(self, s)
     }
 }
 
-impl<'de> serde::Deserialize<'de> for crate::ipc::descriptors::Descriptor {
+impl<'de> serde::Deserialize<'de> for crate::ipc::descriptors::FileDescriptorInfo {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        DescriptorJson::deserialize(d)
+        FileDescriptorInfoJson::deserialize(d)
     }
 }
 
@@ -98,7 +98,7 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::descriptors::Descriptor {
 struct FileDescriptorsJson {
     pub process_id: ProcessId,
     pub captured_at: u64,
-    pub entries: Vec<Descriptor>,
+    pub entries: Vec<FileDescriptorInfo>,
     pub warnings: Vec<String>,
     #[serde(default)]
     pub raw_fd_owners: Vec<(Key, Vec<Owner>)>,

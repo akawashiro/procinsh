@@ -1,11 +1,13 @@
-//! Descriptor kinds, communication peers and shared holders for one process.
+//! Acquire file descriptor metadata, communication peers and shared holders for one process.
 //!
 //! # Interface
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
 //! | [`Endpoint`] | `pub(super)` | `struct Endpoint` |
-//! | [`Descriptor`] | `pub(super)` | `struct Descriptor` |
+//! | [`Key`] | `pub(super)` | `struct Key` |
+//! | [`Owner`] | `pub(super)` | `struct Owner` |
+//! | [`FileDescriptorInfo`] | `pub(super)` | `struct FileDescriptorInfo` |
 //! | [`FileDescriptors`] | `pub(super)` | `struct FileDescriptors` |
 //! | [`read`] | `pub(super)` | `fn read(id: `[`ProcessId`]`) -> `[`Result`]`<`[`FileDescriptors`]`>` |
 
@@ -27,7 +29,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub(super) use crate::ipc::descriptors::{Descriptor, Endpoint, FileDescriptors, Key, Owner};
+pub(super) use crate::ipc::descriptors::{
+    Endpoint, FileDescriptorInfo, FileDescriptors, Key, Owner,
+};
 
 fn inode(link: &str, prefix: &str) -> Option<u64> {
     link.strip_prefix(prefix)?.strip_suffix(']')?.parse().ok()
@@ -290,7 +294,7 @@ pub(super) fn read(id: ProcessId) -> Result<FileDescriptors> {
             continue;
         };
         let mode = mode(id.pid, fd);
-        entries.push(Descriptor {
+        entries.push(FileDescriptorInfo {
             fd,
             kind: key.kind,
             inode: key.inode.to_string(),
