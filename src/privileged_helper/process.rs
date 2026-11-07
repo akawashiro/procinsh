@@ -43,9 +43,10 @@
 //!
 //! Mapped ELF byte replies use [`MappedFileData`](crate::ipc::elf::MappedFileData).
 pub(super) use monitoring::ObservationSession;
-mod details;
+mod aux;
 mod discovery;
 mod elf;
+mod env;
 mod fds;
 mod identity;
 mod maps;
