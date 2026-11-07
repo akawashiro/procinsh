@@ -238,8 +238,8 @@ pub fn complete(data: &mut FileDescriptors) {
 mod inode_tests {
     use super::*;
 
-    fn descriptor_with_inodes(inode: u64, peer_inode: Option<u64>) -> Descriptor {
-        Descriptor {
+    fn descriptor_with_inodes(inode: u64, peer_inode: Option<u64>) -> FileDescriptorInfo {
+        FileDescriptorInfo {
             fd: 3,
             kind: FdKind::Pipe,
             inode,
@@ -276,10 +276,10 @@ mod inode_tests {
                     json["peer_inode"],
                     peer_inode.map_or(serde_json::Value::Null, |value| value.to_string().into())
                 );
-                let parsed: Descriptor = serde_json::from_value(json).unwrap();
+                let parsed: FileDescriptorInfo = serde_json::from_value(json).unwrap();
                 assert_eq!((parsed.inode, parsed.peer_inode), (inode, peer_inode));
                 let bytes = crate::ipc::codec::encode(&descriptor, 4096).unwrap();
-                let decoded: Descriptor = crate::ipc::codec::decode(&bytes).unwrap();
+                let decoded: FileDescriptorInfo = crate::ipc::codec::decode(&bytes).unwrap();
                 assert_eq!((decoded.inode, decoded.peer_inode), (inode, peer_inode));
             }
         }
@@ -290,7 +290,7 @@ mod inode_tests {
         let mut json = serde_json::to_value(descriptor_with_inodes(42, None)).unwrap();
         json.as_object_mut().unwrap().remove("peer_inode");
         assert!(
-            serde_json::from_value::<Descriptor>(json.clone())
+            serde_json::from_value::<FileDescriptorInfo>(json.clone())
                 .unwrap()
                 .peer_inode
                 .is_none()
@@ -299,7 +299,7 @@ mod inode_tests {
             for field in ["inode", "peer_inode"] {
                 let mut invalid_json = json.clone();
                 invalid_json[field] = invalid.into();
-                assert!(serde_json::from_value::<Descriptor>(invalid_json).is_err());
+                assert!(serde_json::from_value::<FileDescriptorInfo>(invalid_json).is_err());
             }
         }
     }

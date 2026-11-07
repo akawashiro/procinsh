@@ -31,6 +31,7 @@ pub struct FileDescriptors {
 pub struct FileDescriptorInfo {
     pub fd: u32,
     pub kind: FdKind,
+    /// Native inode number, retained without decimal-string conversion.
     pub inode: u64,
     pub target: String,
     pub access: FdAccess,
@@ -41,6 +42,7 @@ pub struct FileDescriptorInfo {
     pub local: Option<InetAddress>,
     pub remote: Option<InetAddress>,
     pub path: Option<String>,
+    /// Peer inode number when the socket peer was observed.
     pub peer_inode: Option<u64>,
     pub peers: Vec<Endpoint>,
     pub holders: Vec<Endpoint>,
