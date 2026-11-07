@@ -1,17 +1,16 @@
 #[cfg(test)]
-use super::sampling::{initial_observation, next_observation};
+use crate::http_server::model::process::{initial_observation, next_observation};
 #[cfg(test)]
 use std::collections::VecDeque;
 // Session handles and lifecycle methods are re-exported by the process façade.
-use super::sampling::{ProcessSample, capture_sample};
 #[cfg(test)]
 use crate::http_server::analysis::history;
 use crate::privileged_helper::process::SubscribeError;
+use {super::sampling::capture_sample, crate::ipc::model::process::ProcessSample};
 
-use crate::privileged_helper::process::{
-    self, ProcessId,
-    maps::{self, MemoryMap},
-    procfs,
+use crate::{
+    ipc::{model::memory::MemoryMap, schema::ProcessId},
+    privileged_helper::process::{self, maps, procfs},
 };
 use anyhow::{Result, ensure};
 use std::{
@@ -25,7 +24,7 @@ use tokio::sync::watch;
 
 /// SSE observation state with detailed maps and independently aged live samples.
 /// Map entries flatten structural mappings with optional RSS/PSS measurements.
-pub use crate::ipc::acquisition::ProcessDetailSnapshot;
+use crate::ipc::acquisition::ProcessDetailSnapshot;
 /// Manages process observation sessions, collector workers and shutdown.
 pub(in crate::privileged_helper) struct ProcessMonitor {
     interval: Duration,

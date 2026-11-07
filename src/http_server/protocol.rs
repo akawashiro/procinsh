@@ -5,18 +5,6 @@
 //! - [`MonitorResponse`] (`pub(super)`): `enum MonitorResponse`.
 //! - [`convert_monitor_response`] (`pub(super)`): `fn convert_monitor_response(raw: crate::ipc::schema::MonitorResponse) -> anyhow::Result<MonitorResponse>`.
 //!
-//! - [`HelperIdentity`] (`pub(super)`): `struct HelperIdentity` from [`crate::ipc::schema`].
-//! - [`MonitorRequest`] (`pub(super)`): `enum MonitorRequest` from [`crate::ipc::schema`].
-//! - [`ProcessId`] (`pub(super)`): `struct ProcessId` from [`crate::ipc::schema`].
-//! - [`ProcessResource`] (`pub(super)`): `enum ProcessResource` from [`crate::ipc::schema`].
-//! - [`MAX_REQUEST`] (`pub(super)`): `const MAX_REQUEST: usize` from [`crate::ipc::schema`].
-//! - [`MAX_RESPONSE`] (`pub(super)`): `const MAX_RESPONSE: usize` from [`crate::ipc::schema`].
-//! - [`TIMEOUT`] (`pub(super)`): `const TIMEOUT: std::time::Duration` from [`crate::ipc::schema`].
-//! - [`WireResponse`] (`pub(super)`): `type WireResponse = Result<crate::ipc::schema::MonitorResponse, String>` from [`crate::ipc::schema`].
-pub(super) use crate::ipc::schema::{
-    HelperIdentity, MAX_REQUEST, MAX_RESPONSE, MonitorRequest, ProcessId, ProcessResource, TIMEOUT,
-    WireResponse,
-};
 use anyhow::Result;
 use serde_json::Value;
 #[derive(serde::Serialize, serde::Deserialize)]

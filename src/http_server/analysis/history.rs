@@ -4,13 +4,14 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`HistoryPoint`] | `pub` | `struct HistoryPoint` |
 //! | [`append_history_observation`] | `pub` | `fn append_history_observation(history: &mut VecDeque<HistoryPoint>, observation: &ProcessObservation)` |
+//!
+//! Shared signature types: [`HistoryPoint`](crate::ipc::history::HistoryPoint).
 
 //! History observations use [`ProcessObservation`].
 
-use crate::http_server::model::process::ProcessObservation;
-pub use crate::ipc::history::HistoryPoint;
+use crate::ipc::history::HistoryPoint;
+use crate::ipc::model::process::ProcessObservation;
 use std::collections::VecDeque;
 
 #[derive(serde::Serialize)]

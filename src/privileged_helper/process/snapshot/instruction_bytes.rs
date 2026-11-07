@@ -1,13 +1,13 @@
 //! Capture bounded instruction bytes from the sampled PC for main-side decoding.
 //!
 //! # Interface
-//! [`InstructionBytes`] (`pub(super)`): `struct InstructionBytes`.
+//! [`crate::ipc::acquisition::InstructionBytes`] (`pub(super)`): `struct InstructionBytes`.
 
-use crate::privileged_helper::process::{maps::MemoryMap, memory};
+use crate::{ipc::model::memory::MemoryMap, privileged_helper::process::memory};
 
 const MAX_BYTES: usize = 256;
 
-pub(super) use crate::ipc::acquisition::InstructionBytes;
+use crate::ipc::acquisition::InstructionBytes;
 
 impl InstructionBytes {
     fn empty(address: u64) -> Self {
@@ -46,13 +46,14 @@ impl InstructionBytes {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+
+    use crate::ipc::acquisition::InstructionBytes;
 
     #[test]
     fn reads_mapping_boundary_and_retains_captured_bytes_after_memory_changes() {
         let mut bytes = [0x55u8, 0xc3];
         let address = bytes.as_ptr() as u64;
-        let map = crate::privileged_helper::process::maps::parse_map(&format!(
+        let map = crate::ipc::model::memory::parse_map(&format!(
             "{address:x}-{:x} r-xp 0 00:00 0",
             address + 2
         ))

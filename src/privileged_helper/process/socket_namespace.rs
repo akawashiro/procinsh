@@ -6,7 +6,6 @@
 //! | --- | --- | --- |
 //! | [`NetworkNamespaceReader`] | `pub(in crate::privileged_helper)` | `struct NetworkNamespaceReader` |
 
-use super::{ProcessId, validate_process_identity};
 use anyhow::{Context, Result, anyhow, ensure};
 use std::{
     fs::File,
@@ -17,6 +16,7 @@ use std::{
     thread,
     time::Instant,
 };
+use {super::validate_process_identity, crate::ipc::schema::ProcessId};
 
 /// Owns a namespace FD so an exiting process or reused PID cannot retarget a query.
 /// Namespace switching is confined to a fresh thread that exits after creating
@@ -168,12 +168,12 @@ mod tests {
             let socket = details.entries.iter().find(|entry| entry.fd == 61).unwrap();
             assert_eq!(
                 socket.state,
-                Some(crate::privileged_helper::socket_types::SocketState::Connected)
+                Some(crate::ipc::model::socket_types::SocketState::Connected)
             );
             assert!(socket.peer_inode.is_none());
             assert_ne!(
                 socket.connection_status,
-                Some(crate::privileged_helper::socket_types::SocketConnectionStatus::Unconnected)
+                Some(crate::ipc::model::socket_types::SocketConnectionStatus::Unconnected)
             );
             assert!(
                 details

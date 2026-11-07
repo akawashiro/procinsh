@@ -27,7 +27,7 @@ impl CpuActivityCollector {
     pub(super) fn collect(
         &mut self,
         now: u64,
-        _snapshot: &super::snapshot::SystemSnapshot,
+        _snapshot: &crate::ipc::model::system::SystemSnapshot,
     ) -> Result<crate::ipc::activity::CpuCounters> {
         let current = self
             .obj

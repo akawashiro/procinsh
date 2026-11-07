@@ -4,17 +4,15 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`RegisterMapping`] | `pub` | `struct RegisterMapping` |
-//! | [`Register`] | `pub` | `struct Register` |
 //! | [`classify_register_value`] | `pub` | `fn classify_register_value(name: &str, role: RegisterRole, value: u64, maps: &[MemoryMap]) -> Register` |
-//! | [`RegisterRole`] | `pub` | `enum RegisterRole` |
-//! | [`RegisterSet`] | `pub` | `struct RegisterSet` |
 //! | [`classify_sample_registers`] | `pub` | `fn classify_sample_registers(r: &RegisterSet, maps: &[MemoryMap]) -> Vec<Register>` |
 //!
 //! Mapping arguments use [`MemoryMap`]; classification values use [`MemoryKind`].
+//!
+//! Shared signature types: [`RegisterRole`](crate::ipc::registers::RegisterRole), [`RegisterSet`](crate::ipc::registers::RegisterSet), [`Register`](crate::ipc::registers::Register).
 
-use crate::http_server::model::memory::{MemoryKind, MemoryMap};
-pub use crate::ipc::registers::{Register, RegisterMapping, RegisterRole, RegisterSet};
+use crate::ipc::model::memory::{MemoryKind, MemoryMap};
+use crate::ipc::registers::{Register, RegisterMapping, RegisterRole, RegisterSet};
 
 #[derive(serde::Serialize)]
 #[allow(dead_code)]
@@ -196,7 +194,11 @@ impl serde::Serialize for RegisterRole {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::ipc::model::memory::MemoryKind;
+    use {
+        super::*,
+        crate::ipc::registers::{RegisterRole, RegisterSet},
+    };
 
     #[cfg(target_arch = "x86_64")]
     #[test]
@@ -229,10 +231,9 @@ mod tests {
 
     #[test]
     fn register_mapping_keeps_fields_and_offset_or_integer() {
-        let map = crate::http_server::model::memory::parse_map(
-            "1000-2000 rw-p 00000000 08:01 42 /tmp/a [b]",
-        )
-        .unwrap();
+        let map =
+            crate::ipc::model::memory::parse_map("1000-2000 rw-p 00000000 08:01 42 /tmp/a [b]")
+                .unwrap();
         let register = classify_register_value("RAX", RegisterRole::General, 0x1008, &[map]);
         assert_eq!(register.kind, MemoryKind::File);
         assert_eq!(register.offset, Some(8));

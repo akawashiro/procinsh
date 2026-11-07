@@ -68,6 +68,8 @@ pub struct InstructionBytes {
     pub bytes: Vec<u8>,
     pub error: Option<String>,
 }
+/// Latest thread sample with loss and error diagnostics.
+/// `sampled_at` is Unix milliseconds; `sample_age_ms` uses monotonic time.
 #[derive(Clone, Debug)]
 pub struct LiveSample {
     pub tid: i32,
@@ -134,6 +136,7 @@ pub struct SystemMonitorStatus {
     pub unresolved: Option<u64>,
     pub files_lost: Option<u64>,
 }
+/// Health of an acquisition sensor; unavailable and error states carry a diagnostic.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub enum SensorState {
     #[default]

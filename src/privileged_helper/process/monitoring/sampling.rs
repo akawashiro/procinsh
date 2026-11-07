@@ -3,14 +3,16 @@
 //! # Interface
 //! [`capture_sample`] (`pub(super)`): `fn capture_sample(id: ProcessId) -> anyhow::Result<ProcessSample>`.
 //! Shared observation values and calculations come from [`crate::ipc::model::process`].
+//!
+//! Shared signature types: [`ProcessSample`](crate::ipc::model::process::ProcessSample).
+
 #[cfg(test)]
-use super::super::procfs::IoStats;
-#[cfg(test)]
-pub(in crate::privileged_helper::process) use crate::http_server::model::process::{
-    initial_observation, next_observation,
+use crate::ipc::model::process::IoStats;
+use crate::ipc::model::process::ProcessSample;
+use crate::{
+    ipc::schema::ProcessId,
+    privileged_helper::process::{self, procfs, threads},
 };
-pub(in crate::privileged_helper::process) use crate::ipc::model::process::ProcessSample;
-use crate::privileged_helper::process::{self, ProcessId, procfs, threads};
 use anyhow::Result;
 
 pub(in crate::privileged_helper::process) fn capture_sample(
@@ -56,6 +58,13 @@ pub(in crate::privileged_helper::process) fn capture_sample(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use {
+        super::capture_sample,
+        crate::{
+            http_server::model::process::{initial_observation, next_observation},
+            ipc::model::process::ProcessSample,
+        },
+    };
 
     fn sample() -> ProcessSample {
         let id = process::read_process_identity(std::process::id() as i32).unwrap();

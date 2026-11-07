@@ -17,7 +17,10 @@
 
 use super::super::AppState;
 use super::hosts::{HostQuery, resolve_host_client};
-use crate::http_server::protocol::{MonitorRequest, MonitorResponse, ProcessId, ProcessResource};
+use crate::{
+    http_server::protocol::MonitorResponse,
+    ipc::schema::{MonitorRequest, ProcessId, ProcessResource},
+};
 use axum::{
     Json,
     extract::{Query, State},

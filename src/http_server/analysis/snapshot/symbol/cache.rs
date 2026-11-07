@@ -5,10 +5,9 @@
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
 //! | [`ElfSymbols`] | `pub` | `struct ElfSymbols` |
-//! | [`ElfFileId`] | `pub` | `type ElfFileId = (u64, u64, u64, i64, i64)` |
 //! | [`ElfCache`] | `pub` | `struct ElfCache` |
 
-use crate::http_server::model::memory::MemoryMap;
+use crate::ipc::model::memory::MemoryMap;
 use object::{Object, ObjectSection, ObjectSegment, ObjectSymbol};
 use std::{
     collections::HashMap,
@@ -169,7 +168,7 @@ const MAX_UNITS: usize = 16_384;
 const MAX_CACHE_BYTES: u64 = 128 * 1024 * 1024;
 
 /// Device, inode, length and nanosecond modification time of a verified file.
-pub use crate::ipc::elf::ElfFileId;
+use crate::ipc::elf::ElfFileId;
 #[cfg(test)]
 pub struct ElfFile {
     pub identity: ElfFileId,

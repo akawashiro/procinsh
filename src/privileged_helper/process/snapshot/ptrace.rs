@@ -9,9 +9,12 @@
 use super::arch::aarch64::read_registers;
 #[cfg(target_arch = "x86_64")]
 use super::arch::x86_64::read_registers;
-use super::sample::{RawSample, SampleSource, monotonic_ns};
-use crate::privileged_helper::process::{maps::MemoryMap, memory};
+use crate::{ipc::model::memory::MemoryMap, privileged_helper::process::memory};
 use anyhow::{Result, ensure};
+use {
+    super::sample::{RawSample, monotonic_ns},
+    crate::ipc::acquisition::SampleSource,
+};
 
 pub(super) fn perform_ptrace_request(
     operation: libc::c_uint,

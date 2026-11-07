@@ -1,11 +1,13 @@
 /// Remembers only operational states, not continuously changing counters.
 #[derive(Default)]
-pub(super) struct StatusLog(std::collections::HashMap<&'static str, super::model::SensorState>);
+pub(super) struct StatusLog(
+    std::collections::HashMap<&'static str, crate::ipc::acquisition::SensorState>,
+);
 impl StatusLog {
     fn changes(
         &mut self,
-        status: &super::model::SystemMonitorStatus,
-    ) -> Vec<(&'static str, super::model::SensorState)> {
+        status: &crate::ipc::acquisition::SystemMonitorStatus,
+    ) -> Vec<(&'static str, crate::ipc::acquisition::SensorState)> {
         let mut changes = Vec::new();
         for (key, state) in [
             ("ipc", &status.ipc),
@@ -21,11 +23,12 @@ impl StatusLog {
         changes
     }
 
-    pub(super) fn observe(&mut self, status: &super::model::SystemMonitorStatus) {
+    pub(super) fn observe(&mut self, status: &crate::ipc::acquisition::SystemMonitorStatus) {
         for (key, value) in self.changes(status) {
             if matches!(
                 value,
-                super::model::SensorState::Unavailable(_) | super::model::SensorState::Error(_)
+                crate::ipc::acquisition::SensorState::Unavailable(_)
+                    | crate::ipc::acquisition::SensorState::Error(_)
             ) {
                 log::warn!("System {key}: {value}");
             } else {

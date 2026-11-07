@@ -4,33 +4,26 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`SignalEvent`] | `pub` | `struct SignalEvent` |
-//! | [`IpcActivity`] | `pub` | `struct IpcActivity` |
-//! | [`CpuActivity`] | `pub` | `struct CpuActivity` |
-//! | [`FileActivity`] | `pub` | `struct FileActivity` |
 //! | [`FileBatch`] | `pub` | `struct FileBatch` |
-//! | [`IpcEvent`] | `pub` | `struct IpcEvent` |
-//! | [`SignalSample`] | `pub` | `struct SignalSample` |
 //! | [`resolve_signal`] | `pub` | `fn resolve_signal( sample: SignalSample, processes: &HashMap<i32, ProcessId>, ) -> Option<SignalEvent>` |
-//! | [`ProcessKey`] | `pub` | `struct ProcessKey` |
-//! | [`CpuCounters`] | `pub` | `struct CpuCounters` |
-//! | [`RawActivity`] | `pub` | `struct RawActivity` |
 //! | [`ActivityBatch`] | `pub` | `struct ActivityBatch` |
 //! | [`ActivityProcessor`] | `pub` | `struct ActivityProcessor` |
 //!
 //! Process identities use [`ProcessId`]; lookup tables use [`HashMap`].
+//!
+//! Shared signature types: [`SignalEvent`](crate::ipc::activity::SignalEvent), [`SignalSample`](crate::ipc::activity::SignalSample).
 
-pub use crate::ipc::activity::{
+use crate::ipc::activity::{
     CpuActivity, CpuCounters, FileActivity, IpcActivity, IpcEvent, ProcessKey, RawActivity,
     SignalEvent, SignalSample,
 };
 use crate::ipc::activity::{process_key, u64_at};
-use crate::{
-    http_server::model::{
+use crate::ipc::{
+    model::{
         process::ticks_per_second,
         resource::{DeviceId, FileIdentity, IpcIdentity, IpcKind},
     },
-    ipc::schema::ProcessId,
+    schema::ProcessId,
 };
 use std::collections::HashMap;
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -412,7 +405,10 @@ impl ActivityProcessor {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use {
+        super::*,
+        crate::ipc::activity::{CpuCounters, RawActivity},
+    };
     #[test]
     fn cpu_idle_transition_is_reported_even_without_a_counter_delta() {
         let start = 1_000_000_000u64;

@@ -1,7 +1,7 @@
-use super::hardware::{DeviceHandle, HardwareDevice, HardwarePath};
-use super::rdma::{RdmaPortInfo, RdmaRelation};
-use super::snapshot::{FdRelation, SystemSnapshot};
-use crate::privileged_helper::process::{MemoryMap, ProcessId};
+use crate::ipc::hardware::{DeviceHandle, HardwareDevice, HardwarePath};
+use crate::ipc::model::system::{FdRelation, SystemSnapshot};
+use crate::ipc::rdma::{RdmaPortInfo, RdmaRelation};
+use crate::ipc::{model::memory::MemoryMap, schema::ProcessId};
 use serde::Serialize;
 use std::{
     collections::HashMap,
@@ -250,9 +250,9 @@ impl SnapshotEncoder {
 
 #[cfg(test)]
 mod tests {
-    use super::super::snapshot::ProcessSnapshot;
     use super::*;
-    use crate::privileged_helper::{process::MemoryMap, resource::DeviceId};
+    use crate::ipc::model::system::ProcessSnapshot;
+    use crate::ipc::model::{memory::MemoryMap, resource::DeviceId};
 
     fn fixture(start: u64, mapped: bool, epoch: u64) -> Arc<SystemSnapshot> {
         Arc::new(SystemSnapshot {
@@ -453,17 +453,17 @@ mod tests {
         initial.fd_relations = (0..100)
             .map(|i| FdRelation {
                 id: format!("edge-{i}"),
-                endpoint: super::super::snapshot::FdEndpoint {
+                endpoint: crate::ipc::model::system::FdEndpoint {
                     process_id: initial.processes[0].identity,
                     fd: i,
                     fd_count: 1,
-                    resource: crate::privileged_helper::resource::IpcIdentity {
-                        kind: crate::privileged_helper::resource::IpcKind::Pipe,
+                    resource: crate::ipc::model::resource::IpcIdentity {
+                        kind: crate::ipc::model::resource::IpcKind::Pipe,
                         device: DeviceId::from_stat(0),
                         inode: 1,
                     },
-                    kind: crate::privileged_helper::socket_types::FdKind::Pipe,
-                    access: crate::privileged_helper::socket_types::FdAccess::Read,
+                    kind: crate::ipc::model::socket_types::FdKind::Pipe,
+                    access: crate::ipc::model::socket_types::FdAccess::Read,
                     connection_status: None,
                 },
                 peer: None,
@@ -473,12 +473,11 @@ mod tests {
                 shared: false,
             })
             .collect();
-        initial.fd_relations[2].endpoint.kind =
-            crate::privileged_helper::socket_types::FdKind::Socket;
+        initial.fd_relations[2].endpoint.kind = crate::ipc::model::socket_types::FdKind::Socket;
         initial.fd_relations[2].endpoint.resource.kind =
-            crate::privileged_helper::resource::IpcKind::Socket;
+            crate::ipc::model::resource::IpcKind::Socket;
         initial.fd_relations[2].endpoint.connection_status =
-            Some(crate::privileged_helper::socket_types::SocketConnectionStatus::Unknown);
+            Some(crate::ipc::model::socket_types::SocketConnectionStatus::Unknown);
         let mut delivery = SnapshotEncoder::default();
         let full = payload(&mut delivery, Arc::new(initial.clone()), false, now);
         assert_eq!(full["kind"], "full");
@@ -493,7 +492,7 @@ mod tests {
         current.fd_relations[0].label = "changed".into();
         // A status-only change must upsert a relation even when its label is stable.
         current.fd_relations[2].endpoint.connection_status =
-            Some(crate::privileged_helper::socket_types::SocketConnectionStatus::Unconnected);
+            Some(crate::ipc::model::socket_types::SocketConnectionStatus::Unconnected);
         current.fd_relations.remove(1);
         let mut added_relation = current.fd_relations[0].clone();
         added_relation.id = "new-edge".into();

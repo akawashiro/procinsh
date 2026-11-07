@@ -104,9 +104,9 @@ fn write_until(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        ipc::elf::{FileChunk, MappedFileData},
-        ipc::schema::{MAX_RESPONSE, MonitorResponse, WireResponse},
+    use crate::ipc::{
+        elf::{FileChunk, MappedFileData},
+        schema::{MAX_RESPONSE, MonitorResponse, WireResponse},
     };
     #[test]
     fn typed_elf_reply_transfers_large_files() {

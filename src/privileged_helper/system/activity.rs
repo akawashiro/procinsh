@@ -1,9 +1,9 @@
-use super::files::FileActivity;
-use super::model::{SensorState, SystemMonitorStatus};
 use super::signals::SignalCollector;
-use super::{
-    SystemSnapshot, files::FileActivityCollector, ipc::IpcActivityCollector,
-    sched::CpuActivityCollector,
+use crate::ipc::acquisition::{SensorState, SystemMonitorStatus};
+use crate::ipc::activity::FileActivity;
+use {
+    super::{files::FileActivityCollector, ipc::IpcActivityCollector, sched::CpuActivityCollector},
+    crate::ipc::model::system::SystemSnapshot,
 };
 
 /// Owns independently initialized BPF sensors, without service lifecycle or delivery.

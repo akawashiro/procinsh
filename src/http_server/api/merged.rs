@@ -14,7 +14,7 @@ use super::super::{
     hosts::{AgentLink, correlate_host_connections},
 };
 use super::process::ApiError;
-use crate::http_server::protocol::MonitorRequest;
+use crate::ipc::schema::MonitorRequest;
 use axum::response::{
     IntoResponse, Response, Sse,
     sse::{Event, KeepAlive},

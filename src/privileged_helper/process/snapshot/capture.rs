@@ -1,18 +1,19 @@
-#[cfg(test)]
-use super::sample::SampleSource;
 use super::sample::monotonic_ns;
-use super::{instruction_bytes::InstructionBytes, perf::PerfEventReader};
-#[cfg(test)]
-use super::{registers, stack::StackFrame};
 #[cfg(test)]
 use crate::http_server::analysis::snapshot::{
     symbol::{ElfCache, SymbolInfo, elf_address, instruction_address, resolve_frame},
     unwind::StackUnwinder,
 };
-use crate::privileged_helper::process::{
-    self, ProcessId,
-    maps::{MappingSnapshot, MemoryMap},
-    procfs,
+#[cfg(test)]
+use crate::ipc::acquisition::SampleSource;
+#[cfg(test)]
+use crate::ipc::stack::StackFrame;
+use crate::{
+    ipc::{
+        model::memory::{MappingSnapshot, MemoryMap},
+        schema::ProcessId,
+    },
+    privileged_helper::process::{self, procfs},
 };
 use anyhow::Result;
 use std::{
@@ -20,6 +21,7 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
+use {super::perf::PerfEventReader, crate::ipc::acquisition::InstructionBytes};
 
 fn executable_header(pid: i32) -> Option<[u8; 20]> {
     use std::io::Read;
@@ -32,9 +34,7 @@ fn executable_header(pid: i32) -> Option<[u8; 20]> {
 
 const PTRACE_INTERVAL: Duration = Duration::from_secs(10);
 
-/// Latest thread sample with loss and error diagnostics.
-/// `sampled_at` is Unix milliseconds; `sample_age_ms` uses monotonic time.
-pub(super) use crate::ipc::acquisition::LiveSample;
+use crate::ipc::acquisition::LiveSample;
 impl LiveSample {
     fn waiting(tid: i32, executable_header: Option<[u8; 20]>) -> Self {
         Self {
@@ -335,7 +335,9 @@ fn process_sample(
         cpu: sample.cpu,
         lost_samples: lost,
         #[cfg(test)]
-        registers: registers::classify_sample_registers(r, maps),
+        registers: crate::http_server::analysis::snapshot::registers::classify_sample_registers(
+            r, maps,
+        ),
         #[cfg(not(test))]
         registers: Vec::new(),
         raw_registers: Some(r.clone()),
@@ -364,7 +366,7 @@ fn apply_symbol_info(frame: &mut StackFrame, info: Option<SymbolInfo>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::privileged_helper::process::snapshot::stack::SourceFrame;
+    use crate::ipc::stack::SourceFrame;
 
     #[test]
     fn applying_symbols_replaces_fields_and_preserves_json_contract() {
@@ -398,6 +400,7 @@ mod tests {
 
 #[cfg(test)]
 mod live_tests {
+    use super::Sampler;
     use super::*;
     use crate::privileged_helper::process::Target;
     use std::{
@@ -415,7 +418,7 @@ mod live_tests {
 
     impl ThreadController {
         fn new() -> Self {
-            crate::privileged_helper::test_support::build_targets();
+            crate::test_support::build_targets();
             let (connection, child_connection) = UnixStream::pair().unwrap();
             connection
                 .set_read_timeout(Some(Duration::from_secs(10)))
@@ -675,7 +678,7 @@ mod live_tests {
             tid: target.id.pid,
             time_ns: time.saturating_sub(1),
             cpu: Some(0),
-            registers: registers::RegisterSet::default(),
+            registers: crate::ipc::registers::RegisterSet::default(),
             stack: Vec::new(),
             source: SampleSource::CpuClock,
         };
@@ -694,7 +697,7 @@ mod live_tests {
             tid: target.id.pid,
             time_ns: time + 1,
             cpu: Some(7),
-            registers: registers::RegisterSet::default(),
+            registers: crate::ipc::registers::RegisterSet::default(),
             stack: Vec::new(),
             source: SampleSource::CpuClock,
         };

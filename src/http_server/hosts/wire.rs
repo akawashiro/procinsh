@@ -16,7 +16,7 @@
 //!
 //! Supporting types: [`AsyncRead`], [`AsyncWrite`], [`Message`].
 
-use crate::http_server::protocol::{MAX_RESPONSE, MonitorRequest};
+use crate::ipc::schema::{MAX_RESPONSE, MonitorRequest};
 use anyhow::{Context, Result, bail, ensure};
 use flate2::{Compression, read::GzDecoder, write::GzEncoder};
 use serde::{Deserialize, Serialize};

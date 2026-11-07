@@ -2,23 +2,16 @@
 //!
 //! # Interface
 //!
-//! | Definition | Visibility | Kind / signature |
-//! | --- | --- | --- |
-//! | [`SystemActivity`] | `pub(in crate::privileged_helper)` | `struct SystemActivity` |
-//! | [`SystemMonitorStatus`] | `pub(in crate::privileged_helper)` | `struct SystemMonitorStatus` |
-//! | [`SensorState`] | `pub(in crate::privileged_helper)` | `enum SensorState` |
+//! No named types or functions are exported; shared values come from their definition modules.
 
 #[cfg(test)]
 use crate::ipc::activity::{CpuActivity, IpcActivity};
 #[cfg(test)]
-use crate::privileged_helper::process::ProcessId;
+use crate::ipc::model::resource::IpcIdentity;
 #[cfg(test)]
-use crate::privileged_helper::resource::IpcIdentity;
+use crate::ipc::schema::ProcessId;
 
-/// Health of an acquisition sensor; unavailable and error states carry a diagnostic.
-pub(in crate::privileged_helper) use crate::ipc::acquisition::SensorState;
-pub(in crate::privileged_helper) use crate::ipc::acquisition::SystemActivity;
-pub(in crate::privileged_helper) use crate::ipc::acquisition::SystemMonitorStatus;
+use crate::ipc::acquisition::SensorState;
 impl std::fmt::Display for SensorState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -32,6 +25,7 @@ impl std::fmt::Display for SensorState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ipc::acquisition::{SensorState, SystemActivity, SystemMonitorStatus};
     use serde_json::{json, to_value};
 
     #[test]
@@ -48,8 +42,8 @@ mod tests {
             ipc: vec![IpcActivity {
                 process_id: id,
                 resource: IpcIdentity {
-                    kind: crate::privileged_helper::resource::IpcKind::Pipe,
-                    device: crate::privileged_helper::resource::DeviceId::from_stat(1),
+                    kind: crate::ipc::model::resource::IpcKind::Pipe,
+                    device: crate::ipc::model::resource::DeviceId::from_stat(1),
                     inode: 2,
                 },
                 write: true,

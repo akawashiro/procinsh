@@ -4,7 +4,7 @@ use std::time::Duration;
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 struct EnvironmentSnapshot {
-    process_id: process::ProcessId,
+    process_id: crate::ipc::schema::ProcessId,
     captured_at: u64,
     entries: Vec<crate::http_server::analysis::details::EnvironmentEntry>,
     lossy_utf8: bool,
@@ -12,7 +12,7 @@ struct EnvironmentSnapshot {
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 struct AuxVectorSnapshot {
-    process_id: process::ProcessId,
+    process_id: crate::ipc::schema::ProcessId,
     captured_at: u64,
     word_bits: u8,
     entries: Vec<crate::http_server::analysis::details::AuxEntry>,
@@ -20,7 +20,7 @@ struct AuxVectorSnapshot {
 
 #[test]
 fn netns_fd_list_resolves_peers_separately_from_shared_holders() {
-    use crate::privileged_helper::socket_types::{SocketConnectionStatus, SocketState};
+    use crate::ipc::model::socket_types::{SocketConnectionStatus, SocketState};
     use std::os::fd::AsRawFd;
     for separate in [false, true] {
         let fixture = process::NetworkNamespaceTarget::new(separate);
@@ -136,7 +136,7 @@ fn environment_and_auxv_read_child_metadata_and_reject_stale_identity() {
             .unwrap()
             .starts_with("0x")
     );
-    let stale = process::ProcessId {
+    let stale = crate::ipc::schema::ProcessId {
         start_time_ticks: target.id.start_time_ticks + 1,
         ..target.id
     };
@@ -185,10 +185,10 @@ fn pipe_unix_tcp_udp_peers_are_distinct_from_shared_descriptors() {
     let listener = details.entries.iter().find(|e| e.fd == 65).unwrap();
     assert_eq!(
         listener.state,
-        Some(crate::privileged_helper::socket_types::SocketState::Listen)
+        Some(crate::ipc::model::socket_types::SocketState::Listen)
     );
     assert!(listener.peers.is_empty());
-    let stale = process::ProcessId {
+    let stale = crate::ipc::schema::ProcessId {
         start_time_ticks: target.id.start_time_ticks + 1,
         ..target.id
     };

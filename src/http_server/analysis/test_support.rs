@@ -2,8 +2,7 @@
 pub(super) mod process {
     use crate::{
         http_server::analysis::snapshot::symbol::{ElfCache, ElfFile, ElfSymbols},
-        http_server::model::memory::MemoryMap,
-        ipc::schema::ProcessId,
+        ipc::{model::memory::MemoryMap, schema::ProcessId},
     };
     use std::{
         fs,
@@ -18,10 +17,8 @@ pub(super) mod process {
         }
     }
     pub(crate) mod maps {
-        pub use crate::http_server::model::memory::parse_map;
-        pub fn read_maps(
-            pid: i32,
-        ) -> anyhow::Result<Vec<crate::http_server::model::memory::MemoryMap>> {
+        use crate::ipc::model::memory::parse_map;
+        pub fn read_maps(pid: i32) -> anyhow::Result<Vec<crate::ipc::model::memory::MemoryMap>> {
             fs::read_to_string(format!("/proc/{pid}/maps"))?
                 .lines()
                 .map(parse_map)

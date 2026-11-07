@@ -8,7 +8,11 @@
 //!
 //! Input and output values are defined by [`SystemSnapshot`].
 
-use crate::http_server::model::{resource::*, socket_types::*, system::*};
+use crate::ipc::model::{
+    resource::IpcKind,
+    socket_types::{FdKind, SocketConnectionStatus, SocketState},
+    system::{FdEndpoint, FdRelation, SocketEndpoint, SystemSnapshot},
+};
 use std::collections::{HashMap, HashSet};
 
 pub fn build_ipc_relations(result: &mut SystemSnapshot) -> bool {

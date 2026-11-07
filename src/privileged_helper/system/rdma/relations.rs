@@ -2,29 +2,20 @@
 //! queue pairs connected within this host.
 //!
 //! # Interface
-//! - [`RdmaQpType`] (`pub(in crate::privileged_helper::system)`): `enum RdmaQpType`.
-//! - [`RdmaQpState`] (`pub(in crate::privileged_helper::system)`): `enum RdmaQpState`.
-//! - [`RdmaCmState`] (`pub(in crate::privileged_helper::system)`): `enum RdmaCmState`.
-//! - [`RdmaPortSpace`] (`pub(in crate::privileged_helper::system)`): `enum RdmaPortSpace`.
-//! - [`IbGid`] (`pub(in crate::privileged_helper::system)`): `struct IbGid`.
-//! - [`RdmaAddress`] (`pub(in crate::privileged_helper::system)`): `enum RdmaAddress`.
-//! - [`RdmaPortInfo`] (`pub(in crate::privileged_helper::system)`): `struct RdmaPortInfo`.
-//! - [`RdmaEndpointOwner`] (`pub(in crate::privileged_helper::system)`): `enum RdmaEndpointOwner`.
-//! - [`RdmaEndpoint`] (`pub(in crate::privileged_helper::system)`): `struct RdmaEndpoint`.
-//! - [`RdmaCmInfo`] (`pub(in crate::privileged_helper::system)`): `struct RdmaCmInfo`.
-//! - [`RdmaRelation`] (`pub(in crate::privileged_helper::system)`): `struct RdmaRelation`.
 //! - [`build_rdma_relations`] (`pub(super)`): `fn build_rdma_relations( resources: &NldevResources, ports: &[RdmaPortInfo], neighbors: &HashMap<IpAddr, IbGid>, processes: &HashMap<i32, ProcessId>, ) -> Vec<RdmaRelation>`.
 //!
-//! Supporting types: [`HashMap`], [`IbGid`], [`IpAddr`], [`NldevResources`], [`ProcessId`], [`RdmaPortInfo`], [`RdmaRelation`].
+//! Supporting types: [`HashMap`], [`crate::ipc::rdma::IbGid`], [`IpAddr`], [`NldevResources`], [`ProcessId`], [`crate::ipc::rdma::RdmaPortInfo`], [`crate::ipc::rdma::RdmaRelation`].
 
 use super::nldev::{CmIdEntry, NldevResources, QueuePairEntry, ResourceOwner};
-use crate::privileged_helper::process::ProcessId;
+use crate::ipc::schema::ProcessId;
 use std::{
     collections::{HashMap, HashSet},
     net::IpAddr,
 };
 
-pub(in crate::privileged_helper::system) use crate::ipc::rdma::*;
+use crate::ipc::rdma::{
+    IbGid, RdmaAddress, RdmaCmInfo, RdmaEndpoint, RdmaEndpointOwner, RdmaPortInfo, RdmaRelation,
+};
 
 struct Endpoint<'a> {
     entry: &'a QueuePairEntry,
@@ -219,6 +210,7 @@ pub(super) fn build_rdma_relations(
 /// An unpaired user QP for encoder tests.
 #[cfg(test)]
 pub(in crate::privileged_helper::system) fn test_relation(qpn: u32) -> RdmaRelation {
+    use crate::ipc::rdma::{RdmaQpState, RdmaQpType};
     RdmaRelation {
         id: format!("rdma:ib0/1:{qpn}"),
         endpoint: RdmaEndpoint {
@@ -240,7 +232,12 @@ pub(in crate::privileged_helper::system) fn test_relation(qpn: u32) -> RdmaRelat
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use {
+        super::*,
+        crate::ipc::rdma::{
+            IbGid, RdmaAddress, RdmaCmState, RdmaPortInfo, RdmaPortSpace, RdmaQpState, RdmaQpType,
+        },
+    };
 
     fn queue_pair_fixture(
         device: &str,

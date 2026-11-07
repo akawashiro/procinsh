@@ -11,11 +11,13 @@
 //! | [`SystemSnapshot`] | `pub` | `struct SystemSnapshot` |
 //! | [`NeighborSnapshot`] | `pub` | `struct NeighborSnapshot` |
 
-use crate::{
-    ipc::hardware::{DeviceHandle, HardwareDevice, HardwarePath},
-    ipc::model::{memory::MemoryMap, resource::IpcIdentity, socket_types::*, sockets::SocketInfo},
-    ipc::schema::ProcessId,
+use crate::ipc::{
+    hardware::{DeviceHandle, HardwareDevice, HardwarePath},
+    model::{memory::MemoryMap, resource::IpcIdentity, socket_types::*, sockets::SocketInfo},
+    schema::ProcessId,
 };
+/// A Linux process and its observed structural address space, without RSS/PSS.
+/// CPU and RSS measurements belong to [`crate::ipc::acquisition::ProcessSummary`].
 #[derive(Clone)]
 pub struct ProcessSnapshot {
     pub identity: ProcessId,

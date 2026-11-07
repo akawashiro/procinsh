@@ -6,14 +6,11 @@
 //! | --- | --- | --- |
 //! | [`collect_thread_ids`] | `pub(super)` | `fn collect_thread_ids(pid: i32) -> Result<Vec<i32>>` |
 //! | [`read_thread_sample`] | `pub(super)` | `fn read_thread_sample(pid: i32, tid: i32) -> Result<ThreadSample>` |
-//! | [`SchedulerPolicy`] | `pub(super)` | `enum SchedulerPolicy` |
-//! | [`CpuRange`] | `pub(super)` | `struct CpuRange` |
-//! | [`parse_cpu_affinity`] | `pub(super)` | `fn parse_cpu_affinity(text: &str) -> Option<Vec<CpuRange>>` |
-//! | [`ThreadObservation`] | `pub(super)` | `struct ThreadObservation` |
-//! | [`ThreadSample`] | `pub(super)` | `struct ThreadSample` |
+//!
+//! Shared signature types: [`ThreadSample`](crate::ipc::model::threads::ThreadSample).
 
 use super::procfs::{self, Stat};
-pub(super) use crate::ipc::model::threads::*;
+use crate::ipc::model::threads::{SchedulerPolicy, ThreadSample, parse_cpu_affinity};
 use anyhow::{Result, ensure};
 use std::fs;
 

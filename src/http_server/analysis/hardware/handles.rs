@@ -5,12 +5,10 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`DeviceHandleKind`] | `pub` | `enum DeviceHandleKind` |
-//! | [`DeviceHandle`] | `pub` | `struct DeviceHandle` |
 //! | [`DeviceHandleCollector`] | `pub` | `struct DeviceHandleCollector` |
 
 use super::observation::HardwareSources;
-pub use crate::ipc::hardware::{DeviceHandle, DeviceHandleKind};
+use crate::ipc::hardware::{DeviceHandle, DeviceHandleKind};
 use crate::ipc::schema::ProcessId;
 use std::{
     collections::{HashMap, HashSet},
@@ -191,7 +189,9 @@ impl DeviceHandleCollector {
 #[cfg(test)]
 mod tests {
     use super::super::pci::fixture;
-    use super::*;
+    use crate::ipc::schema::ProcessId;
+    use std::collections::{HashMap, HashSet};
+    use {super::DeviceHandleCollector, crate::ipc::hardware::DeviceHandleKind};
 
     #[test]
     fn character_devices_resolve_to_pci_functions() {

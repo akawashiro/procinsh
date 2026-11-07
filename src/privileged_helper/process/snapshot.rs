@@ -12,10 +12,7 @@ mod capture;
 mod instruction_bytes;
 mod perf;
 mod ptrace;
-mod registers;
 mod sample;
-#[cfg(test)]
-mod stack;
 #[cfg(test)]
 mod unwind_fp;
 pub(super) use capture::Sampler;

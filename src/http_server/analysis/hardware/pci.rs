@@ -7,11 +7,6 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`HardwareRole`] | `pub` | `enum HardwareRole` |
-//! | [`HardwareKind`] | `pub` | `enum HardwareKind` |
-//! | [`PcieLink`] | `pub` | `struct PcieLink` |
-//! | [`PcieLinkInfo`] | `pub` | `struct PcieLinkInfo` |
-//! | [`BarInfo`] | `pub` | `struct BarInfo` |
 //! | [`PciNode`] | `pub` | `struct PciNode` |
 //! | [`read_topology`] | `pub` | `fn read_topology(sources: &HardwareSources, sys: &Path) -> Vec<PciNode>` |
 //! | [`online_numa_nodes`] | `pub` | `fn online_numa_nodes(sources: &HardwareSources, sys: &Path) -> usize` |
@@ -22,7 +17,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-pub use crate::ipc::hardware::HardwareRole;
+use crate::ipc::hardware::HardwareRole;
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::hardware::HardwareRole")]
@@ -45,7 +40,7 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::hardware::HardwareRole {
     }
 }
 
-pub use crate::ipc::hardware::HardwareKind;
+use crate::ipc::hardware::HardwareKind;
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::hardware::HardwareKind")]
@@ -71,7 +66,7 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::hardware::HardwareKind {
 }
 
 /// The negotiated or maximum link of a device to its upstream port.
-pub use crate::ipc::hardware::PcieLink;
+use crate::ipc::hardware::PcieLink;
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::hardware::PcieLink")]
@@ -103,7 +98,7 @@ impl PcieLink {
     }
 }
 
-pub use crate::ipc::hardware::PcieLinkInfo;
+use crate::ipc::hardware::PcieLinkInfo;
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::hardware::PcieLinkInfo")]
@@ -123,7 +118,7 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::hardware::PcieLinkInfo {
     }
 }
 
-pub use crate::ipc::hardware::BarInfo;
+use crate::ipc::hardware::BarInfo;
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::hardware::BarInfo")]
@@ -574,7 +569,10 @@ pub mod fixture {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use {
+        super::*,
+        crate::ipc::hardware::{BarInfo, HardwareKind, HardwareRole, PcieLink},
+    };
 
     #[test]
     fn topology_keeps_devices_of_interest_and_their_bridges() {

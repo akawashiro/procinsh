@@ -14,7 +14,7 @@ fn build_http_request(path: &str) -> Request<Body> {
         .unwrap()
 }
 
-fn process_query_string(id: super::process::ProcessId) -> String {
+fn process_query_string(id: crate::ipc::schema::ProcessId) -> String {
     format!("pid={}&start_time_ticks={}", id.pid, id.start_time_ticks)
 }
 
@@ -115,7 +115,7 @@ async fn explicit_identity_is_required_without_selection() {
                 "{uri}"
             );
         }
-        let stale = super::process::ProcessId {
+        let stale = crate::ipc::schema::ProcessId {
             start_time_ticks: id.start_time_ticks + 1,
             ..id
         };

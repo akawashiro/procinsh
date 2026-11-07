@@ -1,25 +1,14 @@
 //! Local RDMA port addresses and link state from sysfs.
 //!
 //! # Interface
-//! - [`RdmaQpType`] (`pub(in crate::privileged_helper::system)`): `enum RdmaQpType`.
-//! - [`RdmaQpState`] (`pub(in crate::privileged_helper::system)`): `enum RdmaQpState`.
-//! - [`RdmaCmState`] (`pub(in crate::privileged_helper::system)`): `enum RdmaCmState`.
-//! - [`RdmaPortSpace`] (`pub(in crate::privileged_helper::system)`): `enum RdmaPortSpace`.
-//! - [`IbGid`] (`pub(in crate::privileged_helper::system)`): `struct IbGid`.
-//! - [`RdmaAddress`] (`pub(in crate::privileged_helper::system)`): `enum RdmaAddress`.
-//! - [`RdmaPortInfo`] (`pub(in crate::privileged_helper::system)`): `struct RdmaPortInfo`.
-//! - [`RdmaEndpointOwner`] (`pub(in crate::privileged_helper::system)`): `enum RdmaEndpointOwner`.
-//! - [`RdmaEndpoint`] (`pub(in crate::privileged_helper::system)`): `struct RdmaEndpoint`.
-//! - [`RdmaCmInfo`] (`pub(in crate::privileged_helper::system)`): `struct RdmaCmInfo`.
-//! - [`RdmaRelation`] (`pub(in crate::privileged_helper::system)`): `struct RdmaRelation`.
 //! - [`list_rdma_devices`] (`pub(super)`): `fn list_rdma_devices(root: &Path) -> Vec<String>`.
 //! - [`read_rdma_ports`] (`pub(super)`): `fn read_rdma_ports(root: &Path) -> Vec<RdmaPortInfo>`.
 //!
-//! Supporting types: [`Path`], [`RdmaPortInfo`].
+//! Supporting types: [`Path`], [`crate::ipc::rdma::RdmaPortInfo`].
 
 use std::{fs, path::Path};
 
-pub(in crate::privileged_helper::system) use crate::ipc::rdma::*;
+use crate::ipc::rdma::{IbGid, RdmaPortInfo};
 
 fn read_sysfs_text(path: &Path) -> Option<String> {
     let value = fs::read_to_string(path).ok()?;

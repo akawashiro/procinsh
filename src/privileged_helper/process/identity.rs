@@ -1,5 +1,5 @@
 use super::procfs;
-pub(in crate::privileged_helper) use crate::ipc::schema::ProcessId;
+use crate::ipc::schema::ProcessId;
 use anyhow::{Result, bail, ensure};
 
 #[cfg(test)]

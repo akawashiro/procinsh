@@ -2,24 +2,25 @@
 //!
 //! # Interface
 //!
-//! | Definition | Visibility | Kind / signature |
-//! | --- | --- | --- |
-//! | [`ProcessSnapshot`] | `pub` | `struct ProcessSnapshot` |
-//! | [`FdEndpoint`] | `pub` | `struct FdEndpoint` |
-//! | [`SocketEndpoint`] | `pub` | `struct SocketEndpoint` |
-//! | [`FdRelation`] | `pub` | `struct FdRelation` |
-//! | [`SystemSnapshot`] | `pub` | `struct SystemSnapshot` |
-//! | [`NeighborSnapshot`] | `pub` | `struct NeighborSnapshot` |
+//! No named types or functions are exported; shared values come from their definition modules.
 
-pub use crate::ipc::model::system::*;
-use crate::{
-    http_server::analysis::hardware::{DeviceHandle, HardwareDevice, HardwarePath},
-    http_server::model::{memory::MemoryMap, resource::IpcIdentity, socket_types::*},
-    ipc::schema::ProcessId,
+use crate::ipc::model::system::{
+    FdEndpoint, FdRelation, NeighborSnapshot, ProcessSnapshot, SocketEndpoint,
+};
+use crate::ipc::{
+    hardware::{DeviceHandle, HardwareDevice, HardwarePath},
+    model::{
+        memory::MemoryMap,
+        resource::IpcIdentity,
+        socket_types::{
+            FdAccess, FdKind, InetAddress, SocketConnectionStatus, SocketProtocol, SocketState,
+        },
+    },
+    schema::ProcessId,
 };
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(dead_code)]
-#[serde(remote = "crate::http_server::model::system::ProcessSnapshot")]
+#[serde(remote = "crate::ipc::model::system::ProcessSnapshot")]
 struct ProcessSnapshotJson {
     pub identity: ProcessId,
     pub parent_id: Option<ProcessId>,
@@ -34,13 +35,13 @@ struct ProcessSnapshotJson {
     pub maps_epoch: u64,
     pub maps_error: Option<String>,
 }
-impl serde::Serialize for crate::http_server::model::system::ProcessSnapshot {
+impl serde::Serialize for crate::ipc::model::system::ProcessSnapshot {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         ProcessSnapshotJson::serialize(self, s)
     }
 }
 
-impl<'de> serde::Deserialize<'de> for crate::http_server::model::system::ProcessSnapshot {
+impl<'de> serde::Deserialize<'de> for crate::ipc::model::system::ProcessSnapshot {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         ProcessSnapshotJson::deserialize(d)
     }
@@ -49,7 +50,7 @@ impl<'de> serde::Deserialize<'de> for crate::http_server::model::system::Process
 /// A process-owned file descriptor endpoint, including coalesced shared FDs.
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(dead_code)]
-#[serde(remote = "crate::http_server::model::system::FdEndpoint")]
+#[serde(remote = "crate::ipc::model::system::FdEndpoint")]
 struct FdEndpointJson {
     pub process_id: ProcessId,
     pub fd: u32,
@@ -60,13 +61,13 @@ struct FdEndpointJson {
     /// Independent connection observation; null for non-socket resources.
     pub connection_status: Option<SocketConnectionStatus>,
 }
-impl serde::Serialize for crate::http_server::model::system::FdEndpoint {
+impl serde::Serialize for crate::ipc::model::system::FdEndpoint {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         FdEndpointJson::serialize(self, s)
     }
 }
 
-impl<'de> serde::Deserialize<'de> for crate::http_server::model::system::FdEndpoint {
+impl<'de> serde::Deserialize<'de> for crate::ipc::model::system::FdEndpoint {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         FdEndpointJson::deserialize(d)
     }
@@ -74,7 +75,7 @@ impl<'de> serde::Deserialize<'de> for crate::http_server::model::system::FdEndpo
 
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(dead_code)]
-#[serde(remote = "crate::http_server::model::system::SocketEndpoint")]
+#[serde(remote = "crate::ipc::model::system::SocketEndpoint")]
 struct SocketEndpointJson {
     pub protocol: SocketProtocol,
     /// Null when no state was observed, even if the socket kind is known.
@@ -87,13 +88,13 @@ struct SocketEndpointJson {
     /// The remote InfiniBand port GID when the destination is an IPoIB neighbor.
     pub remote_gid: Option<String>,
 }
-impl serde::Serialize for crate::http_server::model::system::SocketEndpoint {
+impl serde::Serialize for crate::ipc::model::system::SocketEndpoint {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         SocketEndpointJson::serialize(self, s)
     }
 }
 
-impl<'de> serde::Deserialize<'de> for crate::http_server::model::system::SocketEndpoint {
+impl<'de> serde::Deserialize<'de> for crate::ipc::model::system::SocketEndpoint {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         SocketEndpointJson::deserialize(d)
     }
@@ -103,7 +104,7 @@ impl<'de> serde::Deserialize<'de> for crate::http_server::model::system::SocketE
 /// An absent peer represents an external or unidentified process endpoint.
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(dead_code)]
-#[serde(remote = "crate::http_server::model::system::FdRelation")]
+#[serde(remote = "crate::ipc::model::system::FdRelation")]
 struct FdRelationJson {
     pub id: String,
     pub endpoint: FdEndpoint,
@@ -113,13 +114,13 @@ struct FdRelationJson {
     pub candidate: bool,
     pub shared: bool,
 }
-impl serde::Serialize for crate::http_server::model::system::FdRelation {
+impl serde::Serialize for crate::ipc::model::system::FdRelation {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         FdRelationJson::serialize(self, s)
     }
 }
 
-impl<'de> serde::Deserialize<'de> for crate::http_server::model::system::FdRelation {
+impl<'de> serde::Deserialize<'de> for crate::ipc::model::system::FdRelation {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         FdRelationJson::deserialize(d)
     }
@@ -128,7 +129,7 @@ impl<'de> serde::Deserialize<'de> for crate::http_server::model::system::FdRelat
 /// A system-wide observation of processes and their file descriptor relations.
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(dead_code)]
-#[serde(remote = "crate::http_server::model::system::SystemSnapshot")]
+#[serde(remote = "crate::ipc::model::system::SystemSnapshot")]
 // Re-exported by system for subscription consumers.
 struct SystemSnapshotJson {
     pub captured_at: u64,
@@ -145,7 +146,7 @@ struct SystemSnapshotJson {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub raw_owners: Vec<(IpcIdentity, Vec<FdEndpoint>)>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub raw_sockets: Vec<(u64, crate::http_server::model::sockets::SocketInfo)>,
+    pub raw_sockets: Vec<(u64, crate::ipc::model::sockets::SocketInfo)>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub raw_namespaces: Vec<(u64, (u64, u64))>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -159,13 +160,13 @@ struct SystemSnapshotJson {
     #[serde(skip)]
     pub raw_hostnames: Vec<(std::net::IpAddr, String)>,
 }
-impl serde::Serialize for crate::http_server::model::system::SystemSnapshot {
+impl serde::Serialize for crate::ipc::model::system::SystemSnapshot {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         SystemSnapshotJson::serialize(self, s)
     }
 }
 
-impl<'de> serde::Deserialize<'de> for crate::http_server::model::system::SystemSnapshot {
+impl<'de> serde::Deserialize<'de> for crate::ipc::model::system::SystemSnapshot {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         SystemSnapshotJson::deserialize(d)
     }
@@ -174,18 +175,18 @@ impl<'de> serde::Deserialize<'de> for crate::http_server::model::system::SystemS
 /// Neighbor observations scoped to the collector network namespace.
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(dead_code)]
-#[serde(remote = "crate::http_server::model::system::NeighborSnapshot")]
+#[serde(remote = "crate::ipc::model::system::NeighborSnapshot")]
 struct NeighborSnapshotJson {
     pub entries: Vec<(std::net::IpAddr, String)>,
     pub namespace: (u64, u64),
 }
-impl serde::Serialize for crate::http_server::model::system::NeighborSnapshot {
+impl serde::Serialize for crate::ipc::model::system::NeighborSnapshot {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         NeighborSnapshotJson::serialize(self, s)
     }
 }
 
-impl<'de> serde::Deserialize<'de> for crate::http_server::model::system::NeighborSnapshot {
+impl<'de> serde::Deserialize<'de> for crate::ipc::model::system::NeighborSnapshot {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         NeighborSnapshotJson::deserialize(d)
     }

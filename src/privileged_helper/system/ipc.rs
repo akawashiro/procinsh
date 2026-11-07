@@ -89,7 +89,10 @@ impl IpcActivityCollector {
             + self.drops.load(std::sync::atomic::Ordering::Relaxed)
     }
 
-    pub(super) fn poll(&mut self, _snapshot: &super::snapshot::SystemSnapshot) -> Result<()> {
+    pub(super) fn poll(
+        &mut self,
+        _snapshot: &crate::ipc::model::system::SystemSnapshot,
+    ) -> Result<()> {
         let consumed = self.ring.consume_raw_n(8192);
         if consumed < 0 {
             return Err(std::io::Error::from_raw_os_error(-consumed).into());

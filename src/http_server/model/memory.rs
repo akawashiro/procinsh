@@ -5,16 +5,10 @@
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
 //! | [`deserialize_hex`] | `pub` | `fn deserialize_hex<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<u64, D::Error>` |
-//! | [`MemoryKind`] | `pub` | `enum MemoryKind` |
-//! | [`MemoryMap`] | `pub` | `struct MemoryMap` |
-//! | [`MappingSnapshot`] | `pub` | `struct MappingSnapshot` |
-//! | [`SmapsEntry`] | `pub` | `struct SmapsEntry` |
 //! | [`hex`] | `pub` | `fn hex<S: serde::Serializer>(value: &u64, serializer: S) -> Result<S::Ok, S::Error>` |
-//! | [`parse_map`] | `pub` | `fn parse_map(line: &str) -> Result<MemoryMap>` |
-//! | [`parse_smaps`] | `pub` | `fn parse_smaps(text: &str) -> Result<Vec<SmapsEntry>>` |
 
-use crate::http_server::model::resource::{DeviceId, decimal};
-pub use crate::ipc::model::memory::*;
+use crate::ipc::model::memory::MemoryMap;
+use crate::{http_server::model::resource::decimal, ipc::model::resource::DeviceId};
 use anyhow::Result;
 use serde::Deserialize;
 
@@ -25,7 +19,7 @@ pub fn deserialize_hex<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Res
 
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(dead_code)]
-#[serde(remote = "crate::http_server::model::memory::MemoryKind")]
+#[serde(remote = "crate::ipc::model::memory::MemoryKind")]
 #[serde(rename_all = "snake_case")]
 enum MemoryKindJson {
     Integer,
@@ -36,13 +30,13 @@ enum MemoryKindJson {
     File,
     Anonymous,
 }
-impl serde::Serialize for crate::http_server::model::memory::MemoryKind {
+impl serde::Serialize for crate::ipc::model::memory::MemoryKind {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         MemoryKindJson::serialize(self, s)
     }
 }
 
-impl<'de> serde::Deserialize<'de> for crate::http_server::model::memory::MemoryKind {
+impl<'de> serde::Deserialize<'de> for crate::ipc::model::memory::MemoryKind {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         MemoryKindJson::deserialize(d)
     }
@@ -52,7 +46,7 @@ impl<'de> serde::Deserialize<'de> for crate::http_server::model::memory::MemoryK
 /// Addresses and file offsets serialize as hexadecimal strings; inodes as decimal strings.
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(dead_code)]
-#[serde(remote = "crate::http_server::model::memory::MemoryMap")]
+#[serde(remote = "crate::ipc::model::memory::MemoryMap")]
 struct MemoryMapJson {
     #[serde(serialize_with = "hex", deserialize_with = "deserialize_hex")]
     pub start: u64,
@@ -72,13 +66,13 @@ struct MemoryMapJson {
     pub inode: u64,
     pub pathname: Option<String>,
 }
-impl serde::Serialize for crate::http_server::model::memory::MemoryMap {
+impl serde::Serialize for crate::ipc::model::memory::MemoryMap {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         MemoryMapJson::serialize(self, s)
     }
 }
 
-impl<'de> serde::Deserialize<'de> for crate::http_server::model::memory::MemoryMap {
+impl<'de> serde::Deserialize<'de> for crate::ipc::model::memory::MemoryMap {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         MemoryMapJson::deserialize(d)
     }
@@ -88,20 +82,20 @@ impl<'de> serde::Deserialize<'de> for crate::http_server::model::memory::MemoryM
 /// Serialization flattens the structural mapping alongside the usage measurements.
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(dead_code)]
-#[serde(remote = "crate::http_server::model::memory::SmapsEntry")]
+#[serde(remote = "crate::ipc::model::memory::SmapsEntry")]
 struct SmapsEntryJson {
     #[serde(flatten)]
     pub mapping: MemoryMap,
     pub rss_bytes: Option<u64>,
     pub pss_bytes: Option<u64>,
 }
-impl serde::Serialize for crate::http_server::model::memory::SmapsEntry {
+impl serde::Serialize for crate::ipc::model::memory::SmapsEntry {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         SmapsEntryJson::serialize(self, s)
     }
 }
 
-impl<'de> serde::Deserialize<'de> for crate::http_server::model::memory::SmapsEntry {
+impl<'de> serde::Deserialize<'de> for crate::ipc::model::memory::SmapsEntry {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         SmapsEntryJson::deserialize(d)
     }
@@ -114,18 +108,18 @@ pub fn hex<S: serde::Serializer>(value: &u64, serializer: S) -> Result<S::Ok, S:
 /// One captured mapping context shared by all thread samples from that epoch.
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(dead_code)]
-#[serde(remote = "crate::http_server::model::memory::MappingSnapshot")]
+#[serde(remote = "crate::ipc::model::memory::MappingSnapshot")]
 struct MappingSnapshotJson {
     pub epoch: u64,
     pub maps: Vec<MemoryMap>,
 }
-impl serde::Serialize for crate::http_server::model::memory::MappingSnapshot {
+impl serde::Serialize for crate::ipc::model::memory::MappingSnapshot {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         MappingSnapshotJson::serialize(self, s)
     }
 }
 
-impl<'de> serde::Deserialize<'de> for crate::http_server::model::memory::MappingSnapshot {
+impl<'de> serde::Deserialize<'de> for crate::ipc::model::memory::MappingSnapshot {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         MappingSnapshotJson::deserialize(d)
     }
@@ -133,7 +127,7 @@ impl<'de> serde::Deserialize<'de> for crate::http_server::model::memory::Mapping
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::ipc::model::memory::{SmapsEntry, parse_map, parse_smaps};
 
     #[test]
     fn maps_and_smaps_keep_paths_and_boundaries() {
