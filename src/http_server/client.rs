@@ -1,9 +1,12 @@
 use super::hosts::AgentLink;
-use super::protocol::*;
 use crate::ipc::transport;
 use anyhow::{Context, Result, bail};
 use std::{net::Shutdown, os::unix::net::UnixStream, sync::Arc};
 use tokio::sync::{mpsc, oneshot};
+use {
+    super::protocol::{MonitorEvent, MonitorResponse},
+    crate::ipc::schema::{MAX_REQUEST, MAX_RESPONSE, MonitorRequest, TIMEOUT, WireResponse},
+};
 
 struct PendingRequest {
     request: MonitorRequest,

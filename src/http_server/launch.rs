@@ -5,8 +5,8 @@
 //!
 //! Supporting types: [`super::ServerConfig`].
 
-use super::protocol::*;
 use super::{client::MonitorClient, privileges};
+use crate::ipc::schema::{HelperIdentity, MAX_REQUEST};
 use crate::ipc::transport;
 use anyhow::{Context, Result, ensure};
 use std::{

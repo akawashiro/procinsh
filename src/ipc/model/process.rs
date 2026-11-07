@@ -11,9 +11,9 @@
 //! | [`ProcessSample`] | `pub` | `struct ProcessSample` |
 //! | [`monotonic_ns`] | `pub` | `fn monotonic_ns() -> u64` |
 
-use crate::{
-    ipc::model::threads::{ThreadObservation, ThreadSample},
-    ipc::schema::ProcessId,
+use crate::ipc::{
+    model::threads::{ThreadObservation, ThreadSample},
+    schema::ProcessId,
 };
 
 pub fn ticks_per_second() -> f64 {

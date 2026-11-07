@@ -4,22 +4,12 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`Endpoint`] | `pub(super)` | `struct Endpoint` |
-//! | [`Key`] | `pub(super)` | `struct Key` |
-//! | [`Owner`] | `pub(super)` | `struct Owner` |
-//! | [`FileDescriptorInfo`] | `pub(super)` | `struct FileDescriptorInfo` |
-//! | [`FileDescriptors`] | `pub(super)` | `struct FileDescriptors` |
-//! | [`collect_file_descriptors`] | `pub(super)` | `fn collect_file_descriptors(id: `[`ProcessId`]`) -> `[`Result`]`<`[`FileDescriptors`]`>` |
+//! | [`collect_file_descriptors`] | `pub(super)` | `fn collect_file_descriptors(id: `[`ProcessId`]`) -> `[`Result`]`<`[`crate::ipc::descriptors::FileDescriptors`]`>` |
 
-use super::{
-    ProcessId, permission_help, procfs,
-    sockets::{self, SocketInfo},
-    timestamp_ms, validate_process_identity,
-};
-use crate::privileged_helper::socket_types::{
+use crate::ipc::model::socket_types::{
     AddressFamily, SocketConnectionStatus, SocketProtocol, SocketState, SocketType,
 };
-use crate::privileged_helper::socket_types::{FdAccess, FdKind, InetAddress};
+use crate::ipc::model::socket_types::{FdAccess, FdKind, InetAddress};
 use anyhow::Result;
 use std::{
     collections::{HashMap, HashSet},
@@ -28,10 +18,15 @@ use std::{
     os::unix::fs::{FileTypeExt, MetadataExt},
     time::{Duration, Instant},
 };
-
-pub(super) use crate::ipc::descriptors::{
-    Endpoint, FileDescriptorInfo, FileDescriptors, Key, Owner,
+use {
+    super::{permission_help, procfs, timestamp_ms, validate_process_identity},
+    crate::{
+        ipc::{model::sockets::SocketInfo, schema::ProcessId},
+        privileged_helper::process::sockets,
+    },
 };
+
+use crate::ipc::descriptors::{Endpoint, FileDescriptorInfo, FileDescriptors, Key, Owner};
 
 fn parse_link_inode(link: &str, prefix: &str) -> Option<u64> {
     link.strip_prefix(prefix)?.strip_suffix(']')?.parse().ok()

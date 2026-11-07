@@ -8,7 +8,7 @@
 use crate::ipc::elf::{
     FileChunk, FileRange, MAX_FILE_SIZE, MAX_RANGES, MAX_READ_SIZE, MappedFileData,
 };
-use crate::privileged_helper::process::maps::MemoryMap;
+use crate::ipc::model::memory::MemoryMap;
 #[cfg(test)]
 use std::io::Read;
 use std::os::unix::fs::FileExt;
@@ -142,7 +142,7 @@ mod tests {
         let path = root.join("mapped");
         fs::write(&path, b"captured file").unwrap();
         let metadata = fs::metadata(&path).unwrap();
-        let map = crate::privileged_helper::process::maps::parse_map(&format!(
+        let map = crate::ipc::model::memory::parse_map(&format!(
             "1000-2000 r-xp 0 {:x}:{:x} {} {}",
             libc::major(metadata.dev()),
             libc::minor(metadata.dev()),
@@ -206,7 +206,7 @@ mod tests {
             .set_len(MAX_FILE_SIZE + 1)
             .unwrap();
         let meta = fs::metadata(&large).unwrap();
-        let large_map = crate::privileged_helper::process::maps::parse_map(&format!(
+        let large_map = crate::ipc::model::memory::parse_map(&format!(
             "1000-2000 r-xp 0 {:x}:{:x} {} {}",
             libc::major(meta.dev()),
             libc::minor(meta.dev()),

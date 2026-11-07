@@ -4,22 +4,28 @@
 //! [`ObservationProcessor`] (`pub(super)`): `struct ObservationProcessor`.
 use super::client::MonitorClient;
 use crate::{
-    http_server::analysis::snapshot::{
-        registers::{RegisterSet, classify_sample_registers},
-        symbol::{ElfCache, elf_address, instruction_address, resolve_frame},
-        unwind::StackUnwinder,
+    http_server::{
+        analysis::snapshot::{
+            registers::classify_sample_registers,
+            symbol::{ElfCache, elf_address, instruction_address, resolve_frame},
+            unwind::StackUnwinder,
+        },
+        protocol::{MonitorEvent, MonitorResponse},
     },
-    http_server::model::memory::{MappingSnapshot, MemoryMap},
-    http_server::protocol::{MonitorEvent, MonitorResponse, ProcessId},
+    ipc::{
+        model::memory::{MappingSnapshot, MemoryMap},
+        registers::RegisterSet,
+        schema::ProcessId,
+    },
 };
 use anyhow::Result;
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 
 struct ProcessHistory {
-    sample: crate::http_server::model::process::ProcessSample,
-    observation: crate::http_server::model::process::ProcessObservation,
-    points: std::collections::VecDeque<crate::http_server::analysis::history::HistoryPoint>,
+    sample: crate::ipc::model::process::ProcessSample,
+    observation: crate::ipc::model::process::ProcessObservation,
+    points: std::collections::VecDeque<crate::ipc::history::HistoryPoint>,
 }
 /// Owns analysis caches and independent per-session histories and BPF deltas.
 /// IPC-only capture fields are consumed before any HTTP serialization.
@@ -53,7 +59,7 @@ impl ObservationProcessor {
 
     fn snapshot(
         &mut self,
-        mut snapshot: crate::http_server::model::system::SystemSnapshot,
+        mut snapshot: crate::ipc::model::system::SystemSnapshot,
     ) -> Result<Value> {
         self.known = snapshot
             .processes
@@ -182,7 +188,7 @@ impl ObservationProcessor {
                         .filter(|(_, elapsed)| *elapsed > 0)
                         .map(|(delta, elapsed)| {
                             delta as f64
-                                / crate::http_server::model::process::ticks_per_second()
+                                / crate::ipc::model::process::ticks_per_second()
                                 / (elapsed as f64 / 1_000_000_000.0)
                                 * 100.0
                         });
@@ -245,8 +251,9 @@ impl ObservationProcessor {
             .as_object_mut()
             .and_then(|value| value.remove("process_sample"))
         {
-            use crate::http_server::model::process::{
-                ProcessSample, initial_observation, next_observation,
+            use crate::{
+                http_server::model::process::{initial_observation, next_observation},
+                ipc::model::process::ProcessSample,
             };
             let current: ProcessSample = serde_json::from_value(raw)?;
             let mut observed = initial_observation(&current);
@@ -289,7 +296,7 @@ impl ObservationProcessor {
             }
         }
         if value.get("raw_fd_owners").is_some() || value.get("raw_peer_keys").is_some() {
-            let mut descriptors: crate::http_server::analysis::descriptors::FileDescriptors =
+            let mut descriptors: crate::ipc::descriptors::FileDescriptors =
                 serde_json::from_value(value.take())?;
             crate::http_server::analysis::descriptors::resolve_descriptor_relations(
                 &mut descriptors,
@@ -359,8 +366,7 @@ impl ObservationProcessor {
                 raw.insert(
                     "sample_age_ms".into(),
                     serde_json::json!(
-                        crate::http_server::model::process::monotonic_ns().saturating_sub(time)
-                            / 1_000_000
+                        crate::ipc::model::process::monotonic_ns().saturating_sub(time) / 1_000_000
                     ),
                 );
             }
@@ -434,13 +440,13 @@ mod tests {
     }
     #[tokio::test]
     async fn retained_samples_use_their_captured_mapping_epoch() {
-        use crate::http_server::model::memory::parse_map;
+        use crate::ipc::model::memory::parse_map;
         let mut processor = ObservationProcessor::default();
         let mut registers = RegisterSet::default();
         registers.values[0] = 0x1008;
         registers.values[RegisterSet::PC] = 0x1008;
         registers.values[RegisterSet::SP] = 0x1000;
-        let sample = |epoch| json!({"architecture":std::env::consts::ARCH,"raw_registers":registers,"stack_bytes":[],"map_epoch":epoch,"sample_time_ns":crate::http_server::model::process::monotonic_ns().saturating_sub(3_000_000_000)});
+        let sample = |epoch| json!({"architecture":std::env::consts::ARCH,"raw_registers":registers,"stack_bytes":[],"map_epoch":epoch,"sample_time_ns":crate::ipc::model::process::monotonic_ns().saturating_sub(3_000_000_000)});
         let mut response = MonitorResponse::Data(json!({
             "summary":{"identity":{"pid":42,"start_time_ticks":10}},
             "mapping_snapshots":[

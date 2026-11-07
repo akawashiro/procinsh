@@ -8,16 +8,18 @@
 //! | [`SocketMetadata`] | `pub(in crate::privileged_helper)` | `struct SocketMetadata` |
 //! | [`additional_sockets`] | `pub(in crate::privileged_helper)` | `fn additional_sockets(pid: `[`i32`]`) -> `[`HashMap`]`<`[`u64`]`, `[`SocketInfo`]`>` |
 
-use super::{
-    ProcessId,
-    sockets::{self, SocketInfo},
-    validate_process_identity,
-};
-use crate::privileged_helper::socket_types::{SocketConnectionStatus, SocketProtocol, SocketType};
+use crate::ipc::model::socket_types::{SocketConnectionStatus, SocketProtocol, SocketType};
 use anyhow::{Result, bail, ensure};
 use std::{
     collections::HashMap,
     os::fd::{AsRawFd, FromRawFd, OwnedFd},
+};
+use {
+    super::validate_process_identity,
+    crate::{
+        ipc::{model::sockets::SocketInfo, schema::ProcessId},
+        privileged_helper::process::sockets,
+    },
 };
 
 /// Lazily owns one pidfd for a process during a descriptor scan.
@@ -259,7 +261,7 @@ pub(in crate::privileged_helper) fn require_socket_metadata(id: ProcessId, fd: i
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::privileged_helper::socket_types::AddressFamily;
+    use crate::ipc::model::socket_types::AddressFamily;
     use std::{
         fs,
         os::unix::{fs::MetadataExt, net::UnixDatagram},

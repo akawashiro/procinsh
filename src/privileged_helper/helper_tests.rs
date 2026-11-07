@@ -1,6 +1,6 @@
 use super::helper_service::{CollectorManager, HelperIpcService};
 use crate::ipc::{schema::*, transport};
-use crate::privileged_helper::process::{self, ProcessId};
+use crate::{ipc::schema::ProcessId, privileged_helper::process};
 use std::{io::Write, os::unix::net::UnixStream, sync::Arc, time::Duration};
 
 #[test]

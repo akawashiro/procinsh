@@ -11,7 +11,7 @@
 //! | [`resolve_frame`] | `pub` | `fn resolve_frame(address: u64, elf: &ElfSymbols) -> Option<SymbolInfo>` |
 //!
 //! Lookup helpers use [`cache::ElfSymbols`] and [`resolve::SymbolInfo`].
-//! Mapping arguments use [`MemoryMap`](crate::http_server::model::memory::MemoryMap).
+//! Mapping arguments use [`MemoryMap`](crate::ipc::model::memory::MemoryMap).
 
 mod cache;
 mod image;

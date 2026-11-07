@@ -1,5 +1,8 @@
-use super::model::{SystemActivity, SystemMonitorStatus};
-use super::{SystemSnapshot, activity, snapshot};
+use crate::ipc::acquisition::{SystemActivity, SystemMonitorStatus};
+use {
+    super::{activity, snapshot},
+    crate::ipc::model::system::SystemSnapshot,
+};
 #[derive(Debug, PartialEq, Eq)]
 pub(in crate::privileged_helper) enum SubscribeError {
     Stopped,
@@ -33,7 +36,7 @@ impl Drop for Subscription {
 /// Manages subscribers, collection workers, snapshots, and event delivery.
 pub(in crate::privileged_helper) struct SystemMonitor {
     viewers: Mutex<usize>,
-    snapshot: RwLock<Arc<snapshot::SystemSnapshot>>,
+    snapshot: RwLock<Arc<crate::ipc::model::system::SystemSnapshot>>,
     events: broadcast::Sender<SystemMonitorEvent>,
     stop: AtomicBool,
     started: AtomicBool,
@@ -44,7 +47,9 @@ impl Default for SystemMonitor {
         let (events, _) = broadcast::channel(16);
         Self {
             viewers: Mutex::new(0),
-            snapshot: RwLock::new(Arc::new(snapshot::SystemSnapshot::default())),
+            snapshot: RwLock::new(Arc::new(
+                crate::ipc::model::system::SystemSnapshot::default(),
+            )),
             events,
             stop: AtomicBool::new(false),
             started: AtomicBool::new(false),

@@ -7,8 +7,8 @@
 //! | [`launch_privileged_helper`] | `pub(crate)` | `fn launch_privileged_helper() -> anyhow::Result<()>` |
 //! | [`bpf_records`] | `pub(crate)` | `mod bpf_records` |
 //!
-//! Shared resource identities live in [`resource`]; socket metadata and descriptor
-//! capabilities live in [`socket_types`]; bounded netlink dumps live in [`netlink`].
+//! Shared resource identities live in [`crate::ipc::model::resource`]; socket metadata and descriptor
+//! capabilities live in [`crate::ipc::model::socket_types`]; bounded netlink dumps live in [`netlink`].
 //!
 #[cfg(test)]
 #[path = "test_http/api/root.rs"]
@@ -22,11 +22,9 @@ mod helper_service;
 mod middleware;
 mod netlink;
 mod process;
-mod resource;
 #[cfg(test)]
 #[path = "../http_server/router.rs"]
 mod router;
-mod socket_types;
 #[cfg(test)]
 #[path = "test_http/state.rs"]
 mod state;
@@ -39,8 +37,6 @@ mod process_api_tests;
 #[cfg(test)]
 #[path = "test_http/system_api_tests.rs"]
 mod system_api_tests;
-#[cfg(test)]
-mod test_support;
 #[cfg(test)]
 #[path = "test_http/tests.rs"]
 mod tests;

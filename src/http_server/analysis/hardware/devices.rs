@@ -4,15 +4,17 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`GpuInfo`] | `pub` | `struct GpuInfo` |
-//! | [`RdmaDeviceInfo`] | `pub` | `struct RdmaDeviceInfo` |
-//! | [`HardwareDevice`] | `pub` | `struct HardwareDevice` |
 //! | [`build_hardware_device`] | `pub` | `fn build_hardware_device(sources: &HardwareSources, node: &PciNode, proc: &Path) -> HardwareDevice` |
+//!
+//! Shared signature types: [`HardwareDevice`].
 
 use super::observation::HardwareSources;
-use super::pci::{BarInfo, HardwareKind, HardwareRole, PciNode, PcieLinkInfo};
-pub use crate::ipc::hardware::{GpuInfo, HardwareDevice, RdmaDeviceInfo};
+use crate::ipc::hardware::{GpuInfo, HardwareDevice, RdmaDeviceInfo};
 use std::path::Path;
+use {
+    super::pci::PciNode,
+    crate::ipc::hardware::{BarInfo, HardwareKind, HardwareRole, PcieLinkInfo},
+};
 
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(dead_code)]

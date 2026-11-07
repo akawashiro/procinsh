@@ -2,18 +2,12 @@
 //!
 //! # Interface
 //!
-//! | Definition | Visibility | Kind / signature |
-//! | --- | --- | --- |
-//! | [`SchedulerPolicy`] | `pub` | `enum SchedulerPolicy` |
-//! | [`CpuRange`] | `pub` | `struct CpuRange` |
-//! | [`parse_cpu_affinity`] | `pub` | `fn parse_cpu_affinity(text: &str) -> Option<Vec<CpuRange>>` |
-//! | [`ThreadObservation`] | `pub` | `struct ThreadObservation` |
-//! | [`ThreadSample`] | `pub` | `struct ThreadSample` |
+//! No named types or functions are exported; shared values come from their definition modules.
 
-pub use crate::ipc::model::threads::*;
+use crate::ipc::model::threads::{CpuRange, SchedulerPolicy, ThreadObservation, ThreadSample};
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(dead_code)]
-#[serde(remote = "crate::http_server::model::threads::SchedulerPolicy")]
+#[serde(remote = "crate::ipc::model::threads::SchedulerPolicy")]
 #[serde(tag = "kind", content = "code", rename_all = "snake_case")]
 enum SchedulerPolicyJson {
     Other,
@@ -25,13 +19,13 @@ enum SchedulerPolicyJson {
     Ext,
     Unknown(u32),
 }
-impl serde::Serialize for crate::http_server::model::threads::SchedulerPolicy {
+impl serde::Serialize for crate::ipc::model::threads::SchedulerPolicy {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         SchedulerPolicyJson::serialize(self, s)
     }
 }
 
-impl<'de> serde::Deserialize<'de> for crate::http_server::model::threads::SchedulerPolicy {
+impl<'de> serde::Deserialize<'de> for crate::ipc::model::threads::SchedulerPolicy {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         SchedulerPolicyJson::deserialize(d)
     }
@@ -40,18 +34,18 @@ impl<'de> serde::Deserialize<'de> for crate::http_server::model::threads::Schedu
 /// Inclusive range of CPU indices in a thread's affinity mask.
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(dead_code)]
-#[serde(remote = "crate::http_server::model::threads::CpuRange")]
+#[serde(remote = "crate::ipc::model::threads::CpuRange")]
 struct CpuRangeJson {
     pub start: u32,
     pub end: u32,
 }
-impl serde::Serialize for crate::http_server::model::threads::CpuRange {
+impl serde::Serialize for crate::ipc::model::threads::CpuRange {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         CpuRangeJson::serialize(self, s)
     }
 }
 
-impl<'de> serde::Deserialize<'de> for crate::http_server::model::threads::CpuRange {
+impl<'de> serde::Deserialize<'de> for crate::ipc::model::threads::CpuRange {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         CpuRangeJson::deserialize(d)
     }
@@ -59,7 +53,7 @@ impl<'de> serde::Deserialize<'de> for crate::http_server::model::threads::CpuRan
 
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(dead_code)]
-#[serde(remote = "crate::http_server::model::threads::ThreadObservation")]
+#[serde(remote = "crate::ipc::model::threads::ThreadObservation")]
 struct ThreadObservationJson {
     pub tid: i32,
     pub name: String,
@@ -73,13 +67,13 @@ struct ThreadObservationJson {
     pub voluntary_context_switches: Option<u64>,
     pub nonvoluntary_context_switches: Option<u64>,
 }
-impl serde::Serialize for crate::http_server::model::threads::ThreadObservation {
+impl serde::Serialize for crate::ipc::model::threads::ThreadObservation {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         ThreadObservationJson::serialize(self, s)
     }
 }
 
-impl<'de> serde::Deserialize<'de> for crate::http_server::model::threads::ThreadObservation {
+impl<'de> serde::Deserialize<'de> for crate::ipc::model::threads::ThreadObservation {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         ThreadObservationJson::deserialize(d)
     }
@@ -88,7 +82,7 @@ impl<'de> serde::Deserialize<'de> for crate::http_server::model::threads::Thread
 /// Raw thread metadata and counters; CPU percentages are derived between observations.
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(dead_code)]
-#[serde(remote = "crate::http_server::model::threads::ThreadSample")]
+#[serde(remote = "crate::ipc::model::threads::ThreadSample")]
 struct ThreadSampleJson {
     pub tid: i32,
     pub name: String,
@@ -103,13 +97,13 @@ struct ThreadSampleJson {
     pub ticks: u64,
     pub start_time: u64,
 }
-impl serde::Serialize for crate::http_server::model::threads::ThreadSample {
+impl serde::Serialize for crate::ipc::model::threads::ThreadSample {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         ThreadSampleJson::serialize(self, s)
     }
 }
 
-impl<'de> serde::Deserialize<'de> for crate::http_server::model::threads::ThreadSample {
+impl<'de> serde::Deserialize<'de> for crate::ipc::model::threads::ThreadSample {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         ThreadSampleJson::deserialize(d)
     }
@@ -135,7 +129,8 @@ impl ThreadSample {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+
+    use crate::ipc::model::threads::{CpuRange, SchedulerPolicy, parse_cpu_affinity};
 
     #[test]
     fn affinity_ranges_and_unknown_scheduler_keep_values() {

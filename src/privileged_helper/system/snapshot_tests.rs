@@ -6,17 +6,17 @@ struct Child(std::process::Child);
 
 #[test]
 fn netns_snapshot_resolves_multiple_namespaces_and_cross_namespace_holders() {
-    use crate::privileged_helper::{
-        process,
-        socket_types::{SocketConnectionStatus, SocketState},
+    use crate::{
+        ipc::model::socket_types::{SocketConnectionStatus, SocketState},
+        privileged_helper::process,
     };
     use std::os::{fd::AsRawFd, unix::fs::MetadataExt};
     let first = process::NetworkNamespaceTarget::new(true);
     let second = process::NetworkNamespaceTarget::new(true);
     let snapshot = super::collect_system_snapshot();
-    let connects = |relation: &super::FdRelation,
-                    a: (process::ProcessId, u32),
-                    b: (process::ProcessId, u32)| {
+    let connects = |relation: &crate::ipc::model::system::FdRelation,
+                    a: (crate::ipc::schema::ProcessId, u32),
+                    b: (crate::ipc::schema::ProcessId, u32)| {
         relation.peer.as_ref().is_some_and(|peer| {
             let endpoint = (relation.endpoint.process_id, relation.endpoint.fd);
             let peer = (peer.process_id, peer.fd);
@@ -76,9 +76,9 @@ impl Drop for Child {
 
 #[test]
 fn snapshot_and_fd_list_keep_unconnected_socket_kinds() {
-    use crate::privileged_helper::{
-        process,
-        socket_types::{AddressFamily, SocketConnectionStatus, SocketProtocol},
+    use crate::{
+        ipc::model::socket_types::{AddressFamily, SocketConnectionStatus, SocketProtocol},
+        privileged_helper::process,
     };
     use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
     let definitions = [
@@ -174,7 +174,7 @@ fn snapshot_and_fd_list_keep_unconnected_socket_kinds() {
 
 #[test]
 fn socket_connection_status_is_retained_for_shared_listening_and_unconnected_fds() {
-    use crate::privileged_helper::{process, socket_types::SocketConnectionStatus};
+    use crate::{ipc::model::socket_types::SocketConnectionStatus, privileged_helper::process};
     use std::{
         net::{TcpListener, UdpSocket},
         os::fd::AsRawFd,
@@ -219,7 +219,7 @@ fn socket_connection_status_is_retained_for_shared_listening_and_unconnected_fds
 
 #[test]
 fn snapshot_finds_pipe_and_unix_peers_and_bounds_work() {
-    super::super::super::test_support::build_targets();
+    crate::test_support::build_targets();
     let mut child = Child(
         Command::new("tests/targets/bin/ipc")
             .stdout(Stdio::piped())
@@ -300,8 +300,8 @@ fn network_destination_survives_shared_socket_ownership() {
         assert_eq!(info.local, Some(socket.local_addr().unwrap().into()));
         assert_eq!(
             info.protocol,
-            crate::privileged_helper::socket_types::SocketProtocol::Udp {
-                family: crate::privileged_helper::socket_types::AddressFamily::Ipv4
+            crate::ipc::model::socket_types::SocketProtocol::Udp {
+                family: crate::ipc::model::socket_types::AddressFamily::Ipv4
             }
         );
     }

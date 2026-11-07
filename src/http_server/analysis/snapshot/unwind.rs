@@ -6,11 +6,7 @@
 //! | --- | --- | --- |
 //! | [`StackUnwinder`] | `pub` | `struct StackUnwinder` |
 
-use super::{
-    stack::StackFrame,
-    symbol::{ElfCache, elf_address},
-};
-use crate::http_server::model::memory::MemoryMap;
+use crate::ipc::model::memory::MemoryMap;
 use crate::ipc::registers::RegisterSet;
 #[cfg(target_arch = "aarch64")]
 use framehop::aarch64::{CacheAarch64, PtrAuthMask, UnwindRegsAarch64, UnwinderAarch64};
@@ -18,6 +14,10 @@ use framehop::aarch64::{CacheAarch64, PtrAuthMask, UnwindRegsAarch64, UnwinderAa
 use framehop::x86_64::{CacheX86_64, UnwindRegsX86_64, UnwinderX86_64};
 use framehop::{Module, Unwinder};
 use std::sync::Arc;
+use {
+    super::symbol::{ElfCache, elf_address},
+    crate::ipc::stack::StackFrame,
+};
 
 type Mapping = (u64, u64, u64, u64, u32, u32);
 
@@ -261,8 +261,8 @@ mod tests {
     #[test]
     fn fallback_reports_module_failure_and_bounds_stack_reads() {
         let maps = vec![
-            process::maps::parse_map("1000-2000 rw-p 0 00:00 0 [stack]").unwrap(),
-            process::maps::parse_map("3000-4000 r-xp 0 00:00 0 /missing").unwrap(),
+            crate::ipc::model::memory::parse_map("1000-2000 rw-p 0 00:00 0 [stack]").unwrap(),
+            crate::ipc::model::memory::parse_map("3000-4000 r-xp 0 00:00 0 /missing").unwrap(),
         ];
         let mut state = StackUnwinder::default();
         let (_, reason) = state.walk(&registers(0x3010, 0x1000, 0x1100), &maps, &[]);
@@ -279,8 +279,8 @@ mod tests {
     #[test]
     fn kernel_pac_mask_strips_saved_return_addresses_without_guessing() {
         let maps = vec![
-            process::maps::parse_map("1000-2000 rw-p 0 00:00 0 [stack]").unwrap(),
-            process::maps::parse_map("3000-4000 r-xp 0 00:00 0 /missing").unwrap(),
+            crate::ipc::model::memory::parse_map("1000-2000 rw-p 0 00:00 0 [stack]").unwrap(),
+            crate::ipc::model::memory::parse_map("3000-4000 r-xp 0 00:00 0 /missing").unwrap(),
         ];
         let mut r = registers(0x3010, 0x1000, 0x1010);
         let mut stack = vec![0; 64];

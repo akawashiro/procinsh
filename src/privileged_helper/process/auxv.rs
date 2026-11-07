@@ -6,9 +6,12 @@
 //! Process identities use [`ProcessId`]; captured words and strings use [`AuxData`](crate::ipc::acquisition::AuxData).
 
 use super::procfs::read_bounded_bytes;
-use super::{ProcessId, memory, permission_help, timestamp_ms, validate_process_identity};
 use anyhow::{Context, Result, bail, ensure};
 use std::{fs::File, io::Read};
+use {
+    super::{memory, permission_help, timestamp_ms, validate_process_identity},
+    crate::ipc::schema::ProcessId,
+};
 
 const MAX_AUXV: usize = 64 * 1024;
 

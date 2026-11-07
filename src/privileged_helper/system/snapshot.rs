@@ -4,33 +4,31 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`ProcessSnapshot`] | `pub(in crate::privileged_helper)` | `struct ProcessSnapshot` |
-//! | [`FdEndpoint`] | `pub(in crate::privileged_helper)` | `struct FdEndpoint` |
-//! | [`NeighborSnapshot`] | `pub(in crate::privileged_helper)` | `struct NeighborSnapshot` |
-//! | [`SystemSnapshot`] | `pub(in crate::privileged_helper)` | `struct SystemSnapshot` |
-//! | [`process_from_summary`] | `pub(super)` | `fn process_from_summary(summary: `[`ProcessSummary`]`, parent_id: `[`Option`]`<`[`ProcessId`]`>) -> `[`ProcessSnapshot`] |
-//! | [`collect_system_snapshot`] | `pub(super)` | `fn collect_system_snapshot() -> `[`SystemSnapshot`] |
-//! | [`collect_system_snapshot_from_sources`] | `pub(super)` | `fn collect_system_snapshot_from_sources(sources: &`[`HardwareSources`]`) -> `[`SystemSnapshot`] |
+//! | [`process_from_summary`] | `pub(super)` | `fn process_from_summary(summary: `[`ProcessSummary`]`, parent_id: `[`Option`]`<`[`ProcessId`]`>) -> `[`crate::ipc::model::system::ProcessSnapshot`] |
+//! | [`collect_system_snapshot`] | `pub(super)` | `fn collect_system_snapshot() -> `[`crate::ipc::model::system::SystemSnapshot`] |
+//! | [`collect_system_snapshot_from_sources`] | `pub(super)` | `fn collect_system_snapshot_from_sources(sources: &`[`HardwareSources`]`) -> `[`crate::ipc::model::system::SystemSnapshot`] |
 
-#[cfg(test)]
-use super::hardware::HardwareObservation;
+#[cfg(not(test))]
 use super::hardware::HardwareSources;
 use super::rdma;
-/// A Linux process and its observed structural address space, without RSS/PSS.
-/// CPU and RSS measurements belong to [`crate::privileged_helper::process::ProcessSummary`].
-pub(in crate::privileged_helper) use crate::ipc::model::system::{
-    FdEndpoint, NeighborSnapshot, ProcessSnapshot, SystemSnapshot,
-};
 #[cfg(test)]
-pub(in crate::privileged_helper) use crate::ipc::model::system::{FdRelation, SocketEndpoint};
-use crate::privileged_helper::process::{self, ProcessId, ProcessSummary, SocketInfo};
-use crate::privileged_helper::resource::{DeviceId, IpcIdentity, IpcKind};
+use crate::http_server::analysis::hardware::HardwareSources;
 #[cfg(test)]
-use crate::privileged_helper::socket_types::SocketState;
-use crate::privileged_helper::socket_types::{
+use crate::http_server::analysis::hardware::observation::HardwareObservation;
+use crate::ipc::model::resource::{DeviceId, IpcIdentity, IpcKind};
+#[cfg(test)]
+use crate::ipc::model::socket_types::SocketState;
+use crate::ipc::model::socket_types::{
     AddressFamily, SocketConnectionStatus, SocketProtocol, SocketType,
 };
-use crate::privileged_helper::socket_types::{FdAccess, FdKind};
+use crate::ipc::model::socket_types::{FdAccess, FdKind};
+#[cfg(test)]
+use crate::ipc::model::system::FdRelation;
+use crate::ipc::model::system::{FdEndpoint, NeighborSnapshot, ProcessSnapshot, SystemSnapshot};
+use crate::{
+    ipc::{acquisition::ProcessSummary, model::sockets::SocketInfo, schema::ProcessId},
+    privileged_helper::process,
+};
 use std::{
     collections::{HashMap, HashSet},
     fs,
@@ -451,11 +449,14 @@ pub(super) fn collect_system_snapshot_from_sources(sources: &HardwareSources) ->
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use {
+        super::*,
+        crate::ipc::model::system::{FdEndpoint, FdRelation, SocketEndpoint},
+    };
 
     #[test]
     fn remote_gids_apply_only_to_destinations_of_the_collector_namespace() {
-        use crate::privileged_helper::process::SocketInfo;
+        use crate::ipc::model::sockets::SocketInfo;
         let info = SocketInfo {
             protocol: SocketProtocol::Tcp {
                 family: AddressFamily::Ipv4,
@@ -515,7 +516,7 @@ mod tests {
 
     #[test]
     fn socket_destination_classification() {
-        use crate::privileged_helper::process::SocketInfo;
+        use crate::ipc::model::sockets::SocketInfo;
         let mut info = SocketInfo {
             protocol: SocketProtocol::Tcp {
                 family: AddressFamily::Ipv6,

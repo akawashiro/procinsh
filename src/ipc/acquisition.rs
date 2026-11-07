@@ -68,6 +68,8 @@ pub struct InstructionBytes {
     pub bytes: Vec<u8>,
     pub error: Option<String>,
 }
+/// Latest thread sample with loss and error diagnostics.
+/// `sampled_at` is Unix milliseconds; `sample_age_ms` uses monotonic time.
 #[derive(Clone, Debug)]
 pub struct LiveSample {
     pub tid: i32,
@@ -90,6 +92,8 @@ pub struct LiveSample {
     pub unwind_stop: String,
     pub error: Option<String>,
 }
+/// SSE observation state with detailed maps and independently aged live samples.
+/// Map entries flatten structural mappings with optional RSS/PSS measurements.
 #[derive(Clone, Debug)]
 pub struct ProcessDetailSnapshot {
     pub summary: ProcessSummary,
@@ -134,6 +138,7 @@ pub struct SystemMonitorStatus {
     pub unresolved: Option<u64>,
     pub files_lost: Option<u64>,
 }
+/// Health of an acquisition sensor; unavailable and error states carry a diagnostic.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub enum SensorState {
     #[default]

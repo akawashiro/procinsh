@@ -1,19 +1,18 @@
 //! Enumerate processes and acquire process summaries and user names.
 //!
 //! # Interface
-//! - [`ProcessSummary`] (`pub`): `struct ProcessSummary`.
 //! - [`collect_process_summary`] (`pub(super)`): `fn collect_process_summary( stat: &procfs::Stat, users: &HashMap<u32, String>, ) -> ProcessSummary`.
 //! - [`read_user_names`] (`pub(super)`): `fn read_user_names() -> HashMap<u32, String>`.
 //! - [`collect_processes`] (`pub(in crate::privileged_helper)`): `fn collect_processes() -> Result<Vec<ProcessSummary>>`.
 //!
-//! Supporting types: [`HashMap`], [`ProcessSummary`], [`procfs::Stat`].
+//! Supporting types: [`HashMap`], [`crate::ipc::acquisition::ProcessSummary`], [`procfs::Stat`].
 
 // Visibility is scoped to the consumers of the parent process façade.
-use super::{ProcessId, procfs};
 use anyhow::Result;
 use std::{collections::HashMap, fs};
+use {super::procfs, crate::ipc::schema::ProcessId};
 
-pub use crate::ipc::acquisition::ProcessSummary;
+use crate::ipc::acquisition::ProcessSummary;
 
 pub(super) fn collect_process_summary(
     stat: &procfs::Stat,

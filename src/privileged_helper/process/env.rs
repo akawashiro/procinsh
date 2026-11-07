@@ -6,9 +6,12 @@
 //! Process identities use [`ProcessId`]; captured bytes use [`EnvironmentData`](crate::ipc::acquisition::EnvironmentData).
 
 use super::procfs::read_bounded_bytes;
-use super::{ProcessId, memory, permission_help, timestamp_ms, validate_process_identity};
 use anyhow::{Result, ensure};
 use std::fs::File;
+use {
+    super::{memory, permission_help, timestamp_ms, validate_process_identity},
+    crate::ipc::schema::ProcessId,
+};
 
 const MAX_ENVIRONMENT: usize = 1024 * 1024;
 

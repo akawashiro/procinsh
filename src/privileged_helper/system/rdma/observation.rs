@@ -7,10 +7,10 @@
 //! Supporting types: [`HashMap`], [`Instant`], [`Path`], [`ProcessId`], [`RdmaObservation`].
 
 use super::super::ipoib;
-use super::{RdmaPortInfo, RdmaRelation};
 use super::{nldev, ports, relations};
 use crate::ipc::rdma::IbGid;
-use crate::privileged_helper::process::ProcessId;
+use crate::ipc::rdma::{RdmaPortInfo, RdmaRelation};
+use crate::ipc::schema::ProcessId;
 use std::{collections::HashMap, path::Path, time::Instant};
 
 #[derive(Default)]

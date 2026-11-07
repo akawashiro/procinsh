@@ -7,12 +7,12 @@ use std::{
 };
 pub(in crate::privileged_helper) struct Target {
     pub(in crate::privileged_helper) child: Child,
-    pub(in crate::privileged_helper) id: process::ProcessId,
+    pub(in crate::privileged_helper) id: crate::ipc::schema::ProcessId,
     pub(in crate::privileged_helper) address: u64,
 }
 impl Target {
     pub(in crate::privileged_helper) fn new(name: &str) -> Self {
-        super::super::test_support::build_targets();
+        crate::test_support::build_targets();
         let mut child = Command::new(format!("tests/targets/bin/{name}"))
             .env("PROCINSH_TEST_ENV", "value=with\nline <b>literal</b>")
             .env("PROCINSH_TEST_EMPTY", "")
@@ -63,7 +63,7 @@ impl Drop for Target {
 /// by the parent. The host endpoint remains owned by the test process as well.
 pub(in crate::privileged_helper) struct NetworkNamespaceTarget {
     pub(in crate::privileged_helper) target: Target,
-    pub(in crate::privileged_helper) peer_id: process::ProcessId,
+    pub(in crate::privileged_helper) peer_id: crate::ipc::schema::ProcessId,
     pub(in crate::privileged_helper) inherited: std::os::unix::net::UnixStream,
     _inherited_peer: std::os::unix::net::UnixStream,
 }
@@ -74,7 +74,7 @@ impl NetworkNamespaceTarget {
             fd::OwnedFd,
             unix::{net::UnixStream, process::CommandExt},
         };
-        super::super::test_support::build_targets();
+        crate::test_support::build_targets();
         let (inherited, inherited_peer) = UnixStream::pair().unwrap();
         let stdin: OwnedFd = inherited.try_clone().unwrap().into();
         let mut command = Command::new("tests/targets/bin/netns_ipc");

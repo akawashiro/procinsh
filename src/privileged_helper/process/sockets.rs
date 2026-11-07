@@ -4,18 +4,16 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`SocketInfo`] | `pub(in crate::privileged_helper)` | `struct SocketInfo` |
 //! | [`read_socket_table`] | `pub(super)` | `fn read_socket_table(path: &`[`str`]`) -> `[`Result`]`<`[`String`]`>` |
-//! | [`parse_inet_socket_table`] | `pub(super)` | `fn parse_inet_socket_table(text: &`[`str`]`, protocol: `[`SocketProtocol`]`) -> `[`HashMap`]`<`[`u64`]`, `[`SocketInfo`]`>` |
-//! | [`parse_unix_socket_table`] | `pub(super)` | `fn parse_unix_socket_table(text: &`[`str`]`) -> `[`HashMap`]`<`[`u64`]`, `[`SocketInfo`]`>` |
+//! | [`parse_inet_socket_table`] | `pub(super)` | `fn parse_inet_socket_table(text: &`[`str`]`, protocol: `[`SocketProtocol`]`) -> `[`HashMap`]`<`[`u64`]`, `[`crate::ipc::model::sockets::SocketInfo`]`>` |
+//! | [`parse_unix_socket_table`] | `pub(super)` | `fn parse_unix_socket_table(text: &`[`str`]`) -> `[`HashMap`]`<`[`u64`]`, `[`crate::ipc::model::sockets::SocketInfo`]`>` |
 //! | [`diagnostic_socket`] | `pub(super)` | `fn diagnostic_socket() -> `[`Result`]`<`[`OwnedFd`]`>` |
-//! | [`collect_unix_socket_peers`] | `pub(super)` | `fn collect_unix_socket_peers(namespace: &`[`NetworkNamespaceReader`]`, deadline: `[`Instant`]`) -> `[`Result`]`<`[`HashMap`]`<`[`u64`]`, `[`SocketInfo`]`>>` |
+//! | [`collect_unix_socket_peers`] | `pub(super)` | `fn collect_unix_socket_peers(namespace: &`[`NetworkNamespaceReader`]`, deadline: `[`Instant`]`) -> `[`Result`]`<`[`HashMap`]`<`[`u64`]`, `[`crate::ipc::model::sockets::SocketInfo`]`>>` |
 
 use super::socket_namespace::NetworkNamespaceReader;
+
+use crate::ipc::model::socket_types::{SocketProtocol, SocketState, SocketType};
 use crate::privileged_helper::netlink;
-#[cfg(test)]
-use crate::privileged_helper::socket_types::SocketConnectionStatus;
-use crate::privileged_helper::socket_types::{SocketProtocol, SocketState, SocketType};
 // Visibility is scoped to the consumers of the parent process façade.
 use anyhow::{Context, Result, bail, ensure};
 use std::{
@@ -27,7 +25,7 @@ use std::{
     time::Instant,
 };
 
-pub(in crate::privileged_helper) use crate::ipc::model::sockets::SocketInfo;
+use crate::ipc::model::sockets::SocketInfo;
 
 pub(super) fn read_socket_table(path: &str) -> Result<String> {
     let mut bytes = Vec::new();
@@ -197,11 +195,12 @@ pub(super) fn collect_unix_socket_peers(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::ipc::model::socket_types::SocketConnectionStatus;
+    use {super::*, crate::ipc::model::sockets::SocketInfo};
 
     #[test]
     fn socket_connection_fallback_requires_positive_table_evidence() {
-        use crate::privileged_helper::socket_types::AddressFamily;
+        use crate::ipc::model::socket_types::AddressFamily;
         use SocketConnectionStatus::*;
         let mut info = SocketInfo {
             protocol: SocketProtocol::Udp {
@@ -254,7 +253,7 @@ mod tests {
 
     #[test]
     fn proc_tables_and_diag_preserve_unknown_socket_codes() {
-        use crate::privileged_helper::socket_types::AddressFamily;
+        use crate::ipc::model::socket_types::AddressFamily;
         let protocol = SocketProtocol::Tcp {
             family: AddressFamily::Ipv4,
         };

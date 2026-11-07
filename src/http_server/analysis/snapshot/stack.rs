@@ -2,12 +2,9 @@
 //!
 //! # Interface
 //!
-//! | Definition | Visibility | Kind / signature |
-//! | --- | --- | --- |
-//! | [`StackFrame`] | `pub` | `struct StackFrame` |
-//! | [`SourceFrame`] | `pub` | `struct SourceFrame` |
+//! No named types or functions are exported; shared values come from their definition modules.
 
-pub use crate::ipc::stack::{SourceFrame, StackFrame};
+use crate::ipc::stack::{SourceFrame, StackFrame};
 
 #[derive(serde::Serialize)]
 #[allow(dead_code)]

@@ -6,17 +6,12 @@
 //! | --- | --- | --- |
 //! | [`read_maps`] | `pub(super)` | `fn read_maps(pid: i32) -> Result<Vec<MemoryMap>>` |
 //! | [`read_smaps`] | `pub(super)` | `fn read_smaps(pid: i32) -> Result<Vec<SmapsEntry>>` |
-//! | [`MemoryRollup`] | `pub(super)` | `struct MemoryRollup` |
 //! | [`read_memory_rollup`] | `pub(super)` | `fn read_memory_rollup(pid: i32) -> Option<MemoryRollup>` |
-//! | [`MemoryKind`] | `pub(in crate::privileged_helper)` | `enum MemoryKind` |
-//! | [`MappingSnapshot`] | `pub(in crate::privileged_helper)` | `struct MappingSnapshot` |
-//! | [`MemoryMap`] | `pub(in crate::privileged_helper)` | `struct MemoryMap` |
-//! | [`SmapsEntry`] | `pub(in crate::privileged_helper)` | `struct SmapsEntry` |
-//! | [`parse_map`] | `pub(in crate::privileged_helper)` | `fn parse_map(line: &str) -> Result<MemoryMap>` |
-//! | [`parse_smaps`] | `pub(in crate::privileged_helper)` | `fn parse_smaps(text: &str) -> Result<Vec<SmapsEntry>>` |
+//!
+//! Shared signature types: [`MemoryMap`], [`MemoryRollup`], [`SmapsEntry`].
 
 use super::procfs::read_procfs_text;
-pub(in crate::privileged_helper) use crate::ipc::model::memory::*;
+use crate::ipc::model::memory::{MemoryMap, SmapsEntry, parse_map, parse_smaps};
 use anyhow::Result;
 
 pub(super) fn read_maps(pid: i32) -> Result<Vec<MemoryMap>> {
@@ -34,7 +29,7 @@ pub(super) fn read_smaps(pid: i32) -> Result<Vec<SmapsEntry>> {
     Ok(read_maps(pid)?.into_iter().map(SmapsEntry::from).collect())
 }
 
-pub use crate::ipc::acquisition::MemoryRollup;
+use crate::ipc::acquisition::MemoryRollup;
 
 pub(super) fn read_memory_rollup(pid: i32) -> Option<MemoryRollup> {
     let f = super::procfs::read_procfs_fields(&format!("/proc/{pid}/smaps_rollup")).ok()?;

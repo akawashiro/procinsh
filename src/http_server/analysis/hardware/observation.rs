@@ -7,14 +7,14 @@
 //! | [`HardwareSources`] | `pub` | `struct HardwareSources` |
 //! | [`HardwareObservation`] | `pub` | `struct HardwareObservation` |
 
-use super::devices::{HardwareDevice, build_hardware_device};
 use super::handles::DeviceHandleCollector;
-use super::paths::{HardwarePath, build_hardware_paths};
 use super::pci::{online_numa_nodes, read_topology};
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
 };
+use {super::devices::build_hardware_device, crate::ipc::hardware::HardwareDevice};
+use {super::paths::build_hardware_paths, crate::ipc::hardware::HardwarePath};
 
 /// Logical roots and an in-memory view of helper-acquired attributes.
 #[derive(Clone)]

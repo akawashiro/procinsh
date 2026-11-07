@@ -2,7 +2,10 @@
 
 use super::wire::AgentResponse;
 use super::wire::Message;
-use crate::http_server::protocol::{MonitorRequest, MonitorResponse, TIMEOUT};
+use crate::{
+    http_server::protocol::MonitorResponse,
+    ipc::schema::{MonitorRequest, TIMEOUT},
+};
 use anyhow::{Context, Result, bail};
 use std::{
     collections::HashMap,

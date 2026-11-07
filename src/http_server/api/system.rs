@@ -8,7 +8,7 @@
 use super::super::{AppState, hosts::ALL_HOSTS};
 use super::hosts::{HostQuery, resolve_host_client};
 use super::process::ApiError;
-use crate::http_server::protocol::MonitorRequest;
+use crate::ipc::schema::MonitorRequest;
 use axum::{
     extract::{Query, State},
     response::Response,

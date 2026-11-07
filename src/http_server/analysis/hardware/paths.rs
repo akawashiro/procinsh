@@ -4,13 +4,16 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`PathClass`] | `pub` | `enum PathClass` |
-//! | [`HardwarePath`] | `pub` | `struct HardwarePath` |
 //! | [`build_hardware_paths`] | `pub` | `fn build_hardware_paths(nodes: &[PciNode], numa_nodes: usize) -> Vec<HardwarePath>` |
+//!
+//! Shared signature types: [`HardwarePath`].
 
-use super::pci::{HardwareRole, PciNode, PcieLink};
-pub use crate::ipc::hardware::{HardwarePath, PathClass};
+use crate::ipc::hardware::{HardwarePath, PathClass};
 use std::collections::HashMap;
+use {
+    super::pci::PciNode,
+    crate::ipc::hardware::{HardwareRole, PcieLink},
+};
 
 /// How a path crosses the topology, from the closest to the farthest.
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -167,7 +170,11 @@ pub fn build_hardware_paths(nodes: &[PciNode], numa_nodes: usize) -> Vec<Hardwar
 #[cfg(test)]
 mod tests {
     use super::super::pci::{fixture, read_topology};
-    use super::*;
+    use crate::ipc::hardware::PcieLink;
+    use {
+        super::build_hardware_paths,
+        crate::ipc::hardware::{HardwarePath, PathClass},
+    };
 
     fn class_of(
         paths: &[HardwarePath],

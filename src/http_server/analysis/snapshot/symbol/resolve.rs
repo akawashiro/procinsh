@@ -12,7 +12,7 @@
 //! Resolution uses [`MemoryMap`], [`ElfSymbols`] and [`SourceFrame`].
 
 use super::cache::ElfSymbols;
-use crate::http_server::{analysis::snapshot::stack::SourceFrame, model::memory::MemoryMap};
+use crate::ipc::{model::memory::MemoryMap, stack::SourceFrame};
 /// Symbol and source information for one ELF address.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct SymbolInfo {

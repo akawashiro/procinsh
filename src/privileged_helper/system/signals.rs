@@ -8,9 +8,9 @@
 //!
 //! Drained observations use [`SignalSample`]; main matches them against captured process identities.
 
-use super::snapshot::SystemSnapshot;
+use crate::ipc::model::system::SystemSnapshot;
 #[cfg(test)]
-use crate::privileged_helper::process::{ProcessId, ticks_per_second};
+use crate::{ipc::schema::ProcessId, privileged_helper::process::ticks_per_second};
 use anyhow::{Context, Result};
 use libbpf_rs::{MapCore, MapFlags, ObjectBuilder, RingBufferBuilder};
 #[cfg(test)]

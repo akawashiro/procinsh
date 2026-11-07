@@ -1,13 +1,17 @@
 //! Regular-file activity, independent of IPC/CPU availability.
+//!
+//! # Interface
+//! [`FileActivityCollector`] (`pub(super)`): `struct FileActivityCollector`.
+
 #[cfg(test)]
-use crate::privileged_helper::resource::{DeviceId, FileIdentity};
+use crate::ipc::model::resource::{DeviceId, FileIdentity};
 use anyhow::{Context, Result};
 use libbpf_rs::{MapCore, MapFlags, ObjectBuilder, RingBufferBuilder};
 use std::sync::{Arc, Mutex};
 
 pub(super) const COVERAGE: &str = "Regular-file read/write, pread/pwrite and vectored I/O, including page cache. Not physical disk traffic. mmap, io_uring, splice/sendfile and kernel workers are not observed.";
 const MAX_AGGREGATES: usize = 8192;
-pub(super) use crate::ipc::activity::FileActivity;
+use crate::ipc::activity::FileActivity;
 use crate::privileged_helper::bpf_records::decode_file;
 #[derive(Default)]
 struct Batch {

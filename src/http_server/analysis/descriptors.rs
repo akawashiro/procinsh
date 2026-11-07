@@ -4,15 +4,17 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`Key`] | `pub` | `struct Key` |
-//! | [`Endpoint`] | `pub` | `struct Endpoint` |
-//! | [`FileDescriptorInfo`] | `pub` | `struct FileDescriptorInfo` |
-//! | [`FileDescriptors`] | `pub` | `struct FileDescriptors` |
-//! | [`Owner`] | `pub` | `struct Owner` |
 //! | [`resolve_descriptor_relations`] | `pub` | `fn resolve_descriptor_relations(data: &mut FileDescriptors)` |
+//!
+//! Shared signature types: [`FileDescriptors`].
 
-pub use crate::ipc::descriptors::{Endpoint, FileDescriptorInfo, FileDescriptors, Key, Owner};
-use crate::{http_server::model::socket_types::*, ipc::schema::ProcessId};
+use crate::ipc::descriptors::{Endpoint, FileDescriptorInfo, FileDescriptors, Key, Owner};
+use crate::ipc::{
+    model::socket_types::{
+        FdAccess, FdKind, InetAddress, SocketConnectionStatus, SocketProtocol, SocketState,
+    },
+    schema::ProcessId,
+};
 use std::collections::HashMap;
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(dead_code)]
@@ -237,6 +239,7 @@ pub fn resolve_descriptor_relations(data: &mut FileDescriptors) {
 #[cfg(test)]
 mod inode_tests {
     use super::*;
+    use crate::ipc::descriptors::{FileDescriptorInfo, Key};
 
     fn descriptor_with_inodes(inode: u64, peer_inode: Option<u64>) -> FileDescriptorInfo {
         FileDescriptorInfo {

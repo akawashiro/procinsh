@@ -6,7 +6,7 @@ use super::listener::{IDLE_TIMEOUT, PING_INTERVAL};
 use super::wire::AgentResponse;
 use super::wire::{self, Message};
 use crate::http_server::client::MonitorClient;
-use crate::http_server::protocol::{MonitorRequest, MonitorResponse};
+use crate::{http_server::protocol::MonitorResponse, ipc::schema::MonitorRequest};
 use anyhow::{Context, Result, bail};
 use std::{
     collections::HashSet,

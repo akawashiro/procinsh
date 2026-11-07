@@ -1,13 +1,13 @@
 //! Linux perf ABI with the native register layout from `arch`. Events
 //! follow a TID across CPU migration.
-use super::{
-    registers::RegisterSet,
-    sample::{RawSample, SampleSource},
-};
 use anyhow::{Context, Result, bail, ensure};
 use std::{
     os::fd::{AsRawFd, FromRawFd, OwnedFd},
     sync::atomic::{AtomicU64, Ordering},
+};
+use {
+    super::sample::RawSample,
+    crate::ipc::{acquisition::SampleSource, registers::RegisterSet},
 };
 
 #[cfg(target_arch = "aarch64")]

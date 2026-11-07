@@ -8,7 +8,7 @@
 //! | [`ProcessMonitor`] | `pub(in crate::privileged_helper)` | `struct `[`ProcessMonitor`] |
 //! | [`capture_sample`] | `pub(super)` | `fn capture_sample(id: ProcessId) -> anyhow::Result<ProcessSample>` |
 //!
-//! Sampling returns raw [`sampling::ProcessSample`] counters with monotonic times.
+//! Sampling returns raw [`crate::ipc::model::process::ProcessSample`] counters with monotonic times.
 //! [`ProcessMonitor`] owns acquisition sessions; main derives observations and histories.
 
 mod sampling;

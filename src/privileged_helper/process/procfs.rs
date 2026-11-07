@@ -3,7 +3,6 @@
 //! # Interface
 //! All entries below have `pub(super)` visibility.
 //! - [`Stat`]: `struct Stat`.
-//! - [`IoStats`]: `struct IoStats`, re-exported from [`crate::ipc::model::process::IoStats`].
 //! - [`page_size`]: `fn page_size() -> u64`.
 //! - [`ticks_per_second`]: `fn ticks_per_second() -> f64`.
 //! - [`parse_process_stat`]: `fn parse_process_stat(text: &str) -> anyhow::Result<Stat>`.
@@ -15,6 +14,8 @@
 //! - [`read_process_io_stats`]: `fn read_process_io_stats(pid: i32) -> anyhow::Result<IoStats>`.
 //!
 //! Field maps use [`HashMap`]; bounded readers implement [`Read`].
+//!
+//! Shared signature types: [`IoStats`].
 
 use anyhow::{Context, Result, anyhow, ensure};
 use std::{collections::HashMap, fs, io::Read};
@@ -123,7 +124,7 @@ pub(super) fn parse_procfs_u64_field(fields: &HashMap<String, String>, key: &str
     fields.get(key)?.split_whitespace().next()?.parse().ok()
 }
 
-pub(super) use crate::ipc::model::process::IoStats;
+use crate::ipc::model::process::IoStats;
 
 pub(super) fn read_process_io_stats(pid: i32) -> Result<IoStats> {
     let f = read_procfs_fields(&format!("/proc/{pid}/io"))?;

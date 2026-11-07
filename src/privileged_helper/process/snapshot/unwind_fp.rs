@@ -1,5 +1,5 @@
-use crate::privileged_helper::process::maps::MemoryMap;
-use crate::privileged_helper::process::snapshot::stack::StackFrame;
+use crate::ipc::model::memory::MemoryMap;
+use crate::ipc::stack::StackFrame;
 
 pub(super) fn unwind_frame_pointers(
     rip: u64,
@@ -59,10 +59,8 @@ mod tests {
     #[test]
     fn walk_stops_on_cycles_and_never_reads_outside_stack() {
         let maps = vec![
-            crate::privileged_helper::process::maps::parse_map("1000-2000 rw-p 0 00:00 0 [stack]")
-                .unwrap(),
-            crate::privileged_helper::process::maps::parse_map("3000-4000 r-xp 0 00:00 0 /a")
-                .unwrap(),
+            crate::ipc::model::memory::parse_map("1000-2000 rw-p 0 00:00 0 [stack]").unwrap(),
+            crate::ipc::model::memory::parse_map("3000-4000 r-xp 0 00:00 0 /a").unwrap(),
         ];
         let mut reads = 0;
         let (frames, reason) = unwind_frame_pointers(0x3010, 0x1000, 0x1100, &maps, |_| {
