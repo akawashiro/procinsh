@@ -2,7 +2,7 @@
 //!
 //! # Interface
 //! - [`SubscribeError`] (`pub(in crate::privileged_helper)`): `enum SubscribeError`.
-//! - [`MemoryMaps`](crate::ipc::acquisition::MemoryMaps) (`pub`): `struct MemoryMaps`.
+//! - [`MemoryMaps`] (`pub`): `struct MemoryMaps`.
 //! - [`timestamp_ms`] (`pub(in crate::privileged_helper)`): `fn timestamp_ms() -> u64`.
 //! - [`permission_help`] (`pub(super)`): `fn permission_help(operation: &str, error: impl std::fmt::Display) -> String`.
 //! - [`collect_process_observation`] (`pub(in crate::privileged_helper)`): `fn collect_process_observation( id: ProcessId, ) -> Result<crate::ipc::acquisition::ObservationData>`.

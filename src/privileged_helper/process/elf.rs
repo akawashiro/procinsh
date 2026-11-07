@@ -3,7 +3,7 @@
 //! # Interface
 //!
 //! [`read_mapped_file_ranges`] (`pub(super)`): `fn read_mapped_file_ranges(pid: i32, map: &MemoryMap, ranges: &[FileRange]) -> anyhow::Result<MonitorResponse>`.
-//! Supporting types: [`MemoryMap`], [`FileRange`], [`MonitorResponse`].
+//! Supporting types: [`MemoryMap`], [`FileRange`], [`MonitorResponse`](crate::ipc::schema::MonitorResponse).
 
 use crate::ipc::elf::{
     FileChunk, FileRange, MAX_FILE_SIZE, MAX_RANGES, MAX_READ_SIZE, MappedFileData,

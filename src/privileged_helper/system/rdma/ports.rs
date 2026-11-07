@@ -1,17 +1,17 @@
 //! Local RDMA port addresses and link state from sysfs.
 //!
 //! # Interface
-//! - [`RdmaQpType`](crate::ipc::rdma::RdmaQpType) (`pub(in crate::privileged_helper::system)`): `enum RdmaQpType`.
-//! - [`RdmaQpState`](crate::ipc::rdma::RdmaQpState) (`pub(in crate::privileged_helper::system)`): `enum RdmaQpState`.
-//! - [`RdmaCmState`](crate::ipc::rdma::RdmaCmState) (`pub(in crate::privileged_helper::system)`): `enum RdmaCmState`.
-//! - [`RdmaPortSpace`](crate::ipc::rdma::RdmaPortSpace) (`pub(in crate::privileged_helper::system)`): `enum RdmaPortSpace`.
-//! - [`IbGid`](crate::ipc::rdma::IbGid) (`pub(in crate::privileged_helper::system)`): `struct IbGid`.
-//! - [`RdmaAddress`](crate::ipc::rdma::RdmaAddress) (`pub(in crate::privileged_helper::system)`): `enum RdmaAddress`.
-//! - [`RdmaPortInfo`](crate::ipc::rdma::RdmaPortInfo) (`pub(in crate::privileged_helper::system)`): `struct RdmaPortInfo`.
-//! - [`RdmaEndpointOwner`](crate::ipc::rdma::RdmaEndpointOwner) (`pub(in crate::privileged_helper::system)`): `enum RdmaEndpointOwner`.
-//! - [`RdmaEndpoint`](crate::ipc::rdma::RdmaEndpoint) (`pub(in crate::privileged_helper::system)`): `struct RdmaEndpoint`.
-//! - [`RdmaCmInfo`](crate::ipc::rdma::RdmaCmInfo) (`pub(in crate::privileged_helper::system)`): `struct RdmaCmInfo`.
-//! - [`RdmaRelation`](crate::ipc::rdma::RdmaRelation) (`pub(in crate::privileged_helper::system)`): `struct RdmaRelation`.
+//! - [`RdmaQpType`] (`pub(in crate::privileged_helper::system)`): `enum RdmaQpType`.
+//! - [`RdmaQpState`] (`pub(in crate::privileged_helper::system)`): `enum RdmaQpState`.
+//! - [`RdmaCmState`] (`pub(in crate::privileged_helper::system)`): `enum RdmaCmState`.
+//! - [`RdmaPortSpace`] (`pub(in crate::privileged_helper::system)`): `enum RdmaPortSpace`.
+//! - [`IbGid`] (`pub(in crate::privileged_helper::system)`): `struct IbGid`.
+//! - [`RdmaAddress`] (`pub(in crate::privileged_helper::system)`): `enum RdmaAddress`.
+//! - [`RdmaPortInfo`] (`pub(in crate::privileged_helper::system)`): `struct RdmaPortInfo`.
+//! - [`RdmaEndpointOwner`] (`pub(in crate::privileged_helper::system)`): `enum RdmaEndpointOwner`.
+//! - [`RdmaEndpoint`] (`pub(in crate::privileged_helper::system)`): `struct RdmaEndpoint`.
+//! - [`RdmaCmInfo`] (`pub(in crate::privileged_helper::system)`): `struct RdmaCmInfo`.
+//! - [`RdmaRelation`] (`pub(in crate::privileged_helper::system)`): `struct RdmaRelation`.
 //! - [`list_rdma_devices`] (`pub(super)`): `fn list_rdma_devices(root: &Path) -> Vec<String>`.
 //! - [`read_rdma_ports`] (`pub(super)`): `fn read_rdma_ports(root: &Path) -> Vec<RdmaPortInfo>`.
 //!
