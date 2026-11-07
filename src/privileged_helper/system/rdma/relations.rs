@@ -1,5 +1,21 @@
 //! Queue pair relations: owners, connection manager addresses, remote GIDs and
 //! queue pairs connected within this host.
+//!
+//! # Interface
+//! - [`RdmaQpType`](crate::ipc::rdma::RdmaQpType) (`pub(in crate::privileged_helper::system)`): `enum RdmaQpType`.
+//! - [`RdmaQpState`](crate::ipc::rdma::RdmaQpState) (`pub(in crate::privileged_helper::system)`): `enum RdmaQpState`.
+//! - [`RdmaCmState`](crate::ipc::rdma::RdmaCmState) (`pub(in crate::privileged_helper::system)`): `enum RdmaCmState`.
+//! - [`RdmaPortSpace`](crate::ipc::rdma::RdmaPortSpace) (`pub(in crate::privileged_helper::system)`): `enum RdmaPortSpace`.
+//! - [`IbGid`](crate::ipc::rdma::IbGid) (`pub(in crate::privileged_helper::system)`): `struct IbGid`.
+//! - [`RdmaAddress`](crate::ipc::rdma::RdmaAddress) (`pub(in crate::privileged_helper::system)`): `enum RdmaAddress`.
+//! - [`RdmaPortInfo`](crate::ipc::rdma::RdmaPortInfo) (`pub(in crate::privileged_helper::system)`): `struct RdmaPortInfo`.
+//! - [`RdmaEndpointOwner`](crate::ipc::rdma::RdmaEndpointOwner) (`pub(in crate::privileged_helper::system)`): `enum RdmaEndpointOwner`.
+//! - [`RdmaEndpoint`](crate::ipc::rdma::RdmaEndpoint) (`pub(in crate::privileged_helper::system)`): `struct RdmaEndpoint`.
+//! - [`RdmaCmInfo`](crate::ipc::rdma::RdmaCmInfo) (`pub(in crate::privileged_helper::system)`): `struct RdmaCmInfo`.
+//! - [`RdmaRelation`](crate::ipc::rdma::RdmaRelation) (`pub(in crate::privileged_helper::system)`): `struct RdmaRelation`.
+//! - [`build_rdma_relations`] (`pub(super)`): `fn build_rdma_relations( resources: &NldevResources, ports: &[RdmaPortInfo], neighbors: &HashMap<IpAddr, IbGid>, processes: &HashMap<i32, ProcessId>, ) -> Vec<RdmaRelation>`.
+//!
+//! Supporting types: [`HashMap`], [`IbGid`], [`IpAddr`], [`NldevResources`], [`ProcessId`], [`RdmaPortInfo`], [`RdmaRelation`].
 
 use super::nldev::{CmIdEntry, NldevResources, QueuePairEntry, ResourceOwner};
 use crate::privileged_helper::process::ProcessId;

@@ -1,6 +1,11 @@
 //! Every host on one SPACE stream. Snapshot, activity and gap payloads carry
 //! `"host"`; `hosts` lists the hosts and `links` the connections between them.
 //! Watching the merged view starts collection on every online agent.
+//!
+//! # Interface
+//! - [`build_merged_event_response`] (`pub(super)`): `async fn build_merged_event_response(s: Arc<AppState>) -> Result<Response, ApiError>`.
+//!
+//! Supporting types: [`ApiError`], [`AppState`], [`Arc`], [`Response`].
 
 use super::super::{
     AppState,

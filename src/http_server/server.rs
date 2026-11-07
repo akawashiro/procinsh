@@ -1,3 +1,11 @@
+//! Bind HTTP and agent listeners and manage application shutdown.
+//!
+//! # Interface
+//! - [`ServerConfig`] (`pub(crate)`): `struct ServerConfig`.
+//! - [`serve_http_requests`] (`pub(super)`): `async fn serve_http_requests( config: ServerConfig, client: super::client::MonitorClient, ) -> Result<()>`.
+//!
+//! Supporting types: [`ServerConfig`], [`super::client::MonitorClient`].
+
 use super::{
     AppState,
     hosts::{self, HostInfo, HostRegistry},

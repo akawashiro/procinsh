@@ -1,3 +1,10 @@
+//! Launch the HTTP runtime and supervise its privileged helper.
+//!
+//! # Interface
+//! - [`launch_http_server`] (`pub(crate)`): `fn launch_http_server(config: super::ServerConfig) -> Result<()>`.
+//!
+//! Supporting types: [`super::ServerConfig`].
+
 use super::protocol::*;
 use super::{client::MonitorClient, privileges};
 use crate::ipc::transport;

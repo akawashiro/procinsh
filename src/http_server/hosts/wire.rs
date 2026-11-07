@@ -5,6 +5,16 @@
 //! own helper. The agent processes acquisition replies on its host and returns
 //! an [`AgentResponse`] ready for HTTP output. JSON framing supports links
 //! between hosts with different architectures.
+//!
+//! # Interface
+//! - [`AgentResponse`] (`pub(super)`): `type AgentResponse = Result<crate::http_server::protocol::MonitorResponse, String>`.
+//! - [`PROTOCOL`] (`pub(super)`): `const PROTOCOL: u32`.
+//! - [`Message`] (`pub(super)`): `enum Message`.
+//! - [`read_host_message`] (`pub(super)`): `async fn read_host_message(reader: &mut (impl AsyncRead + Unpin)) -> Result<Message>`.
+//! - [`write_host_message`] (`pub(super)`): `async fn write_host_message( writer: &mut (impl AsyncWrite + Unpin), message: Message, ) -> Result<()>`.
+//! - [`same_secret`] (`pub(super)`): `fn same_secret(expected: &str, actual: &str) -> bool`.
+//!
+//! Supporting types: [`AsyncRead`], [`AsyncWrite`], [`Message`].
 
 use crate::http_server::protocol::{MAX_RESPONSE, MonitorRequest};
 use anyhow::{Context, Result, bail, ensure};

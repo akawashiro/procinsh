@@ -1,3 +1,20 @@
+//! Serve process metadata and observation HTTP endpoints.
+//!
+//! # Interface
+//! - [`ApiError`] (`pub(super)`): `struct ApiError`.
+//! - [`ProcessQuery`] (`pub(super)`): `struct ProcessQuery`.
+//! - [`get_server_config`] (`pub(super)`): `async fn get_server_config(State(s): State<Arc<AppState>>) -> Json<Value>`.
+//! - [`list_processes`] (`pub(super)`): `async fn list_processes( State(s): State<Arc<AppState>>, Query(query): Query<HostQuery>, ) -> ApiResult`.
+//! - [`get_process_observation`] (`pub(super)`): `async fn get_process_observation( State(s): State<Arc<AppState>>, Query(query): Query<ProcessQuery>, ) -> ApiResult`.
+//! - [`get_process_threads`] (`pub(super)`): `async fn get_process_threads( State(s): State<Arc<AppState>>, Query(query): Query<ProcessQuery>, ) -> ApiResult`.
+//! - [`get_process_maps`] (`pub(super)`): `async fn get_process_maps( State(s): State<Arc<AppState>>, Query(query): Query<ProcessQuery>, ) -> ApiResult`.
+//! - [`get_process_environment`] (`pub(super)`): `async fn get_process_environment( State(s): State<Arc<AppState>>, Query(query): Query<ProcessQuery>, ) -> ApiResult`.
+//! - [`get_process_file_descriptors`] (`pub(super)`): `async fn get_process_file_descriptors( State(s): State<Arc<AppState>>, Query(query): Query<ProcessQuery>, ) -> ApiResult`.
+//! - [`get_process_auxiliary_vector`] (`pub(super)`): `async fn get_process_auxiliary_vector( State(s): State<Arc<AppState>>, Query(query): Query<ProcessQuery>, ) -> ApiResult`.
+//! - [`stream_process_events`] (`pub(super)`): `async fn stream_process_events( State(s): State<Arc<AppState>>, Query(query): Query<ProcessQuery>, ) -> Result<Response, ApiError>`.
+//!
+//! Supporting types: [`ApiError`], [`ApiResult`], [`AppState`], [`Arc`], [`HostQuery`], [`Json`], [`ProcessQuery`], [`Query`], [`Response`], [`State`], [`Value`].
+
 use super::super::AppState;
 use super::hosts::{HostQuery, resolve_host_client};
 use crate::http_server::protocol::{MonitorRequest, MonitorResponse, ProcessId, ProcessResource};

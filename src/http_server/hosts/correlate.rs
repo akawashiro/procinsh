@@ -4,6 +4,16 @@
 //! or UDP pair matches by reversed address tuples; an RDMA pair by swapped QPNs
 //! with remote GID or connection manager addresses as evidence. Only unique
 //! matches link, so NAT and duplicated tuples stay external.
+//!
+//! # Interface
+//! - [`LinkEnd`] (`pub(in crate::http_server)`): `struct LinkEnd`.
+//! - [`SocketLink`] (`pub(in crate::http_server)`): `struct SocketLink`.
+//! - [`RdmaEvidence`] (`pub(in crate::http_server)`): `struct RdmaEvidence`.
+//! - [`RdmaLink`] (`pub(in crate::http_server)`): `struct RdmaLink`.
+//! - [`CrossHostLinks`] (`pub(in crate::http_server)`): `struct CrossHostLinks`.
+//! - [`correlate_host_connections`] (`pub(in crate::http_server)`): `fn correlate_host_connections( hosts: &[(&str, &Value)], ) -> CrossHostLinks`.
+//!
+//! Supporting types: [`CrossHostLinks`], [`Value`].
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

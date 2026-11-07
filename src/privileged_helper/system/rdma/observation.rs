@@ -1,4 +1,10 @@
 //! One RDMA observation for a system snapshot.
+//!
+//! # Interface
+//! - [`RdmaObservation`] (`pub(in crate::privileged_helper::system)`): `struct RdmaObservation`.
+//! - [`collect_rdma_observation`] (`pub(in crate::privileged_helper::system)`): `fn collect_rdma_observation( sys: &Path, processes: &HashMap<i32, ProcessId>, deadline: Instant, ) -> RdmaObservation`.
+//!
+//! Supporting types: [`HashMap`], [`Instant`], [`Path`], [`ProcessId`], [`RdmaObservation`].
 
 use super::super::ipoib;
 use super::{RdmaPortInfo, RdmaRelation};
