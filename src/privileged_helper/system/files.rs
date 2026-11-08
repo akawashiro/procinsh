@@ -13,7 +13,8 @@
 //!
 
 #[cfg(test)]
-use crate::ipc::model::resource::{DeviceId, FileIdentity};
+use crate::ipc::model::resource::DeviceId;
+use crate::ipc::{model::resource::FileIdentity, schema::ProcessId};
 use anyhow::{Context, Result};
 use libbpf_rs::{MapCore, MapFlags, ObjectBuilder, RingBufferBuilder};
 use std::sync::{Arc, Mutex};
@@ -21,7 +22,6 @@ use std::sync::{Arc, Mutex};
 pub(super) const COVERAGE: &str = "Regular-file read/write, pread/pwrite and vectored I/O, including page cache. Not physical disk traffic. mmap, io_uring, splice/sendfile and kernel workers are not observed.";
 const MAX_AGGREGATES: usize = 8192;
 use crate::ipc::activity::FileActivity;
-use crate::privileged_helper::bpf_records::decode_file;
 #[derive(Default)]
 struct Batch {
     events: Vec<FileActivity>,
@@ -100,6 +100,45 @@ pub(super) fn lost_file_activity_collector(state: &FileActivityCollector) -> u64
         .unwrap_or(0)
         + state.batch.lock().unwrap().dropped
 }
+
+fn decode_file(data: &[u8]) -> Option<FileActivity> {
+    use crate::ipc::model::resource::device_id_from_kernel;
+
+    if data.len() != 4144 {
+        return None;
+    }
+    let u64_at = |i| u64::from_ne_bytes(data[i..i + 8].try_into().unwrap());
+    let u32_at = |i| u32::from_ne_bytes(data[i..i + 4].try_into().unwrap());
+    let bytes = u64_at(24);
+    if bytes == 0 || u32_at(36) > 1 {
+        return None;
+    }
+    let len = u32_at(40) as usize;
+    let path = if (2..=4096).contains(&len) && data[48 + len - 1] == 0 {
+        Some(String::from_utf8_lossy(&data[48..48 + len - 1]).into_owned())
+    } else {
+        None
+    };
+    let dev = u64_at(16);
+    Some(FileActivity {
+        process_id: ProcessId {
+            pid: u32_at(32) as i32,
+            start_time_ticks: ((u64_at(0) as u128
+                * crate::ipc::model::process::ticks_per_second() as u128)
+                / 1_000_000_000) as u64,
+        },
+        file: FileIdentity {
+            device: device_id_from_kernel(dev),
+            inode: u64_at(8),
+            generation: u32_at(44),
+        },
+        path,
+        write: u32_at(36) != 0,
+        bytes,
+        count: 1,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use {super::*, crate::http_server::analysis::activity::FileBatch};

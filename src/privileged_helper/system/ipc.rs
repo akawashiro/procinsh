@@ -12,7 +12,6 @@
 //! | [`unresolved_ipc_activity_collector`] | `pub(super)` | `fn unresolved_ipc_activity_collector(_state: &`[`IpcActivityCollector`]`) -> u64` |
 
 use crate::ipc::activity::IpcEvent;
-use crate::privileged_helper::bpf_records::decode_ipc;
 use anyhow::{Context, Result};
 use libbpf_rs::{MapCore, MapFlags, ObjectBuilder, RingBufferBuilder};
 use std::sync::{Arc, Mutex};
@@ -120,6 +119,25 @@ pub(super) fn drain_ipc_activity_collector(state: &mut IpcActivityCollector) -> 
 pub(super) fn unresolved_ipc_activity_collector(_state: &IpcActivityCollector) -> u64 {
     0
 }
+
+fn decode_ipc(bytes: &[u8]) -> Option<IpcEvent> {
+    if bytes.len() != 56 {
+        return None;
+    }
+    let u64at = |i| u64::from_ne_bytes(bytes[i..i + 8].try_into().unwrap());
+    let u32at = |i| u32::from_ne_bytes(bytes[i..i + 4].try_into().unwrap());
+    Some(IpcEvent {
+        start: u64at(8),
+        inode: u64at(16),
+        device: u64at(24),
+        bytes: u64at(32),
+        pid: u32at(40),
+        kind: u32at(44),
+        write: u32at(48) != 0,
+        worker: u32at(52) != 0,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
