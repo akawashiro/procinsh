@@ -4,15 +4,15 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`SchedulerPolicy`] | `pub` | `enum SchedulerPolicy` |
-//! | [`CpuRange`] | `pub` | `struct CpuRange` |
-//! | [`ThreadObservation`] | `pub` | `struct ThreadObservation` |
-//! | [`ThreadSample`] | `pub` | `struct ThreadSample` |
-//! | [`scheduler_policy_from_code`] | `pub` | `fn scheduler_policy_from_code(code: u32) -> `[`SchedulerPolicy`] |
-//! | [`parse_cpu_affinity`] | `pub` | `fn parse_cpu_affinity(text: &str) -> `[`Option`]`<`[`Vec`]`<`[`CpuRange`]`>>` |
+//! | [`SchedulerPolicy`] | `pub(crate)` | `enum SchedulerPolicy` |
+//! | [`CpuRange`] | `pub(crate)` | `struct CpuRange` |
+//! | [`ThreadObservation`] | `pub(crate)` | `struct ThreadObservation` |
+//! | [`ThreadSample`] | `pub(crate)` | `struct ThreadSample` |
+//! | [`scheduler_policy_from_code`] | `pub(crate)` | `fn scheduler_policy_from_code(code: u32) -> `[`SchedulerPolicy`] |
+//! | [`parse_cpu_affinity`] | `pub(crate)` | `fn parse_cpu_affinity(text: &str) -> `[`Option`]`<`[`Vec`]`<`[`CpuRange`]`>>` |
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SchedulerPolicy {
+pub(crate) enum SchedulerPolicy {
     Other,
     Fifo,
     Rr,
@@ -22,7 +22,7 @@ pub enum SchedulerPolicy {
     Ext,
     Unknown(u32),
 }
-pub fn scheduler_policy_from_code(code: u32) -> SchedulerPolicy {
+pub(crate) fn scheduler_policy_from_code(code: u32) -> SchedulerPolicy {
     match code {
         0 => SchedulerPolicy::Other,
         1 => SchedulerPolicy::Fifo,
@@ -36,12 +36,12 @@ pub fn scheduler_policy_from_code(code: u32) -> SchedulerPolicy {
 }
 /// Inclusive range of CPU indices in a thread's affinity mask.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct CpuRange {
-    pub start: u32,
-    pub end: u32,
+pub(crate) struct CpuRange {
+    pub(crate) start: u32,
+    pub(crate) end: u32,
 }
 
-pub fn parse_cpu_affinity(text: &str) -> Option<Vec<CpuRange>> {
+pub(crate) fn parse_cpu_affinity(text: &str) -> Option<Vec<CpuRange>> {
     text.split(',')
         .map(|item| {
             let (start, end) = item.split_once('-').unwrap_or((item, item));
@@ -53,35 +53,35 @@ pub fn parse_cpu_affinity(text: &str) -> Option<Vec<CpuRange>> {
 }
 
 #[derive(Clone, Debug)]
-pub struct ThreadObservation {
-    pub tid: i32,
-    pub name: String,
-    pub state: String,
-    pub cpu: i32,
-    pub cpu_percent: Option<f64>,
-    pub priority: i64,
-    pub nice: i64,
-    pub scheduler: SchedulerPolicy,
-    pub affinity: Option<Vec<CpuRange>>,
-    pub voluntary_context_switches: Option<u64>,
-    pub nonvoluntary_context_switches: Option<u64>,
+pub(crate) struct ThreadObservation {
+    pub(crate) tid: i32,
+    pub(crate) name: String,
+    pub(crate) state: String,
+    pub(crate) cpu: i32,
+    pub(crate) cpu_percent: Option<f64>,
+    pub(crate) priority: i64,
+    pub(crate) nice: i64,
+    pub(crate) scheduler: SchedulerPolicy,
+    pub(crate) affinity: Option<Vec<CpuRange>>,
+    pub(crate) voluntary_context_switches: Option<u64>,
+    pub(crate) nonvoluntary_context_switches: Option<u64>,
 }
 
 /// Raw thread metadata and counters; CPU percentages are derived between observations.
 #[derive(Clone, Debug)]
-pub struct ThreadSample {
-    pub tid: i32,
-    pub name: String,
-    pub state: String,
-    pub cpu: i32,
-    pub priority: i64,
-    pub nice: i64,
-    pub scheduler: SchedulerPolicy,
-    pub affinity: Option<Vec<CpuRange>>,
-    pub voluntary_context_switches: Option<u64>,
-    pub nonvoluntary_context_switches: Option<u64>,
-    pub ticks: u64,
-    pub start_time: u64,
+pub(crate) struct ThreadSample {
+    pub(crate) tid: i32,
+    pub(crate) name: String,
+    pub(crate) state: String,
+    pub(crate) cpu: i32,
+    pub(crate) priority: i64,
+    pub(crate) nice: i64,
+    pub(crate) scheduler: SchedulerPolicy,
+    pub(crate) affinity: Option<Vec<CpuRange>>,
+    pub(crate) voluntary_context_switches: Option<u64>,
+    pub(crate) nonvoluntary_context_switches: Option<u64>,
+    pub(crate) ticks: u64,
+    pub(crate) start_time: u64,
 }
 
 crate::ipc::codec::wire_enum!(SchedulerPolicy{0=>Other,1=>Fifo,2=>Rr,3=>Batch,4=>Idle,5=>Deadline,6=>Ext,7=>Unknown(value)});

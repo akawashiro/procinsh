@@ -150,15 +150,15 @@ impl<'de> serde::Deserialize<'de> for RdmaAddress {
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::rdma::RdmaPortInfo")]
 struct RdmaPortInfoJson {
-    pub device: String,
-    pub port: u32,
+    device: String,
+    port: u32,
     /// `InfiniBand` or `Ethernet` (RoCE), as written by the kernel.
-    pub link_layer: Option<String>,
+    link_layer: Option<String>,
     /// Logical port state, such as `ACTIVE`.
-    pub state: Option<String>,
-    pub lid: Option<u32>,
-    pub gid: Option<IbGid>,
-    pub rate: Option<String>,
+    state: Option<String>,
+    lid: Option<u32>,
+    gid: Option<IbGid>,
+    rate: Option<String>,
 }
 impl serde::Serialize for RdmaPortInfo {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -203,13 +203,13 @@ impl<'de> serde::Deserialize<'de> for RdmaEndpointOwner {
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::rdma::RdmaEndpoint")]
 struct RdmaEndpointJson {
-    pub owner: RdmaEndpointOwner,
-    pub device: String,
+    owner: RdmaEndpointOwner,
+    device: String,
     /// Null until the QP is bound to a port.
-    pub port: Option<u32>,
-    pub qpn: u32,
-    pub qp_type: RdmaQpType,
-    pub state: RdmaQpState,
+    port: Option<u32>,
+    qpn: u32,
+    qp_type: RdmaQpType,
+    state: RdmaQpState,
 }
 impl serde::Serialize for RdmaEndpoint {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -226,14 +226,14 @@ impl<'de> serde::Deserialize<'de> for RdmaEndpoint {
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::rdma::RdmaCmInfo")]
 struct RdmaCmInfoJson {
-    pub id: Option<u32>,
+    id: Option<u32>,
     /// The CM consumer, which can differ from the QP owner (for example
     /// `rpcrdma` uses QPs created by `rdma_cm`).
-    pub owner: RdmaEndpointOwner,
-    pub state: RdmaCmState,
-    pub port_space: RdmaPortSpace,
-    pub source: Option<RdmaAddress>,
-    pub destination: Option<RdmaAddress>,
+    owner: RdmaEndpointOwner,
+    state: RdmaCmState,
+    port_space: RdmaPortSpace,
+    source: Option<RdmaAddress>,
+    destination: Option<RdmaAddress>,
 }
 impl serde::Serialize for RdmaCmInfo {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -250,17 +250,17 @@ impl<'de> serde::Deserialize<'de> for RdmaCmInfo {
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::rdma::RdmaRelation")]
 struct RdmaRelationJson {
-    pub id: String,
-    pub endpoint: RdmaEndpoint,
-    pub peer: Option<RdmaEndpoint>,
+    id: String,
+    endpoint: RdmaEndpoint,
+    peer: Option<RdmaEndpoint>,
     /// Destination QPN of a connected QP; null for datagram types and before connection.
-    pub remote_qpn: Option<u32>,
-    pub cm: Option<RdmaCmInfo>,
+    remote_qpn: Option<u32>,
+    cm: Option<RdmaCmInfo>,
     /// Remote port GID from an IB CM destination or the IPoIB neighbor of an IP destination.
-    pub remote_gid: Option<IbGid>,
+    remote_gid: Option<IbGid>,
     /// Reverse DNS of an IP CM destination, filled after collection.
-    pub remote_hostname: Option<String>,
-    pub label: String,
+    remote_hostname: Option<String>,
+    label: String,
 }
 impl serde::Serialize for RdmaRelation {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {

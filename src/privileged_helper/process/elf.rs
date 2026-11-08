@@ -2,7 +2,9 @@
 //!
 //! # Interface
 //!
-//! [`read_mapped_file_ranges`] (`pub(super)`): `fn read_mapped_file_ranges(pid: i32, map: &`[`MemoryMap`]`, ranges: &[`[`FileRange`]`]) -> `[`anyhow::Result`]`<`[`MonitorResponse`](crate::ipc::schema::MonitorResponse)`>`.
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`read_mapped_file_ranges`] | `pub(super)` | `fn read_mapped_file_ranges( pid: i32, map: &`[`MemoryMap`]`, ranges: &[`[`FileRange`]`], ) -> `[`anyhow::Result`]`<`[`crate::ipc::schema::MonitorResponse`]`>` |
 
 use crate::ipc::elf::{
     FileChunk, FileRange, MAX_FILE_SIZE, MAX_RANGES, MAX_READ_SIZE, MappedFileData,
@@ -114,7 +116,7 @@ pub(super) fn read_mapped_file_ranges(
 }
 
 #[cfg(test)]
-pub(in crate::privileged_helper::process) fn read_mapped_elf_file(
+pub(super) fn read_mapped_elf_file(
     pid: i32,
     map: &MemoryMap,
 ) -> Option<crate::http_server::analysis::snapshot::symbol::ElfFile> {

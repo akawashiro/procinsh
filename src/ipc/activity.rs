@@ -1,102 +1,106 @@
 //! Native kernel-event values and CPU key decoding.
 //!
 //! # Interface
-//! - [`RawActivity`] (`pub`): `struct RawActivity`.
-//! - [`CpuCounters`] (`pub`): `struct CpuCounters`.
-//! - [`ProcessKey`] (`pub`): `struct ProcessKey`.
-//! - [`SignalSample`] (`pub`): `struct SignalSample`.
-//! - [`IpcEvent`] (`pub`): `struct IpcEvent`.
-//! - [`FileActivity`] (`pub`): `struct FileActivity`.
-//! - [`CpuActivity`] (`pub`): `struct CpuActivity`.
-//! - [`IpcActivity`] (`pub`): `struct IpcActivity`.
-//! - [`SignalEvent`] (`pub`): `struct SignalEvent`.
-//! - [`process_key`] (`pub`): `fn process_key(bytes: &[u8]) -> Option<ProcessKey>`.
-//! - [`u64_at`] (`pub(crate)`): `fn u64_at(bytes: &[u8], offset: usize) -> Option<u64>`.
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`RawActivity`] | `pub(crate)` | `struct RawActivity` |
+//! | [`CpuCounters`] | `pub(crate)` | `struct CpuCounters` |
+//! | [`ProcessKey`] | `pub(crate)` | `struct ProcessKey` |
+//! | [`SignalSample`] | `pub(crate)` | `struct SignalSample` |
+//! | [`IpcEvent`] | `pub(crate)` | `struct IpcEvent` |
+//! | [`FileActivity`] | `pub(crate)` | `struct FileActivity` |
+//! | [`CpuActivity`] | `pub(crate)` | `struct CpuActivity` |
+//! | [`IpcActivity`] | `pub(crate)` | `struct IpcActivity` |
+//! | [`SignalEvent`] | `pub(crate)` | `struct SignalEvent` |
+//! | [`u64_at`] | `pub(crate)` | `fn u64_at(bytes: &[u8], offset: usize) -> `[`Option`]`<u64>` |
+//! | [`process_key`] | `pub(crate)` | `fn process_key(bytes: &[u8]) -> `[`Option`]`<`[`ProcessKey`]`>` |
+
 use crate::ipc::{
     model::resource::{FileIdentity, IpcIdentity},
     schema::ProcessId,
 };
 
 #[derive(Clone, Default)]
-pub struct RawActivity {
-    pub files: Vec<FileActivity>,
-    pub ipc: Vec<IpcEvent>,
-    pub signals: Vec<SignalSample>,
-    pub cpu: CpuCounters,
+pub(crate) struct RawActivity {
+    pub(crate) files: Vec<FileActivity>,
+    pub(crate) ipc: Vec<IpcEvent>,
+    pub(crate) signals: Vec<SignalSample>,
+    pub(crate) cpu: CpuCounters,
 }
 
 #[derive(Clone, Default)]
-pub struct CpuCounters {
-    pub now: u64,
-    pub current: Vec<Vec<u8>>,
+pub(crate) struct CpuCounters {
+    pub(crate) now: u64,
+    pub(crate) current: Vec<Vec<u8>>,
     /// Nonzero per-CPU cumulative runtime/switch pairs; CPU indices are in `current`.
-    pub totals: Vec<(Vec<u8>, Vec<[u64; 2]>)>,
+    pub(crate) totals: Vec<(Vec<u8>, Vec<[u64; 2]>)>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct ProcessKey {
-    pub start: u64,
-    pub pid: u32,
+pub(crate) struct ProcessKey {
+    pub(crate) start: u64,
+    pub(crate) pid: u32,
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct SignalSample {
-    pub timestamp_ns: u64,
-    pub src_start: u64,
-    pub dst_start: u64,
-    pub src_pid: u32,
-    pub dst_pid: u32,
-    pub signal: i32,
+pub(crate) struct SignalSample {
+    pub(crate) timestamp_ns: u64,
+    pub(crate) src_start: u64,
+    pub(crate) dst_start: u64,
+    pub(crate) src_pid: u32,
+    pub(crate) dst_pid: u32,
+    pub(crate) signal: i32,
 }
 
 #[derive(Clone, Copy)]
-pub struct IpcEvent {
-    pub start: u64,
-    pub inode: u64,
-    pub device: u64,
-    pub bytes: u64,
-    pub pid: u32,
-    pub kind: u32,
-    pub write: bool,
-    pub worker: bool,
+pub(crate) struct IpcEvent {
+    pub(crate) start: u64,
+    pub(crate) inode: u64,
+    pub(crate) device: u64,
+    pub(crate) bytes: u64,
+    pub(crate) pid: u32,
+    pub(crate) kind: u32,
+    pub(crate) write: bool,
+    pub(crate) worker: bool,
 }
 
 #[derive(Clone, Debug)]
-pub struct FileActivity {
-    pub process_id: ProcessId,
-    pub file: FileIdentity,
-    pub path: Option<String>,
-    pub write: bool,
-    pub bytes: u64,
-    pub count: u64,
+pub(crate) struct FileActivity {
+    pub(crate) process_id: ProcessId,
+    pub(crate) file: FileIdentity,
+    pub(crate) path: Option<String>,
+    pub(crate) write: bool,
+    pub(crate) bytes: u64,
+    pub(crate) count: u64,
 }
 
 #[derive(Clone)]
-pub struct CpuActivity {
-    pub process_id: ProcessId,
-    pub runtime_ns: u64,
-    pub switches: u64,
-    pub running_threads: usize,
-    pub cpus: Vec<usize>,
+pub(crate) struct CpuActivity {
+    pub(crate) process_id: ProcessId,
+    pub(crate) runtime_ns: u64,
+    pub(crate) switches: u64,
+    pub(crate) running_threads: usize,
+    pub(crate) cpus: Vec<usize>,
 }
 
 #[derive(Clone)]
-pub struct IpcActivity {
-    pub process_id: ProcessId,
-    pub resource: IpcIdentity,
-    pub write: bool,
-    pub bytes: u64,
-    pub count: u64,
+pub(crate) struct IpcActivity {
+    pub(crate) process_id: ProcessId,
+    pub(crate) resource: IpcIdentity,
+    pub(crate) write: bool,
+    pub(crate) bytes: u64,
+    pub(crate) count: u64,
 }
 
 #[derive(Clone, Debug)]
-pub struct SignalEvent {
-    pub timestamp_ns: u64,
-    pub src_pid: u32,
-    pub dst_pid: u32,
-    pub signal: i32,
-    pub source_id: ProcessId,
-    pub destination_id: ProcessId,
+pub(crate) struct SignalEvent {
+    pub(crate) timestamp_ns: u64,
+    pub(crate) src_pid: u32,
+    pub(crate) dst_pid: u32,
+    pub(crate) signal: i32,
+    pub(crate) source_id: ProcessId,
+    pub(crate) destination_id: ProcessId,
 }
 
 crate::ipc::codec::wire_struct!(RawActivity {
@@ -180,7 +184,7 @@ pub(crate) fn u64_at(bytes: &[u8], offset: usize) -> Option<u64> {
     ))
 }
 
-pub fn process_key(bytes: &[u8]) -> Option<ProcessKey> {
+pub(crate) fn process_key(bytes: &[u8]) -> Option<ProcessKey> {
     Some(ProcessKey {
         start: u64_at(bytes, 0)?,
         pid: u32_at(bytes, 8)?,

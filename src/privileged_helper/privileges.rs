@@ -1,3 +1,12 @@
+//! Privileges data and operations.
+//!
+//! # Interface
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`restrict_helper_privileges`] | `pub(super)` | `fn restrict_helper_privileges() -> `[`Result`]`<()>` |
+//! | [`effective_capabilities`] | `pub(super)` | `fn effective_capabilities() -> `[`Result`]`<u64>` |
+
 use anyhow::{Context, Result};
 use std::io;
 
@@ -53,7 +62,7 @@ fn prctl(option: i32, arg: libc::c_ulong, operation: &str) -> Result<()> {
     )
 }
 
-pub(crate) fn restrict_helper_privileges() -> Result<()> {
+pub(super) fn restrict_helper_privileges() -> Result<()> {
     // Capability numbers from the Linux UAPI header (include/uapi/linux/capability.h):
     // https://github.com/torvalds/linux/blob/v6.18/include/uapi/linux/capability.h
     const CAP_DAC_READ_SEARCH: u32 = 2;
@@ -102,7 +111,7 @@ pub(crate) fn restrict_helper_privileges() -> Result<()> {
     prctl(libc::PR_SET_DUMPABLE, 0, "disable helper dumps")
 }
 
-pub(crate) fn effective_capabilities() -> Result<u64> {
+pub(super) fn effective_capabilities() -> Result<u64> {
     let sets = capabilities()?;
     Ok(sets[0].effective as u64 | ((sets[1].effective as u64) << 32))
 }

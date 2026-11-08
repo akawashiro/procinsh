@@ -4,14 +4,13 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`ElfImage`] | `pub` | `struct ElfImage` |
-//! | [`create_elf_image`] | `pub` | `fn create_elf_image(data: `[`MappedFileData`]`) -> `[`Result`]`<`[`ElfImage`]`>` |
-//! | [`extend_elf_image`] | `pub` | `fn extend_elf_image(state: &mut `[`ElfImage`]`, data: `[`MappedFileData`]`) -> `[`Result`]`<()>` |
-//! | [`tables_elf_image`] | `pub` | `fn tables_elf_image(state: &`[`ElfImage`]`) -> `[`Result`]`<`[`Vec`]`<`[`FileRange`]`>>` |
-//! | [`names_elf_image`] | `pub` | `fn names_elf_image(state: &`[`ElfImage`]`) -> `[`Result`]`<`[`Vec`]`<`[`FileRange`]`>>` |
-//! | [`sections_elf_image`] | `pub` | `fn sections_elf_image(state: &`[`ElfImage`]`) -> `[`Result`]`<`[`Vec`]`<`[`FileRange`]`>>` |
+//! | [`ElfImage`] | `pub(crate)` | `struct ElfImage` |
+//! | [`create_elf_image`] | `pub(crate)` | `fn create_elf_image(data: `[`MappedFileData`]`) -> `[`Result`]`<`[`ElfImage`]`>` |
+//! | [`extend_elf_image`] | `pub(crate)` | `fn extend_elf_image(state: &mut `[`ElfImage`]`, data: `[`MappedFileData`]`) -> `[`Result`]`<()>` |
+//! | [`tables_elf_image`] | `pub(crate)` | `fn tables_elf_image(state: &`[`ElfImage`]`) -> `[`Result`]`<`[`Vec`]`<`[`FileRange`]`>>` |
+//! | [`names_elf_image`] | `pub(crate)` | `fn names_elf_image(state: &`[`ElfImage`]`) -> `[`Result`]`<`[`Vec`]`<`[`FileRange`]`>>` |
+//! | [`sections_elf_image`] | `pub(crate)` | `fn sections_elf_image(state: &`[`ElfImage`]`) -> `[`Result`]`<`[`Vec`]`<`[`FileRange`]`>>` |
 //! | [`needed_section`] | `pub(super)` | `fn needed_section(name: &str) -> bool` |
-//!
 
 use crate::ipc::elf::{
     ElfFileId, FileChunk, FileRange, MAX_FILE_SIZE, MAX_READ_SIZE, MappedFileData,
@@ -20,11 +19,11 @@ use anyhow::{Context, Result, ensure};
 use object::read::ReadRef;
 use std::ops::Range;
 
-pub struct ElfImage {
-    pub identity: ElfFileId,
+pub(crate) struct ElfImage {
+    pub(super) identity: ElfFileId,
     chunks: Vec<FileChunk>,
 }
-pub fn create_elf_image(data: MappedFileData) -> Result<ElfImage> {
+pub(crate) fn create_elf_image(data: MappedFileData) -> Result<ElfImage> {
     ensure!(data.identity.2 <= MAX_FILE_SIZE, "ELF file exceeds limit");
     let mut image = ElfImage {
         identity: data.identity,
@@ -34,7 +33,7 @@ pub fn create_elf_image(data: MappedFileData) -> Result<ElfImage> {
     Ok(image)
 }
 
-pub fn extend_elf_image(state: &mut ElfImage, data: MappedFileData) -> Result<()> {
+pub(crate) fn extend_elf_image(state: &mut ElfImage, data: MappedFileData) -> Result<()> {
     ensure!(
         data.identity == state.identity,
         "mapped file changed during acquisition"
@@ -113,7 +112,7 @@ fn section_table_elf_image(state: &ElfImage) -> Result<(u64, u64, u64, u64)> {
     Ok((offset, size, count, names))
 }
 
-pub fn tables_elf_image(state: &ElfImage) -> Result<Vec<FileRange>> {
+pub(crate) fn tables_elf_image(state: &ElfImage) -> Result<Vec<FileRange>> {
     let (offset, size, count, _) = section_table_elf_image(state)?;
     let wide = is64_elf_image(state)?;
     let programs = number_elf_image(state, if wide { 32 } else { 28 }, if wide { 8 } else { 4 })?;
@@ -156,13 +155,13 @@ fn section_elf_image(state: &ElfImage, index: u64) -> Result<(u64, u64, u64, u64
     ))
 }
 
-pub fn names_elf_image(state: &ElfImage) -> Result<Vec<FileRange>> {
+pub(crate) fn names_elf_image(state: &ElfImage) -> Result<Vec<FileRange>> {
     let (_, _, _, index) = section_table_elf_image(state)?;
     let (_, _, offset, length) = section_elf_image(state, index)?;
     ranges_elf_image(state, vec![FileRange { offset, length }])
 }
 
-pub fn sections_elf_image(state: &ElfImage) -> Result<Vec<FileRange>> {
+pub(crate) fn sections_elf_image(state: &ElfImage) -> Result<Vec<FileRange>> {
     let (_, _, count, index) = section_table_elf_image(state)?;
     let (_, _, offset, length) = section_elf_image(state, index)?;
     let names = bytes_elf_image(state, offset, length)?;

@@ -4,18 +4,14 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`LimitExceeded`] | `pub` | `struct LimitExceeded` |
-//! | [`Encoder`] | `pub` | `struct Encoder` |
-//! | [`Decoder`] | `pub` | `struct Decoder` |
-//! | [`Wire`] | `pub` | `trait Wire` |
-//! | [`append_encoder`] | `pub(crate)` | `fn append_encoder(state: &mut `[`Encoder`]`, bytes: &[u8]) -> `[`Result`]`<()>` |
-//! | [`length_encoder`] | `pub(crate)` | `fn length_encoder(state: &mut `[`Encoder`]`, length: usize) -> `[`Result`]`<()>` |
-//! | [`blob_encoder`] | `pub(crate)` | `fn blob_encoder(state: &mut `[`Encoder`]`, bytes: &[u8]) -> `[`Result`]`<()>` |
-//! | [`take_decoder`] | `pub(crate)` | `fn take_decoder<'a>(state: &mut `[`Decoder`]`<'a>, length: usize) -> `[`Result`]`<&'a [u8]>` |
-//! | [`length_decoder`] | `pub(crate)` | `fn length_decoder<'a>(state: &mut `[`Decoder`]`<'a>) -> `[`Result`]`<usize>` |
-//! | [`blob_decoder`] | `pub(crate)` | `fn blob_decoder<'a>(state: &mut `[`Decoder`]`<'a>) -> `[`Result`]`<&'a [u8]>` |
-//! | [`encode`] | `pub` | `fn encode<T: `[`Wire`]`>(value: &T, limit: usize) -> `[`Result`]`<`[`Vec`]`<u8>>` |
-//! | [`decode`] | `pub` | `fn decode<T: `[`Wire`]`>(bytes: &[u8]) -> `[`Result`]`<T>` |
+//! | [`LimitExceeded`] | `pub(crate)` | `struct LimitExceeded` |
+//! | [`Encoder`] | `pub(crate)` | `struct Encoder` |
+//! | [`Decoder`] | `pub(crate)` | `struct Decoder` |
+//! | [`Wire`] | `pub(crate)` | `trait Wire` |
+//! | [`blob_encoder`] | `pub(super)` | `fn blob_encoder(state: &mut `[`Encoder`]`, bytes: &[u8]) -> `[`Result`]`<()>` |
+//! | [`blob_decoder`] | `pub(super)` | `fn blob_decoder<'a>(state: &mut `[`Decoder`]`<'a>) -> `[`Result`]`<&'a [u8]>` |
+//! | [`encode`] | `pub(crate)` | `fn encode<T: `[`Wire`]`>(value: &T, limit: usize) -> `[`Result`]`<`[`Vec`]`<u8>>` |
+//! | [`decode`] | `pub(crate)` | `fn decode<T: `[`Wire`]`>(bytes: &[u8]) -> `[`Result`]`<T>` |
 //!
 //! Struct fields follow their declared wire order; enum variants have explicit
 //! byte tags. Strings and collections have u32 lengths. Integers and floats use
@@ -26,7 +22,7 @@ use anyhow::{Result, bail, ensure};
 use std::sync::Arc;
 
 #[derive(Debug)]
-pub struct LimitExceeded;
+pub(crate) struct LimitExceeded;
 impl std::fmt::Display for LimitExceeded {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("monitor response exceeds size limit")
@@ -34,19 +30,19 @@ impl std::fmt::Display for LimitExceeded {
 }
 impl std::error::Error for LimitExceeded {}
 
-pub struct Encoder {
+pub(crate) struct Encoder {
     bytes: Vec<u8>,
     limit: usize,
 }
-pub struct Decoder<'a> {
+pub(crate) struct Decoder<'a> {
     bytes: &'a [u8],
 }
 /// An owned value with an explicit wire representation independent of Rust layout.
-pub trait Wire: Sized {
+pub(crate) trait Wire: Sized {
     fn write(&self, output: &mut Encoder) -> Result<()>;
     fn read(input: &mut Decoder<'_>) -> Result<Self>;
 }
-pub(crate) fn append_encoder(state: &mut Encoder, bytes: &[u8]) -> Result<()> {
+fn append_encoder(state: &mut Encoder, bytes: &[u8]) -> Result<()> {
     if bytes.len() > state.limit.saturating_sub(state.bytes.len()) {
         return Err(LimitExceeded.into());
     }
@@ -54,24 +50,24 @@ pub(crate) fn append_encoder(state: &mut Encoder, bytes: &[u8]) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn length_encoder(state: &mut Encoder, length: usize) -> Result<()> {
+fn length_encoder(state: &mut Encoder, length: usize) -> Result<()> {
     u32::try_from(length)
         .map_err(|_| LimitExceeded)?
         .write(state)
 }
 
-pub(crate) fn blob_encoder(state: &mut Encoder, bytes: &[u8]) -> Result<()> {
+pub(super) fn blob_encoder(state: &mut Encoder, bytes: &[u8]) -> Result<()> {
     length_encoder(state, bytes.len())?;
     append_encoder(state, bytes)
 }
-pub(crate) fn take_decoder<'a>(state: &mut Decoder<'a>, length: usize) -> Result<&'a [u8]> {
+fn take_decoder<'a>(state: &mut Decoder<'a>, length: usize) -> Result<&'a [u8]> {
     ensure!(length <= state.bytes.len(), "truncated monitor value");
     let (bytes, remaining) = state.bytes.split_at(length);
     state.bytes = remaining;
     Ok(bytes)
 }
 
-pub(crate) fn length_decoder<'a>(state: &mut Decoder<'a>) -> Result<usize> {
+fn length_decoder<'a>(state: &mut Decoder<'a>) -> Result<usize> {
     let length = u32::read(state)? as usize;
     ensure!(
         length <= state.bytes.len(),
@@ -80,12 +76,12 @@ pub(crate) fn length_decoder<'a>(state: &mut Decoder<'a>) -> Result<usize> {
     Ok(length)
 }
 
-pub(crate) fn blob_decoder<'a>(state: &mut Decoder<'a>) -> Result<&'a [u8]> {
+pub(super) fn blob_decoder<'a>(state: &mut Decoder<'a>) -> Result<&'a [u8]> {
     let length = length_decoder(state)?;
     take_decoder(state, length)
 }
 
-pub fn encode<T: Wire>(value: &T, limit: usize) -> Result<Vec<u8>> {
+pub(crate) fn encode<T: Wire>(value: &T, limit: usize) -> Result<Vec<u8>> {
     let mut output = Encoder {
         bytes: Vec::new(),
         limit: limit.min(u32::MAX as usize),
@@ -94,7 +90,7 @@ pub fn encode<T: Wire>(value: &T, limit: usize) -> Result<Vec<u8>> {
     Ok(output.bytes)
 }
 
-pub fn decode<T: Wire>(bytes: &[u8]) -> Result<T> {
+pub(crate) fn decode<T: Wire>(bytes: &[u8]) -> Result<T> {
     let mut input = Decoder { bytes };
     let value = T::read(&mut input)?;
     ensure!(input.bytes.is_empty(), "trailing monitor bytes");

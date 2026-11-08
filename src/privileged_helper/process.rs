@@ -6,11 +6,11 @@
 //! | --- | --- | --- |
 //! | [`acquire_process_elf_ranges`] | `pub(super)` | `fn acquire_process_elf_ranges( id: `[`ProcessId`]`, mapping_start: u64, ranges: `[`Vec`]`<`[`crate::ipc::elf::FileRange`]`>, ) -> `[`anyhow::Result`]`<`[`crate::ipc::schema::MonitorResponse`]`>` |
 //! | [`ObservationSession`] | `pub(super)` | `struct ObservationSession` |
+//! | [`ProcessMonitor`] | `pub(super)` | `struct ProcessMonitor` |
 //! | [`collect_processes`] | `pub(super)` | `fn collect_processes() -> `[`Result`](anyhow::Result)`<`[`Vec`]`<`[`ProcessSummary`](crate::ipc::acquisition::ProcessSummary)`>>` |
 //! | [`validate_process_identity`] | `pub(super)` | `fn validate_process_identity(id: `[`ProcessId`]`) -> `[`Result`](anyhow::Result)`<()>` |
 //! | [`enable_privacy`] | `pub(super)` | `fn enable_privacy()` |
 //! | [`privacy_enabled`] | `pub(super)` | `fn privacy_enabled() -> bool` |
-//! | [`ProcessMonitor`] | `pub(super)` | `struct ProcessMonitor` |
 //! | [`SubscribeError`] | `pub(super)` | `enum SubscribeError` |
 //! | [`collect_file_descriptors`] | `pub(super)` | `fn collect_file_descriptors( id: `[`ProcessId`]`, ) -> `[`Result`](anyhow::Result)`<`[`crate::ipc::descriptors::FileDescriptors`]`>` |
 //! | [`collect_memory_maps`] | `pub(super)` | `fn collect_memory_maps(id: `[`ProcessId`]`) -> `[`Result`](anyhow::Result)`<`[`MemoryMaps`](crate::ipc::acquisition::MemoryMaps)`>` |
@@ -30,7 +30,7 @@
 //! | [`NetworkNamespace`] | `pub(super)` | `struct NetworkNamespace` |
 //! | [`open_network_namespace`] | `pub(super)` | `fn open_network_namespace( id: `[`ProcessId`]`, ) -> `[`Result`](anyhow::Result)`<`[`NetworkNamespace`]`>` |
 //! | [`create_process_monitor`] | `pub(in crate::privileged_helper)` | `fn create_process_monitor(interval: `[`Duration`](std::time::Duration)`) -> `[`ProcessMonitor`] |
-//! | [`join_process_collectors`] | `pub(in crate::privileged_helper)` | `fn join_process_collectors( state: &`[`ProcessMonitor`]`, ) -> `[`Result`](anyhow::Result)`<()>` |
+//! | [`join_process_collectors`] | `pub(in crate::privileged_helper)` | `fn join_process_collectors(state: &`[`ProcessMonitor`]`) -> `[`Result`](anyhow::Result)`<()>` |
 //! | [`observe_process_monitor`] | `pub(in crate::privileged_helper)` | `fn observe_process_monitor( monitor: &`[`Arc`](std::sync::Arc)`<`[`ProcessMonitor`]`>, id: `[`ProcessId`]`, permit: `[`ObservationPermit`](monitoring::service::ObservationPermit)`, ) -> `[`Result`](anyhow::Result)`<`[`ObservationSession`]`>` |
 //! | [`process_monitor_is_stopped`] | `pub(in crate::privileged_helper)` | `fn process_monitor_is_stopped(state: &`[`ProcessMonitor`]`) -> bool` |
 //! | [`reserve_process_monitor`] | `pub(in crate::privileged_helper)` | `fn reserve_process_monitor( monitor: &`[`Arc`](std::sync::Arc)`<`[`ProcessMonitor`]`>, ) -> `[`Result`](anyhow::Result)`<`[`ObservationPermit`](monitoring::service::ObservationPermit)`, `[`SubscribeError`]`>` |
@@ -81,7 +81,7 @@ mod test_support;
 #[cfg(test)]
 pub(super) use socket_metadata::require_socket_metadata;
 #[cfg(test)]
-pub(super) use test_support::Target;
+use test_support::Target;
 #[cfg(test)]
 mod tests;
 

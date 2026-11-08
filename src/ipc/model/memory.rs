@@ -4,20 +4,20 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`MemoryKind`] | `pub` | `enum MemoryKind` |
-//! | [`MemoryMap`] | `pub` | `struct MemoryMap` |
-//! | [`SmapsEntry`] | `pub` | `struct SmapsEntry` |
-//! | [`MappingSnapshot`] | `pub` | `struct MappingSnapshot` |
-//! | [`memory_map_contains`] | `pub` | `fn memory_map_contains(state: &`[`MemoryMap`]`, address: u64) -> bool` |
-//! | [`kind_memory_map`] | `pub` | `fn kind_memory_map(state: &`[`MemoryMap`]`) -> `[`MemoryKind`] |
-//! | [`parse_map`] | `pub` | `fn parse_map(line: &str) -> `[`Result`]`<`[`MemoryMap`]`>` |
-//! | [`parse_smaps`] | `pub` | `fn parse_smaps(text: &str) -> `[`Result`]`<`[`Vec`]`<`[`SmapsEntry`]`>>` |
+//! | [`MemoryKind`] | `pub(crate)` | `enum MemoryKind` |
+//! | [`MemoryMap`] | `pub(crate)` | `struct MemoryMap` |
+//! | [`SmapsEntry`] | `pub(crate)` | `struct SmapsEntry` |
+//! | [`MappingSnapshot`] | `pub(crate)` | `struct MappingSnapshot` |
+//! | [`memory_map_contains`] | `pub(crate)` | `fn memory_map_contains(state: &`[`MemoryMap`]`, address: u64) -> bool` |
+//! | [`kind_memory_map`] | `pub(crate)` | `fn kind_memory_map(state: &`[`MemoryMap`]`) -> `[`MemoryKind`] |
+//! | [`parse_map`] | `pub(crate)` | `fn parse_map(line: &str) -> `[`Result`]`<`[`MemoryMap`]`>` |
+//! | [`parse_smaps`] | `pub(crate)` | `fn parse_smaps(text: &str) -> `[`Result`]`<`[`Vec`]`<`[`SmapsEntry`]`>>` |
 
 use crate::ipc::model::resource::DeviceId;
 use anyhow::{Context, Result, ensure};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum MemoryKind {
+pub(crate) enum MemoryKind {
     Integer,
     Stack,
     Heap,
@@ -29,26 +29,26 @@ pub enum MemoryKind {
 /// Structural mapping without RSS/PSS measurements.
 /// Addresses, offsets and inodes retain their integer representation in IPC.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct MemoryMap {
-    pub start: u64,
-    pub end: u64,
-    pub readable: bool,
-    pub writable: bool,
-    pub executable: bool,
-    pub private: bool,
-    pub file_offset: u64,
-    pub device: DeviceId,
-    pub inode: u64,
-    pub pathname: Option<String>,
+pub(crate) struct MemoryMap {
+    pub(crate) start: u64,
+    pub(crate) end: u64,
+    pub(crate) readable: bool,
+    pub(crate) writable: bool,
+    pub(crate) executable: bool,
+    pub(crate) private: bool,
+    pub(crate) file_offset: u64,
+    pub(crate) device: DeviceId,
+    pub(crate) inode: u64,
+    pub(crate) pathname: Option<String>,
 }
 
 /// A mapping with optional resident/proportional usage measured from smaps.
 /// The structural mapping and optional usage measurements are distinct fields.
 #[derive(Clone, Debug)]
-pub struct SmapsEntry {
-    pub mapping: MemoryMap,
-    pub rss_bytes: Option<u64>,
-    pub pss_bytes: Option<u64>,
+pub(crate) struct SmapsEntry {
+    pub(crate) mapping: MemoryMap,
+    pub(crate) rss_bytes: Option<u64>,
+    pub(crate) pss_bytes: Option<u64>,
 }
 impl From<MemoryMap> for SmapsEntry {
     fn from(mapping: MemoryMap) -> Self {
@@ -60,11 +60,11 @@ impl From<MemoryMap> for SmapsEntry {
     }
 }
 
-pub fn memory_map_contains(state: &MemoryMap, address: u64) -> bool {
+pub(crate) fn memory_map_contains(state: &MemoryMap, address: u64) -> bool {
     state.start <= address && address < state.end
 }
 
-pub fn kind_memory_map(state: &MemoryMap) -> MemoryKind {
+pub(crate) fn kind_memory_map(state: &MemoryMap) -> MemoryKind {
     match state.pathname.as_deref() {
         Some(p) if p.starts_with("[stack") => MemoryKind::Stack,
         Some("[heap]") => MemoryKind::Heap,
@@ -75,7 +75,7 @@ pub fn kind_memory_map(state: &MemoryMap) -> MemoryKind {
     }
 }
 
-pub fn parse_map(line: &str) -> Result<MemoryMap> {
+pub(crate) fn parse_map(line: &str) -> Result<MemoryMap> {
     // Split only the first five columns: file names may contain spaces.
     let mut rest = line.trim();
     let mut columns = Vec::new();
@@ -111,7 +111,7 @@ pub fn parse_map(line: &str) -> Result<MemoryMap> {
     })
 }
 
-pub fn parse_smaps(text: &str) -> Result<Vec<SmapsEntry>> {
+pub(crate) fn parse_smaps(text: &str) -> Result<Vec<SmapsEntry>> {
     let mut maps: Vec<SmapsEntry> = Vec::new();
     for line in text.lines() {
         if line
@@ -140,9 +140,9 @@ pub fn parse_smaps(text: &str) -> Result<Vec<SmapsEntry>> {
 
 /// One captured mapping context shared by all thread samples from that epoch.
 #[derive(Clone, Debug)]
-pub struct MappingSnapshot {
-    pub epoch: u64,
-    pub maps: Vec<MemoryMap>,
+pub(crate) struct MappingSnapshot {
+    pub(crate) epoch: u64,
+    pub(crate) maps: Vec<MemoryMap>,
 }
 
 crate::ipc::codec::wire_enum!(MemoryKind{0=>Integer,1=>Stack,2=>Heap,3=>SharedLibrary,4=>Executable,5=>File,6=>Anonymous});

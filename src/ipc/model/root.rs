@@ -4,20 +4,20 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`memory`] | `pub` | `mod memory` |
-//! | [`resource`] | `pub` | `mod resource` |
-//! | [`socket_types`] | `pub` | `mod socket_types` |
-//! | [`process`] | `pub` | `mod process` |
-//! | [`threads`] | `pub` | `mod threads` |
-//! | [`sockets`] | `pub` | `mod sockets` |
-//! | [`system`] | `pub` | `mod system` |
+//! | [`memory`] | `pub(crate)` | `mod memory` |
+//! | [`resource`] | `pub(crate)` | `mod resource` |
+//! | [`socket_types`] | `pub(crate)` | `mod socket_types` |
+//! | [`process`] | `pub(crate)` | `mod process` |
+//! | [`threads`] | `pub(crate)` | `mod threads` |
+//! | [`sockets`] | `pub(crate)` | `mod sockets` |
+//! | [`system`] | `pub(crate)` | `mod system` |
 
-pub mod memory;
-pub mod resource;
-pub mod socket_types;
+pub(crate) mod memory;
+pub(crate) mod resource;
+pub(crate) mod socket_types;
 
-pub mod process;
-pub mod threads;
+pub(crate) mod process;
+pub(crate) mod threads;
 
-pub mod sockets;
-pub mod system;
+pub(crate) mod sockets;
+pub(crate) mod system;

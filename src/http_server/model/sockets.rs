@@ -2,7 +2,7 @@
 //!
 //! # Interface
 //!
-//! No named types or functions are exported; shared values come from their definition modules.
+//! No named types or functions are exported.
 
 use crate::ipc::model::socket_types::{SocketProtocol, SocketState};
 use std::net::SocketAddr;
@@ -12,12 +12,12 @@ use std::net::SocketAddr;
 /// Socket kind and independently observed connection metadata.
 /// A known protocol does not imply a known state, address or peer.
 struct SocketInfoJson {
-    pub protocol: SocketProtocol,
-    pub state: Option<SocketState>,
-    pub local: Option<SocketAddr>,
-    pub remote: Option<SocketAddr>,
-    pub path: Option<String>,
-    pub peer_inode: Option<u64>,
+    protocol: SocketProtocol,
+    state: Option<SocketState>,
+    local: Option<SocketAddr>,
+    remote: Option<SocketAddr>,
+    path: Option<String>,
+    peer_inode: Option<u64>,
 }
 impl serde::Serialize for crate::ipc::model::sockets::SocketInfo {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {

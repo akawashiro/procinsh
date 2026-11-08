@@ -4,7 +4,7 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`build_ipc_relations`] | `pub` | `fn build_ipc_relations(result: &mut `[`SystemSnapshot`]`) -> bool` |
+//! | [`build_ipc_relations`] | `pub(crate)` | `fn build_ipc_relations(result: &mut `[`SystemSnapshot`]`) -> bool` |
 
 use crate::ipc::model::{
     resource::IpcKind,
@@ -13,7 +13,7 @@ use crate::ipc::model::{
 };
 use std::collections::{HashMap, HashSet};
 
-pub fn build_ipc_relations(result: &mut SystemSnapshot) -> bool {
+pub(crate) fn build_ipc_relations(result: &mut SystemSnapshot) -> bool {
     use crate::ipc::model::{
         socket_types::{opposite_fd_access, socket_protocol_is_tcp, socket_protocol_is_tcp_or_udp},
         sockets::connection_status_socket_info,

@@ -4,15 +4,15 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`HardwareSources`] | `pub` | `struct HardwareSources` |
-//! | [`HardwareObservation`] | `pub` | `struct HardwareObservation` |
-//! | [`acquired_hardware_sources`] | `pub` | `fn acquired_hardware_sources(files: `[`crate::ipc::hardware::HardwareFiles`]`) -> `[`HardwareSources`] |
+//! | [`HardwareSources`] | `pub(crate)` | `struct HardwareSources` |
+//! | [`HardwareObservation`] | `pub(crate)` | `struct HardwareObservation` |
+//! | [`acquired_hardware_sources`] | `pub(crate)` | `fn acquired_hardware_sources(files: `[`crate::ipc::hardware::HardwareFiles`]`) -> `[`HardwareSources`] |
 //! | [`text_hardware_sources`] | `pub(super)` | `fn text_hardware_sources( state: &`[`HardwareSources`]`, path: &`[`std::path::Path`]`, ) -> `[`Option`]`<`[`String`]`>` |
 //! | [`names_hardware_sources`] | `pub(super)` | `fn names_hardware_sources( state: &`[`HardwareSources`]`, path: &`[`std::path::Path`]`, ) -> `[`Vec`]`<`[`String`]`>` |
 //! | [`link_hardware_sources`] | `pub(super)` | `fn link_hardware_sources( state: &`[`HardwareSources`]`, path: &`[`std::path::Path`]`, ) -> `[`Option`]`<`[`PathBuf`]`>` |
 //! | [`hardware_sources_is_dir`] | `pub(super)` | `fn hardware_sources_is_dir(state: &`[`HardwareSources`]`, path: &`[`std::path::Path`]`) -> bool` |
-//! | [`observe_hardware_observation`] | `pub` | `fn observe_hardware_observation(sources: &`[`HardwareSources`]`) -> `[`HardwareObservation`] |
-//! | [`handles_hardware_observation`] | `pub` | `fn handles_hardware_observation( state: &`[`HardwareObservation`]`, sources: &`[`HardwareSources`]`, ) -> `[`DeviceHandleCollector`] |
+//! | [`observe_hardware_observation`] | `pub(crate)` | `fn observe_hardware_observation(sources: &`[`HardwareSources`]`) -> `[`HardwareObservation`] |
+//! | [`handles_hardware_observation`] | `pub(crate)` | `fn handles_hardware_observation( state: &`[`HardwareObservation`]`, sources: &`[`HardwareSources`]`, ) -> `[`DeviceHandleCollector`] |
 
 use super::handles::DeviceHandleCollector;
 use super::pci::{online_numa_nodes, read_topology};
@@ -25,9 +25,9 @@ use {super::paths::build_hardware_paths, crate::ipc::hardware::HardwarePath};
 
 /// Logical roots and an in-memory view of helper-acquired attributes.
 #[derive(Clone)]
-pub struct HardwareSources {
-    pub sys: PathBuf,
-    pub proc: PathBuf,
+pub(crate) struct HardwareSources {
+    pub(crate) sys: PathBuf,
+    pub(crate) proc: PathBuf,
     texts: HashMap<PathBuf, String>,
     directories: HashMap<PathBuf, Vec<String>>,
     links: HashMap<PathBuf, PathBuf>,
@@ -37,7 +37,9 @@ impl Default for HardwareSources {
         acquired_hardware_sources(crate::ipc::hardware::HardwareFiles::default())
     }
 }
-pub fn acquired_hardware_sources(files: crate::ipc::hardware::HardwareFiles) -> HardwareSources {
+pub(crate) fn acquired_hardware_sources(
+    files: crate::ipc::hardware::HardwareFiles,
+) -> HardwareSources {
     at_hardware_sources("/sys".into(), "/proc".into(), files)
 }
 
@@ -103,13 +105,13 @@ pub(super) fn fixture_hardware_sources(sys: PathBuf, proc: PathBuf) -> HardwareS
 pub(crate) mod acquisition;
 
 #[derive(Default)]
-pub struct HardwareObservation {
-    pub devices: Vec<HardwareDevice>,
-    pub paths: Vec<HardwarePath>,
+pub(crate) struct HardwareObservation {
+    pub(crate) devices: Vec<HardwareDevice>,
+    pub(crate) paths: Vec<HardwarePath>,
 }
 
 /// Reads GPUs, RDMA NICs, accelerators and NVSwitches with their bridges and paths.
-pub fn observe_hardware_observation(sources: &HardwareSources) -> HardwareObservation {
+pub(crate) fn observe_hardware_observation(sources: &HardwareSources) -> HardwareObservation {
     let nodes = read_topology(sources, &sources.sys);
     HardwareObservation {
         paths: build_hardware_paths(&nodes, online_numa_nodes(sources, &sources.sys)),
@@ -121,7 +123,7 @@ pub fn observe_hardware_observation(sources: &HardwareSources) -> HardwareObserv
 }
 
 /// A collector for descriptors of this observation's devices.
-pub fn handles_hardware_observation(
+pub(crate) fn handles_hardware_observation(
     state: &HardwareObservation,
     sources: &HardwareSources,
 ) -> DeviceHandleCollector {
@@ -137,7 +139,7 @@ pub fn handles_hardware_observation(
 }
 
 #[cfg(test)]
-pub fn observe_at(root: &std::path::Path) -> HardwareObservation {
+fn observe_at(root: &std::path::Path) -> HardwareObservation {
     observe_hardware_observation(&fixture_hardware_sources(
         root.join("sys"),
         root.join("proc"),

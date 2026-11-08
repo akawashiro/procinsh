@@ -7,10 +7,10 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`PciNode`] | `pub` | `struct PciNode` |
-//! | [`bandwidth_pcie_link`] | `pub` | `fn bandwidth_pcie_link(state: `[`PcieLink`]`) -> f64` |
-//! | [`read_topology`] | `pub` | `fn read_topology(sources: &`[`HardwareSources`]`, sys: &`[`Path`]`) -> `[`Vec`]`<`[`PciNode`]`>` |
-//! | [`online_numa_nodes`] | `pub` | `fn online_numa_nodes(sources: &`[`HardwareSources`]`, sys: &`[`Path`]`) -> usize` |
+//! | [`PciNode`] | `pub(super)` | `struct PciNode` |
+//! | [`bandwidth_pcie_link`] | `pub(super)` | `fn bandwidth_pcie_link(state: `[`PcieLink`]`) -> f64` |
+//! | [`read_topology`] | `pub(super)` | `fn read_topology(sources: &`[`HardwareSources`]`, sys: &`[`Path`]`) -> `[`Vec`]`<`[`PciNode`]`>` |
+//! | [`online_numa_nodes`] | `pub(super)` | `fn online_numa_nodes(sources: &`[`HardwareSources`]`, sys: &`[`Path`]`) -> usize` |
 
 use super::observation::HardwareSources;
 use std::{
@@ -71,8 +71,8 @@ use crate::ipc::hardware::PcieLink;
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::hardware::PcieLink")]
 struct PcieLinkJson {
-    pub speed_gts: f64,
-    pub width: u32,
+    speed_gts: f64,
+    width: u32,
 }
 impl serde::Serialize for crate::ipc::hardware::PcieLink {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -87,7 +87,7 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::hardware::PcieLink {
 }
 
 /// Usable bandwidth in GB/s after line encoding (8b/10b up to 5 GT/s, then 128b/130b).
-pub fn bandwidth_pcie_link(state: PcieLink) -> f64 {
+pub(super) fn bandwidth_pcie_link(state: PcieLink) -> f64 {
     let encoding = if state.speed_gts <= 5.0 {
         0.8
     } else {
@@ -101,8 +101,8 @@ use crate::ipc::hardware::PcieLinkInfo;
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::hardware::PcieLinkInfo")]
 struct PcieLinkInfoJson {
-    pub current: Option<PcieLink>,
-    pub max: Option<PcieLink>,
+    current: Option<PcieLink>,
+    max: Option<PcieLink>,
 }
 impl serde::Serialize for crate::ipc::hardware::PcieLinkInfo {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -121,9 +121,9 @@ use crate::ipc::hardware::BarInfo;
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::hardware::BarInfo")]
 struct BarInfoJson {
-    pub index: u32,
-    pub bytes: u64,
-    pub prefetchable: bool,
+    index: u32,
+    bytes: u64,
+    prefetchable: bool,
 }
 impl serde::Serialize for crate::ipc::hardware::BarInfo {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -139,22 +139,22 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::hardware::BarInfo {
 
 /// A PCI node: a host bridge, a bridge on the way to a device of interest, or the device.
 #[derive(Clone, Debug, PartialEq)]
-pub struct PciNode {
-    pub address: String,
-    pub parent: Option<String>,
-    pub role: HardwareRole,
-    pub kind: Option<HardwareKind>,
-    pub path: PathBuf,
-    pub class: Option<u32>,
-    pub vendor_id: Option<u32>,
-    pub device_id: Option<u32>,
-    pub driver: Option<String>,
-    pub numa_node: Option<u32>,
-    pub link: Option<PcieLinkInfo>,
-    pub power_state: Option<String>,
-    pub runtime_status: Option<String>,
-    pub iommu_group: Option<u32>,
-    pub bars: Vec<BarInfo>,
+pub(super) struct PciNode {
+    pub(super) address: String,
+    pub(super) parent: Option<String>,
+    pub(super) role: HardwareRole,
+    pub(super) kind: Option<HardwareKind>,
+    pub(super) path: PathBuf,
+    pub(super) class: Option<u32>,
+    pub(super) vendor_id: Option<u32>,
+    pub(super) device_id: Option<u32>,
+    pub(super) driver: Option<String>,
+    pub(super) numa_node: Option<u32>,
+    pub(super) link: Option<PcieLinkInfo>,
+    pub(super) power_state: Option<String>,
+    pub(super) runtime_status: Option<String>,
+    pub(super) iommu_group: Option<u32>,
+    pub(super) bars: Vec<BarInfo>,
 }
 
 fn read_sysfs_hex(sources: &HardwareSources, path: &Path) -> Option<u32> {
@@ -314,7 +314,7 @@ fn build_pci_node(
 }
 
 /// Devices of interest and every bridge above them, parents before children.
-pub fn read_topology(sources: &HardwareSources, sys: &Path) -> Vec<PciNode> {
+pub(super) fn read_topology(sources: &HardwareSources, sys: &Path) -> Vec<PciNode> {
     use crate::http_server::analysis::hardware::observation::{
         link_hardware_sources, names_hardware_sources,
     };
@@ -395,7 +395,7 @@ pub fn read_topology(sources: &HardwareSources, sys: &Path) -> Vec<PciNode> {
 }
 
 /// Online NUMA node count, from `devices/system/node/online` such as `0` or `0-1`.
-pub fn online_numa_nodes(sources: &HardwareSources, sys: &Path) -> usize {
+pub(super) fn online_numa_nodes(sources: &HardwareSources, sys: &Path) -> usize {
     use crate::http_server::analysis::hardware::observation::text_hardware_sources;
 
     text_hardware_sources(sources, &sys.join("devices/system/node/online"))
@@ -412,7 +412,7 @@ pub fn online_numa_nodes(sources: &HardwareSources, sys: &Path) -> usize {
 }
 
 #[cfg(test)]
-pub mod fixture {
+pub(super) mod fixture {
     //! A temporary sysfs/procfs tree shaped like real kernels.
     use std::{
         fs,
@@ -420,21 +420,23 @@ pub mod fixture {
         path::{Path, PathBuf},
     };
 
-    pub struct SysfsFixture {
-        pub root: PathBuf,
+    pub(crate) struct SysfsFixture {
+        pub(in crate::http_server::analysis::hardware) root: PathBuf,
     }
     impl Drop for SysfsFixture {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.root);
         }
     }
-    pub fn sources_sysfs_fixture(state: &SysfsFixture) -> super::HardwareSources {
+    pub(in crate::http_server::analysis::hardware) fn sources_sysfs_fixture(
+        state: &SysfsFixture,
+    ) -> super::HardwareSources {
         use crate::http_server::analysis::hardware::observation::fixture_hardware_sources;
 
         fixture_hardware_sources(sys_sysfs_fixture(state), proc_sysfs_fixture(state))
     }
 
-    pub fn create_sysfs_fixture(name: &str) -> SysfsFixture {
+    fn create_sysfs_fixture(name: &str) -> SysfsFixture {
         let root =
             std::env::temp_dir().join(format!("procinsh-sysfs-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
@@ -444,22 +446,30 @@ pub mod fixture {
         SysfsFixture { root }
     }
 
-    pub fn sys_sysfs_fixture(state: &SysfsFixture) -> PathBuf {
+    pub(in crate::http_server::analysis::hardware) fn sys_sysfs_fixture(
+        state: &SysfsFixture,
+    ) -> PathBuf {
         state.root.join("sys")
     }
 
-    pub fn proc_sysfs_fixture(state: &SysfsFixture) -> PathBuf {
+    pub(in crate::http_server::analysis::hardware) fn proc_sysfs_fixture(
+        state: &SysfsFixture,
+    ) -> PathBuf {
         state.root.join("proc")
     }
 
-    pub fn write_sysfs_fixture(state: &SysfsFixture, path: &str, value: &str) {
+    pub(in crate::http_server::analysis::hardware) fn write_sysfs_fixture(
+        state: &SysfsFixture,
+        path: &str,
+        value: &str,
+    ) {
         let path = state.root.join(path);
         fs::create_dir_all(path.parent().unwrap()).unwrap();
         fs::write(path, format!("{value}\n")).unwrap();
     }
 
     /// Adds a device at `chain` (host bridge first) with attributes.
-    pub fn device_sysfs_fixture(
+    fn device_sysfs_fixture(
         state: &SysfsFixture,
         chain: &[&str],
         attributes: &[(&str, &str)],
@@ -487,7 +497,11 @@ pub mod fixture {
         dir
     }
 
-    pub fn char_device_sysfs_fixture(state: &SysfsFixture, number: &str, target: &Path) {
+    pub(in crate::http_server::analysis::hardware) fn char_device_sysfs_fixture(
+        state: &SysfsFixture,
+        number: &str,
+        target: &Path,
+    ) {
         fs::create_dir_all(target).unwrap();
         symlink(
             target,
@@ -498,7 +512,7 @@ pub mod fixture {
 
     /// This machine: a GPU and an InfiniBand HCA under root ports of different host
     /// bridges on one NUMA node, plus a BMC display adapter.
-    pub fn workstation(name: &str) -> SysfsFixture {
+    pub(in crate::http_server::analysis::hardware) fn workstation(name: &str) -> SysfsFixture {
         let f = create_sysfs_fixture(name);
         let bridge = |speed: &'static str, width: &'static str| {
             vec![
@@ -580,7 +594,7 @@ pub mod fixture {
     }
 
     /// A DGX-like tree: two NUMA nodes, each with a PCIe switch holding two GPUs and a NIC.
-    pub fn switched(name: &str) -> SysfsFixture {
+    pub(in crate::http_server::analysis::hardware) fn switched(name: &str) -> SysfsFixture {
         let f = create_sysfs_fixture(name);
         for (bridge, bus, numa) in [("pci0000:00", 0u8, "0"), ("pci0000:80", 0x80, "1")] {
             let attrs = |class: &'static str, vendor: &'static str| {

@@ -4,12 +4,12 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`ProcessSnapshot`] | `pub` | `struct ProcessSnapshot` |
-//! | [`FdEndpoint`] | `pub` | `struct FdEndpoint` |
-//! | [`SocketEndpoint`] | `pub` | `struct SocketEndpoint` |
-//! | [`FdRelation`] | `pub` | `struct FdRelation` |
-//! | [`SystemSnapshot`] | `pub` | `struct SystemSnapshot` |
-//! | [`NeighborSnapshot`] | `pub` | `struct NeighborSnapshot` |
+//! | [`ProcessSnapshot`] | `pub(crate)` | `struct ProcessSnapshot` |
+//! | [`FdEndpoint`] | `pub(crate)` | `struct FdEndpoint` |
+//! | [`SocketEndpoint`] | `pub(crate)` | `struct SocketEndpoint` |
+//! | [`FdRelation`] | `pub(crate)` | `struct FdRelation` |
+//! | [`SystemSnapshot`] | `pub(crate)` | `struct SystemSnapshot` |
+//! | [`NeighborSnapshot`] | `pub(crate)` | `struct NeighborSnapshot` |
 
 use crate::ipc::{
     hardware::{DeviceHandle, HardwareDevice, HardwarePath},
@@ -19,44 +19,44 @@ use crate::ipc::{
 /// A Linux process and its observed structural address space, without RSS/PSS.
 /// CPU and RSS measurements belong to [`crate::ipc::acquisition::ProcessSummary`].
 #[derive(Clone)]
-pub struct ProcessSnapshot {
-    pub identity: ProcessId,
-    pub parent_id: Option<ProcessId>,
-    pub name: String,
+pub(crate) struct ProcessSnapshot {
+    pub(crate) identity: ProcessId,
+    pub(crate) parent_id: Option<ProcessId>,
+    pub(crate) name: String,
     /// Complete argument vector from /proc; absent when it cannot be read.
-    pub command_line: Option<Vec<String>>,
-    pub uid: Option<u32>,
-    pub username: Option<String>,
-    pub euid: Option<u32>,
-    pub effective_username: Option<String>,
-    pub maps: Vec<MemoryMap>,
-    pub maps_epoch: u64,
-    pub maps_error: Option<String>,
+    pub(crate) command_line: Option<Vec<String>>,
+    pub(crate) uid: Option<u32>,
+    pub(crate) username: Option<String>,
+    pub(crate) euid: Option<u32>,
+    pub(crate) effective_username: Option<String>,
+    pub(crate) maps: Vec<MemoryMap>,
+    pub(crate) maps_epoch: u64,
+    pub(crate) maps_error: Option<String>,
 }
 /// A process-owned file descriptor endpoint, including coalesced shared FDs.
 #[derive(Clone, PartialEq, Eq)]
-pub struct FdEndpoint {
-    pub process_id: ProcessId,
-    pub fd: u32,
-    pub fd_count: usize,
-    pub resource: IpcIdentity,
-    pub kind: FdKind,
-    pub access: FdAccess,
+pub(crate) struct FdEndpoint {
+    pub(crate) process_id: ProcessId,
+    pub(crate) fd: u32,
+    pub(crate) fd_count: usize,
+    pub(crate) resource: IpcIdentity,
+    pub(crate) kind: FdKind,
+    pub(crate) access: FdAccess,
     /// Independent connection observation; null for non-socket resources.
-    pub connection_status: Option<SocketConnectionStatus>,
+    pub(crate) connection_status: Option<SocketConnectionStatus>,
 }
 #[derive(Clone, PartialEq, Eq)]
-pub struct SocketEndpoint {
-    pub protocol: SocketProtocol,
+pub(crate) struct SocketEndpoint {
+    pub(crate) protocol: SocketProtocol,
     /// Null when no state was observed, even if the socket kind is known.
-    pub state: Option<SocketState>,
-    pub local: Option<InetAddress>,
-    pub remote: Option<InetAddress>,
-    pub path: Option<String>,
-    pub network_peer: bool,
-    pub remote_hostname: Option<String>,
+    pub(crate) state: Option<SocketState>,
+    pub(crate) local: Option<InetAddress>,
+    pub(crate) remote: Option<InetAddress>,
+    pub(crate) path: Option<String>,
+    pub(crate) network_peer: bool,
+    pub(crate) remote_hostname: Option<String>,
     /// The remote InfiniBand port GID when the destination is an IPoIB neighbor.
-    pub remote_gid: Option<String>,
+    pub(crate) remote_gid: Option<String>,
 }
 impl From<&SocketInfo> for SocketEndpoint {
     fn from(info: &SocketInfo) -> Self {
@@ -80,45 +80,45 @@ impl From<&SocketInfo> for SocketEndpoint {
 /// A socket, pipe, or shared-ownership relation between file descriptor endpoints.
 /// An absent peer represents an external or unidentified process endpoint.
 #[derive(Clone, PartialEq, Eq)]
-pub struct FdRelation {
-    pub id: String,
-    pub endpoint: FdEndpoint,
-    pub peer: Option<FdEndpoint>,
-    pub label: String,
-    pub socket: Option<SocketEndpoint>,
-    pub candidate: bool,
-    pub shared: bool,
+pub(crate) struct FdRelation {
+    pub(crate) id: String,
+    pub(crate) endpoint: FdEndpoint,
+    pub(crate) peer: Option<FdEndpoint>,
+    pub(crate) label: String,
+    pub(crate) socket: Option<SocketEndpoint>,
+    pub(crate) candidate: bool,
+    pub(crate) shared: bool,
 }
 /// A system-wide observation of processes and their file descriptor relations.
 #[derive(Clone, Default)]
 // Re-exported by system for subscription consumers.
-pub struct SystemSnapshot {
-    pub captured_at: u64,
-    pub processes: Vec<ProcessSnapshot>,
-    pub fd_relations: Vec<FdRelation>,
-    pub rdma_ports: Vec<crate::ipc::rdma::RdmaPortInfo>,
-    pub rdma_relations: Vec<crate::ipc::rdma::RdmaRelation>,
-    pub hardware_devices: Vec<HardwareDevice>,
-    pub hardware_paths: Vec<HardwarePath>,
-    pub device_handles: Vec<DeviceHandle>,
-    pub warnings: Vec<String>,
-    pub inspected_processes: usize,
-    pub inspected_fds: usize,
-    pub raw_owners: Vec<(IpcIdentity, Vec<FdEndpoint>)>,
-    pub raw_sockets: Vec<(u64, crate::ipc::model::sockets::SocketInfo)>,
-    pub raw_namespaces: Vec<(u64, (u64, u64))>,
-    pub raw_connections: Vec<(IpcIdentity, SocketConnectionStatus)>,
-    pub raw_device_handles: Vec<(ProcessId, u32, u64)>,
-    pub raw_neighbors: Option<NeighborSnapshot>,
-    pub raw_hardware: crate::ipc::hardware::HardwareFiles,
-    pub raw_hostnames: Vec<(std::net::IpAddr, String)>,
+pub(crate) struct SystemSnapshot {
+    pub(crate) captured_at: u64,
+    pub(crate) processes: Vec<ProcessSnapshot>,
+    pub(crate) fd_relations: Vec<FdRelation>,
+    pub(crate) rdma_ports: Vec<crate::ipc::rdma::RdmaPortInfo>,
+    pub(crate) rdma_relations: Vec<crate::ipc::rdma::RdmaRelation>,
+    pub(crate) hardware_devices: Vec<HardwareDevice>,
+    pub(crate) hardware_paths: Vec<HardwarePath>,
+    pub(crate) device_handles: Vec<DeviceHandle>,
+    pub(crate) warnings: Vec<String>,
+    pub(crate) inspected_processes: usize,
+    pub(crate) inspected_fds: usize,
+    pub(crate) raw_owners: Vec<(IpcIdentity, Vec<FdEndpoint>)>,
+    pub(crate) raw_sockets: Vec<(u64, crate::ipc::model::sockets::SocketInfo)>,
+    pub(crate) raw_namespaces: Vec<(u64, (u64, u64))>,
+    pub(crate) raw_connections: Vec<(IpcIdentity, SocketConnectionStatus)>,
+    pub(crate) raw_device_handles: Vec<(ProcessId, u32, u64)>,
+    pub(crate) raw_neighbors: Option<NeighborSnapshot>,
+    pub(crate) raw_hardware: crate::ipc::hardware::HardwareFiles,
+    pub(crate) raw_hostnames: Vec<(std::net::IpAddr, String)>,
 }
 
 /// Neighbor observations scoped to the collector network namespace.
 #[derive(Clone)]
-pub struct NeighborSnapshot {
-    pub entries: Vec<(std::net::IpAddr, String)>,
-    pub namespace: (u64, u64),
+pub(crate) struct NeighborSnapshot {
+    pub(crate) entries: Vec<(std::net::IpAddr, String)>,
+    pub(crate) namespace: (u64, u64),
 }
 
 crate::ipc::codec::wire_struct!(ProcessSnapshot {

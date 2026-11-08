@@ -1,17 +1,18 @@
 //! Read bounded target-process memory and manage the acquisition privacy flag.
 //!
 //! # Interface
-//! - [`MAX_READ`] (`pub(super)`): `const MAX_READ: usize`.
-//! - [`enable_privacy`] (`pub(in crate::privileged_helper)`): `fn enable_privacy()`.
-//! - [`privacy_enabled`] (`pub(in crate::privileged_helper)`): `fn privacy_enabled() -> bool`.
-//! - [`read_process_memory`] (`pub(super)`): `fn read_process_memory(pid: i32, address: u64, length: usize) -> Result<Vec<u8>>`.
 //!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`enable_privacy`] | `pub(in crate::privileged_helper)` | `fn enable_privacy()` |
+//! | [`privacy_enabled`] | `pub(in crate::privileged_helper)` | `fn privacy_enabled() -> bool` |
+//! | [`read_process_memory`] | `pub(super)` | `fn read_process_memory(pid: i32, address: u64, length: usize) -> `[`Result`]`<`[`Vec`]`<u8>>` |
 
 use super::permission_help;
 use anyhow::{Result, bail, ensure};
 use std::sync::atomic::{AtomicBool, Ordering};
 
-pub(super) const MAX_READ: usize = 65536;
+const MAX_READ: usize = 65536;
 
 /// Set once at startup by `--privacy`: no process memory or environment is read.
 static PRIVACY: AtomicBool = AtomicBool::new(false);

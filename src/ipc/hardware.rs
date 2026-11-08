@@ -1,79 +1,83 @@
 //! Raw hardware attributes acquired by helper and interpreted by the HTTP server.
 //!
 //! # Interface
-//! - [`HardwareFiles`] (`pub`): `struct HardwareFiles`.
-//! - [`HardwareDevice`] (`pub`): `struct HardwareDevice`.
-//! - [`RdmaDeviceInfo`] (`pub`): `struct RdmaDeviceInfo`.
-//! - [`GpuInfo`] (`pub`): `struct GpuInfo`.
-//! - [`DeviceHandle`] (`pub`): `struct DeviceHandle`.
-//! - [`DeviceHandleKind`] (`pub`): `enum DeviceHandleKind`.
-//! - [`HardwarePath`] (`pub`): `struct HardwarePath`.
-//! - [`PathClass`] (`pub`): `enum PathClass`.
-//! - [`BarInfo`] (`pub`): `struct BarInfo`.
-//! - [`PcieLinkInfo`] (`pub`): `struct PcieLinkInfo`.
-//! - [`PcieLink`] (`pub`): `struct PcieLink`.
-//! - [`HardwareKind`] (`pub`): `enum HardwareKind`.
-//! - [`HardwareRole`] (`pub`): `enum HardwareRole`.
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`HardwareDevice`] | `pub(crate)` | `struct HardwareDevice` |
+//! | [`RdmaDeviceInfo`] | `pub(crate)` | `struct RdmaDeviceInfo` |
+//! | [`GpuInfo`] | `pub(crate)` | `struct GpuInfo` |
+//! | [`DeviceHandle`] | `pub(crate)` | `struct DeviceHandle` |
+//! | [`DeviceHandleKind`] | `pub(crate)` | `enum DeviceHandleKind` |
+//! | [`HardwarePath`] | `pub(crate)` | `struct HardwarePath` |
+//! | [`PathClass`] | `pub(crate)` | `enum PathClass` |
+//! | [`BarInfo`] | `pub(crate)` | `struct BarInfo` |
+//! | [`PcieLinkInfo`] | `pub(crate)` | `struct PcieLinkInfo` |
+//! | [`PcieLink`] | `pub(crate)` | `struct PcieLink` |
+//! | [`HardwareKind`] | `pub(crate)` | `enum HardwareKind` |
+//! | [`HardwareRole`] | `pub(crate)` | `enum HardwareRole` |
+//! | [`HardwareFiles`] | `pub(crate)` | `struct HardwareFiles` |
+
 use crate::ipc::schema::ProcessId;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct HardwareDevice {
+pub(crate) struct HardwareDevice {
     /// A PCI function address such as `0000:85:00.0`, or a host bridge such as `pci0000:80`.
-    pub address: String,
-    pub parent: Option<String>,
-    pub role: HardwareRole,
-    pub kind: Option<HardwareKind>,
-    pub label: String,
+    pub(crate) address: String,
+    pub(crate) parent: Option<String>,
+    pub(crate) role: HardwareRole,
+    pub(crate) kind: Option<HardwareKind>,
+    pub(crate) label: String,
     /// The 24-bit class code as `0x030000`.
-    pub class: Option<String>,
-    pub vendor_id: Option<String>,
-    pub device_id: Option<String>,
-    pub driver: Option<String>,
-    pub numa_node: Option<u32>,
+    pub(crate) class: Option<String>,
+    pub(crate) vendor_id: Option<String>,
+    pub(crate) device_id: Option<String>,
+    pub(crate) driver: Option<String>,
+    pub(crate) numa_node: Option<u32>,
     /// Null for host bridges and runtime-suspended devices.
-    pub link: Option<PcieLinkInfo>,
-    pub power_state: Option<String>,
-    pub runtime_status: Option<String>,
-    pub iommu_group: Option<u32>,
-    pub bars: Vec<BarInfo>,
-    pub gpu: Option<GpuInfo>,
-    pub rdma: Vec<RdmaDeviceInfo>,
+    pub(crate) link: Option<PcieLinkInfo>,
+    pub(crate) power_state: Option<String>,
+    pub(crate) runtime_status: Option<String>,
+    pub(crate) iommu_group: Option<u32>,
+    pub(crate) bars: Vec<BarInfo>,
+    pub(crate) gpu: Option<GpuInfo>,
+    pub(crate) rdma: Vec<RdmaDeviceInfo>,
     /// Network interfaces of the device.
-    pub netdevs: Vec<String>,
+    pub(crate) netdevs: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RdmaDeviceInfo {
-    pub name: String,
-    pub hca_type: Option<String>,
-    pub fw_ver: Option<String>,
+pub(crate) struct RdmaDeviceInfo {
+    pub(crate) name: String,
+    pub(crate) hca_type: Option<String>,
+    pub(crate) fw_ver: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct GpuInfo {
+pub(crate) struct GpuInfo {
     /// `nvidia`, `amd`, `intel` or the PCI vendor ID.
-    pub vendor: String,
-    pub model: Option<String>,
-    pub uuid: Option<String>,
+    pub(crate) vendor: String,
+    pub(crate) model: Option<String>,
+    pub(crate) uuid: Option<String>,
     /// The NVIDIA device minor of `/dev/nvidiaN`.
-    pub minor: Option<u32>,
+    pub(crate) minor: Option<u32>,
     /// DRM nodes such as `card1` and `renderD128`.
-    pub drm: Vec<String>,
+    pub(crate) drm: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct DeviceHandle {
-    pub id: String,
-    pub process_id: ProcessId,
-    pub device: String,
-    pub kind: DeviceHandleKind,
+pub(crate) struct DeviceHandle {
+    pub(crate) id: String,
+    pub(crate) process_id: ProcessId,
+    pub(crate) device: String,
+    pub(crate) kind: DeviceHandleKind,
     /// The lowest descriptor number.
-    pub fd: u32,
-    pub fd_count: usize,
+    pub(crate) fd: u32,
+    pub(crate) fd_count: usize,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum DeviceHandleKind {
+pub(crate) enum DeviceHandleKind {
     /// `/dev/nvidiaN`.
     Nvidia,
     DrmRender,
@@ -87,19 +91,19 @@ pub enum DeviceHandleKind {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct HardwarePath {
-    pub id: String,
-    pub a: String,
-    pub b: String,
-    pub class: PathClass,
+pub(crate) struct HardwarePath {
+    pub(crate) id: String,
+    pub(crate) a: String,
+    pub(crate) b: String,
+    pub(crate) class: PathClass,
     /// Nodes between the ends, in order from `a` to `b`.
-    pub via: Vec<String>,
+    pub(crate) via: Vec<String>,
     /// The slowest negotiated link on the path; null when no link speed is known.
-    pub bottleneck: Option<PcieLink>,
+    pub(crate) bottleneck: Option<PcieLink>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum PathClass {
+pub(crate) enum PathClass {
     /// At most one PCIe switch (or functions of one device).
     Pix,
     /// Several PCIe switches without the host bridge.
@@ -170,27 +174,27 @@ crate::ipc::codec::wire_struct!(HardwarePath {
 crate::ipc::codec::wire_enum!(PathClass{0=>Pix,1=>Pxb,2=>Phb,3=>Node,4=>Sys});
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct BarInfo {
-    pub index: u32,
-    pub bytes: u64,
-    pub prefetchable: bool,
+pub(crate) struct BarInfo {
+    pub(crate) index: u32,
+    pub(crate) bytes: u64,
+    pub(crate) prefetchable: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct PcieLinkInfo {
-    pub current: Option<PcieLink>,
-    pub max: Option<PcieLink>,
+pub(crate) struct PcieLinkInfo {
+    pub(crate) current: Option<PcieLink>,
+    pub(crate) max: Option<PcieLink>,
 }
 
 /// The negotiated or maximum link of a device to its upstream port.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct PcieLink {
-    pub speed_gts: f64,
-    pub width: u32,
+pub(crate) struct PcieLink {
+    pub(crate) speed_gts: f64,
+    pub(crate) width: u32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum HardwareKind {
+pub(crate) enum HardwareKind {
     Gpu,
     /// An RDMA-capable NIC (InfiniBand or RoCE).
     Rdma,
@@ -200,7 +204,7 @@ pub enum HardwareKind {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum HardwareRole {
+pub(crate) enum HardwareRole {
     HostBridge,
     RootPort,
     SwitchPort,
@@ -219,11 +223,11 @@ crate::ipc::codec::wire_enum!(HardwareKind { 0 => Gpu, 1 => Rdma, 2 => Accelerat
 
 /// Bounded text attributes, directory names and resolved links from fixed sysfs/procfs roots.
 #[derive(Clone, Debug, Default)]
-pub struct HardwareFiles {
-    pub truncated: bool,
-    pub texts: Vec<(String, String)>,
-    pub directories: Vec<(String, Vec<String>)>,
-    pub links: Vec<(String, String)>,
+pub(crate) struct HardwareFiles {
+    pub(crate) truncated: bool,
+    pub(crate) texts: Vec<(String, String)>,
+    pub(crate) directories: Vec<(String, Vec<String>)>,
+    pub(crate) links: Vec<(String, String)>,
 }
 crate::ipc::codec::wire_struct!(HardwareFiles {
     truncated,

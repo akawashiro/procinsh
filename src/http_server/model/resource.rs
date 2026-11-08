@@ -6,13 +6,13 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`deserialize_decimal`] | `pub` | `fn deserialize_decimal<'de, D: `[`serde::Deserializer`]`<'de>>( deserializer: D, ) -> `[`Result`](anyhow::Result)`<u64, D::Error>` |
-//! | [`decimal`] | `pub` | `fn decimal<S: `[`serde::Serializer`]`>(value: &u64, serializer: S) -> `[`Result`](anyhow::Result)`<S::Ok, S::Error>` |
+//! | [`deserialize_decimal`] | `pub(crate)` | `fn deserialize_decimal<'de, D: `[`serde::Deserializer`]`<'de>>( deserializer: D, ) -> `[`Result`](anyhow::Result)`<u64, D::Error>` |
+//! | [`decimal`] | `pub(crate)` | `fn decimal<S: `[`serde::Serializer`]`>(value: &u64, serializer: S) -> `[`Result`](anyhow::Result)`<S::Ok, S::Error>` |
 
 use crate::ipc::model::resource::{DeviceId, IpcKind};
 use serde::Deserialize;
 
-pub fn deserialize_decimal<'de, D: serde::Deserializer<'de>>(
+pub(crate) fn deserialize_decimal<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
 ) -> Result<u64, D::Error> {
     let value = String::deserialize(deserializer)?;
@@ -23,8 +23,8 @@ pub fn deserialize_decimal<'de, D: serde::Deserializer<'de>>(
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::model::resource::DeviceId")]
 struct DeviceIdJson {
-    pub major: u32,
-    pub minor: u32,
+    major: u32,
+    minor: u32,
 }
 impl serde::Serialize for crate::ipc::model::resource::DeviceId {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -38,7 +38,7 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::model::resource::DeviceId {
     }
 }
 
-pub fn decimal<S: serde::Serializer>(value: &u64, serializer: S) -> Result<S::Ok, S::Error> {
+pub(crate) fn decimal<S: serde::Serializer>(value: &u64, serializer: S) -> Result<S::Ok, S::Error> {
     serializer.collect_str(value)
 }
 
@@ -66,10 +66,10 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::model::resource::IpcKind {
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::model::resource::IpcIdentity")]
 struct IpcIdentityJson {
-    pub kind: IpcKind,
-    pub device: DeviceId,
+    kind: IpcKind,
+    device: DeviceId,
     #[serde(serialize_with = "decimal", deserialize_with = "deserialize_decimal")]
-    pub inode: u64,
+    inode: u64,
 }
 impl serde::Serialize for crate::ipc::model::resource::IpcIdentity {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -87,10 +87,10 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::model::resource::IpcIdentity {
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::model::resource::FileIdentity")]
 struct FileIdentityJson {
-    pub device: DeviceId,
+    device: DeviceId,
     #[serde(serialize_with = "decimal", deserialize_with = "deserialize_decimal")]
-    pub inode: u64,
-    pub generation: u32,
+    inode: u64,
+    generation: u32,
 }
 impl serde::Serialize for crate::ipc::model::resource::FileIdentity {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {

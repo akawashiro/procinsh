@@ -4,7 +4,7 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`create_raw_stack_frame`] | `pub` | `fn create_raw_stack_frame(address: u64) -> `[`StackFrame`] |
+//! | [`create_raw_stack_frame`] | `pub(crate)` | `fn create_raw_stack_frame(address: u64) -> `[`StackFrame`] |
 
 use crate::ipc::stack::{SourceFrame, StackFrame};
 
@@ -13,12 +13,12 @@ use crate::ipc::stack::{SourceFrame, StackFrame};
 #[serde(remote = "crate::ipc::stack::StackFrame")]
 struct StackFrameJson {
     #[serde(serialize_with = "crate::http_server::model::memory::hex")]
-    pub address: u64,
-    pub symbol: Option<String>,
-    pub symbol_offset: Option<String>,
-    pub source_file: Option<String>,
-    pub line: Option<u32>,
-    pub inline_frames: Vec<SourceFrame>,
+    address: u64,
+    symbol: Option<String>,
+    symbol_offset: Option<String>,
+    source_file: Option<String>,
+    line: Option<u32>,
+    inline_frames: Vec<SourceFrame>,
 }
 impl serde::Serialize for crate::ipc::stack::StackFrame {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -30,9 +30,9 @@ impl serde::Serialize for crate::ipc::stack::StackFrame {
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::stack::SourceFrame")]
 struct SourceFrameJson {
-    pub function: Option<String>,
-    pub file: Option<String>,
-    pub line: Option<u32>,
+    function: Option<String>,
+    file: Option<String>,
+    line: Option<u32>,
 }
 impl serde::Serialize for crate::ipc::stack::SourceFrame {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -40,7 +40,7 @@ impl serde::Serialize for crate::ipc::stack::SourceFrame {
     }
 }
 
-pub fn create_raw_stack_frame(address: u64) -> StackFrame {
+pub(crate) fn create_raw_stack_frame(address: u64) -> StackFrame {
     StackFrame {
         address,
         symbol: None,

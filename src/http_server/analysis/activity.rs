@@ -4,12 +4,12 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`FileBatch`] | `pub` | `struct FileBatch` |
-//! | [`ActivityBatch`] | `pub` | `struct ActivityBatch` |
-//! | [`ActivityProcessor`] | `pub` | `struct ActivityProcessor` |
-//! | [`add_file_batch`] | `pub` | `fn add_file_batch(state: &mut `[`FileBatch`]`, event: `[`FileActivity`]`)` |
-//! | [`resolve_signal`] | `pub` | `fn resolve_signal( sample: `[`SignalSample`]`, processes: &`[`HashMap`]`<i32, `[`ProcessId`]`>, ) -> `[`Option`]`<`[`SignalEvent`]`>` |
-//! | [`process_activity_processor`] | `pub` | `fn process_activity_processor( state: &mut `[`ActivityProcessor`]`, raw: `[`RawActivity`]`, known: &`[`HashMap`]`<i32, `[`ProcessId`]`>, ) -> `[`ActivityBatch`] |
+//! | [`FileBatch`] | `pub(crate)` | `struct FileBatch` |
+//! | [`ActivityBatch`] | `pub(crate)` | `struct ActivityBatch` |
+//! | [`ActivityProcessor`] | `pub(in crate::http_server)` | `struct ActivityProcessor` |
+//! | [`add_file_batch`] | `pub(crate)` | `fn add_file_batch(state: &mut `[`FileBatch`]`, event: `[`FileActivity`]`)` |
+//! | [`resolve_signal`] | `pub(crate)` | `fn resolve_signal( sample: `[`SignalSample`]`, processes: &`[`HashMap`]`<i32, `[`ProcessId`]`>, ) -> `[`Option`]`<`[`SignalEvent`]`>` |
+//! | [`process_activity_processor`] | `pub(in crate::http_server)` | `fn process_activity_processor( state: &mut `[`ActivityProcessor`]`, raw: `[`RawActivity`]`, known: &`[`HashMap`]`<i32, `[`ProcessId`]`>, ) -> `[`ActivityBatch`] |
 
 use crate::ipc::activity::{
     CpuActivity, CpuCounters, FileActivity, IpcActivity, IpcEvent, ProcessKey, RawActivity,
@@ -28,12 +28,12 @@ use std::collections::HashMap;
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::activity::SignalEvent")]
 struct SignalEventJson {
-    pub timestamp_ns: u64,
-    pub src_pid: u32,
-    pub dst_pid: u32,
-    pub signal: i32,
-    pub source_id: ProcessId,
-    pub destination_id: ProcessId,
+    timestamp_ns: u64,
+    src_pid: u32,
+    dst_pid: u32,
+    signal: i32,
+    source_id: ProcessId,
+    destination_id: ProcessId,
 }
 impl serde::Serialize for crate::ipc::activity::SignalEvent {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -51,11 +51,11 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::activity::SignalEvent {
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::activity::IpcActivity")]
 struct IpcActivityJson {
-    pub process_id: ProcessId,
-    pub resource: IpcIdentity,
-    pub write: bool,
-    pub bytes: u64,
-    pub count: u64,
+    process_id: ProcessId,
+    resource: IpcIdentity,
+    write: bool,
+    bytes: u64,
+    count: u64,
 }
 impl serde::Serialize for crate::ipc::activity::IpcActivity {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -73,11 +73,11 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::activity::IpcActivity {
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::activity::CpuActivity")]
 struct CpuActivityJson {
-    pub process_id: ProcessId,
-    pub runtime_ns: u64,
-    pub switches: u64,
-    pub running_threads: usize,
-    pub cpus: Vec<usize>,
+    process_id: ProcessId,
+    runtime_ns: u64,
+    switches: u64,
+    running_threads: usize,
+    cpus: Vec<usize>,
 }
 impl serde::Serialize for crate::ipc::activity::CpuActivity {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -97,12 +97,12 @@ const MAX_AGGREGATES: usize = 8192;
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::activity::FileActivity")]
 struct FileActivityJson {
-    pub process_id: ProcessId,
-    pub file: FileIdentity,
-    pub path: Option<String>,
-    pub write: bool,
-    pub bytes: u64,
-    pub count: u64,
+    process_id: ProcessId,
+    file: FileIdentity,
+    path: Option<String>,
+    write: bool,
+    bytes: u64,
+    count: u64,
 }
 impl serde::Serialize for crate::ipc::activity::FileActivity {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -117,11 +117,11 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::activity::FileActivity {
 }
 
 #[derive(Default)]
-pub struct FileBatch {
-    pub events: HashMap<(ProcessId, FileIdentity, bool), FileActivity>,
-    pub dropped: u64,
+pub(crate) struct FileBatch {
+    pub(crate) events: HashMap<(ProcessId, FileIdentity, bool), FileActivity>,
+    pub(crate) dropped: u64,
 }
-pub fn add_file_batch(state: &mut FileBatch, event: FileActivity) {
+pub(crate) fn add_file_batch(state: &mut FileBatch, event: FileActivity) {
     let key = (event.process_id, event.file, event.write);
     if let Some(prior) = state.events.get_mut(&key) {
         prior.bytes = prior.bytes.saturating_add(event.bytes);
@@ -139,14 +139,14 @@ pub fn add_file_batch(state: &mut FileBatch, event: FileActivity) {
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::activity::IpcEvent")]
 struct IpcEventJson {
-    pub start: u64,
-    pub inode: u64,
-    pub device: u64,
-    pub bytes: u64,
-    pub pid: u32,
-    pub kind: u32,
-    pub write: bool,
-    pub worker: bool,
+    start: u64,
+    inode: u64,
+    device: u64,
+    bytes: u64,
+    pid: u32,
+    kind: u32,
+    write: bool,
+    worker: bool,
 }
 impl serde::Serialize for crate::ipc::activity::IpcEvent {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -164,12 +164,12 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::activity::IpcEvent {
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::activity::SignalSample")]
 struct SignalSampleJson {
-    pub timestamp_ns: u64,
-    pub src_start: u64,
-    pub dst_start: u64,
-    pub src_pid: u32,
-    pub dst_pid: u32,
-    pub signal: i32,
+    timestamp_ns: u64,
+    src_start: u64,
+    dst_start: u64,
+    src_pid: u32,
+    dst_pid: u32,
+    signal: i32,
 }
 impl serde::Serialize for crate::ipc::activity::SignalSample {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -183,7 +183,7 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::activity::SignalSample {
     }
 }
 
-pub fn resolve_signal(
+pub(crate) fn resolve_signal(
     sample: SignalSample,
     processes: &HashMap<i32, ProcessId>,
 ) -> Option<SignalEvent> {
@@ -211,10 +211,10 @@ pub fn resolve_signal(
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::activity::CpuCounters")]
 struct CpuCountersJson {
-    pub now: u64,
-    pub current: Vec<Vec<u8>>,
+    now: u64,
+    current: Vec<Vec<u8>>,
     /// Nonzero per-CPU cumulative runtime/switch pairs; CPU indices are in `current`.
-    pub totals: Vec<(Vec<u8>, Vec<[u64; 2]>)>,
+    totals: Vec<(Vec<u8>, Vec<[u64; 2]>)>,
 }
 impl serde::Serialize for crate::ipc::activity::CpuCounters {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -232,10 +232,10 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::activity::CpuCounters {
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::activity::RawActivity")]
 struct RawActivityJson {
-    pub files: Vec<FileActivity>,
-    pub ipc: Vec<IpcEvent>,
-    pub signals: Vec<SignalSample>,
-    pub cpu: CpuCounters,
+    files: Vec<FileActivity>,
+    ipc: Vec<IpcEvent>,
+    signals: Vec<SignalSample>,
+    cpu: CpuCounters,
 }
 impl serde::Serialize for crate::ipc::activity::RawActivity {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -249,21 +249,21 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::activity::RawActivity {
     }
 }
 
-pub struct ActivityBatch {
-    pub files: Vec<FileActivity>,
-    pub ipc: Vec<IpcActivity>,
-    pub signals: Vec<SignalEvent>,
-    pub cpu: Vec<CpuActivity>,
-    pub unresolved: u64,
-    pub files_dropped: u64,
+pub(crate) struct ActivityBatch {
+    pub(in crate::http_server) files: Vec<FileActivity>,
+    pub(in crate::http_server) ipc: Vec<IpcActivity>,
+    pub(in crate::http_server) signals: Vec<SignalEvent>,
+    pub(in crate::http_server) cpu: Vec<CpuActivity>,
+    pub(in crate::http_server) unresolved: u64,
+    pub(in crate::http_server) files_dropped: u64,
 }
 #[derive(Default)]
-pub struct ActivityProcessor {
+pub(in crate::http_server) struct ActivityProcessor {
     previous_cpu: HashMap<ProcessKey, (u64, u64)>,
     previous_running: std::collections::HashSet<ProcessKey>,
     unresolved: u64,
 }
-pub fn process_activity_processor(
+pub(in crate::http_server) fn process_activity_processor(
     state: &mut ActivityProcessor,
     raw: RawActivity,
     known: &HashMap<i32, ProcessId>,

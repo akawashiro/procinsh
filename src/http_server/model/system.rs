@@ -2,7 +2,7 @@
 //!
 //! # Interface
 //!
-//! No named types or functions are exported; shared values come from their definition modules.
+//! No named types or functions are exported.
 
 use crate::ipc::model::system::{
     FdEndpoint, FdRelation, NeighborSnapshot, ProcessSnapshot, SocketEndpoint,
@@ -22,18 +22,18 @@ use crate::ipc::{
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::model::system::ProcessSnapshot")]
 struct ProcessSnapshotJson {
-    pub identity: ProcessId,
-    pub parent_id: Option<ProcessId>,
-    pub name: String,
+    identity: ProcessId,
+    parent_id: Option<ProcessId>,
+    name: String,
     /// Complete argument vector from /proc; absent when it cannot be read.
-    pub command_line: Option<Vec<String>>,
-    pub uid: Option<u32>,
-    pub username: Option<String>,
-    pub euid: Option<u32>,
-    pub effective_username: Option<String>,
-    pub maps: Vec<MemoryMap>,
-    pub maps_epoch: u64,
-    pub maps_error: Option<String>,
+    command_line: Option<Vec<String>>,
+    uid: Option<u32>,
+    username: Option<String>,
+    euid: Option<u32>,
+    effective_username: Option<String>,
+    maps: Vec<MemoryMap>,
+    maps_epoch: u64,
+    maps_error: Option<String>,
 }
 impl serde::Serialize for crate::ipc::model::system::ProcessSnapshot {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -52,14 +52,14 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::model::system::ProcessSnapshot
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::model::system::FdEndpoint")]
 struct FdEndpointJson {
-    pub process_id: ProcessId,
-    pub fd: u32,
-    pub fd_count: usize,
-    pub resource: IpcIdentity,
-    pub kind: FdKind,
-    pub access: FdAccess,
+    process_id: ProcessId,
+    fd: u32,
+    fd_count: usize,
+    resource: IpcIdentity,
+    kind: FdKind,
+    access: FdAccess,
     /// Independent connection observation; null for non-socket resources.
-    pub connection_status: Option<SocketConnectionStatus>,
+    connection_status: Option<SocketConnectionStatus>,
 }
 impl serde::Serialize for crate::ipc::model::system::FdEndpoint {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -77,16 +77,16 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::model::system::FdEndpoint {
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::model::system::SocketEndpoint")]
 struct SocketEndpointJson {
-    pub protocol: SocketProtocol,
+    protocol: SocketProtocol,
     /// Null when no state was observed, even if the socket kind is known.
-    pub state: Option<SocketState>,
-    pub local: Option<InetAddress>,
-    pub remote: Option<InetAddress>,
-    pub path: Option<String>,
-    pub network_peer: bool,
-    pub remote_hostname: Option<String>,
+    state: Option<SocketState>,
+    local: Option<InetAddress>,
+    remote: Option<InetAddress>,
+    path: Option<String>,
+    network_peer: bool,
+    remote_hostname: Option<String>,
     /// The remote InfiniBand port GID when the destination is an IPoIB neighbor.
-    pub remote_gid: Option<String>,
+    remote_gid: Option<String>,
 }
 impl serde::Serialize for crate::ipc::model::system::SocketEndpoint {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -106,13 +106,13 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::model::system::SocketEndpoint 
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::model::system::FdRelation")]
 struct FdRelationJson {
-    pub id: String,
-    pub endpoint: FdEndpoint,
-    pub peer: Option<FdEndpoint>,
-    pub label: String,
-    pub socket: Option<SocketEndpoint>,
-    pub candidate: bool,
-    pub shared: bool,
+    id: String,
+    endpoint: FdEndpoint,
+    peer: Option<FdEndpoint>,
+    label: String,
+    socket: Option<SocketEndpoint>,
+    candidate: bool,
+    shared: bool,
 }
 impl serde::Serialize for crate::ipc::model::system::FdRelation {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -132,33 +132,33 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::model::system::FdRelation {
 #[serde(remote = "crate::ipc::model::system::SystemSnapshot")]
 // Re-exported by system for subscription consumers.
 struct SystemSnapshotJson {
-    pub captured_at: u64,
-    pub processes: Vec<ProcessSnapshot>,
-    pub fd_relations: Vec<FdRelation>,
-    pub rdma_ports: Vec<crate::ipc::rdma::RdmaPortInfo>,
-    pub rdma_relations: Vec<crate::ipc::rdma::RdmaRelation>,
-    pub hardware_devices: Vec<HardwareDevice>,
-    pub hardware_paths: Vec<HardwarePath>,
-    pub device_handles: Vec<DeviceHandle>,
-    pub warnings: Vec<String>,
-    pub inspected_processes: usize,
-    pub inspected_fds: usize,
+    captured_at: u64,
+    processes: Vec<ProcessSnapshot>,
+    fd_relations: Vec<FdRelation>,
+    rdma_ports: Vec<crate::ipc::rdma::RdmaPortInfo>,
+    rdma_relations: Vec<crate::ipc::rdma::RdmaRelation>,
+    hardware_devices: Vec<HardwareDevice>,
+    hardware_paths: Vec<HardwarePath>,
+    device_handles: Vec<DeviceHandle>,
+    warnings: Vec<String>,
+    inspected_processes: usize,
+    inspected_fds: usize,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub raw_owners: Vec<(IpcIdentity, Vec<FdEndpoint>)>,
+    raw_owners: Vec<(IpcIdentity, Vec<FdEndpoint>)>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub raw_sockets: Vec<(u64, crate::ipc::model::sockets::SocketInfo)>,
+    raw_sockets: Vec<(u64, crate::ipc::model::sockets::SocketInfo)>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub raw_namespaces: Vec<(u64, (u64, u64))>,
+    raw_namespaces: Vec<(u64, (u64, u64))>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub raw_connections: Vec<(IpcIdentity, SocketConnectionStatus)>,
+    raw_connections: Vec<(IpcIdentity, SocketConnectionStatus)>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub raw_device_handles: Vec<(ProcessId, u32, u64)>,
+    raw_device_handles: Vec<(ProcessId, u32, u64)>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub raw_neighbors: Option<NeighborSnapshot>,
+    raw_neighbors: Option<NeighborSnapshot>,
     #[serde(skip)]
-    pub raw_hardware: crate::ipc::hardware::HardwareFiles,
+    raw_hardware: crate::ipc::hardware::HardwareFiles,
     #[serde(skip)]
-    pub raw_hostnames: Vec<(std::net::IpAddr, String)>,
+    raw_hostnames: Vec<(std::net::IpAddr, String)>,
 }
 impl serde::Serialize for crate::ipc::model::system::SystemSnapshot {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -177,8 +177,8 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::model::system::SystemSnapshot 
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::model::system::NeighborSnapshot")]
 struct NeighborSnapshotJson {
-    pub entries: Vec<(std::net::IpAddr, String)>,
-    pub namespace: (u64, u64),
+    entries: Vec<(std::net::IpAddr, String)>,
+    namespace: (u64, u64),
 }
 impl serde::Serialize for crate::ipc::model::system::NeighborSnapshot {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {

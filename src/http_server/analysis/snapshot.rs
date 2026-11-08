@@ -5,13 +5,13 @@
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
 //! | [`architecture`] | `pub(in crate::http_server)` | `mod architecture` |
-//! | [`registers`] | `pub` | `mod registers` |
-//! | [`stack`] | `pub` | `mod stack` |
-//! | [`symbol`] | `pub` | `mod symbol` |
-//! | [`unwind`] | `pub` | `mod unwind` |
+//! | [`registers`] | `pub(crate)` | `mod registers` |
+//! | [`stack`] | `pub(crate)` | `mod stack` |
+//! | [`symbol`] | `pub(crate)` | `mod symbol` |
+//! | [`unwind`] | `pub(crate)` | `mod unwind` |
 
 pub(in crate::http_server) mod architecture;
-pub mod registers;
-pub mod stack;
-pub mod symbol;
-pub mod unwind;
+pub(crate) mod registers;
+pub(crate) mod stack;
+pub(crate) mod symbol;
+pub(crate) mod unwind;

@@ -4,7 +4,7 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`build_hardware_paths`] | `pub` | `fn build_hardware_paths(nodes: &[`[`PciNode`]`], numa_nodes: usize) -> `[`Vec`]`<`[`HardwarePath`]`>` |
+//! | [`build_hardware_paths`] | `pub(super)` | `fn build_hardware_paths(nodes: &[`[`PciNode`]`], numa_nodes: usize) -> `[`Vec`]`<`[`HardwarePath`]`>` |
 
 use crate::ipc::hardware::{HardwarePath, PathClass};
 use std::collections::HashMap;
@@ -46,14 +46,14 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::hardware::PathClass {
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::hardware::HardwarePath")]
 struct HardwarePathJson {
-    pub id: String,
-    pub a: String,
-    pub b: String,
-    pub class: PathClass,
+    id: String,
+    a: String,
+    b: String,
+    class: PathClass,
     /// Nodes between the ends, in order from `a` to `b`.
-    pub via: Vec<String>,
+    via: Vec<String>,
     /// The slowest negotiated link on the path; null when no link speed is known.
-    pub bottleneck: Option<PcieLink>,
+    bottleneck: Option<PcieLink>,
 }
 impl serde::Serialize for crate::ipc::hardware::HardwarePath {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -84,7 +84,7 @@ fn chain<'a>(node: &'a PciNode, nodes: &HashMap<&str, &'a PciNode>) -> Vec<&'a P
 
 /// Paths between every pair of endpoints. With one online NUMA node, devices
 /// without a NUMA node share it.
-pub fn build_hardware_paths(nodes: &[PciNode], numa_nodes: usize) -> Vec<HardwarePath> {
+pub(super) fn build_hardware_paths(nodes: &[PciNode], numa_nodes: usize) -> Vec<HardwarePath> {
     use crate::http_server::analysis::hardware::pci::bandwidth_pcie_link;
 
     let by_address: HashMap<&str, &PciNode> =

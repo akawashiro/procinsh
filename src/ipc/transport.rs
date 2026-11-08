@@ -1,10 +1,13 @@
 //! Bounded native-endian binary framing over private Unix streams.
 //!
 //! # Interface
-//! - [`configure_ipc_socket`] (`pub`): `fn configure_ipc_socket(socket: &`[`UnixStream`]`) -> `[`anyhow::Result`]`<()>`.
-//! - [`send`] (`pub`): `fn send<T: `[`Wire`]`>(socket: &mut `[`UnixStream`]`, value: &T, limit: usize) -> `[`anyhow::Result`]`<()>`.
-//! - [`read`] (`pub`): `fn read<T: `[`Wire`]`>(socket: &mut `[`UnixStream`]`, limit: usize) -> `[`anyhow::Result`]`<T>`.
-//! - [`read_timeout`] (`pub`): `fn read_timeout<T: `[`Wire`]`>(socket: &mut `[`UnixStream`]`, limit: usize, timeout: `[`Duration`]`) -> `[`anyhow::Result`]`<T>`.
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`configure_ipc_socket`] | `pub(crate)` | `fn configure_ipc_socket(socket: &`[`UnixStream`]`) -> `[`Result`]`<()>` |
+//! | [`send`] | `pub(crate)` | `fn send<T: `[`Wire`]`>(socket: &mut `[`UnixStream`]`, value: &T, limit: usize) -> `[`Result`]`<()>` |
+//! | [`read`] | `pub(crate)` | `fn read<T: `[`Wire`]`>(socket: &mut `[`UnixStream`]`, limit: usize) -> `[`Result`]`<T>` |
+//! | [`read_timeout`] | `pub(crate)` | `fn read_timeout<T: `[`Wire`]`>( socket: &mut `[`UnixStream`]`, limit: usize, timeout: `[`Duration`]`, ) -> `[`Result`]`<T>` |
 
 use super::codec::{self, Wire};
 use super::schema::TIMEOUT;
@@ -13,13 +16,13 @@ use std::io::{Read, Write};
 use std::os::unix::net::UnixStream;
 use std::time::{Duration, Instant};
 
-pub fn configure_ipc_socket(socket: &UnixStream) -> Result<()> {
+pub(crate) fn configure_ipc_socket(socket: &UnixStream) -> Result<()> {
     socket.set_read_timeout(Some(TIMEOUT))?;
     socket.set_write_timeout(Some(TIMEOUT))?;
     Ok(())
 }
 
-pub fn send<T: Wire>(socket: &mut UnixStream, value: &T, limit: usize) -> Result<()> {
+pub(crate) fn send<T: Wire>(socket: &mut UnixStream, value: &T, limit: usize) -> Result<()> {
     let bytes = codec::encode(value, limit)?;
     let deadline = Instant::now() + TIMEOUT;
     write_until(socket, &(bytes.len() as u32).to_ne_bytes(), deadline)?;
@@ -27,11 +30,11 @@ pub fn send<T: Wire>(socket: &mut UnixStream, value: &T, limit: usize) -> Result
     Ok(())
 }
 
-pub fn read<T: Wire>(socket: &mut UnixStream, limit: usize) -> Result<T> {
+pub(crate) fn read<T: Wire>(socket: &mut UnixStream, limit: usize) -> Result<T> {
     read_timeout(socket, limit, TIMEOUT)
 }
 
-pub fn read_timeout<T: Wire>(
+pub(crate) fn read_timeout<T: Wire>(
     socket: &mut UnixStream,
     limit: usize,
     timeout: Duration,

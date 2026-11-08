@@ -2,14 +2,13 @@
 //!
 //! # Interface
 //!
-//! | Definition | Visibility | Signature |
+//! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`launch_privileged_helper`] | `pub(crate)` | `fn launch_privileged_helper() -> anyhow::Result<()>` |
-//! | [`bpf_records`] | `pub(crate)` | `mod bpf_records` |
+//! | [`launch_privileged_helper`] | `pub(crate)` | `fn launch_privileged_helper() -> `[`Result`](anyhow::Result)`<()>` |
 //!
 //! Shared resource identities live in [`crate::ipc::model::resource`]; socket metadata and descriptor
 //! capabilities live in [`crate::ipc::model::socket_types`]; bounded netlink dumps live in [`netlink`].
-//!
+
 #[cfg(test)]
 #[path = "test_http/api/root.rs"]
 mod api;
@@ -51,4 +50,4 @@ mod helper_tests;
 #[path = "../http_server/delivery.rs"]
 mod http_delivery;
 
-pub(crate) mod bpf_records;
+mod bpf_records;

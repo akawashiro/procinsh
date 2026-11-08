@@ -5,10 +5,10 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`DeviceHandleCollector`] | `pub` | `struct DeviceHandleCollector` |
-//! | [`create_device_handle_collector`] | `pub` | `fn create_device_handle_collector( sources: &`[`HardwareSources`]`, devices: `[`HashSet`]`<`[`String`]`>, gpu_minors: `[`HashMap`]`<u32, `[`String`]`>, ) -> `[`DeviceHandleCollector`] |
-//! | [`observe_device_handle_collector`] | `pub` | `fn observe_device_handle_collector( state: &mut `[`DeviceHandleCollector`]`, process: `[`ProcessId`]`, fd: u32, rdev: u64, )` |
-//! | [`finish_device_handle_collector`] | `pub` | `fn finish_device_handle_collector( state: `[`DeviceHandleCollector`]`, live: &`[`HashSet`]`<`[`ProcessId`]`>, ) -> `[`Vec`]`<`[`DeviceHandle`]`>` |
+//! | [`DeviceHandleCollector`] | `pub(crate)` | `struct DeviceHandleCollector` |
+//! | [`create_device_handle_collector`] | `pub(super)` | `fn create_device_handle_collector( sources: &`[`HardwareSources`]`, devices: `[`HashSet`]`<`[`String`]`>, gpu_minors: `[`HashMap`]`<u32, `[`String`]`>, ) -> `[`DeviceHandleCollector`] |
+//! | [`observe_device_handle_collector`] | `pub(crate)` | `fn observe_device_handle_collector( state: &mut `[`DeviceHandleCollector`]`, process: `[`ProcessId`]`, fd: u32, rdev: u64, )` |
+//! | [`finish_device_handle_collector`] | `pub(crate)` | `fn finish_device_handle_collector( state: `[`DeviceHandleCollector`]`, live: &`[`HashSet`]`<`[`ProcessId`]`>, ) -> `[`Vec`]`<`[`DeviceHandle`]`>` |
 
 use super::observation::HardwareSources;
 use crate::ipc::hardware::{DeviceHandle, DeviceHandleKind};
@@ -51,13 +51,13 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::hardware::DeviceHandleKind {
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::hardware::DeviceHandle")]
 struct DeviceHandleJson {
-    pub id: String,
-    pub process_id: ProcessId,
-    pub device: String,
-    pub kind: DeviceHandleKind,
+    id: String,
+    process_id: ProcessId,
+    device: String,
+    kind: DeviceHandleKind,
     /// The lowest descriptor number.
-    pub fd: u32,
-    pub fd_count: usize,
+    fd: u32,
+    fd_count: usize,
 }
 impl serde::Serialize for crate::ipc::hardware::DeviceHandle {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -72,7 +72,7 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::hardware::DeviceHandle {
 }
 
 /// Resolves character device numbers once per snapshot and coalesces descriptors.
-pub struct DeviceHandleCollector {
+pub(crate) struct DeviceHandleCollector {
     sources: HardwareSources,
     devices: HashSet<String>,
     nvidia_major: Option<u32>,
@@ -91,7 +91,7 @@ fn function_address(path: &Path) -> Option<String> {
 
 /// `devices` are the hardware view's PCI addresses; `gpu_minors` maps NVIDIA
 /// device minors to them.
-pub fn create_device_handle_collector(
+pub(super) fn create_device_handle_collector(
     sources: &HardwareSources,
     devices: HashSet<String>,
     gpu_minors: HashMap<u32, String>,
@@ -151,7 +151,7 @@ fn resolve_device_handle_collector(
 }
 
 /// Records descriptor `fd` of `process` for character device `rdev`.
-pub fn observe_device_handle_collector(
+pub(crate) fn observe_device_handle_collector(
     state: &mut DeviceHandleCollector,
     process: ProcessId,
     fd: u32,
@@ -174,7 +174,7 @@ pub fn observe_device_handle_collector(
 }
 
 /// Handles of `live` processes, ordered by process and device.
-pub fn finish_device_handle_collector(
+pub(crate) fn finish_device_handle_collector(
     state: DeviceHandleCollector,
     live: &HashSet<ProcessId>,
 ) -> Vec<DeviceHandle> {

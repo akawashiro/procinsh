@@ -4,7 +4,7 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`append_history_observation`] | `pub` | `fn append_history_observation(history: &mut `[`VecDeque`]`<`[`HistoryPoint`]`>, observation: &`[`ProcessObservation`]`)` |
+//! | [`append_history_observation`] | `pub(crate)` | `fn append_history_observation( history: &mut `[`VecDeque`]`<`[`HistoryPoint`]`>, observation: &`[`ProcessObservation`]`, )` |
 
 use crate::ipc::history::HistoryPoint;
 use crate::ipc::model::process::ProcessObservation;
@@ -14,10 +14,10 @@ use std::collections::VecDeque;
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::history::HistoryPoint")]
 struct HistoryPointJson {
-    pub timestamp: u64,
-    pub cpu_percent: Option<f64>,
-    pub rss_bytes: u64,
-    pub vms_bytes: u64,
+    timestamp: u64,
+    cpu_percent: Option<f64>,
+    rss_bytes: u64,
+    vms_bytes: u64,
 }
 impl serde::Serialize for crate::ipc::history::HistoryPoint {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -25,7 +25,7 @@ impl serde::Serialize for crate::ipc::history::HistoryPoint {
     }
 }
 
-pub fn append_history_observation(
+pub(crate) fn append_history_observation(
     history: &mut VecDeque<HistoryPoint>,
     observation: &ProcessObservation,
 ) {

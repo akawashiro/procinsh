@@ -195,8 +195,8 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::model::socket_types::FdAccess 
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::model::socket_types::InetAddress")]
 struct InetAddressJson {
-    pub ip: IpAddr,
-    pub port: u16,
+    ip: IpAddr,
+    port: u16,
 }
 impl serde::Serialize for crate::ipc::model::socket_types::InetAddress {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {

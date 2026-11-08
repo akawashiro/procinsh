@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 pub(in crate::privileged_helper) struct Target {
-    pub(in crate::privileged_helper) child: Child,
+    pub(super) child: Child,
     pub(in crate::privileged_helper) id: crate::ipc::schema::ProcessId,
     pub(in crate::privileged_helper) address: u64,
 }
@@ -32,7 +32,7 @@ pub(in crate::privileged_helper) fn create_target(name: &str) -> Target {
     Target { child, id, address }
 }
 
-pub(in crate::privileged_helper) fn assert_detached_target(state: &Target) {
+pub(super) fn assert_detached_target(state: &Target) {
     for tid in threads::collect_thread_ids(state.id.pid).unwrap() {
         if let Ok(status) = process::procfs::read_procfs_fields(&format!(
             "/proc/{}/task/{tid}/status",

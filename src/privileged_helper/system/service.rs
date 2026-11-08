@@ -14,7 +14,7 @@
 //! | [`active_system_monitor`] | `pub(in crate::privileged_helper)` | `fn active_system_monitor(state: &`[`SystemMonitor`]`) -> bool` |
 //! | [`subscribe_system_monitor`] | `pub(in crate::privileged_helper)` | `fn subscribe_system_monitor( state: &`[`Arc`]`<`[`SystemMonitor`]`>, ) -> `[`Result`]`<`[`Subscription`]`, `[`SubscribeError`]`>` |
 //! | [`snapshot_system_monitor`] | `pub(in crate::privileged_helper)` | `fn snapshot_system_monitor( state: &`[`SystemMonitor`]`, ) -> `[`Arc`]`<`[`SystemSnapshot`]`>` |
-//! | [`monotonic_ns`] | `pub(in crate::privileged_helper)` | `fn monotonic_ns() -> u64` |
+//! | [`monotonic_ns`] | `pub(super)` | `fn monotonic_ns() -> u64` |
 
 use crate::ipc::acquisition::{SystemActivity, SystemMonitorStatus};
 use {
@@ -236,7 +236,7 @@ fn start_system_monitor(state: &Arc<SystemMonitor>) {
     }));
 }
 
-pub(in crate::privileged_helper) fn monotonic_ns() -> u64 {
+pub(super) fn monotonic_ns() -> u64 {
     let mut ts = libc::timespec {
         tv_sec: 0,
         tv_nsec: 0,

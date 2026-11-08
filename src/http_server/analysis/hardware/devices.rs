@@ -4,7 +4,7 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`build_hardware_device`] | `pub` | `fn build_hardware_device( sources: &`[`HardwareSources`]`, node: &`[`PciNode`]`, proc: &`[`Path`]`, ) -> `[`HardwareDevice`] |
+//! | [`build_hardware_device`] | `pub(super)` | `fn build_hardware_device( sources: &`[`HardwareSources`]`, node: &`[`PciNode`]`, proc: &`[`Path`]`, ) -> `[`HardwareDevice`] |
 
 use super::observation::HardwareSources;
 use crate::ipc::hardware::{GpuInfo, HardwareDevice, RdmaDeviceInfo};
@@ -19,13 +19,13 @@ use {
 #[serde(remote = "crate::ipc::hardware::GpuInfo")]
 struct GpuInfoJson {
     /// `nvidia`, `amd`, `intel` or the PCI vendor ID.
-    pub vendor: String,
-    pub model: Option<String>,
-    pub uuid: Option<String>,
+    vendor: String,
+    model: Option<String>,
+    uuid: Option<String>,
     /// The NVIDIA device minor of `/dev/nvidiaN`.
-    pub minor: Option<u32>,
+    minor: Option<u32>,
     /// DRM nodes such as `card1` and `renderD128`.
-    pub drm: Vec<String>,
+    drm: Vec<String>,
 }
 impl serde::Serialize for crate::ipc::hardware::GpuInfo {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -43,9 +43,9 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::hardware::GpuInfo {
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::hardware::RdmaDeviceInfo")]
 struct RdmaDeviceInfoJson {
-    pub name: String,
-    pub hca_type: Option<String>,
-    pub fw_ver: Option<String>,
+    name: String,
+    hca_type: Option<String>,
+    fw_ver: Option<String>,
 }
 impl serde::Serialize for crate::ipc::hardware::RdmaDeviceInfo {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -64,27 +64,27 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::hardware::RdmaDeviceInfo {
 #[serde(remote = "crate::ipc::hardware::HardwareDevice")]
 struct HardwareDeviceJson {
     /// A PCI function address such as `0000:85:00.0`, or a host bridge such as `pci0000:80`.
-    pub address: String,
-    pub parent: Option<String>,
-    pub role: HardwareRole,
-    pub kind: Option<HardwareKind>,
-    pub label: String,
+    address: String,
+    parent: Option<String>,
+    role: HardwareRole,
+    kind: Option<HardwareKind>,
+    label: String,
     /// The 24-bit class code as `0x030000`.
-    pub class: Option<String>,
-    pub vendor_id: Option<String>,
-    pub device_id: Option<String>,
-    pub driver: Option<String>,
-    pub numa_node: Option<u32>,
+    class: Option<String>,
+    vendor_id: Option<String>,
+    device_id: Option<String>,
+    driver: Option<String>,
+    numa_node: Option<u32>,
     /// Null for host bridges and runtime-suspended devices.
-    pub link: Option<PcieLinkInfo>,
-    pub power_state: Option<String>,
-    pub runtime_status: Option<String>,
-    pub iommu_group: Option<u32>,
-    pub bars: Vec<BarInfo>,
-    pub gpu: Option<GpuInfo>,
-    pub rdma: Vec<RdmaDeviceInfo>,
+    link: Option<PcieLinkInfo>,
+    power_state: Option<String>,
+    runtime_status: Option<String>,
+    iommu_group: Option<u32>,
+    bars: Vec<BarInfo>,
+    gpu: Option<GpuInfo>,
+    rdma: Vec<RdmaDeviceInfo>,
     /// Network interfaces of the device.
-    pub netdevs: Vec<String>,
+    netdevs: Vec<String>,
 }
 impl serde::Serialize for crate::ipc::hardware::HardwareDevice {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -126,7 +126,7 @@ fn shorten_pci_address(address: &str) -> &str {
     address.strip_prefix("0000:").unwrap_or(address)
 }
 
-pub fn build_hardware_device(
+pub(super) fn build_hardware_device(
     sources: &HardwareSources,
     node: &PciNode,
     proc: &Path,

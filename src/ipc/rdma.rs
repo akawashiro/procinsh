@@ -5,33 +5,32 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`RdmaQpType`] | `pub` | `enum RdmaQpType` |
-//! | [`RdmaQpState`] | `pub` | `enum RdmaQpState` |
-//! | [`RdmaCmState`] | `pub` | `enum RdmaCmState` |
-//! | [`RdmaPortSpace`] | `pub` | `enum RdmaPortSpace` |
-//! | [`IbGid`] | `pub` | `struct IbGid` |
-//! | [`RdmaAddress`] | `pub` | `enum RdmaAddress` |
-//! | [`RdmaPortInfo`] | `pub` | `struct RdmaPortInfo` |
-//! | [`RdmaEndpointOwner`] | `pub` | `enum RdmaEndpointOwner` |
-//! | [`RdmaEndpoint`] | `pub` | `struct RdmaEndpoint` |
-//! | [`RdmaCmInfo`] | `pub` | `struct RdmaCmInfo` |
-//! | [`RdmaRelation`] | `pub` | `struct RdmaRelation` |
-//! | [`rdma_qp_type_from_code`] | `pub` | `fn rdma_qp_type_from_code(code: u8) -> `[`RdmaQpType`] |
-//! | [`rdma_qp_type_is_connected`] | `pub` | `fn rdma_qp_type_is_connected(state: `[`RdmaQpType`]`) -> bool` |
-//! | [`rdma_qp_state_from_code`] | `pub` | `fn rdma_qp_state_from_code(code: u8) -> `[`RdmaQpState`] |
-//! | [`rdma_cm_state_from_code`] | `pub` | `fn rdma_cm_state_from_code(code: u8) -> `[`RdmaCmState`] |
-//! | [`rdma_port_space_from_code`] | `pub` | `fn rdma_port_space_from_code(code: u32) -> `[`RdmaPortSpace`] |
-//! | [`ib_gid_from_slice`] | `pub` | `fn ib_gid_from_slice(bytes: &[u8]) -> `[`Option`]`<`[`IbGid`]`>` |
-//! | [`parse_ib_gid`] | `pub` | `fn parse_ib_gid(text: &str) -> `[`Option`]`<`[`IbGid`]`>` |
-//! | [`decode_rdma_address`] | `pub` | `fn decode_rdma_address(bytes: &[u8]) -> `[`Option`]`<`[`RdmaAddress`]`>` |
-//! | [`ip_rdma_address`] | `pub` | `fn ip_rdma_address(state: &`[`RdmaAddress`]`) -> `[`Option`]`<`[`IpAddr`]`>` |
+//! | [`RdmaQpType`] | `pub(crate)` | `enum RdmaQpType` |
+//! | [`RdmaQpState`] | `pub(crate)` | `enum RdmaQpState` |
+//! | [`RdmaCmState`] | `pub(crate)` | `enum RdmaCmState` |
+//! | [`RdmaPortSpace`] | `pub(crate)` | `enum RdmaPortSpace` |
+//! | [`IbGid`] | `pub(crate)` | `struct IbGid` |
+//! | [`RdmaAddress`] | `pub(crate)` | `enum RdmaAddress` |
+//! | [`RdmaPortInfo`] | `pub(crate)` | `struct RdmaPortInfo` |
+//! | [`RdmaEndpointOwner`] | `pub(crate)` | `enum RdmaEndpointOwner` |
+//! | [`RdmaEndpoint`] | `pub(crate)` | `struct RdmaEndpoint` |
+//! | [`RdmaCmInfo`] | `pub(crate)` | `struct RdmaCmInfo` |
+//! | [`RdmaRelation`] | `pub(crate)` | `struct RdmaRelation` |
+//! | [`rdma_qp_type_from_code`] | `pub(crate)` | `fn rdma_qp_type_from_code(code: u8) -> `[`RdmaQpType`] |
+//! | [`rdma_qp_type_is_connected`] | `pub(crate)` | `fn rdma_qp_type_is_connected(state: `[`RdmaQpType`]`) -> bool` |
+//! | [`rdma_qp_state_from_code`] | `pub(crate)` | `fn rdma_qp_state_from_code(code: u8) -> `[`RdmaQpState`] |
+//! | [`rdma_cm_state_from_code`] | `pub(crate)` | `fn rdma_cm_state_from_code(code: u8) -> `[`RdmaCmState`] |
+//! | [`rdma_port_space_from_code`] | `pub(crate)` | `fn rdma_port_space_from_code(code: u32) -> `[`RdmaPortSpace`] |
+//! | [`parse_ib_gid`] | `pub(crate)` | `fn parse_ib_gid(text: &str) -> `[`Option`]`<`[`IbGid`]`>` |
+//! | [`decode_rdma_address`] | `pub(crate)` | `fn decode_rdma_address(bytes: &[u8]) -> `[`Option`]`<`[`RdmaAddress`]`>` |
+//! | [`ip_rdma_address`] | `pub(crate)` | `fn ip_rdma_address(state: &`[`RdmaAddress`]`) -> `[`Option`]`<`[`IpAddr`]`>` |
 
 use crate::ipc::schema::ProcessId;
 use std::{fmt, net::IpAddr};
 
 /// `enum ib_qp_type`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum RdmaQpType {
+pub(crate) enum RdmaQpType {
     Smi,
     Gsi,
     Rc,
@@ -45,7 +44,7 @@ pub enum RdmaQpType {
     Driver,
     Unknown(u8),
 }
-pub fn rdma_qp_type_from_code(code: u8) -> RdmaQpType {
+pub(crate) fn rdma_qp_type_from_code(code: u8) -> RdmaQpType {
     match code {
         0 => RdmaQpType::Smi,
         1 => RdmaQpType::Gsi,
@@ -63,7 +62,7 @@ pub fn rdma_qp_type_from_code(code: u8) -> RdmaQpType {
 }
 
 /// Types whose QP addresses exactly one remote QP.
-pub fn rdma_qp_type_is_connected(state: RdmaQpType) -> bool {
+pub(crate) fn rdma_qp_type_is_connected(state: RdmaQpType) -> bool {
     matches!(
         state,
         RdmaQpType::Rc | RdmaQpType::Uc | RdmaQpType::XrcIni | RdmaQpType::XrcTgt
@@ -90,7 +89,7 @@ impl fmt::Display for RdmaQpType {
 
 /// `enum ib_qp_state`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum RdmaQpState {
+pub(crate) enum RdmaQpState {
     Reset,
     Init,
     Rtr,
@@ -100,7 +99,7 @@ pub enum RdmaQpState {
     Err,
     Unknown(u8),
 }
-pub fn rdma_qp_state_from_code(code: u8) -> RdmaQpState {
+pub(crate) fn rdma_qp_state_from_code(code: u8) -> RdmaQpState {
     match code {
         0 => RdmaQpState::Reset,
         1 => RdmaQpState::Init,
@@ -129,7 +128,7 @@ impl fmt::Display for RdmaQpState {
 
 /// The kernel's `enum rdma_cm_state`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum RdmaCmState {
+pub(crate) enum RdmaCmState {
     Idle,
     AddrQuery,
     AddrResolved,
@@ -143,7 +142,7 @@ pub enum RdmaCmState {
     Destroying,
     Unknown(u8),
 }
-pub fn rdma_cm_state_from_code(code: u8) -> RdmaCmState {
+pub(crate) fn rdma_cm_state_from_code(code: u8) -> RdmaCmState {
     match code {
         0 => RdmaCmState::Idle,
         1 => RdmaCmState::AddrQuery,
@@ -180,14 +179,14 @@ impl fmt::Display for RdmaCmState {
 
 /// `enum rdma_ucm_port_space`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum RdmaPortSpace {
+pub(crate) enum RdmaPortSpace {
     Ipoib,
     Tcp,
     Udp,
     Ib,
     Unknown(u32),
 }
-pub fn rdma_port_space_from_code(code: u32) -> RdmaPortSpace {
+pub(crate) fn rdma_port_space_from_code(code: u32) -> RdmaPortSpace {
     match code {
         0x0002 => RdmaPortSpace::Ipoib,
         0x0106 => RdmaPortSpace::Tcp,
@@ -210,14 +209,14 @@ impl fmt::Display for RdmaPortSpace {
 
 /// A 128-bit IB global identifier, written like sysfs `gids/N`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct IbGid(pub [u8; 16]);
-pub fn ib_gid_from_slice(bytes: &[u8]) -> Option<IbGid> {
+pub(crate) struct IbGid(pub(crate) [u8; 16]);
+fn ib_gid_from_slice(bytes: &[u8]) -> Option<IbGid> {
     let gid = IbGid(bytes.try_into().ok()?);
     (gid.0 != [0; 16]).then_some(gid)
 }
 
 /// Parses `fe80:0000:...:45c7`; the all-zero GID is unassigned.
-pub fn parse_ib_gid(text: &str) -> Option<IbGid> {
+pub(crate) fn parse_ib_gid(text: &str) -> Option<IbGid> {
     let groups: Vec<_> = text.trim().split(':').collect();
     if groups.len() != 8 {
         return None;
@@ -246,7 +245,7 @@ impl fmt::Display for IbGid {
 
 /// A connection manager endpoint address from `__kernel_sockaddr_storage`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum RdmaAddress {
+pub(crate) enum RdmaAddress {
     Inet {
         ip: IpAddr,
         port: u16,
@@ -263,7 +262,7 @@ pub enum RdmaAddress {
 }
 const AF_IB: u16 = 27;
 /// Decodes a CM address. A zero family means no address was assigned.
-pub fn decode_rdma_address(bytes: &[u8]) -> Option<RdmaAddress> {
+pub(crate) fn decode_rdma_address(bytes: &[u8]) -> Option<RdmaAddress> {
     let family = u16::from_ne_bytes(bytes.get(0..2)?.try_into().ok()?);
     let port = || Some(u16::from_be_bytes(bytes.get(2..4)?.try_into().ok()?));
     Some(match family {
@@ -291,7 +290,7 @@ pub fn decode_rdma_address(bytes: &[u8]) -> Option<RdmaAddress> {
     })
 }
 
-pub fn ip_rdma_address(state: &RdmaAddress) -> Option<IpAddr> {
+pub(crate) fn ip_rdma_address(state: &RdmaAddress) -> Option<IpAddr> {
     match state {
         RdmaAddress::Inet { ip, .. } => Some(*ip),
         _ => None,
@@ -311,20 +310,20 @@ impl fmt::Display for RdmaAddress {
 
 /// One port of an RDMA device. Unassigned LIDs and GIDs are null.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RdmaPortInfo {
-    pub device: String,
-    pub port: u32,
+pub(crate) struct RdmaPortInfo {
+    pub(crate) device: String,
+    pub(crate) port: u32,
     /// `InfiniBand` or `Ethernet` (RoCE), as written by the kernel.
-    pub link_layer: Option<String>,
+    pub(crate) link_layer: Option<String>,
     /// Logical port state, such as `ACTIVE`.
-    pub state: Option<String>,
-    pub lid: Option<u32>,
-    pub gid: Option<IbGid>,
-    pub rate: Option<String>,
+    pub(crate) state: Option<String>,
+    pub(crate) lid: Option<u32>,
+    pub(crate) gid: Option<IbGid>,
+    pub(crate) rate: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum RdmaEndpointOwner {
+pub(crate) enum RdmaEndpointOwner {
     Process {
         process_id: ProcessId,
     },
@@ -340,44 +339,44 @@ pub enum RdmaEndpointOwner {
 
 /// A local queue pair.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RdmaEndpoint {
-    pub owner: RdmaEndpointOwner,
-    pub device: String,
+pub(crate) struct RdmaEndpoint {
+    pub(crate) owner: RdmaEndpointOwner,
+    pub(crate) device: String,
     /// Null until the QP is bound to a port.
-    pub port: Option<u32>,
-    pub qpn: u32,
-    pub qp_type: RdmaQpType,
-    pub state: RdmaQpState,
+    pub(crate) port: Option<u32>,
+    pub(crate) qpn: u32,
+    pub(crate) qp_type: RdmaQpType,
+    pub(crate) state: RdmaQpState,
 }
 
 /// The connection manager ID bound to a queue pair.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RdmaCmInfo {
-    pub id: Option<u32>,
+pub(crate) struct RdmaCmInfo {
+    pub(crate) id: Option<u32>,
     /// The CM consumer, which can differ from the QP owner (for example
     /// `rpcrdma` uses QPs created by `rdma_cm`).
-    pub owner: RdmaEndpointOwner,
-    pub state: RdmaCmState,
-    pub port_space: RdmaPortSpace,
-    pub source: Option<RdmaAddress>,
-    pub destination: Option<RdmaAddress>,
+    pub(crate) owner: RdmaEndpointOwner,
+    pub(crate) state: RdmaCmState,
+    pub(crate) port_space: RdmaPortSpace,
+    pub(crate) source: Option<RdmaAddress>,
+    pub(crate) destination: Option<RdmaAddress>,
 }
 
 /// A queue pair and, when it is connected to another QP on this host, that peer.
 /// Remote fields describe the endpoint's destination.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RdmaRelation {
-    pub id: String,
-    pub endpoint: RdmaEndpoint,
-    pub peer: Option<RdmaEndpoint>,
+pub(crate) struct RdmaRelation {
+    pub(crate) id: String,
+    pub(crate) endpoint: RdmaEndpoint,
+    pub(crate) peer: Option<RdmaEndpoint>,
     /// Destination QPN of a connected QP; null for datagram types and before connection.
-    pub remote_qpn: Option<u32>,
-    pub cm: Option<RdmaCmInfo>,
+    pub(crate) remote_qpn: Option<u32>,
+    pub(crate) cm: Option<RdmaCmInfo>,
     /// Remote port GID from an IB CM destination or the IPoIB neighbor of an IP destination.
-    pub remote_gid: Option<IbGid>,
+    pub(crate) remote_gid: Option<IbGid>,
     /// Reverse DNS of an IP CM destination, filled after collection.
-    pub remote_hostname: Option<String>,
-    pub label: String,
+    pub(crate) remote_hostname: Option<String>,
+    pub(crate) label: String,
 }
 
 crate::ipc::codec::wire_enum!(RdmaQpType {0=>Smi,1=>Gsi,2=>Rc,3=>Uc,4=>Ud,5=>RawIpv6,6=>RawEthertype,7=>RawPacket,8=>XrcIni,9=>XrcTgt,10=>Driver,11=>Unknown(value)});

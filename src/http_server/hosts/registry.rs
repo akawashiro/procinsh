@@ -4,7 +4,6 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`HostStatus`] | `pub(in crate::http_server)` | `enum HostStatus` |
 //! | [`HostSummary`] | `pub(in crate::http_server)` | `struct HostSummary` |
 //! | [`RemoteHost`] | `pub(in crate::http_server)` | `enum RemoteHost` |
 //! | [`HostRegistry`] | `pub(in crate::http_server)` | `struct HostRegistry` |
@@ -43,7 +42,7 @@ fn timestamp_ms() -> u64 {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "state", rename_all = "snake_case")]
-pub(in crate::http_server) enum HostStatus {
+enum HostStatus {
     /// `since` is the Unix time in milliseconds of the transition.
     Online {
         since: u64,
@@ -56,13 +55,13 @@ pub(in crate::http_server) enum HostStatus {
 /// A host list entry.
 #[derive(Clone, Debug, Serialize)]
 pub(in crate::http_server) struct HostSummary {
-    pub(in crate::http_server) name: String,
-    pub(in crate::http_server) local: bool,
-    pub(in crate::http_server) status: HostStatus,
-    pub(in crate::http_server) machine_id: String,
-    pub(in crate::http_server) version: String,
-    pub(in crate::http_server) kernel: Option<String>,
-    pub(in crate::http_server) arch: String,
+    name: String,
+    local: bool,
+    status: HostStatus,
+    pub(super) machine_id: String,
+    version: String,
+    kernel: Option<String>,
+    arch: String,
 }
 
 struct Remote {
