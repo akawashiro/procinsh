@@ -1,13 +1,14 @@
 //! Acquire bounded auxiliary-vector words and selected strings from target memory.
 //!
 //! # Interface
-//! - [`read_auxiliary_vector`] (`pub(super)`): `fn read_auxiliary_vector(id: `[`ProcessId`]`) -> `[`anyhow::Result`]`<`[`AuxData`](crate::ipc::acquisition::AuxData)`>`.
+//! - [`read_auxiliary_vector`] (`pub(in crate::privileged_helper)`): `fn read_auxiliary_vector(id: `[`ProcessId`]`) -> `[`anyhow::Result`]`<`[`AuxData`](crate::ipc::acquisition::AuxData)`>`.
 
 use super::procfs::read_bounded_bytes;
+use crate::privileged_helper::timestamp_ms;
 use anyhow::{Context, Result, bail, ensure};
 use std::{fs::File, io::Read};
 use {
-    super::{memory, permission_help, timestamp_ms, validate_process_identity},
+    super::{memory, permission_help, validate_process_identity},
     crate::ipc::schema::ProcessId,
 };
 
@@ -35,7 +36,9 @@ fn read_string(pid: i32, address: u64) -> Result<String> {
     Ok(String::from_utf8_lossy(&bytes[..end]).into_owned())
 }
 
-pub(super) fn read_auxiliary_vector(id: ProcessId) -> Result<crate::ipc::acquisition::AuxData> {
+pub(in crate::privileged_helper) fn read_auxiliary_vector(
+    id: ProcessId,
+) -> Result<crate::ipc::acquisition::AuxData> {
     validate_process_identity(id)?;
     let mut ident = [0; 16];
     File::open(format!("/proc/{}/exe", id.pid))?.read_exact(&mut ident)?;

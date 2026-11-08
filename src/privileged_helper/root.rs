@@ -1,4 +1,4 @@
-//! Helper-private inspection modules and acquisition service.
+//! Helper-private inspection modules, acquisition service and collection timestamps.
 //!
 //! # Interface
 //!
@@ -51,3 +51,10 @@ mod helper_tests;
 mod http_delivery;
 
 mod bpf_records;
+
+fn timestamp_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+}

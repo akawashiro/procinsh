@@ -4,11 +4,11 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`read_socket_table`] | `pub(super)` | `fn read_socket_table(path: &str) -> `[`Result`]`<`[`String`]`>` |
-//! | [`parse_inet_socket_table`] | `pub(super)` | `fn parse_inet_socket_table( text: &str, protocol: `[`SocketProtocol`]`, ) -> `[`HashMap`]`<u64, `[`SocketInfo`]`>` |
-//! | [`parse_unix_socket_table`] | `pub(super)` | `fn parse_unix_socket_table(text: &str) -> `[`HashMap`]`<u64, `[`SocketInfo`]`>` |
+//! | [`read_socket_table`] | `pub(in crate::privileged_helper)` | `fn read_socket_table(path: &str) -> `[`Result`]`<`[`String`]`>` |
+//! | [`parse_inet_socket_table`] | `pub(in crate::privileged_helper)` | `fn parse_inet_socket_table( text: &str, protocol: `[`SocketProtocol`]`, ) -> `[`HashMap`]`<u64, `[`SocketInfo`]`>` |
+//! | [`parse_unix_socket_table`] | `pub(in crate::privileged_helper)` | `fn parse_unix_socket_table(text: &str) -> `[`HashMap`]`<u64, `[`SocketInfo`]`>` |
 //! | [`diagnostic_socket`] | `pub(super)` | `fn diagnostic_socket() -> `[`Result`]`<`[`OwnedFd`]`>` |
-//! | [`collect_unix_socket_peers`] | `pub(super)` | `fn collect_unix_socket_peers( namespace: &`[`NetworkNamespace`]`, deadline: `[`Instant`]`, ) -> `[`Result`]`<`[`HashMap`]`<u64, `[`SocketInfo`]`>>` |
+//! | [`collect_unix_socket_peers`] | `pub(in crate::privileged_helper)` | `fn collect_unix_socket_peers( namespace: &`[`NetworkNamespace`]`, deadline: `[`Instant`]`, ) -> `[`Result`]`<`[`HashMap`]`<u64, `[`SocketInfo`]`>>` |
 
 use super::socket_namespace::{NetworkNamespace, open_namespace_diagnostic_socket};
 
@@ -27,7 +27,7 @@ use std::{
 
 use crate::ipc::model::sockets::SocketInfo;
 
-pub(super) fn read_socket_table(path: &str) -> Result<String> {
+pub(in crate::privileged_helper) fn read_socket_table(path: &str) -> Result<String> {
     let mut bytes = Vec::new();
     File::open(path)?
         .take(4 * 1024 * 1024 + 1)
@@ -64,7 +64,7 @@ fn parse_procfs_socket_address(text: &str) -> Result<SocketAddr> {
     Ok(SocketAddr::new(ip, u16::from_str_radix(port, 16)?))
 }
 
-pub(super) fn parse_inet_socket_table(
+pub(in crate::privileged_helper) fn parse_inet_socket_table(
     text: &str,
     protocol: SocketProtocol,
 ) -> HashMap<u64, SocketInfo> {
@@ -93,7 +93,9 @@ pub(super) fn parse_inet_socket_table(
         .collect()
 }
 
-pub(super) fn parse_unix_socket_table(text: &str) -> HashMap<u64, SocketInfo> {
+pub(in crate::privileged_helper) fn parse_unix_socket_table(
+    text: &str,
+) -> HashMap<u64, SocketInfo> {
     use crate::ipc::model::socket_types::{socket_type_from_code, unix_proc_socket_state};
 
     text.lines()
@@ -173,7 +175,7 @@ pub(super) fn diagnostic_socket() -> Result<OwnedFd> {
 
 // The socket keeps its creation namespace even when queried by another thread.
 // Query only metadata. No endpoint is opened, consumed, or modified.
-pub(super) fn collect_unix_socket_peers(
+pub(in crate::privileged_helper) fn collect_unix_socket_peers(
     namespace: &NetworkNamespace,
     deadline: Instant,
 ) -> Result<HashMap<u64, SocketInfo>> {

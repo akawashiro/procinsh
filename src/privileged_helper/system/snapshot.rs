@@ -132,7 +132,7 @@ fn collect_system_snapshot_from_sources(sources: &HardwareSources) -> SystemSnap
     };
 
     let mut result = SystemSnapshot {
-        captured_at: process::timestamp_ms(),
+        captured_at: crate::privileged_helper::timestamp_ms(),
         ..Default::default()
     };
     #[cfg(not(test))]
@@ -191,7 +191,7 @@ fn collect_system_snapshot_from_sources(sources: &HardwareSources) -> SystemSnap
             continue;
         }
         n.maps_epoch = super::monotonic_ns();
-        match process::memory_maps(pid) {
+        match process::read_maps(pid) {
             Ok(mut m) => {
                 if m.len() > 4096 {
                     m.truncate(4096);
@@ -242,11 +242,11 @@ fn collect_system_snapshot_from_sources(sources: &HardwareSources) -> SystemSnap
                     },
                 ),
             ] {
-                if let Ok(text) = process::socket_text(&format!("/proc/{pid}/net/{file}")) {
+                if let Ok(text) = process::read_socket_table(&format!("/proc/{pid}/net/{file}")) {
                     let table = if file == "unix" {
-                        process::unix_sockets(&text)
+                        process::parse_unix_socket_table(&text)
                     } else {
-                        process::inet_sockets(&text, protocol)
+                        process::parse_inet_socket_table(&text, protocol)
                     };
                     for inode in table.keys() {
                         inode_ns.insert(*inode, (ns.dev(), ns.ino()));
@@ -368,7 +368,7 @@ fn collect_system_snapshot_from_sources(sources: &HardwareSources) -> SystemSnap
             );
             break;
         }
-        match process::unix_socket_peers(&namespace, diag_deadline) {
+        match process::collect_unix_socket_peers(&namespace, diag_deadline) {
             Ok(diag) => infos.extend(diag),
             Err(e) => result.warnings.push(format!(
                 "UNIX peer for PID {} / namespace {:?}: {e:#}",

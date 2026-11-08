@@ -16,19 +16,17 @@
 //! | [`collect_memory_maps`] | `pub(super)` | `fn collect_memory_maps(id: `[`ProcessId`]`) -> `[`Result`](anyhow::Result)`<`[`MemoryMaps`](crate::ipc::acquisition::MemoryMaps)`>` |
 //! | [`collect_process_observation`] | `pub(super)` | `fn collect_process_observation( id: `[`ProcessId`]`, ) -> `[`Result`](anyhow::Result)`<`[`crate::ipc::acquisition::ObservationData`]`>` |
 //! | [`collect_thread_observation`] | `pub(super)` | `fn collect_thread_observation( id: `[`ProcessId`]`, ) -> `[`Result`](anyhow::Result)`<`[`crate::ipc::acquisition::ObservationData`]`>` |
-//! | [`inet_sockets`] | `pub(super)` | `fn inet_sockets( text: &str, protocol: `[`crate::ipc::model::socket_types::SocketProtocol`]`, ) -> `[`std::collections::HashMap`]`<u64, `[`SocketInfo`](crate::ipc::model::sockets::SocketInfo)`>` |
-//! | [`memory_maps`] | `pub(super)` | `fn memory_maps(pid: i32) -> `[`Result`](anyhow::Result)`<`[`Vec`]`<`[`MemoryMap`](crate::ipc::model::memory::MemoryMap)`>>` |
+//! | [`parse_inet_socket_table`] | `pub(super)` | `fn parse_inet_socket_table( text: &str, protocol: `[`crate::ipc::model::socket_types::SocketProtocol`]`, ) -> `[`std::collections::HashMap`]`<u64, `[`SocketInfo`](crate::ipc::model::sockets::SocketInfo)`>` |
+//! | [`read_maps`] | `pub(super)` | `fn read_maps(pid: i32) -> `[`Result`](anyhow::Result)`<`[`Vec`]`<`[`MemoryMap`](crate::ipc::model::memory::MemoryMap)`>>` |
 //! | [`read_auxiliary_vector`] | `pub(super)` | `fn read_auxiliary_vector( id: `[`ProcessId`]`, ) -> `[`Result`](anyhow::Result)`<`[`crate::ipc::acquisition::AuxData`]`>` |
 //! | [`read_environment`] | `pub(super)` | `fn read_environment( id: `[`ProcessId`]`, ) -> `[`Result`](anyhow::Result)`<`[`crate::ipc::acquisition::EnvironmentData`]`>` |
 //! | [`read_procfs_fields`] | `pub(super)` | `fn read_procfs_fields( path: &str, ) -> `[`Result`](anyhow::Result)`<`[`std::collections::HashMap`]`<`[`String`]`, `[`String`]`>>` |
-//! | [`socket_text`] | `pub(super)` | `fn socket_text(path: &str) -> `[`Result`](anyhow::Result)`<`[`String`]`>` |
-//! | [`timestamp_ms`] | `pub(super)` | `fn timestamp_ms() -> u64` |
-//! | [`unix_socket_peers`] | `pub(super)` | `fn unix_socket_peers( namespace: &`[`super::NetworkNamespace`](socket_namespace::NetworkNamespace)`, deadline: `[`std::time::Instant`]`, ) -> `[`Result`](anyhow::Result)`<`[`std::collections::HashMap`]`<u64, `[`SocketInfo`](crate::ipc::model::sockets::SocketInfo)`>>` |
-//! | [`unix_sockets`] | `pub(super)` | `fn unix_sockets( text: &str, ) -> `[`std::collections::HashMap`]`<u64, `[`SocketInfo`](crate::ipc::model::sockets::SocketInfo)`>` |
+//! | [`read_socket_table`] | `pub(super)` | `fn read_socket_table(path: &str) -> `[`Result`](anyhow::Result)`<`[`String`]`>` |
+//! | [`collect_unix_socket_peers`] | `pub(super)` | `fn collect_unix_socket_peers( namespace: &`[`NetworkNamespace`](socket_namespace::NetworkNamespace)`, deadline: `[`std::time::Instant`]`, ) -> `[`Result`](anyhow::Result)`<`[`std::collections::HashMap`]`<u64, `[`SocketInfo`](crate::ipc::model::sockets::SocketInfo)`>>` |
+//! | [`parse_unix_socket_table`] | `pub(super)` | `fn parse_unix_socket_table( text: &str, ) -> `[`std::collections::HashMap`]`<u64, `[`SocketInfo`](crate::ipc::model::sockets::SocketInfo)`>` |
 //! | [`SocketMetadata`] | `pub(super)` | `struct SocketMetadata` |
 //! | [`additional_sockets`] | `pub(super)` | `fn additional_sockets(pid: i32) -> `[`HashMap`](std::collections::HashMap)`<u64, `[`SocketInfo`](crate::ipc::model::sockets::SocketInfo)`>` |
-//! | [`NetworkNamespace`] | `pub(super)` | `struct NetworkNamespace` |
-//! | [`open_network_namespace`] | `pub(super)` | `fn open_network_namespace( id: `[`ProcessId`]`, ) -> `[`Result`](anyhow::Result)`<`[`NetworkNamespace`]`>` |
+//! | [`open_network_namespace`] | `pub(super)` | `fn open_network_namespace( id: `[`ProcessId`]`, ) -> `[`Result`](anyhow::Result)`<`[`NetworkNamespace`](socket_namespace::NetworkNamespace)`>` |
 //! | [`create_process_monitor`] | `pub(in crate::privileged_helper)` | `fn create_process_monitor(interval: `[`Duration`](std::time::Duration)`) -> `[`ProcessMonitor`] |
 //! | [`join_process_collectors`] | `pub(in crate::privileged_helper)` | `fn join_process_collectors(state: &`[`ProcessMonitor`]`) -> `[`Result`](anyhow::Result)`<()>` |
 //! | [`observe_process_monitor`] | `pub(in crate::privileged_helper)` | `fn observe_process_monitor( monitor: &`[`Arc`](std::sync::Arc)`<`[`ProcessMonitor`]`>, id: `[`ProcessId`]`, permit: `[`ObservationPermit`](monitoring::service::ObservationPermit)`, ) -> `[`Result`](anyhow::Result)`<`[`ObservationSession`]`>` |
@@ -52,7 +50,6 @@ mod maps;
 mod memory;
 mod monitoring;
 mod procfs;
-mod resources;
 mod snapshot;
 mod socket_metadata;
 mod socket_namespace;
@@ -66,16 +63,21 @@ pub(super) use identity::read_process_identity;
 pub(super) use identity::validate_process_identity;
 pub(super) use memory::{enable_privacy, privacy_enabled};
 
-use resources::permission_help;
-#[cfg(test)]
-pub(super) use resources::ticks_per_second;
-pub(super) use resources::{
-    SubscribeError, collect_file_descriptors, collect_memory_maps, collect_process_observation,
-    collect_thread_observation, inet_sockets, memory_maps, read_auxiliary_vector, read_environment,
-    read_procfs_fields, socket_text, timestamp_ms, unix_socket_peers, unix_sockets,
+pub(super) use auxv::read_auxiliary_vector;
+pub(super) use env::read_environment;
+pub(super) use fds::collect_file_descriptors;
+pub(super) use maps::{collect_memory_maps, read_maps};
+pub(super) use monitoring::{
+    SubscribeError, collect_process_observation, collect_thread_observation,
 };
+pub(super) use procfs::read_procfs_fields;
+#[cfg(test)]
+pub(super) use procfs::ticks_per_second;
 pub(super) use socket_metadata::{SocketMetadata, additional_sockets};
-pub(super) use socket_namespace::{NetworkNamespace, open_network_namespace};
+pub(super) use socket_namespace::open_network_namespace;
+pub(super) use sockets::{
+    collect_unix_socket_peers, parse_inet_socket_table, parse_unix_socket_table, read_socket_table,
+};
 #[cfg(test)]
 mod test_support;
 #[cfg(test)]
@@ -121,3 +123,9 @@ pub(in crate::privileged_helper) use test_support::create_network_namespace_targ
 
 #[cfg(test)]
 pub(in crate::privileged_helper) use test_support::create_target;
+
+fn permission_help(operation: &str, error: impl std::fmt::Display) -> String {
+    format!(
+        "{operation}: {error}. If access is denied, check the process owner, kernel.yama.ptrace_scope, and CAP_SYS_PTRACE. sudo is never run automatically."
+    )
+}

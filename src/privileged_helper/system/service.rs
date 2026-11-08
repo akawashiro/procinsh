@@ -164,7 +164,7 @@ fn run_activity_system_monitor(state: &SystemMonitor) {
             send_system_monitor(
                 state,
                 SystemMonitorEvent::Activity(Arc::new(SystemActivity {
-                    captured_at: crate::privileged_helper::process::timestamp_ms(),
+                    captured_at: crate::privileged_helper::timestamp_ms(),
                     window_ms: last.elapsed().as_millis() as u64,
                     files: Vec::new(),
                     ipc: Vec::new(),

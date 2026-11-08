@@ -6,11 +6,11 @@
 //! | --- | --- | --- |
 //! | [`Stat`] | `pub(super)` | `struct Stat` |
 //! | [`page_size`] | `pub(super)` | `fn page_size() -> u64` |
-//! | [`ticks_per_second`] | `pub(super)` | `fn ticks_per_second() -> f64` |
+//! | [`ticks_per_second`] | `pub(in crate::privileged_helper)` | `fn ticks_per_second() -> f64` |
 //! | [`read_bounded_bytes`] | `pub(super)` | `fn read_bounded_bytes(reader: impl `[`Read`]`, limit: usize) -> `[`Result`]`<`[`Vec`]`<u8>>` |
 //! | [`read_procfs_text`] | `pub(super)` | `fn read_procfs_text(path: &str) -> `[`Result`]`<`[`String`]`>` |
 //! | [`read_process_stat`] | `pub(super)` | `fn read_process_stat(path: &str) -> `[`Result`]`<`[`Stat`]`>` |
-//! | [`read_procfs_fields`] | `pub(super)` | `fn read_procfs_fields(path: &str) -> `[`Result`]`<`[`HashMap`]`<`[`String`]`, `[`String`]`>>` |
+//! | [`read_procfs_fields`] | `pub(in crate::privileged_helper)` | `fn read_procfs_fields(path: &str) -> `[`Result`]`<`[`HashMap`]`<`[`String`]`, `[`String`]`>>` |
 //! | [`parse_procfs_u64_field`] | `pub(super)` | `fn parse_procfs_u64_field(fields: &`[`HashMap`]`<`[`String`]`, `[`String`]`>, key: &str) -> `[`Option`]`<u64>` |
 //! | [`read_process_io_stats`] | `pub(super)` | `fn read_process_io_stats(pid: i32) -> `[`Result`]`<`[`IoStats`]`>` |
 
@@ -40,7 +40,7 @@ pub(super) fn page_size() -> u64 {
     unsafe { libc::sysconf(libc::_SC_PAGESIZE) }.max(1) as u64
 }
 
-pub(super) fn ticks_per_second() -> f64 {
+pub(in crate::privileged_helper) fn ticks_per_second() -> f64 {
     unsafe { libc::sysconf(libc::_SC_CLK_TCK) }.max(1) as f64
 }
 
@@ -109,7 +109,9 @@ pub(super) fn read_process_stat(path: &str) -> Result<Stat> {
     parse_process_stat(&read_procfs_text(path).with_context(|| format!("read {path}"))?)
 }
 
-pub(super) fn read_procfs_fields(path: &str) -> Result<HashMap<String, String>> {
+pub(in crate::privileged_helper) fn read_procfs_fields(
+    path: &str,
+) -> Result<HashMap<String, String>> {
     Ok(read_procfs_text(path)?
         .lines()
         .filter_map(|line| line.split_once(':'))
