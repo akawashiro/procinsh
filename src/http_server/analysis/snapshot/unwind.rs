@@ -315,11 +315,13 @@ mod tests {
         let mut stack = vec![0; 64];
         stack[16..24].copy_from_slice(&0x1020u64.to_ne_bytes());
         stack[24..32].copy_from_slice(&0xab00_0000_0000_3020u64.to_ne_bytes());
-        let (frames, reason) = StackUnwinder::default().walk(&r, &maps, &stack);
+        let (frames, reason) =
+            super::unwind_stack(&mut StackUnwinder::default(), &r, &maps, &stack);
         assert_eq!(frames.len(), 1);
         assert!(reason.contains("outside executable"), "{reason}");
         r.code_pac_mask = Some(0xff00_0000_0000_0000);
-        let (frames, reason) = StackUnwinder::default().walk(&r, &maps, &stack);
+        let (frames, reason) =
+            super::unwind_stack(&mut StackUnwinder::default(), &r, &maps, &stack);
         assert_eq!(
             frames.iter().map(|f| f.address).collect::<Vec<_>>(),
             [0x3010, 0x3020],
