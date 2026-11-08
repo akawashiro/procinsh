@@ -1,16 +1,20 @@
 //! Main-only JSON representation of native acquisition values.
 //!
 //! # Interface
+//!
+//! No named types or functions are exported.
+//!
 //! Serde implementations for IPC acquisition types; no named types or functions are exported.
+
 use crate::ipc::acquisition::*;
 
 fn serialize_architecture<S: serde::Serializer>(
     header: &Option<[u8; 20]>,
     serializer: S,
 ) -> Result<S::Ok, S::Error> {
-    let architecture = header.as_ref().and_then(
-        crate::http_server::analysis::snapshot::architecture::Architecture::from_elf_header,
-    );
+    use crate::http_server::analysis::snapshot::architecture::architecture_from_elf_header;
+
+    let architecture = header.as_ref().and_then(architecture_from_elf_header);
     serde::Serialize::serialize(&architecture, serializer)
 }
 

@@ -1,3 +1,16 @@
+//! Poll independent activity sensors and combine their bounded observations.
+//!
+//! # Interface
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`ActivityCollector`] | `pub(super)` | `struct ActivityCollector` |
+//! | [`ActivityBatch`] | `pub(super)` | `struct ActivityBatch` |
+//! | [`create_activity_collector`] | `pub(super)` | `fn create_activity_collector() -> `[`ActivityCollector`] |
+//! | [`poll_activity_collector`] | `pub(super)` | `fn poll_activity_collector(state: &mut `[`ActivityCollector`]`, snapshot: &`[`SystemSnapshot`]`)` |
+//! | [`drain_activity_collector`] | `pub(super)` | `fn drain_activity_collector( state: &mut `[`ActivityCollector`]`, now_ns: u64, snapshot: &`[`SystemSnapshot`]`, ) -> `[`ActivityBatch`] |
+//! | [`status_activity_collector`] | `pub(super)` | `fn status_activity_collector(state: &`[`ActivityCollector`]`) -> `[`SystemMonitorStatus`] |
+
 use super::signals::SignalCollector;
 use crate::ipc::acquisition::{SensorState, SystemMonitorStatus};
 use crate::ipc::activity::FileActivity;
@@ -22,20 +35,24 @@ pub(super) struct ActivityBatch {
     pub(super) signals: Vec<crate::ipc::activity::SignalSample>,
 }
 
-impl ActivityCollector {
-    pub(super) fn new() -> Self {
-        let (ipc, ipc_state) = initialize(IpcActivityCollector::new());
-        let (scheduler, cpu_state) = initialize(CpuActivityCollector::new());
-        let (files, files_state) = initialize(FileActivityCollector::new());
-        let (signals, signals_state) = if std::env::var_os("PROCINSH_DISABLE_SIGNALS").is_some() {
-            (
-                None,
-                SensorState::Unavailable("disabled by PROCINSH_DISABLE_SIGNALS".into()),
-            )
-        } else {
-            initialize(SignalCollector::new())
-        };
-        let status = SystemMonitorStatus {
+pub(super) fn create_activity_collector() -> ActivityCollector {
+    use crate::privileged_helper::system::{
+        files::create_file_activity_collector, ipc::create_ipc_activity_collector,
+        sched::create_cpu_activity_collector, signals::create_signal_collector,
+    };
+
+    let (ipc, ipc_state) = initialize(create_ipc_activity_collector());
+    let (scheduler, cpu_state) = initialize(create_cpu_activity_collector());
+    let (files, files_state) = initialize(create_file_activity_collector());
+    let (signals, signals_state) = if std::env::var_os("PROCINSH_DISABLE_SIGNALS").is_some() {
+        (
+            None,
+            SensorState::Unavailable("disabled by PROCINSH_DISABLE_SIGNALS".into()),
+        )
+    } else {
+        initialize(create_signal_collector())
+    };
+    let status = SystemMonitorStatus {
             ipc: ipc_state,
             cpu: cpu_state,
             files: files_state,
@@ -46,75 +63,94 @@ impl ActivityCollector {
             files_coverage: Some(super::files::COVERAGE.into()),
             ..SystemMonitorStatus::default()
         };
-        Self {
-            signals,
-            ipc,
-            scheduler,
-            files,
-            status,
-        }
+    ActivityCollector {
+        signals,
+        ipc,
+        scheduler,
+        files,
+        status,
     }
+}
 
-    pub(super) fn poll(&mut self, snapshot: &SystemSnapshot) {
-        if let Some(sensor) = self.signals.as_ref() {
-            self.status.signals = update_state(sensor.poll());
-        }
-        if let Some(sensor) = self.files.as_ref() {
-            self.status.files = update_state(sensor.poll());
-        }
-        if let Some(sensor) = self.ipc.as_mut() {
-            self.status.ipc = update_state(sensor.poll(snapshot));
-        }
+pub(super) fn poll_activity_collector(state: &mut ActivityCollector, snapshot: &SystemSnapshot) {
+    use crate::privileged_helper::system::{
+        files::poll_file_activity_collector, ipc::poll_ipc_activity_collector,
+        signals::poll_signal_collector,
+    };
+
+    if let Some(sensor) = state.signals.as_ref() {
+        state.status.signals = update_state(poll_signal_collector(sensor));
     }
+    if let Some(sensor) = state.files.as_ref() {
+        state.status.files = update_state(poll_file_activity_collector(sensor));
+    }
+    if let Some(sensor) = state.ipc.as_mut() {
+        state.status.ipc = update_state(poll_ipc_activity_collector(&mut *sensor, snapshot));
+    }
+}
 
-    pub(super) fn drain(&mut self, now_ns: u64, snapshot: &SystemSnapshot) -> ActivityBatch {
-        let ipc = self
+pub(super) fn drain_activity_collector(
+    state: &mut ActivityCollector,
+    now_ns: u64,
+    snapshot: &SystemSnapshot,
+) -> ActivityBatch {
+    use crate::privileged_helper::system::{
+        files::{drain_file_activity_collector, lost_file_activity_collector},
+        ipc::{
+            drain_ipc_activity_collector, lost_ipc_activity_collector,
+            unresolved_ipc_activity_collector,
+        },
+        sched::collect_cpu_activity_collector,
+        signals::{drain_signal_collector, lost_signal_collector},
+    };
+
+    let ipc = state
+        .ipc
+        .as_mut()
+        .map_or_else(Vec::new, drain_ipc_activity_collector);
+    let result = state
+        .scheduler
+        .as_mut()
+        .map(|sensor| collect_cpu_activity_collector(&mut *sensor, now_ns, snapshot));
+    let cpu = match result {
+        Some(Ok(activity)) => {
+            state.status.cpu = update_state(Ok(()));
+            activity
+        }
+        Some(Err(error)) => {
+            state.status.cpu = update_state(Err(error));
+            Default::default()
+        }
+        None => Default::default(),
+    };
+    state.status.lost = Some(state.ipc.as_ref().map_or(0, lost_ipc_activity_collector));
+    state.status.unresolved = Some(
+        state
             .ipc
-            .as_mut()
-            .map_or_else(Vec::new, IpcActivityCollector::drain);
-        let result = self
-            .scheduler
-            .as_mut()
-            .map(|sensor| sensor.collect(now_ns, snapshot));
-        let cpu = match result {
-            Some(Ok(activity)) => {
-                self.status.cpu = update_state(Ok(()));
-                activity
-            }
-            Some(Err(error)) => {
-                self.status.cpu = update_state(Err(error));
-                Default::default()
-            }
-            None => Default::default(),
-        };
-        self.status.lost = Some(self.ipc.as_ref().map_or(0, IpcActivityCollector::lost));
-        self.status.unresolved = Some(
-            self.ipc
-                .as_ref()
-                .map_or(0, IpcActivityCollector::unresolved),
-        );
-        self.status.files_lost = Some(self.files.as_ref().map_or(0, FileActivityCollector::lost));
-        let files = self
-            .files
             .as_ref()
-            .map_or_else(Vec::new, FileActivityCollector::drain);
-        self.status.signals_lost = Some(self.signals.as_ref().map_or(0, SignalCollector::lost));
-        let signals = self
-            .signals
-            .as_ref()
-            .map_or_else(Vec::new, |sensor| sensor.drain(snapshot));
-        ActivityBatch {
-            files,
-            ipc,
-            cpu,
-            signals,
-        }
+            .map_or(0, unresolved_ipc_activity_collector),
+    );
+    state.status.files_lost = Some(state.files.as_ref().map_or(0, lost_file_activity_collector));
+    let files = state
+        .files
+        .as_ref()
+        .map_or_else(Vec::new, drain_file_activity_collector);
+    state.status.signals_lost = Some(state.signals.as_ref().map_or(0, lost_signal_collector));
+    let signals = state
+        .signals
+        .as_ref()
+        .map_or_else(Vec::new, |sensor| drain_signal_collector(sensor, snapshot));
+    ActivityBatch {
+        files,
+        ipc,
+        cpu,
+        signals,
     }
+}
 
-    /// Returns sensor health; the service supplies the monitoring `active` flag.
-    pub(super) fn status(&self) -> SystemMonitorStatus {
-        self.status.clone()
-    }
+/// Returns sensor health; the service supplies the monitoring `active` flag.
+pub(super) fn status_activity_collector(state: &ActivityCollector) -> SystemMonitorStatus {
+    state.status.clone()
 }
 
 fn initialize<T>(result: anyhow::Result<T>) -> (Option<T>, SensorState) {
@@ -165,11 +201,11 @@ mod tests {
             },
         };
         let snapshot = SystemSnapshot::default();
-        collector.poll(&snapshot);
-        let batch = collector.drain(123, &snapshot);
+        super::poll_activity_collector(&mut collector, &snapshot);
+        let batch = super::drain_activity_collector(&mut collector, 123, &snapshot);
         assert!(batch.signals.is_empty());
         assert!(batch.ipc.is_empty() && batch.cpu.current.is_empty() && batch.files.is_empty());
-        let status = collector.status();
+        let status = super::status_activity_collector(&collector);
         assert_eq!(
             status.signals,
             SensorState::Unavailable("signals denied".into())

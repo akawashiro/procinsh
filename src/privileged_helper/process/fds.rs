@@ -4,7 +4,7 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`collect_file_descriptors`] | `pub(super)` | `fn collect_file_descriptors(id: `[`ProcessId`]`) -> `[`Result`]`<`[`crate::ipc::descriptors::FileDescriptors`]`>` |
+//! | [`collect_file_descriptors`] | `pub(super)` | `fn collect_file_descriptors(id: `[`ProcessId`]`) -> `[`Result`]`<`[`FileDescriptors`]`>` |
 
 use crate::ipc::model::socket_types::{
     AddressFamily, SocketConnectionStatus, SocketProtocol, SocketState, SocketType,
@@ -71,7 +71,9 @@ fn read_descriptor_access_mode(pid: i32, fd: u32) -> Option<u32> {
 }
 
 fn descriptor_access_from_mode(mode: Option<u32>) -> FdAccess {
-    FdAccess::from_mode(mode)
+    use crate::ipc::model::socket_types::fd_access_from_mode;
+
+    fd_access_from_mode(mode)
 }
 
 fn collect_descriptor_owners(
@@ -249,7 +251,9 @@ fn socket_table(
 type InetKey = (bool, SocketAddr, SocketAddr);
 
 fn connected_socket_key(info: &SocketInfo) -> Option<InetKey> {
-    if !info.protocol.is_tcp_or_udp() {
+    use crate::ipc::model::socket_types::{socket_protocol_is_tcp, socket_protocol_is_tcp_or_udp};
+
+    if !socket_protocol_is_tcp_or_udp(info.protocol) {
         return None;
     }
     let local = info.local?;
@@ -258,10 +262,17 @@ fn connected_socket_key(info: &SocketInfo) -> Option<InetKey> {
     {
         return None;
     }
-    Some((info.protocol.is_tcp(), local, remote))
+    Some((socket_protocol_is_tcp(info.protocol), local, remote))
 }
 
 pub(super) fn collect_file_descriptors(id: ProcessId) -> Result<FileDescriptors> {
+    use crate::{
+        ipc::model::sockets::connection_status_socket_info,
+        privileged_helper::process::{
+            create_socket_metadata_reader, read_socket_metadata, socket_metadata_has_observation,
+        },
+    };
+
     validate_process_identity(id)?;
     let deadline = Instant::now() + Duration::from_secs(3);
     let mut warnings = Vec::new();
@@ -332,7 +343,7 @@ pub(super) fn collect_file_descriptors(id: ProcessId) -> Result<FileDescriptors>
     } else {
         socket_table(id, &needed, deadline, &mut warnings)
     };
-    let mut metadata_reader = super::SocketMetadataReader::new(id);
+    let mut metadata_reader = create_socket_metadata_reader(id);
     let mut metadata = HashMap::new();
     for entry in &entries {
         if entry.kind != FdKind::Socket {
@@ -346,8 +357,9 @@ pub(super) fn collect_file_descriptors(id: ProcessId) -> Result<FileDescriptors>
         if let Some(device) = entry.socket_device {
             let key = (device, entry.key.inode);
             if !metadata.contains_key(&key)
-                && let Ok(observed) = metadata_reader.read(entry.fd, device, entry.key.inode)
-                && observed.has_observation()
+                && let Ok(observed) =
+                    read_socket_metadata(&mut metadata_reader, entry.fd, device, entry.key.inode)
+                && socket_metadata_has_observation(&observed)
             {
                 metadata.insert(key, observed);
             }
@@ -389,7 +401,9 @@ pub(super) fn collect_file_descriptors(id: ProcessId) -> Result<FileDescriptors>
             .and_then(|device| metadata.get(&(device, entry.key.inode)))
             .map_or(SocketConnectionStatus::Unknown, |m| m.connection_status);
         let info = sockets.get(&entry.key.inode);
-        let status = info.map_or(observed, |info| info.connection_status(observed));
+        let status = info.map_or(observed, |info| {
+            connection_status_socket_info(info, observed)
+        });
         entry.connection_status = Some(status);
         unavailable += usize::from(info.is_none());
         unknown_statuses += usize::from(status == SocketConnectionStatus::Unknown);
@@ -470,6 +484,8 @@ mod tests {
 
     #[test]
     fn reverse_matching_excludes_listeners_and_unconnected_sockets() {
+        use crate::ipc::model::socket_types::socket_protocol_from_codes;
+
         let mut info = SocketInfo {
             protocol: SocketProtocol::Tcp {
                 family: AddressFamily::Ipv4,
@@ -483,7 +499,7 @@ mod tests {
         assert!(connected_socket_key(&info).is_none());
         info.state = Some(SocketState::Established);
         let transport = info.protocol;
-        info.protocol = SocketProtocol::from_codes(
+        info.protocol = socket_protocol_from_codes(
             libc::AF_INET as u32,
             libc::SOCK_RAW as u32,
             libc::IPPROTO_TCP as u32,

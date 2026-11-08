@@ -1,3 +1,11 @@
+//! Unwind captured frame-pointer chains for snapshot test fixtures.
+//!
+//! # Interface
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`unwind_frame_pointers`] | `pub(super)` | `fn unwind_frame_pointers( rip: u64, rsp: u64, rbp: u64, maps: &[`[`MemoryMap`]`], mut read: impl `[`FnMut`]`(u64) -> `[`Option`]`<[u8; 16]>, ) -> (`[`Vec`]`<`[`StackFrame`]`>, `[`String`]`)` |
+
 use crate::ipc::model::memory::MemoryMap;
 use crate::ipc::stack::StackFrame;
 
@@ -8,8 +16,16 @@ pub(super) fn unwind_frame_pointers(
     maps: &[MemoryMap],
     mut read: impl FnMut(u64) -> Option<[u8; 16]>,
 ) -> (Vec<StackFrame>, String) {
-    let mut frames = vec![StackFrame::raw(rip)];
-    let Some(stack) = maps.iter().find(|m| m.contains(rsp) && m.readable) else {
+    use crate::{
+        http_server::analysis::snapshot::stack::create_raw_stack_frame,
+        ipc::model::memory::memory_map_contains,
+    };
+
+    let mut frames = vec![create_raw_stack_frame(rip)];
+    let Some(stack) = maps
+        .iter()
+        .find(|m| memory_map_contains(m, rsp) && m.readable)
+    else {
         return (frames, "RSP is outside readable mappings".into());
     };
     let mut bp = rbp;
@@ -40,11 +56,11 @@ pub(super) fn unwind_frame_pointers(
         }
         if !maps
             .iter()
-            .any(|m| m.executable && m.contains(address.saturating_sub(1)))
+            .any(|m| m.executable && memory_map_contains(m, address.saturating_sub(1)))
         {
             return (frames, "return address outside executable mappings".into());
         }
-        frames.push(StackFrame::raw(address));
+        frames.push(create_raw_stack_frame(address));
         if previous <= bp {
             return (frames, "end of chain / non-increasing RBP".into());
         }

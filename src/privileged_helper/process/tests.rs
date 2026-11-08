@@ -1,4 +1,4 @@
-use super::{maps, memory, test_support::Target};
+use super::{maps, memory};
 use crate::privileged_helper::process;
 use std::time::Duration;
 
@@ -20,10 +20,14 @@ struct AuxVectorSnapshot {
 
 #[test]
 fn netns_fd_list_resolves_peers_separately_from_shared_holders() {
-    use crate::ipc::model::socket_types::{SocketConnectionStatus, SocketState};
-    use std::os::fd::AsRawFd;
+    use crate::privileged_helper::process::create_network_namespace_target;
+
+    use {
+        crate::ipc::model::socket_types::{SocketConnectionStatus, SocketState},
+        std::os::fd::AsRawFd,
+    };
     for separate in [false, true] {
-        let fixture = process::NetworkNamespaceTarget::new(separate);
+        let fixture = create_network_namespace_target(separate);
         let details = process::fds::collect_file_descriptors(fixture.target.id).unwrap();
         let entry = details.entries.iter().find(|entry| entry.fd == 61).unwrap();
         assert_eq!(entry.state, Some(SocketState::Connected));
@@ -60,7 +64,11 @@ fn netns_fd_list_resolves_peers_separately_from_shared_holders() {
 
 #[test]
 fn memory_partial_reads_and_map_statistics() {
-    let target = Target::new("mmap_test");
+    use crate::{
+        ipc::model::memory::memory_map_contains, privileged_helper::process::create_target,
+    };
+
+    let target = create_target("mmap_test");
     let data = memory::read_process_memory(target.id.pid, target.address, 25).unwrap();
     assert!(data.starts_with(b"procinsh mmap fixture"));
     let page = process::procfs::page_size();
@@ -70,13 +78,15 @@ fn memory_partial_reads_and_map_statistics() {
     let maps = maps::read_smaps(target.id.pid).unwrap();
     assert!(
         maps.iter()
-            .any(|m| m.mapping.contains(target.address) && m.rss_bytes.is_some())
+            .any(|m| memory_map_contains(&m.mapping, target.address) && m.rss_bytes.is_some())
     );
 }
 
 #[test]
 fn environment_and_auxv_read_child_metadata_and_reject_stale_identity() {
-    let mut target = Target::new("sleeping");
+    use crate::privileged_helper::process::create_target;
+
+    let mut target = create_target("sleeping");
     let environment: EnvironmentSnapshot = serde_json::from_value(
         serde_json::to_value(process::read_environment(target.id).unwrap()).unwrap(),
     )
@@ -150,7 +160,9 @@ fn environment_and_auxv_read_child_metadata_and_reject_stale_identity() {
 
 #[test]
 fn pipe_unix_tcp_udp_peers_are_distinct_from_shared_descriptors() {
-    let target = Target::new("ipc");
+    use crate::privileged_helper::process::create_target;
+
+    let target = create_target("ipc");
     let child: i32 = std::fs::read_to_string(format!(
         "/proc/{}/task/{}/children",
         target.id.pid, target.id.pid

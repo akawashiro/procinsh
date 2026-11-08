@@ -1,7 +1,16 @@
 //! Regular-file activity, independent of IPC/CPU availability.
 //!
 //! # Interface
-//! [`FileActivityCollector`] (`pub(super)`): `struct FileActivityCollector`.
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`COVERAGE`] | `pub(super)` | `const COVERAGE: &str` | //! | [`FileActivityCollector`] | `pub(super)` | `struct FileActivityCollector` | //! | [`create_file_activity_collector`] | `pub(super)` | `fn create_file_activity_collector() -> `[`Result`]`<`[`FileActivityCollector`]`>` | //! | [`poll_file_activity_collector`] | `pub(super)` | `fn poll_file_activity_collector(state: &`[`FileActivityCollector`]`) -> `[`Result`]`<()>` | //! | [`drain_file_activity_collector`] | `pub(super)` | `fn drain_file_activity_collector(state: &`[`FileActivityCollector`]`) -> `[`Vec`]`<`[`FileActivity`]`>` | //! | [`lost_file_activity_collector`] | `pub(super)` | `fn lost_file_activity_collector(state: &`[`FileActivityCollector`]`) -> u64` | //! //! [`FileActivityCollector`] (`pub(super)`): `struct FileActivityCollector`. #[cfg(test)] use crate::ipc::model::resource::{DeviceId, FileIdentity}` | //! | [`FileActivityCollector`] | `pub(super)` | `struct FileActivityCollector` | //! | [`create_file_activity_collector`] | `pub(super)` | `fn create_file_activity_collector() -> `[`Result`]`<`[`FileActivityCollector`]`>` | //! | [`poll_file_activity_collector`] | `pub(super)` | `fn poll_file_activity_collector(state: &`[`FileActivityCollector`]`) -> `[`Result`]`<()>` | //! | [`drain_file_activity_collector`] | `pub(super)` | `fn drain_file_activity_collector(state: &`[`FileActivityCollector`]`) -> `[`Vec`]`<`[`FileActivity`]`>` | //! | [`lost_file_activity_collector`] | `pub(super)` | `fn lost_file_activity_collector(state: &`[`FileActivityCollector`]`) -> u64` | //! //! [`FileActivityCollector`] (`pub(super)`): `struct FileActivityCollector`. #[cfg(test)] use crate::ipc::model::resource::{DeviceId, FileIdentity}` | //! | [`FileActivityCollector`] | `pub(super)` | `struct FileActivityCollector` | //! | [`create_file_activity_collector`] | `pub(super)` | `fn create_file_activity_collector() -> `[`Result`]`<`[`FileActivityCollector`]`>` | //! | [`poll_file_activity_collector`] | `pub(super)` | `fn poll_file_activity_collector(state: &`[`FileActivityCollector`]`) -> `[`Result`]`<()>` | //! | [`drain_file_activity_collector`] | `pub(super)` | `fn drain_file_activity_collector(state: &`[`FileActivityCollector`]`) -> `[`Vec`]`<`[`FileActivity`]`>` | //! | [`lost_file_activity_collector`] | `pub(super)` | `fn lost_file_activity_collector(state: &`[`FileActivityCollector`]`) -> u64` | //! //! [`FileActivityCollector`] (`pub(super)`): `struct FileActivityCollector`. #[cfg(test)] use crate::ipc::model::resource::{DeviceId, FileIdentity}` |
+//! | [`FileActivityCollector`] | `pub(super)` | `struct FileActivityCollector` |
+//! | [`create_file_activity_collector`] | `pub(super)` | `fn create_file_activity_collector() -> `[`Result`]`<`[`FileActivityCollector`]`>` |
+//! | [`poll_file_activity_collector`] | `pub(super)` | `fn poll_file_activity_collector(state: &`[`FileActivityCollector`]`) -> `[`Result`]`<()>` |
+//! | [`drain_file_activity_collector`] | `pub(super)` | `fn drain_file_activity_collector(state: &`[`FileActivityCollector`]`) -> `[`Vec`]`<`[`FileActivity`]`>` |
+//! | [`lost_file_activity_collector`] | `pub(super)` | `fn lost_file_activity_collector(state: &`[`FileActivityCollector`]`) -> u64` |
+//!
 
 #[cfg(test)]
 use crate::ipc::model::resource::{DeviceId, FileIdentity};
@@ -18,13 +27,11 @@ struct Batch {
     events: Vec<FileActivity>,
     dropped: u64,
 }
-impl Batch {
-    fn add(&mut self, event: FileActivity) {
-        if self.events.len() < MAX_AGGREGATES {
-            self.events.push(event);
-        } else {
-            self.dropped += 1;
-        }
+fn add_batch(state: &mut Batch, event: FileActivity) {
+    if state.events.len() < MAX_AGGREGATES {
+        state.events.push(event);
+    } else {
+        state.dropped += 1;
     }
 }
 /// Owns BPF resources and captures bounded regular-file I/O observations.
@@ -34,70 +41,68 @@ pub(super) struct FileActivityCollector {
     obj: libbpf_rs::Object,
     batch: Arc<Mutex<Batch>>,
 }
-impl FileActivityCollector {
-    pub(super) fn new() -> Result<Self> {
-        let obj = ObjectBuilder::default()
-            .open_memory(include_bytes!(concat!(env!("OUT_DIR"), "/files.bpf.o")))?
-            .load()
-            .context("File I/O requires CAP_BPF / CAP_PERFMON and compatible VFS BTF hooks")?;
-        let mut links = Vec::new();
-        for prog in obj.progs_mut() {
-            links.push(
-                prog.attach()
-                    .with_context(|| format!("attach {:?}", prog.name()))?,
-            );
+pub(super) fn create_file_activity_collector() -> Result<FileActivityCollector> {
+    let obj = ObjectBuilder::default()
+        .open_memory(include_bytes!(concat!(env!("OUT_DIR"), "/files.bpf.o")))?
+        .load()
+        .context("File I/O requires CAP_BPF / CAP_PERFMON and compatible VFS BTF hooks")?;
+    let mut links = Vec::new();
+    for prog in obj.progs_mut() {
+        links.push(
+            prog.attach()
+                .with_context(|| format!("attach {:?}", prog.name()))?,
+        );
+    }
+    let batch = Arc::new(Mutex::new(Batch::default()));
+    let shared = batch.clone();
+    let map = obj
+        .maps()
+        .find(|m| m.name() == "events")
+        .context("file events map")?;
+    let mut builder = RingBufferBuilder::new();
+    builder.add(&map, move |data| {
+        let mut batch = shared.lock().unwrap();
+        if let Some(event) = decode_file(data) {
+            add_batch(&mut batch, event);
+        } else {
+            batch.dropped += 1;
         }
-        let batch = Arc::new(Mutex::new(Batch::default()));
-        let shared = batch.clone();
-        let map = obj
-            .maps()
-            .find(|m| m.name() == "events")
-            .context("file events map")?;
-        let mut builder = RingBufferBuilder::new();
-        builder.add(&map, move |data| {
-            let mut batch = shared.lock().unwrap();
-            if let Some(event) = decode_file(data) {
-                batch.add(event);
-            } else {
-                batch.dropped += 1;
-            }
-            0
-        })?;
-        Ok(Self {
-            ring: builder.build()?,
-            _links: links,
-            obj,
-            batch,
-        })
-    }
+        0
+    })?;
+    Ok(FileActivityCollector {
+        ring: builder.build()?,
+        _links: links,
+        obj,
+        batch,
+    })
+}
 
-    pub(super) fn poll(&self) -> Result<()> {
-        let result = self.ring.consume_raw_n(8192);
-        if result < 0 {
-            return Err(std::io::Error::from_raw_os_error(-result).into());
-        }
-        Ok(())
+pub(super) fn poll_file_activity_collector(state: &FileActivityCollector) -> Result<()> {
+    let result = state.ring.consume_raw_n(8192);
+    if result < 0 {
+        return Err(std::io::Error::from_raw_os_error(-result).into());
     }
+    Ok(())
+}
 
-    pub(super) fn drain(&self) -> Vec<FileActivity> {
-        std::mem::take(&mut self.batch.lock().unwrap().events)
-    }
+pub(super) fn drain_file_activity_collector(state: &FileActivityCollector) -> Vec<FileActivity> {
+    std::mem::take(&mut state.batch.lock().unwrap().events)
+}
 
-    pub(super) fn lost(&self) -> u64 {
-        self.obj
-            .maps()
-            .find(|m| m.name() == "lost")
-            .and_then(|m| m.lookup(&0u32.to_ne_bytes(), MapFlags::ANY).ok().flatten())
-            .and_then(|bytes| bytes.try_into().ok())
-            .map(u64::from_ne_bytes)
-            .unwrap_or(0)
-            + self.batch.lock().unwrap().dropped
-    }
+pub(super) fn lost_file_activity_collector(state: &FileActivityCollector) -> u64 {
+    state
+        .obj
+        .maps()
+        .find(|m| m.name() == "lost")
+        .and_then(|m| m.lookup(&0u32.to_ne_bytes(), MapFlags::ANY).ok().flatten())
+        .and_then(|bytes| bytes.try_into().ok())
+        .map(u64::from_ne_bytes)
+        .unwrap_or(0)
+        + state.batch.lock().unwrap().dropped
 }
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::http_server::analysis::activity::FileBatch;
+    use {super::*, crate::http_server::analysis::activity::FileBatch};
 
     fn event() -> Vec<u8> {
         let mut data = vec![0; 4144];
@@ -153,26 +158,28 @@ mod tests {
 
     #[test]
     fn aggregation_separates_direction_and_process_lifetime_and_is_bounded() {
+        use crate::http_server::analysis::activity::add_file_batch;
+
         let e = decode_file(&event()).unwrap();
         let mut batch = FileBatch::default();
-        batch.add(e.clone());
-        batch.add(e.clone());
+        add_file_batch(&mut batch, e.clone());
+        add_file_batch(&mut batch, e.clone());
         let mut write = e.clone();
         write.write = true;
-        batch.add(write);
+        add_file_batch(&mut batch, write);
         let mut reused = e.clone();
         reused.process_id.start_time_ticks += 1;
-        batch.add(reused);
+        add_file_batch(&mut batch, reused);
         assert_eq!(batch.events.len(), 3);
         assert_eq!(batch.events[&(e.process_id, e.file, false)].bytes, 14);
         for i in 0..MAX_AGGREGATES {
             let mut next = e.clone();
             next.file.inode = i as u64 + 1000;
-            batch.add(next);
+            add_file_batch(&mut batch, next);
         }
         assert_eq!(batch.events.len(), MAX_AGGREGATES);
         assert_eq!(batch.dropped, 3);
-        batch.add(e.clone());
+        add_file_batch(&mut batch, e.clone());
         assert_eq!(batch.events[&(e.process_id, e.file, false)].count, 3);
     }
 }

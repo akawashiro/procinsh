@@ -6,13 +6,17 @@ struct Child(std::process::Child);
 
 #[test]
 fn netns_snapshot_resolves_multiple_namespaces_and_cross_namespace_holders() {
-    use crate::{
-        ipc::model::socket_types::{SocketConnectionStatus, SocketState},
-        privileged_helper::process,
+    use crate::privileged_helper::process::create_network_namespace_target;
+
+    use {
+        crate::{
+            ipc::model::socket_types::{SocketConnectionStatus, SocketState},
+            privileged_helper::process,
+        },
+        std::os::{fd::AsRawFd, unix::fs::MetadataExt},
     };
-    use std::os::{fd::AsRawFd, unix::fs::MetadataExt};
-    let first = process::NetworkNamespaceTarget::new(true);
-    let second = process::NetworkNamespaceTarget::new(true);
+    let first = create_network_namespace_target(true);
+    let second = create_network_namespace_target(true);
     let snapshot = super::collect_system_snapshot();
     let connects = |relation: &crate::ipc::model::system::FdRelation,
                     a: (crate::ipc::schema::ProcessId, u32),
@@ -76,11 +80,17 @@ impl Drop for Child {
 
 #[test]
 fn snapshot_and_fd_list_keep_unconnected_socket_kinds() {
-    use crate::{
-        ipc::model::socket_types::{AddressFamily, SocketConnectionStatus, SocketProtocol},
-        privileged_helper::process,
+    use crate::ipc::model::socket_types::{
+        socket_protocol_from_codes, socket_protocol_is_tcp_or_udp,
     };
-    use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+
+    use {
+        crate::{
+            ipc::model::socket_types::{AddressFamily, SocketConnectionStatus, SocketProtocol},
+            privileged_helper::process,
+        },
+        std::os::fd::{AsRawFd, FromRawFd, OwnedFd},
+    };
     let definitions = [
         (
             libc::AF_INET,
@@ -102,13 +112,13 @@ fn snapshot_and_fd_list_keep_unconnected_socket_kinds() {
             libc::AF_NETLINK,
             libc::SOCK_DGRAM,
             15,
-            SocketProtocol::from_codes(16, 2, 15),
+            socket_protocol_from_codes(16, 2, 15),
         ),
         (
             libc::AF_UNIX,
             libc::SOCK_DGRAM,
             0,
-            SocketProtocol::from_codes(1, 2, 0),
+            socket_protocol_from_codes(1, 2, 0),
         ),
     ];
     let sockets: Vec<_> = definitions
@@ -165,7 +175,7 @@ fn snapshot_and_fd_list_keep_unconnected_socket_kinds() {
             serde_json::to_value(expected).unwrap()
         );
         assert!(entry["peers"].as_array().unwrap().is_empty());
-        if protocol.is_tcp_or_udp() {
+        if socket_protocol_is_tcp_or_udp(protocol) {
             assert!(relation.socket.as_ref().unwrap().state.is_none());
             assert!(entry["state"].is_null());
         }
@@ -174,10 +184,12 @@ fn snapshot_and_fd_list_keep_unconnected_socket_kinds() {
 
 #[test]
 fn socket_connection_status_is_retained_for_shared_listening_and_unconnected_fds() {
-    use crate::{ipc::model::socket_types::SocketConnectionStatus, privileged_helper::process};
-    use std::{
-        net::{TcpListener, UdpSocket},
-        os::fd::AsRawFd,
+    use {
+        crate::{ipc::model::socket_types::SocketConnectionStatus, privileged_helper::process},
+        std::{
+            net::{TcpListener, UdpSocket},
+            os::fd::AsRawFd,
+        },
     };
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let listener_duplicate = listener.try_clone().unwrap();

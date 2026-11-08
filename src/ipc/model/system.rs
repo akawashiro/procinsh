@@ -68,8 +68,9 @@ impl From<&SocketInfo> for SocketEndpoint {
             local: info.local.map(InetAddress::from),
             remote: info.remote.map(InetAddress::from),
             path: info.path.clone(),
-            network_peer: info.protocol.is_tcp_or_udp()
-                && info.state != Some(SocketState::Listen)
+            network_peer: crate::ipc::model::socket_types::socket_protocol_is_tcp_or_udp(
+                info.protocol,
+            ) && info.state != Some(SocketState::Listen)
                 && info
                     .remote
                     .is_some_and(|remote| remote.port() != 0 && !remote.ip().is_unspecified()),

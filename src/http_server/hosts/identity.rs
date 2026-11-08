@@ -1,4 +1,14 @@
 //! The identity a host advertises to a hub and shows in the host list.
+//!
+//! # Interface
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`HostInfo`] | `pub(in crate::http_server)` | `struct HostInfo` |
+//! | [`ALL_HOSTS`] | `pub(in crate::http_server)` | `const ALL_HOSTS: &str` | //! | [`valid_host_name`] | `pub(crate)` | `fn valid_host_name(name: &str) -> bool` | //! | [`protect_remote_host_info`] | `pub(super)` | `fn protect_remote_host_info(state: &mut `[`HostInfo`]`)` | //! | [`local_host_info`] | `pub(in crate::http_server)` | `fn local_host_info(name: `[`Option`]`<`[`String`]`>) -> `[`HostInfo`] | use serde::Serialize` | //! | [`valid_host_name`] | `pub(crate)` | `fn valid_host_name(name: &str) -> bool` | //! | [`protect_remote_host_info`] | `pub(super)` | `fn protect_remote_host_info(state: &mut `[`HostInfo`]`)` | //! | [`local_host_info`] | `pub(in crate::http_server)` | `fn local_host_info(name: `[`Option`]`<`[`String`]`>) -> `[`HostInfo`] | use serde::Serialize` | //! | [`valid_host_name`] | `pub(crate)` | `fn valid_host_name(name: &str) -> bool` | //! | [`protect_remote_host_info`] | `pub(super)` | `fn protect_remote_host_info(state: &mut `[`HostInfo`]`)` | //! | [`local_host_info`] | `pub(in crate::http_server)` | `fn local_host_info(name: `[`Option`]`<`[`String`]`>) -> `[`HostInfo`] | use serde::Serialize` |
+//! | [`valid_host_name`] | `pub(crate)` | `fn valid_host_name(name: &str) -> bool` |
+//! | [`protect_remote_host_info`] | `pub(super)` | `fn protect_remote_host_info(state: &mut `[`HostInfo`]`)` |
+//! | [`local_host_info`] | `pub(in crate::http_server)` | `fn local_host_info(name: `[`Option`]`<`[`String`]`>) -> `[`HostInfo`] |
 
 use serde::Serialize;
 use std::fs;
@@ -32,43 +42,41 @@ pub(crate) fn valid_host_name(name: &str) -> bool {
         && name != ALL_HOSTS
 }
 
-impl HostInfo {
-    /// Replace identifying metadata before a remote host enters the registry.
-    /// The resulting name is also the routing key for requests and SSE events.
-    pub(super) fn protect_remote(&mut self) {
-        if crate::http_server::privacy::privacy_enabled() {
-            self.mask_identity(crate::http_server::privacy::pseudonym);
-        }
+/// Replace identifying metadata before a remote host enters the registry.
+/// The resulting name is also the routing key for requests and SSE events.
+pub(super) fn protect_remote_host_info(state: &mut HostInfo) {
+    if crate::http_server::privacy::privacy_enabled() {
+        mask_identity_host_info(state, crate::http_server::privacy::pseudonym);
     }
+}
 
-    fn mask_identity(&mut self, mask: impl Fn(&str) -> String) {
-        self.name = format!("host-{}", mask(&self.name).replace('░', ""));
-        self.machine_id = mask(&self.machine_id).replace('░', "");
-    }
+fn mask_identity_host_info(state: &mut HostInfo, mask: impl Fn(&str) -> String) {
+    state.name = format!("host-{}", mask(&state.name).replace('░', ""));
+    state.machine_id = mask(&state.machine_id).replace('░', "");
+}
 
-    /// This machine, named by `name` or the kernel host name. In privacy mode
-    /// the default name and the machine ID are pseudonyms for this run.
-    pub(in crate::http_server) fn local(name: Option<String>) -> Self {
-        let machine_id = read_identity_text("/etc/machine-id")
-            .or_else(|| read_identity_text("/proc/sys/kernel/random/boot_id"))
-            .unwrap_or_default();
-        let private = crate::http_server::privacy::privacy_enabled();
-        let pseudonym = || crate::http_server::privacy::pseudonym(&machine_id).replace('░', "");
-        Self {
-            name: name
-                .or_else(|| {
-                    if private {
-                        Some(format!("host-{}", pseudonym()))
-                    } else {
-                        read_identity_text("/proc/sys/kernel/hostname")
-                    }
-                })
-                .unwrap_or_else(|| "localhost".into()),
-            machine_id: if private { pseudonym() } else { machine_id },
-            version: env!("CARGO_PKG_VERSION").into(),
-            kernel: read_identity_text("/proc/sys/kernel/osrelease"),
-            arch: std::env::consts::ARCH.into(),
-        }
+/// This machine, named by `name` or the kernel host name. In privacy mode
+/// the default name and the machine ID are pseudonyms for this run.
+pub(in crate::http_server) fn local_host_info(name: Option<String>) -> HostInfo {
+    let machine_id = read_identity_text("/etc/machine-id")
+        .or_else(|| read_identity_text("/proc/sys/kernel/random/boot_id"))
+        .unwrap_or_default();
+    let private = crate::http_server::privacy::privacy_enabled();
+    let pseudonym = || crate::http_server::privacy::pseudonym(&machine_id).replace('░', "");
+    HostInfo {
+        name: name
+            .or_else(|| {
+                if private {
+                    Some(format!("host-{}", pseudonym()))
+                } else {
+                    read_identity_text("/proc/sys/kernel/hostname")
+                }
+            })
+            .unwrap_or_else(|| "localhost".into()),
+        machine_id: if private { pseudonym() } else { machine_id },
+        version: env!("CARGO_PKG_VERSION").into(),
+        kernel: read_identity_text("/proc/sys/kernel/osrelease"),
+        arch: std::env::consts::ARCH.into(),
     }
 }
 
@@ -84,10 +92,10 @@ mod tests {
         for name in ["", "all", "a b", "a/b", "a?b", &"x".repeat(64)] {
             assert!(!valid_host_name(name), "{name}");
         }
-        let local = HostInfo::local(Some("override".into()));
+        let local = super::local_host_info(Some("override".into()));
         assert_eq!(local.name, "override");
         assert_eq!(local.version, env!("CARGO_PKG_VERSION"));
-        assert!(!HostInfo::local(None).name.is_empty());
+        assert!(!super::local_host_info(None).name.is_empty());
     }
 }
 
@@ -97,6 +105,16 @@ mod privacy_tests {
 
     #[test]
     fn remote_identity_is_private_and_remains_routable() {
+        use crate::http_server::hosts::{
+            create_host_registry,
+            link::create_agent_link,
+            registry::{
+                admit_host_registry, disconnected_host_registry, host_registry_is_current,
+                online_host_registry, summaries_host_registry,
+            },
+            remote_host_registry,
+        };
+
         let mut info = HostInfo {
             name: "private-agent".into(),
             machine_id: "private-machine-id".into(),
@@ -104,7 +122,7 @@ mod privacy_tests {
             kernel: None,
             arch: "aarch64".into(),
         };
-        info.mask_identity(|value| match value {
+        super::mask_identity_host_info(&mut info, |value| match value {
             "private-agent" => "░12345678░".into(),
             "private-machine-id" => "░abcdef01░".into(),
             _ => panic!("unexpected identity"),
@@ -116,20 +134,22 @@ mod privacy_tests {
         let json = serde_json::to_string(&info).unwrap();
         assert!(!json.contains("private-agent"));
         assert!(!json.contains("private-machine-id"));
-        let registry =
-            super::super::registry::HostRegistry::new(HostInfo::local(Some("hub".into())));
-        let link = std::sync::Arc::new(super::super::link::AgentLink::new().0);
-        let id = registry.admit(info.clone(), link).unwrap();
+        let registry = create_host_registry(super::local_host_info(Some("hub".into())));
+        let link = std::sync::Arc::new(create_agent_link().0);
+        let id = admit_host_registry(&registry, info.clone(), link).unwrap();
         assert!(matches!(
-            registry.remote(&info.name),
+            remote_host_registry(&registry, &info.name),
             super::super::registry::RemoteHost::Online(_)
         ));
-        assert_eq!(registry.online()[0].0, info.name);
-        assert_eq!(registry.summaries()[1].machine_id, info.machine_id);
-        assert!(registry.is_current(&info.name, id));
-        registry.disconnected(&info.name, id);
+        assert_eq!(online_host_registry(&registry)[0].0, info.name);
+        assert_eq!(
+            summaries_host_registry(&registry)[1].machine_id,
+            info.machine_id
+        );
+        assert!(host_registry_is_current(&registry, &info.name, id));
+        disconnected_host_registry(&registry, &info.name, id);
         assert!(matches!(
-            registry.remote(&info.name),
+            remote_host_registry(&registry, &info.name),
             super::super::registry::RemoteHost::Offline
         ));
     }

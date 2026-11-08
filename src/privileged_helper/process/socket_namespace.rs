@@ -5,8 +5,8 @@
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
 //! | [`NetworkNamespace`] | `pub(in crate::privileged_helper)` | `struct NetworkNamespace` |
-//! | [`open_network_namespace`] | `pub(in crate::privileged_helper)` | `fn open_network_namespace(id: `[`ProcessId`]`) -> `[`Result`]`<`[`NetworkNamespace`]`>` |
-//! | [`open_namespace_diagnostic_socket`] | `pub(super)` | `fn open_namespace_diagnostic_socket(namespace: &`[`NetworkNamespace`]`, deadline: `[`Instant`]`) -> `[`Result`]`<`[`OwnedFd`]`>` |
+//! | [`open_network_namespace`] | `pub(in crate::privileged_helper)` | `fn open_network_namespace( id: `[`ProcessId`]`, ) -> `[`Result`]`<`[`NetworkNamespace`]`>` |
+//! | [`open_namespace_diagnostic_socket`] | `pub(super)` | `fn open_namespace_diagnostic_socket( namespace: &`[`NetworkNamespace`]`, deadline: `[`Instant`]`, ) -> `[`Result`]`<`[`OwnedFd`]`>` |
 
 use anyhow::{Context, Result, anyhow, ensure};
 use std::{
@@ -75,8 +75,10 @@ pub(super) fn open_namespace_diagnostic_socket(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use std::{fs, os::unix::net::UnixStream, time::Duration};
+    use {
+        super::*,
+        std::{fs, os::unix::net::UnixStream, time::Duration},
+    };
 
     fn current_namespace() -> (u64, u64) {
         let meta = fs::metadata("/proc/thread-self/ns/net").unwrap();
@@ -108,7 +110,9 @@ mod tests {
 
     #[test]
     fn netns_socket_creation_preserves_callers_namespace_and_closes_fds() {
-        let fixture = super::super::NetworkNamespaceTarget::new(true);
+        use crate::privileged_helper::process::create_network_namespace_target;
+
+        let fixture = create_network_namespace_target(true);
         let namespace = open_network_namespace(fixture.target.id).unwrap();
         let original = current_namespace();
         assert_ne!((namespace.device, namespace.inode), original);
@@ -148,7 +152,9 @@ mod tests {
 
     #[test]
     fn netns_permission_denial_keeps_partial_results_and_unknown_is_not_unconnected() {
-        let fixture = super::super::NetworkNamespaceTarget::new(true);
+        use crate::privileged_helper::process::create_network_namespace_target;
+
+        let fixture = create_network_namespace_target(true);
         let id = fixture.target.id;
         thread::spawn(move || {
             // Drop only this thread's effective CAP_SYS_ADMIN; its child worker

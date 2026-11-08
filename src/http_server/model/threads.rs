@@ -2,7 +2,9 @@
 //!
 //! # Interface
 //!
-//! No named types or functions are exported; shared values come from their definition modules.
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`observation_thread_sample`] | `pub` | `fn observation_thread_sample(sample: &`[`ThreadSample`]`) -> `[`ThreadObservation`] |
 
 use crate::ipc::model::threads::{CpuRange, SchedulerPolicy, ThreadObservation, ThreadSample};
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -109,31 +111,31 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::model::threads::ThreadSample {
     }
 }
 
-impl ThreadSample {
-    pub fn observation(&self) -> ThreadObservation {
-        ThreadObservation {
-            tid: self.tid,
-            name: self.name.clone(),
-            state: self.state.clone(),
-            cpu: self.cpu,
-            priority: self.priority,
-            nice: self.nice,
-            scheduler: self.scheduler,
-            affinity: self.affinity.clone(),
-            voluntary_context_switches: self.voluntary_context_switches,
-            nonvoluntary_context_switches: self.nonvoluntary_context_switches,
-            cpu_percent: None,
-        }
+pub fn observation_thread_sample(sample: &ThreadSample) -> ThreadObservation {
+    ThreadObservation {
+        tid: sample.tid,
+        name: sample.name.clone(),
+        state: sample.state.clone(),
+        cpu: sample.cpu,
+        priority: sample.priority,
+        nice: sample.nice,
+        scheduler: sample.scheduler,
+        affinity: sample.affinity.clone(),
+        voluntary_context_switches: sample.voluntary_context_switches,
+        nonvoluntary_context_switches: sample.nonvoluntary_context_switches,
+        cpu_percent: None,
     }
 }
 
 #[cfg(test)]
 mod tests {
 
-    use crate::ipc::model::threads::{CpuRange, SchedulerPolicy, parse_cpu_affinity};
+    use crate::ipc::model::threads::{CpuRange, parse_cpu_affinity};
 
     #[test]
     fn affinity_ranges_and_unknown_scheduler_keep_values() {
+        use crate::ipc::model::threads::scheduler_policy_from_code;
+
         assert_eq!(
             parse_cpu_affinity("0-3,8"),
             Some(vec![
@@ -152,7 +154,7 @@ mod tests {
             assert!(parse_cpu_affinity(text).is_none());
         }
         assert_eq!(
-            serde_json::to_value(SchedulerPolicy::from_code(99)).unwrap(),
+            serde_json::to_value(scheduler_policy_from_code(99)).unwrap(),
             serde_json::json!({"kind":"unknown","code":99})
         );
     }

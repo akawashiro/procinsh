@@ -1,9 +1,12 @@
 //! Launch the HTTP runtime and supervise its privileged helper.
 //!
 //! # Interface
-//! - [`launch_http_server`] (`pub(crate)`): `fn launch_http_server(config: `[`super::ServerConfig`]`) -> `[`Result`]`<()>`.
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`launch_http_server`] | `pub(crate)` | `fn launch_http_server(config: `[`super::ServerConfig`]`) -> `[`Result`]`<()>` |
 
-use super::{client::MonitorClient, privileges};
+use super::privileges;
 use crate::ipc::schema::{HelperIdentity, MAX_REQUEST};
 use crate::ipc::transport;
 use anyhow::{Context, Result, ensure};
@@ -46,37 +49,35 @@ struct HelperSupervisor {
     stop: Option<std::sync::mpsc::Sender<()>>,
     worker: Option<std::thread::JoinHandle<()>>,
 }
-impl HelperSupervisor {
-    fn new(mut guard: HelperGuard) -> Result<Self> {
-        let (stop, stopping) = std::sync::mpsc::channel();
-        let worker = std::thread::Builder::new()
-            .name("helper-supervisor".into())
-            .spawn(move || {
-                loop {
-                    match guard.child.try_wait() {
-                        Ok(Some(status)) => {
-                            log::info!("privileged helper exited: {status}");
-                            break;
-                        }
-                        Err(error) => {
-                            log::warn!("helper wait failed: {error}");
-                            break;
-                        }
-                        Ok(None) => {}
-                    }
-                    if stopping.recv_timeout(Duration::from_millis(50))
-                        != Err(std::sync::mpsc::RecvTimeoutError::Timeout)
-                    {
+fn create_helper_supervisor(mut guard: HelperGuard) -> Result<HelperSupervisor> {
+    let (stop, stopping) = std::sync::mpsc::channel();
+    let worker = std::thread::Builder::new()
+        .name("helper-supervisor".into())
+        .spawn(move || {
+            loop {
+                match guard.child.try_wait() {
+                    Ok(Some(status)) => {
+                        log::info!("privileged helper exited: {status}");
                         break;
                     }
+                    Err(error) => {
+                        log::warn!("helper wait failed: {error}");
+                        break;
+                    }
+                    Ok(None) => {}
                 }
-                // Guard closes IPC and bounds shutdown, including on worker panic.
-            })?;
-        Ok(Self {
-            stop: Some(stop),
-            worker: Some(worker),
-        })
-    }
+                if stopping.recv_timeout(Duration::from_millis(50))
+                    != Err(std::sync::mpsc::RecvTimeoutError::Timeout)
+                {
+                    break;
+                }
+            }
+            // Guard closes IPC and bounds shutdown, including on worker panic.
+        })?;
+    Ok(HelperSupervisor {
+        stop: Some(stop),
+        worker: Some(worker),
+    })
 }
 impl Drop for HelperSupervisor {
     fn drop(&mut self) {
@@ -88,6 +89,8 @@ impl Drop for HelperSupervisor {
 }
 
 pub(crate) fn launch_http_server(config: super::ServerConfig) -> Result<()> {
+    use crate::http_server::client::{create_monitor_client, create_unavailable_monitor_client};
+
     let path = std::env::current_exe()?.with_file_name("procinsh-privileged-helper");
     if let Some(level) = config.privacy_level {
         super::privacy::configure_privacy(level)?;
@@ -152,14 +155,14 @@ pub(crate) fn launch_http_server(config: super::ServerConfig) -> Result<()> {
     privileges::seal_application()?;
     let (client, _helper) = match connection {
         Ok((socket, guard)) => (
-            MonitorClient::new(socket)?,
-            Some(HelperSupervisor::new(guard)?),
+            create_monitor_client(socket)?,
+            Some(create_helper_supervisor(guard)?),
         ),
         Err(error) => {
             log::warn!(
                 "privileged helper unavailable: {error:#}; inspection requests will report unavailable"
             );
-            (MonitorClient::unavailable(), None)
+            (create_unavailable_monitor_client(), None)
         }
     };
     let runtime = tokio::runtime::Builder::new_multi_thread()

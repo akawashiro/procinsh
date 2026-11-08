@@ -1,4 +1,12 @@
 //! The hub side of agent links.
+//!
+//! # Interface
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`PING_INTERVAL`] | `pub(super)` | `const PING_INTERVAL: Duration` | //! | [`IDLE_TIMEOUT`] | `pub(super)` | `const IDLE_TIMEOUT: Duration` | //! | [`run_agent_listener`] | `pub(in crate::http_server)` | `async fn run_agent_listener( listener: `[`TcpListener`]`, registry: `[`Arc`]`<`[`HostRegistry`]`>, token: `[`Option`]`<`[`Arc`]`<str>>, mut shutdown: `[`watch::Receiver`]`<bool>, )` | use super::identity::{HostInfo, valid_host_name}` | //! | [`IDLE_TIMEOUT`] | `pub(super)` | `const IDLE_TIMEOUT: Duration` | //! | [`run_agent_listener`] | `pub(in crate::http_server)` | `async fn run_agent_listener( listener: `[`TcpListener`]`, registry: `[`Arc`]`<`[`HostRegistry`]`>, token: `[`Option`]`<`[`Arc`]`<str>>, mut shutdown: `[`watch::Receiver`]`<bool>, )` | use super::identity::{HostInfo, valid_host_name}` | //! | [`run_agent_listener`] | `pub(in crate::http_server)` | `async fn run_agent_listener( listener: `[`TcpListener`]`, registry: `[`Arc`]`<`[`HostRegistry`]`>, token: `[`Option`]`<`[`Arc`]`<str>>, mut shutdown: `[`watch::Receiver`]`<bool>, )` | use super::identity::{HostInfo, valid_host_name}` | //! | [`IDLE_TIMEOUT`] | `pub(super)` | `const IDLE_TIMEOUT: Duration` | //! | [`run_agent_listener`] | `pub(in crate::http_server)` | `async fn run_agent_listener( listener: `[`TcpListener`]`, registry: `[`Arc`]`<`[`HostRegistry`]`>, token: `[`Option`]`<`[`Arc`]`<str>>, mut shutdown: `[`watch::Receiver`]`<bool>, )` | use super::identity::{HostInfo, valid_host_name}` | //! | [`IDLE_TIMEOUT`] | `pub(super)` | `const IDLE_TIMEOUT: Duration` | //! | [`run_agent_listener`] | `pub(in crate::http_server)` | `async fn run_agent_listener( listener: `[`TcpListener`]`, registry: `[`Arc`]`<`[`HostRegistry`]`>, token: `[`Option`]`<`[`Arc`]`<str>>, mut shutdown: `[`watch::Receiver`]`<bool>, )` | use super::identity::{HostInfo, valid_host_name}` | //! | [`run_agent_listener`] | `pub(in crate::http_server)` | `async fn run_agent_listener( listener: `[`TcpListener`]`, registry: `[`Arc`]`<`[`HostRegistry`]`>, token: `[`Option`]`<`[`Arc`]`<str>>, mut shutdown: `[`watch::Receiver`]`<bool>, )` | use super::identity::{HostInfo, valid_host_name}` | //! | [`run_agent_listener`] | `pub(in crate::http_server)` | `async fn run_agent_listener( listener: `[`TcpListener`]`, registry: `[`Arc`]`<`[`HostRegistry`]`>, token: `[`Option`]`<`[`Arc`]`<str>>, mut shutdown: `[`watch::Receiver`]`<bool>, )` | use super::identity::{HostInfo, valid_host_name}` |
+//! | [`IDLE_TIMEOUT`] | `pub(super)` | `const IDLE_TIMEOUT: Duration` | //! | [`run_agent_listener`] | `pub(in crate::http_server)` | `async fn run_agent_listener( listener: `[`TcpListener`]`, registry: `[`Arc`]`<`[`HostRegistry`]`>, token: `[`Option`]`<`[`Arc`]`<str>>, mut shutdown: `[`watch::Receiver`]`<bool>, )` | use super::identity::{HostInfo, valid_host_name}` | //! | [`IDLE_TIMEOUT`] | `pub(super)` | `const IDLE_TIMEOUT: Duration` | //! | [`run_agent_listener`] | `pub(in crate::http_server)` | `async fn run_agent_listener( listener: `[`TcpListener`]`, registry: `[`Arc`]`<`[`HostRegistry`]`>, token: `[`Option`]`<`[`Arc`]`<str>>, mut shutdown: `[`watch::Receiver`]`<bool>, )` | use super::identity::{HostInfo, valid_host_name}` | //! | [`run_agent_listener`] | `pub(in crate::http_server)` | `async fn run_agent_listener( listener: `[`TcpListener`]`, registry: `[`Arc`]`<`[`HostRegistry`]`>, token: `[`Option`]`<`[`Arc`]`<str>>, mut shutdown: `[`watch::Receiver`]`<bool>, )` | use super::identity::{HostInfo, valid_host_name}` | //! | [`IDLE_TIMEOUT`] | `pub(super)` | `const IDLE_TIMEOUT: Duration` | //! | [`run_agent_listener`] | `pub(in crate::http_server)` | `async fn run_agent_listener( listener: `[`TcpListener`]`, registry: `[`Arc`]`<`[`HostRegistry`]`>, token: `[`Option`]`<`[`Arc`]`<str>>, mut shutdown: `[`watch::Receiver`]`<bool>, )` | use super::identity::{HostInfo, valid_host_name}` | //! | [`IDLE_TIMEOUT`] | `pub(super)` | `const IDLE_TIMEOUT: Duration` | //! | [`run_agent_listener`] | `pub(in crate::http_server)` | `async fn run_agent_listener( listener: `[`TcpListener`]`, registry: `[`Arc`]`<`[`HostRegistry`]`>, token: `[`Option`]`<`[`Arc`]`<str>>, mut shutdown: `[`watch::Receiver`]`<bool>, )` | use super::identity::{HostInfo, valid_host_name}` | //! | [`run_agent_listener`] | `pub(in crate::http_server)` | `async fn run_agent_listener( listener: `[`TcpListener`]`, registry: `[`Arc`]`<`[`HostRegistry`]`>, token: `[`Option`]`<`[`Arc`]`<str>>, mut shutdown: `[`watch::Receiver`]`<bool>, )` | use super::identity::{HostInfo, valid_host_name}` | //! | [`run_agent_listener`] | `pub(in crate::http_server)` | `async fn run_agent_listener( listener: `[`TcpListener`]`, registry: `[`Arc`]`<`[`HostRegistry`]`>, token: `[`Option`]`<`[`Arc`]`<str>>, mut shutdown: `[`watch::Receiver`]`<bool>, )` | use super::identity::{HostInfo, valid_host_name}` |
+//! | [`run_agent_listener`] | `pub(in crate::http_server)` | `async fn run_agent_listener( listener: `[`TcpListener`]`, registry: `[`Arc`]`<`[`HostRegistry`]`>, token: `[`Option`]`<`[`Arc`]`<str>>, mut shutdown: `[`watch::Receiver`]`<bool>, )` |
 
 use super::identity::{HostInfo, valid_host_name};
 use super::link::AgentLink;
@@ -52,6 +60,10 @@ async fn accept_agent_handshake(
     token: Option<&str>,
     link: Arc<AgentLink>,
 ) -> Result<(String, u64)> {
+    use crate::http_server::hosts::{
+        identity::protect_remote_host_info, registry::admit_host_registry,
+    };
+
     let hello = timeout(HANDSHAKE_TIMEOUT, wire::read_host_message(stream))
         .await
         .context("agent hello timed out")??;
@@ -86,8 +98,8 @@ async fn accept_agent_handshake(
     } else if !valid_host_name(&info.name) {
         Err("invalid agent host name".into())
     } else {
-        info.protect_remote();
-        registry.admit(info.clone(), link)
+        protect_remote_host_info(&mut info);
+        admit_host_registry(registry, info.clone(), link)
     };
     match admitted {
         Ok(id) => {
@@ -121,18 +133,23 @@ async fn serve_agent(
     token: Option<Arc<str>>,
     mut shutdown: watch::Receiver<bool>,
 ) -> Result<()> {
+    use crate::http_server::hosts::{
+        link::{close_agent_link, create_agent_link},
+        registry::{disconnected_host_registry, host_registry_is_current},
+    };
+
     stream.set_nodelay(true)?;
-    let (link, outgoing) = AgentLink::new();
+    let (link, outgoing) = create_agent_link();
     let link = Arc::new(link);
     let (name, id) =
         accept_agent_handshake(&mut stream, registry, token.as_deref(), link.clone()).await?;
     log::info!("agent {name} connected from {peer}");
     let result = relay_agent_messages(stream, &link, outgoing, &mut shutdown, || {
-        registry.is_current(&name, id)
+        host_registry_is_current(registry, &name, id)
     })
     .await;
-    registry.disconnected(&name, id);
-    link.close();
+    disconnected_host_registry(registry, &name, id);
+    close_agent_link(&link);
     log::info!("agent {name} disconnected");
     result
 }
@@ -146,6 +163,8 @@ async fn relay_agent_messages(
     shutdown: &mut watch::Receiver<bool>,
     current: impl Fn() -> bool,
 ) -> Result<()> {
+    use crate::http_server::hosts::link::{complete_agent_link, send_agent_link};
+
     let (mut reader, mut writer) = stream.into_split();
     // Dedicated tasks keep partially read or written frames intact across select branches.
     let (messages, mut incoming) = tokio::sync::mpsc::channel(8);
@@ -175,9 +194,9 @@ async fn relay_agent_messages(
                 let Some(message) = message else { break Ok(()) };
                 last_message = Instant::now();
                 match message {
-                    Ok(Message::Response { id, response }) => link.complete(id, response),
+                    Ok(Message::Response { id, response }) => complete_agent_link(link, id, response),
                     // A full queue is already traffic; a lost pong only delays idleness.
-                    Ok(Message::Ping) => drop(link.send(Message::Pong)),
+                    Ok(Message::Ping) => drop(send_agent_link(link, Message::Pong)),
                     Ok(Message::Pong) => {}
                     Ok(_) => break Err(anyhow::anyhow!("unexpected message from agent")),
                     Err(error) => break Err(error),
@@ -193,7 +212,7 @@ async fn relay_agent_messages(
                 if last_message.elapsed() > IDLE_TIMEOUT {
                     break Err(anyhow::anyhow!("agent link idle for {IDLE_TIMEOUT:?}"));
                 }
-                drop(link.send(Message::Ping));
+                drop(send_agent_link(link, Message::Ping));
             }
             _ = shutdown.changed() => break Ok(()),
         }

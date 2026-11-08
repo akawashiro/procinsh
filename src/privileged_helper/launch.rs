@@ -1,8 +1,12 @@
 //! Validates the inherited private endpoint and owns helper lifetime.
 //!
 //! # Interface
-//! [`launch_privileged_helper`] (`pub(crate)`): `fn launch_privileged_helper() -> anyhow::Result<()>`.
-use super::helper_service::{CollectorManager, HelperIpcService};
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`launch_privileged_helper`] | `pub(crate)` | `fn launch_privileged_helper() -> `[`Result`]`<()>` |
+//!
+
 use crate::ipc::{schema::*, transport};
 use anyhow::{Result, ensure};
 use clap::Parser;
@@ -40,6 +44,11 @@ extern "C" fn request_shutdown(_: i32) {
 }
 
 pub(crate) fn launch_privileged_helper() -> Result<()> {
+    use crate::privileged_helper::helper_service::{
+        create_collector_manager, create_helper_ipc_service, join_collection_workers,
+        serve_helper_ipc_service, stop_collector_manager,
+    };
+
     let cli = Cli::parse();
     let parent = cli.parent_pid;
     if cli.privacy {
@@ -92,14 +101,14 @@ pub(crate) fn launch_privileged_helper() -> Result<()> {
         },
         MAX_REQUEST,
     )?;
-    let collectors = Arc::new(CollectorManager::new(Duration::from_secs(1)));
-    let ipc_service = HelperIpcService::new(collectors.clone());
+    let collectors = Arc::new(create_collector_manager(Duration::from_secs(1)));
+    let ipc_service = create_helper_ipc_service(collectors.clone());
     let shutdown = ipc_socket.try_clone()?;
     let (finished, completion) = mpsc::channel();
     std::thread::Builder::new()
         .name("privileged-ipc".into())
         .spawn(move || {
-            let _ = finished.send(ipc_service.serve(ipc_socket));
+            let _ = finished.send(serve_helper_ipc_service(ipc_service, ipc_socket));
         })?;
     loop {
         match completion.try_recv() {
@@ -126,11 +135,11 @@ pub(crate) fn launch_privileged_helper() -> Result<()> {
             break;
         }
     }
-    collectors.stop();
+    stop_collector_manager(&collectors);
     let _ = shutdown.shutdown(Shutdown::Both);
     let (done, joined) = mpsc::channel();
     std::thread::spawn(move || {
-        let _ = done.send(collectors.join_collectors());
+        let _ = done.send(join_collection_workers(&collectors));
     });
     let deadline = Instant::now() + Duration::from_secs(5);
     joined.recv_timeout(deadline.saturating_duration_since(Instant::now()))??;

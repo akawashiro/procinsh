@@ -4,24 +4,22 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`process_from_summary`] | `pub(super)` | `fn process_from_summary(summary: `[`ProcessSummary`]`, parent_id: `[`Option`]`<`[`ProcessId`]`>) -> `[`crate::ipc::model::system::ProcessSnapshot`] |
-//! | [`collect_system_snapshot`] | `pub(super)` | `fn collect_system_snapshot() -> `[`crate::ipc::model::system::SystemSnapshot`] |
-//! | [`collect_system_snapshot_from_sources`] | `pub(super)` | `fn collect_system_snapshot_from_sources(sources: &`[`HardwareSources`]`) -> `[`crate::ipc::model::system::SystemSnapshot`] |
+//! | [`process_from_summary`] | `pub(super)` | `fn process_from_summary( summary: `[`ProcessSummary`]`, parent_id: `[`Option`]`<`[`ProcessId`]`>, ) -> `[`ProcessSnapshot`] |
+//! | [`collect_system_snapshot`] | `pub(super)` | `fn collect_system_snapshot() -> `[`SystemSnapshot`] |
+//! | [`collect_system_snapshot_from_sources`] | `pub(super)` | `fn collect_system_snapshot_from_sources(sources: &`[`HardwareSources`]`) -> `[`SystemSnapshot`] |
 
 #[cfg(not(test))]
 use super::hardware::HardwareSources;
 use super::rdma;
 #[cfg(test)]
-use crate::http_server::analysis::hardware::HardwareSources;
-#[cfg(test)]
-use crate::http_server::analysis::hardware::observation::HardwareObservation;
-use crate::ipc::model::resource::{DeviceId, IpcIdentity, IpcKind};
+use crate::http_server::analysis::hardware::observation::HardwareSources;
+use crate::ipc::model::resource::{IpcIdentity, IpcKind};
+use crate::ipc::model::socket_types::FdKind;
 #[cfg(test)]
 use crate::ipc::model::socket_types::SocketState;
 use crate::ipc::model::socket_types::{
     AddressFamily, SocketConnectionStatus, SocketProtocol, SocketType,
 };
-use crate::ipc::model::socket_types::{FdAccess, FdKind};
 #[cfg(test)]
 use crate::ipc::model::system::FdRelation;
 use crate::ipc::model::system::{FdEndpoint, NeighborSnapshot, ProcessSnapshot, SystemSnapshot};
@@ -118,6 +116,26 @@ pub(super) fn collect_system_snapshot() -> SystemSnapshot {
 
 /// Collects with hardware read from `sources`, which tests point at fixtures.
 pub(super) fn collect_system_snapshot_from_sources(sources: &HardwareSources) -> SystemSnapshot {
+    #[cfg(test)]
+    use crate::http_server::analysis::hardware::finish_device_handle_collector;
+    #[cfg(test)]
+    use crate::http_server::analysis::hardware::observation::acquired_hardware_sources;
+    #[cfg(test)]
+    use crate::http_server::analysis::hardware::observation::handles_hardware_observation;
+    #[cfg(test)]
+    use crate::http_server::analysis::hardware::observation::observe_hardware_observation;
+    #[cfg(test)]
+    use crate::http_server::analysis::hardware::observe_device_handle_collector;
+    use {
+        crate::ipc::model::resource::device_id_from_stat,
+        crate::ipc::model::socket_types::fd_access_from_flags, crate::ipc::rdma::ip_rdma_address,
+        crate::privileged_helper::process::create_socket_metadata_reader,
+        crate::privileged_helper::process::read_socket_metadata,
+        crate::privileged_helper::process::socket_metadata_has_observation,
+        crate::privileged_helper::system::resolver::create_reverse_dns_resolver,
+        crate::privileged_helper::system::resolver::lookup_reverse_dns_resolver,
+    };
+
     let mut result = SystemSnapshot {
         captured_at: process::timestamp_ms(),
         ..Default::default()
@@ -138,11 +156,11 @@ pub(super) fn collect_system_snapshot_from_sources(sources: &HardwareSources) ->
             .push("Hardware acquisition size limit reached".into());
     }
     #[cfg(test)]
-    let acquired = HardwareSources::acquired(result.raw_hardware.clone());
+    let acquired = acquired_hardware_sources(result.raw_hardware.clone());
     #[cfg(test)]
-    let hardware = HardwareObservation::observe(&acquired);
+    let hardware = observe_hardware_observation(&acquired);
     #[cfg(test)]
-    let mut handles = hardware.handles(&acquired);
+    let mut handles = handles_hardware_observation(&hardware, &acquired);
     let summaries = match process::collect_processes() {
         Ok(v) => v,
         Err(e) => {
@@ -170,7 +188,7 @@ pub(super) fn collect_system_snapshot_from_sources(sources: &HardwareSources) ->
             .filter(|parent| *parent != summary.identity);
         let mut n = process_from_summary(summary, parent_id);
         let pid = n.identity.pid;
-        let mut metadata_reader = process::SocketMetadataReader::new(n.identity);
+        let mut metadata_reader = create_socket_metadata_reader(n.identity);
         if Instant::now() >= deadline {
             n.maps_error = Some("Scan time limit reached. Retrying on the next update.".into());
             truncated = true;
@@ -275,7 +293,12 @@ pub(super) fn collect_system_snapshot_from_sources(sources: &HardwareSources) ->
                                 .raw_device_handles
                                 .push((n.identity, number, meta.rdev()));
                             #[cfg(test)]
-                            handles.observe(n.identity, number, meta.rdev());
+                            observe_device_handle_collector(
+                                &mut handles,
+                                n.identity,
+                                number,
+                                meta.rdev(),
+                            );
                         }
                         continue;
                     };
@@ -285,13 +308,18 @@ pub(super) fn collect_system_snapshot_from_sources(sources: &HardwareSources) ->
                         } else {
                             IpcKind::Socket
                         },
-                        device: DeviceId::from_stat(meta.dev()),
+                        device: device_id_from_stat(meta.dev()),
                         inode: meta.ino(),
                     };
                     if kind == FdKind::Socket
                         && !metadata.contains_key(&resource)
-                        && let Ok(observed) = metadata_reader.read(number, meta.dev(), meta.ino())
-                        && observed.has_observation()
+                        && let Ok(observed) = read_socket_metadata(
+                            &mut metadata_reader,
+                            number,
+                            meta.dev(),
+                            meta.ino(),
+                        )
+                        && socket_metadata_has_observation(&observed)
                     {
                         metadata.insert(resource, observed);
                     }
@@ -310,7 +338,7 @@ pub(super) fn collect_system_snapshot_from_sources(sources: &HardwareSources) ->
                         connection_status: (kind == FdKind::Socket)
                             .then_some(SocketConnectionStatus::Unknown),
                         kind,
-                        access: FdAccess::from_flags(flags),
+                        access: fd_access_from_flags(flags),
                     });
                 }
             }
@@ -384,7 +412,7 @@ pub(super) fn collect_system_snapshot_from_sources(sources: &HardwareSources) ->
     let resolver = {
         static RESOLVER: std::sync::OnceLock<super::resolver::ReverseDnsResolver> =
             std::sync::OnceLock::new();
-        RESOLVER.get_or_init(super::resolver::ReverseDnsResolver::new)
+        RESOLVER.get_or_init(create_reverse_dns_resolver)
     };
     let ips: HashSet<_> = infos
         .values()
@@ -392,7 +420,7 @@ pub(super) fn collect_system_snapshot_from_sources(sources: &HardwareSources) ->
         .collect();
     result.raw_hostnames = ips
         .into_iter()
-        .filter_map(|ip| resolver.lookup(ip).map(|name| (ip, name)))
+        .filter_map(|ip| lookup_reverse_dns_resolver(resolver, ip).map(|name| (ip, name)))
         .collect();
     result.raw_sockets = infos.into_iter().collect();
     result.raw_namespaces = inode_ns.iter().map(|(inode, ns)| (*inode, *ns)).collect();
@@ -422,15 +450,15 @@ pub(super) fn collect_system_snapshot_from_sources(sources: &HardwareSources) ->
             relation.remote_hostname = relation
                 .cm
                 .as_ref()
-                .and_then(|cm| cm.destination?.ip())
-                .and_then(|ip| resolver.lookup(ip));
+                .and_then(|cm| ip_rdma_address(&(cm.destination?)))
+                .and_then(|ip| lookup_reverse_dns_resolver(resolver, ip));
         }
     }
     result.warnings.extend(observed.warnings);
     #[cfg(test)]
     {
         let live = result.processes.iter().map(|p| p.identity).collect();
-        result.device_handles = handles.finish(&live);
+        result.device_handles = finish_device_handle_collector(handles, &live);
         result.hardware_devices = hardware.devices;
         result.hardware_paths = hardware.paths;
     }
@@ -451,11 +479,16 @@ pub(super) fn collect_system_snapshot_from_sources(sources: &HardwareSources) ->
 mod tests {
     use {
         super::*,
-        crate::ipc::model::system::{FdEndpoint, FdRelation, SocketEndpoint},
+        crate::ipc::model::{
+            socket_types::FdAccess,
+            system::{FdEndpoint, FdRelation, SocketEndpoint},
+        },
     };
 
     #[test]
     fn remote_gids_apply_only_to_destinations_of_the_collector_namespace() {
+        use crate::ipc::model::resource::device_id_from_stat;
+
         use crate::ipc::model::sockets::SocketInfo;
         let info = SocketInfo {
             protocol: SocketProtocol::Tcp {
@@ -478,7 +511,7 @@ mod tests {
                 fd_count: 1,
                 resource: IpcIdentity {
                     kind: IpcKind::Socket,
-                    device: DeviceId::from_stat(0),
+                    device: device_id_from_stat(0),
                     inode,
                 },
                 kind: FdKind::Socket,
@@ -516,6 +549,8 @@ mod tests {
 
     #[test]
     fn socket_destination_classification() {
+        use crate::ipc::model::socket_types::socket_protocol_from_codes;
+
         use crate::ipc::model::sockets::SocketInfo;
         let mut info = SocketInfo {
             protocol: SocketProtocol::Tcp {
@@ -549,7 +584,7 @@ mod tests {
             socket_type: SocketType::Unknown(0),
         };
         assert!(!SocketEndpoint::from(&info).network_peer);
-        info.protocol = SocketProtocol::from_codes(
+        info.protocol = socket_protocol_from_codes(
             libc::AF_INET as u32,
             libc::SOCK_RAW as u32,
             libc::IPPROTO_TCP as u32,

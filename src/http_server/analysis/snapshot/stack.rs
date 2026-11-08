@@ -2,7 +2,9 @@
 //!
 //! # Interface
 //!
-//! No named types or functions are exported; shared values come from their definition modules.
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`create_raw_stack_frame`] | `pub` | `fn create_raw_stack_frame(address: u64) -> `[`StackFrame`] |
 
 use crate::ipc::stack::{SourceFrame, StackFrame};
 
@@ -38,15 +40,13 @@ impl serde::Serialize for crate::ipc::stack::SourceFrame {
     }
 }
 
-impl StackFrame {
-    pub fn raw(address: u64) -> Self {
-        Self {
-            address,
-            symbol: None,
-            symbol_offset: None,
-            source_file: None,
-            line: None,
-            inline_frames: Vec::new(),
-        }
+pub fn create_raw_stack_frame(address: u64) -> StackFrame {
+    StackFrame {
+        address,
+        symbol: None,
+        symbol_offset: None,
+        source_file: None,
+        line: None,
+        inline_frames: Vec::new(),
     }
 }

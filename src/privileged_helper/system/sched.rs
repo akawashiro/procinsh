@@ -1,3 +1,13 @@
+//! Collect CPU scheduling activity and retain bounded per-process counters.
+//!
+//! # Interface
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`CpuActivityCollector`] | `pub(super)` | `struct CpuActivityCollector` |
+//! | [`create_cpu_activity_collector`] | `pub(super)` | `fn create_cpu_activity_collector() -> `[`Result`]`<`[`CpuActivityCollector`]`>` |
+//! | [`collect_cpu_activity_collector`] | `pub(super)` | `fn collect_cpu_activity_collector( state: &mut `[`CpuActivityCollector`]`, now: u64, _snapshot: &`[`crate::ipc::model::system::SystemSnapshot`]`, ) -> `[`Result`]`<`[`crate::ipc::activity::CpuCounters`]`>` |
+
 use anyhow::{Context, Result};
 use libbpf_rs::{MapCore, MapFlags, ObjectBuilder};
 /// Owns BPF resources and captures scheduler counters.
@@ -7,61 +17,59 @@ pub(super) struct CpuActivityCollector {
 }
 #[cfg(test)]
 use crate::ipc::activity::{ProcessKey, process_key};
-impl CpuActivityCollector {
-    pub(super) fn new() -> Result<Self> {
-        let open = ObjectBuilder::default()
-            .open_memory(include_bytes!(concat!(env!("OUT_DIR"), "/sched.bpf.o")))?;
-        let obj = open
-            .load()
-            .context("CAP_BPF / CAP_PERFMON and compatible BTF required")?;
-        let mut links = Vec::new();
-        for prog in obj.progs_mut() {
-            links.push(
-                prog.attach()
-                    .with_context(|| format!("attach {:?}", prog.name()))?,
-            );
-        }
-        Ok(Self { _links: links, obj })
+pub(super) fn create_cpu_activity_collector() -> Result<CpuActivityCollector> {
+    let open = ObjectBuilder::default()
+        .open_memory(include_bytes!(concat!(env!("OUT_DIR"), "/sched.bpf.o")))?;
+    let obj = open
+        .load()
+        .context("CAP_BPF / CAP_PERFMON and compatible BTF required")?;
+    let mut links = Vec::new();
+    for prog in obj.progs_mut() {
+        links.push(
+            prog.attach()
+                .with_context(|| format!("attach {:?}", prog.name()))?,
+        );
     }
+    Ok(CpuActivityCollector { _links: links, obj })
+}
 
-    pub(super) fn collect(
-        &mut self,
-        now: u64,
-        _snapshot: &crate::ipc::model::system::SystemSnapshot,
-    ) -> Result<crate::ipc::activity::CpuCounters> {
-        let current = self
-            .obj
-            .maps()
-            .find(|map| map.name() == "cpu_current")
-            .context("cpu_current map")?
-            .lookup_percpu(&0u32.to_ne_bytes(), MapFlags::ANY)?
-            .unwrap_or_default();
-        let totals = self
-            .obj
-            .maps()
-            .find(|map| map.name() == "cpu_totals")
-            .context("cpu_totals map")?;
+pub(super) fn collect_cpu_activity_collector(
+    state: &mut CpuActivityCollector,
+    now: u64,
+    _snapshot: &crate::ipc::model::system::SystemSnapshot,
+) -> Result<crate::ipc::activity::CpuCounters> {
+    let current = state
+        .obj
+        .maps()
+        .find(|map| map.name() == "cpu_current")
+        .context("cpu_current map")?
+        .lookup_percpu(&0u32.to_ne_bytes(), MapFlags::ANY)?
+        .unwrap_or_default();
+    let totals = state
+        .obj
+        .maps()
+        .find(|map| map.name() == "cpu_totals")
+        .context("cpu_totals map")?;
 
-        let mut captured = Vec::new();
-        for key in totals.keys().take(65_536) {
-            if let Some(values) = totals.lookup_percpu(&key, MapFlags::ANY)? {
-                let values = values
-                    .into_iter()
-                    .filter_map(|bytes| {
-                        let runtime = u64::from_ne_bytes(bytes.get(..8)?.try_into().ok()?);
-                        let switches = u64::from_ne_bytes(bytes.get(8..16)?.try_into().ok()?);
-                        (runtime != 0 || switches != 0).then_some([runtime, switches])
-                    })
-                    .collect();
-                captured.push((key, values));
-            }
+    let mut captured = Vec::new();
+    for key in totals.keys().take(65_536) {
+        if let Some(values) = totals.lookup_percpu(&key, MapFlags::ANY)? {
+            let values = values
+                .into_iter()
+                .filter_map(|bytes| {
+                    let runtime = u64::from_ne_bytes(bytes.get(..8)?.try_into().ok()?);
+                    let switches = u64::from_ne_bytes(bytes.get(8..16)?.try_into().ok()?);
+                    (runtime != 0 || switches != 0).then_some([runtime, switches])
+                })
+                .collect();
+            captured.push((key, values));
         }
-        Ok(crate::ipc::activity::CpuCounters {
-            now,
-            current,
-            totals: captured,
-        })
     }
+    Ok(crate::ipc::activity::CpuCounters {
+        now,
+        current,
+        totals: captured,
+    })
 }
 #[cfg(test)]
 mod tests {

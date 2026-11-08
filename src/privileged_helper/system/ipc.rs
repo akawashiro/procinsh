@@ -1,3 +1,16 @@
+//! Collect IPC activity records and track loss and unresolved resource identities.
+//!
+//! # Interface
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`IpcActivityCollector`] | `pub(super)` | `struct IpcActivityCollector` |
+//! | [`create_ipc_activity_collector`] | `pub(super)` | `fn create_ipc_activity_collector() -> `[`Result`]`<`[`IpcActivityCollector`]`>` |
+//! | [`lost_ipc_activity_collector`] | `pub(super)` | `fn lost_ipc_activity_collector(state: &`[`IpcActivityCollector`]`) -> u64` |
+//! | [`poll_ipc_activity_collector`] | `pub(super)` | `fn poll_ipc_activity_collector( state: &mut `[`IpcActivityCollector`]`, _snapshot: &`[`crate::ipc::model::system::SystemSnapshot`]`, ) -> `[`Result`]`<()>` |
+//! | [`drain_ipc_activity_collector`] | `pub(super)` | `fn drain_ipc_activity_collector(state: &mut `[`IpcActivityCollector`]`) -> `[`Vec`]`<`[`IpcEvent`]`>` |
+//! | [`unresolved_ipc_activity_collector`] | `pub(super)` | `fn unresolved_ipc_activity_collector(_state: &`[`IpcActivityCollector`]`) -> u64` |
+
 use crate::ipc::activity::IpcEvent;
 use crate::privileged_helper::bpf_records::decode_ipc;
 use anyhow::{Context, Result};
@@ -27,84 +40,85 @@ fn pipe_attach_target(program: &str) -> Option<&'static str> {
         .then_some(fallback)
 }
 
-impl IpcActivityCollector {
-    pub(super) fn new() -> Result<Self> {
-        let mut open = ObjectBuilder::default()
-            .open_memory(include_bytes!(concat!(env!("OUT_DIR"), "/ipc.bpf.o")))?;
-        for mut prog in open.progs_mut() {
-            let Some(target) = prog.name().to_str().and_then(pipe_attach_target) else {
-                continue;
-            };
-            prog.set_attach_target(0, Some(target.into()))
-                .with_context(|| format!("retarget pipe tracing to {target}"))?;
-        }
-        let obj = open
-            .load()
-            .context("CAP_BPF / CAP_PERFMON and compatible BTF required")?;
-        let mut links = Vec::new();
-        for prog in obj.progs_mut() {
-            links.push(
-                prog.attach()
-                    .with_context(|| format!("attach {:?}", prog.name()))?,
-            );
-        }
-        let queue = Arc::new(Mutex::new(Vec::new()));
-        let q = queue.clone();
-        let drops = Arc::new(std::sync::atomic::AtomicU64::new(0));
-        let d = drops.clone();
-        let map = obj
-            .maps()
-            .find(|m| m.name() == "events")
-            .context("events map")?;
-        let mut builder = RingBufferBuilder::new();
-        builder.add(&map, move |bytes| {
-            if let Some(e) = decode_ipc(bytes) {
-                let mut q = q.lock().unwrap();
-                if q.len() < 65536 {
-                    q.push(e);
-                } else {
-                    d.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                }
+pub(super) fn create_ipc_activity_collector() -> Result<IpcActivityCollector> {
+    let mut open = ObjectBuilder::default()
+        .open_memory(include_bytes!(concat!(env!("OUT_DIR"), "/ipc.bpf.o")))?;
+    for mut prog in open.progs_mut() {
+        let Some(target) = prog.name().to_str().and_then(pipe_attach_target) else {
+            continue;
+        };
+        prog.set_attach_target(0, Some(target.into()))
+            .with_context(|| format!("retarget pipe tracing to {target}"))?;
+    }
+    let obj = open
+        .load()
+        .context("CAP_BPF / CAP_PERFMON and compatible BTF required")?;
+    let mut links = Vec::new();
+    for prog in obj.progs_mut() {
+        links.push(
+            prog.attach()
+                .with_context(|| format!("attach {:?}", prog.name()))?,
+        );
+    }
+    let queue = Arc::new(Mutex::new(Vec::new()));
+    let q = queue.clone();
+    let drops = Arc::new(std::sync::atomic::AtomicU64::new(0));
+    let d = drops.clone();
+    let map = obj
+        .maps()
+        .find(|m| m.name() == "events")
+        .context("events map")?;
+    let mut builder = RingBufferBuilder::new();
+    builder.add(&map, move |bytes| {
+        if let Some(e) = decode_ipc(bytes) {
+            let mut q = q.lock().unwrap();
+            if q.len() < 65536 {
+                q.push(e);
+            } else {
+                d.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             }
-            0
-        })?;
-        let ring = builder.build()?;
-        Ok(Self {
-            ring,
-            _links: links,
-            obj,
-            queue,
-            drops,
-        })
-    }
-
-    pub(super) fn lost(&self) -> u64 {
-        self.obj
-            .maps()
-            .find(|m| m.name() == "lost")
-            .and_then(|m| m.lookup(&0u32.to_ne_bytes(), MapFlags::ANY).ok().flatten())
-            .and_then(|v| v.try_into().ok())
-            .map(u64::from_ne_bytes)
-            .unwrap_or(0)
-            + self.drops.load(std::sync::atomic::Ordering::Relaxed)
-    }
-
-    pub(super) fn poll(
-        &mut self,
-        _snapshot: &crate::ipc::model::system::SystemSnapshot,
-    ) -> Result<()> {
-        let consumed = self.ring.consume_raw_n(8192);
-        if consumed < 0 {
-            return Err(std::io::Error::from_raw_os_error(-consumed).into());
         }
-        Ok(())
-    }
-    pub(super) fn drain(&mut self) -> Vec<IpcEvent> {
-        self.queue.lock().unwrap().drain(..).collect()
-    }
-    pub(super) fn unresolved(&self) -> u64 {
         0
+    })?;
+    let ring = builder.build()?;
+    Ok(IpcActivityCollector {
+        ring,
+        _links: links,
+        obj,
+        queue,
+        drops,
+    })
+}
+
+pub(super) fn lost_ipc_activity_collector(state: &IpcActivityCollector) -> u64 {
+    state
+        .obj
+        .maps()
+        .find(|m| m.name() == "lost")
+        .and_then(|m| m.lookup(&0u32.to_ne_bytes(), MapFlags::ANY).ok().flatten())
+        .and_then(|v| v.try_into().ok())
+        .map(u64::from_ne_bytes)
+        .unwrap_or(0)
+        + state.drops.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+pub(super) fn poll_ipc_activity_collector(
+    state: &mut IpcActivityCollector,
+    _snapshot: &crate::ipc::model::system::SystemSnapshot,
+) -> Result<()> {
+    let consumed = state.ring.consume_raw_n(8192);
+    if consumed < 0 {
+        return Err(std::io::Error::from_raw_os_error(-consumed).into());
     }
+    Ok(())
+}
+
+pub(super) fn drain_ipc_activity_collector(state: &mut IpcActivityCollector) -> Vec<IpcEvent> {
+    state.queue.lock().unwrap().drain(..).collect()
+}
+
+pub(super) fn unresolved_ipc_activity_collector(_state: &IpcActivityCollector) -> u64 {
+    0
 }
 #[cfg(test)]
 mod tests {

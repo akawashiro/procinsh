@@ -1,7 +1,11 @@
 //! Acquire only ELF ranges selected by main, preserving one verified file identity.
 //!
 //! # Interface
-//! [`acquire_mapped_elf_image`] (`pub(super)`): `async fn acquire_mapped_elf_image(client: &`[`MonitorClient`]`, id: `[`ProcessId`]`, mapping_start: u64, known: `[`Option`]`<`[`ElfFileId`]`>) -> `[`anyhow::Result`]`<`[`Option`]`<`[`ElfImage`]`>>`.
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`acquire_mapped_elf_image`] | `pub(super)` | `async fn acquire_mapped_elf_image( client: &`[`MonitorClient`]`, id: `[`ProcessId`]`, mapping_start: u64, known: `[`Option`]`<`[`ElfFileId`]`>, ) -> `[`Result`]`<`[`Option`]`<`[`ElfImage`]`>>` |
+//!
 
 use super::client::MonitorClient;
 use crate::{
@@ -19,13 +23,17 @@ async fn request_mapped_file_ranges(
     mapping_start: u64,
     ranges: Vec<FileRange>,
 ) -> Result<Option<MappedFileData>> {
-    match client
-        .exchange(MonitorRequest::MappedElf {
+    use crate::http_server::client::exchange_monitor_client;
+
+    match exchange_monitor_client(
+        client,
+        MonitorRequest::MappedElf {
             id,
             mapping_start,
             ranges,
-        })
-        .await?
+        },
+    )
+    .await?
     {
         MonitorResponse::Elf(data) => Ok(data),
         _ => bail!("unexpected mapped file response"),
@@ -38,6 +46,10 @@ pub(super) async fn acquire_mapped_elf_image(
     mapping_start: u64,
     known: Option<ElfFileId>,
 ) -> Result<Option<ElfImage>> {
+    use crate::http_server::analysis::snapshot::symbol::{
+        create_elf_image, extend_elf_image, names_elf_image, sections_elf_image, tables_elf_image,
+    };
+
     let Some(header) = request_mapped_file_ranges(
         client,
         id,
@@ -54,12 +66,12 @@ pub(super) async fn acquire_mapped_elf_image(
     if Some(header.identity) == known {
         return Ok(None);
     }
-    let mut image = ElfImage::new(header)?;
+    let mut image = create_elf_image(header)?;
     for stage in 0..3 {
         let ranges = match stage {
-            0 => image.tables()?,
-            1 => image.names()?,
-            _ => image.sections()?,
+            0 => tables_elf_image(&image)?,
+            1 => names_elf_image(&image)?,
+            _ => sections_elf_image(&image)?,
         };
         for ranges in ranges.chunks(MAX_RANGES) {
             let Some(data) =
@@ -67,7 +79,7 @@ pub(super) async fn acquire_mapped_elf_image(
             else {
                 return Ok(None);
             };
-            image.extend(data)?;
+            extend_elf_image(&mut image, data)?;
         }
     }
     Ok(Some(image))

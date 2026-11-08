@@ -93,7 +93,11 @@ pub(super) async fn stream_process_events(
     State(s): State<Arc<AppState>>,
     Query(id): Query<ProcessId>,
 ) -> Result<Response, ApiError> {
-    let permit = s.monitoring.reserve().map_err(|error| {
+    use crate::privileged_helper::process::{
+        observe_process_monitor, process_monitor_is_stopped, reserve_process_monitor,
+    };
+
+    let permit = reserve_process_monitor(&s.monitoring).map_err(|error| {
         ApiError(
             match error {
                 process::SubscribeError::Stopped => StatusCode::SERVICE_UNAVAILABLE,
@@ -108,13 +112,14 @@ pub(super) async fn stream_process_events(
         )
     })?;
     let state = s.monitoring.clone();
-    let mut session = run_blocking_request(move || Ok(state.observe(id, permit)?)).await?;
+    let mut session =
+        run_blocking_request(move || Ok(observe_process_monitor(&state, id, permit)?)).await?;
     let initial = session.receiver.borrow_and_update().clone();
     let stream = async_stream::stream! {
         log::debug!("SSE /api/processes/events event=observation pid={} start_time_ticks={}", id.pid, id.start_time_ticks);
         yield Ok::<_, Infallible>(Event::default().event("observation").json_data(initial).unwrap());
         loop {
-            if s.monitoring.is_stopped() { break; }
+            if process_monitor_is_stopped(&s.monitoring) { break; }
             let received = tokio::select! {
                 received = session.receiver.changed() => received,
                 _ = tokio::time::sleep(Duration::from_millis(100)) => { continue; }

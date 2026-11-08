@@ -3,9 +3,13 @@
 //!
 //! # Interface
 //!
-//! | Definition | Visibility | Kind |
+//! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`Sampler`] | `pub(super)` | `struct `[`Sampler`] |
+//! | [`bootstrap_sampler`] | `pub(in crate::privileged_helper::process)` | `fn bootstrap_sampler( state: &mut `[`Sampler`](capture::Sampler)`, maps: &[`[`MemoryMap`](crate::ipc::model::memory::MemoryMap)`], ) -> `[`Result`](anyhow::Result)`<()>` |
+//! | [`create_sampler`] | `pub(in crate::privileged_helper::process)` | `fn create_sampler(id: `[`ProcessId`](crate::ipc::schema::ProcessId)`) -> `[`Sampler`](capture::Sampler) |
+//! | [`latest_sampler`] | `pub(in crate::privileged_helper::process)` | `fn latest_sampler(state: &`[`Sampler`](capture::Sampler)`) -> `[`Vec`]`<`[`LiveSample`](crate::ipc::acquisition::LiveSample)`>` |
+//! | [`mapping_snapshots_sampler`] | `pub(in crate::privileged_helper::process)` | `fn mapping_snapshots_sampler( state: &`[`Sampler`](capture::Sampler)`, ) -> `[`Vec`]`<`[`MappingSnapshot`](crate::ipc::model::memory::MappingSnapshot)`>` |
+//! | [`poll_sampler`] | `pub(in crate::privileged_helper::process)` | `fn poll_sampler( state: &mut `[`Sampler`](capture::Sampler)`, maps: &[`[`MemoryMap`](crate::ipc::model::memory::MemoryMap)`], ) -> `[`Result`](anyhow::Result)`<()>` |
 
 mod arch;
 mod capture;
@@ -15,4 +19,7 @@ mod ptrace;
 mod sample;
 #[cfg(test)]
 mod unwind_fp;
-pub(super) use capture::Sampler;
+
+pub(in crate::privileged_helper::process) use capture::{
+    bootstrap_sampler, create_sampler, latest_sampler, mapping_snapshots_sampler, poll_sampler,
+};

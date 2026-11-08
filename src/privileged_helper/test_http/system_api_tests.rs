@@ -2,13 +2,19 @@ use std::{sync::Arc, time::Duration};
 
 #[tokio::test]
 async fn sse_connections_own_viewer_lifetimes() {
-    use super::AppState;
-    use axum::{
-        body::{Body, HttpBody},
-        http::{Request, StatusCode},
+    use crate::privileged_helper::{
+        state::{create_app_state, join_collectors_app_state, stop_app_state},
+        system::active_system_monitor,
     };
-    use tower::ServiceExt;
-    let state = Arc::new(AppState::new(Duration::from_secs(1)));
+
+    use {
+        axum::{
+            body::{Body, HttpBody},
+            http::{Request, StatusCode},
+        },
+        tower::ServiceExt,
+    };
+    let state = Arc::new(create_app_state(Duration::from_secs(1)));
     let app = super::router::router(state.clone(), "127.0.0.1:8080".parse().unwrap());
     let request = |path: &str| {
         Request::builder()
@@ -22,7 +28,7 @@ async fn sse_connections_own_viewer_lifetimes() {
             app.clone().oneshot(request(path)).await.unwrap().status(),
             StatusCode::NOT_FOUND
         );
-        assert!(!state.system_monitor.active());
+        assert!(!active_system_monitor(&state.system_monitor));
     }
     for method in ["POST", "DELETE"] {
         let mut req = request("/api/system/leases");
@@ -42,7 +48,7 @@ async fn sse_connections_own_viewer_lifetimes() {
         assert_eq!(response.status(), StatusCode::OK);
         responses.push(response);
     }
-    assert!(state.system_monitor.active());
+    assert!(active_system_monitor(&state.system_monitor));
     assert_eq!(
         app.clone()
             .oneshot(request("/api/system/events"))
@@ -162,16 +168,16 @@ async fn sse_connections_own_viewer_lifetimes() {
     .await
     .unwrap();
     responses.clear();
-    assert!(state.system_monitor.active());
+    assert!(active_system_monitor(&state.system_monitor));
     drop(body);
-    assert!(!state.system_monitor.active());
+    assert!(!active_system_monitor(&state.system_monitor));
     let response = app
         .clone()
         .oneshot(request("/api/system/events"))
         .await
         .unwrap();
-    assert!(state.system_monitor.active());
-    state.stop();
+    assert!(active_system_monitor(&state.system_monitor));
+    stop_app_state(&state);
     assert_eq!(
         app.clone()
             .oneshot(request("/api/system/events"))
@@ -187,6 +193,6 @@ async fn sse_connections_own_viewer_lifetimes() {
     .await
     .unwrap()
     .unwrap();
-    assert!(!state.system_monitor.active());
-    state.join_collectors().unwrap();
+    assert!(!active_system_monitor(&state.system_monitor));
+    join_collectors_app_state(&state).unwrap();
 }

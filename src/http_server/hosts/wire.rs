@@ -143,9 +143,7 @@ pub(super) fn same_secret(expected: &str, actual: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::http_server::protocol::MonitorResponse;
-    use serde_json::json;
+    use {super::*, crate::http_server::protocol::MonitorResponse, serde_json::json};
 
     #[tokio::test]
     async fn messages_round_trip_compressed_and_reject_bad_frames() {

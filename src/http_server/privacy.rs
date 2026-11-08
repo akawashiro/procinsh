@@ -1,10 +1,13 @@
 //! Privacy mode: mask sensitive text before a reply leaves this process.
 //!
 //! # Interface
-//! - [`configure_privacy`] (`pub(super)`): `fn configure_privacy(level: u8) -> anyhow::Result<()>`.
-//! - [`privacy_enabled`] (`pub(super)`): `fn privacy_enabled() -> bool`.
-//! - [`scrub_response`] (`pub(super)`): `fn scrub_response(response: &mut MonitorResponse)`.
-//! - [`pseudonym`] (`pub(super)`): `fn pseudonym(value: &str) -> String`.
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`configure_privacy`] | `pub(super)` | `fn configure_privacy(level: u8) -> `[`Result`]`<()>` |
+//! | [`privacy_enabled`] | `pub(super)` | `fn privacy_enabled() -> bool` |
+//! | [`pseudonym`] | `pub(super)` | `fn pseudonym(value: &str) -> `[`String`] |
+//! | [`scrub_response`] | `pub(super)` | `fn scrub_response(response: &mut `[`MonitorResponse`]`)` |
 //!
 //! The privileged helper does not read environments or process memory in this
 //! mode. Everything else it returns passes through [`scrub_response`]:
@@ -13,6 +16,7 @@
 //! value becomes `░` + 8 hex digits + `░`, a keyed hash that is consistent
 //! within this run, so distinct addresses stay distinct, but cannot be linked
 //! across runs or hosts. The original text is never sent.
+
 use super::protocol::{MonitorEvent, MonitorResponse};
 use anyhow::{Context, Result};
 use logblur_core::{Category, Engine, JobConfig, scan::Found};
@@ -72,112 +76,110 @@ fn host_names() -> Vec<String> {
     names
 }
 
-impl Privacy {
-    fn new(level: u8, learned: Vec<(Category, String)>, key: [u8; 32]) -> Result<Self> {
-        let config = JobConfig {
-            level,
-            ..JobConfig::default()
-        };
-        config.validate()?;
-        let mut engine = Engine::new(&config)?;
-        engine.set_learned(learned)?;
-        Ok(Self {
-            engine,
-            key,
-            cache: Mutex::new(HashMap::new()),
-        })
-    }
+fn create_privacy(level: u8, learned: Vec<(Category, String)>, key: [u8; 32]) -> Result<Privacy> {
+    let config = JobConfig {
+        level,
+        ..JobConfig::default()
+    };
+    config.validate()?;
+    let mut engine = Engine::new(&config)?;
+    engine.set_learned(learned)?;
+    Ok(Privacy {
+        engine,
+        key,
+        cache: Mutex::new(HashMap::new()),
+    })
+}
 
-    fn pseudonym(&self, value: &[u8]) -> String {
-        let digest = Sha256::new()
-            .chain_update(self.key)
-            .chain_update(value)
-            .finalize();
-        let hex: String = digest[..4].iter().map(|b| format!("{b:02x}")).collect();
-        format!("░{hex}░")
-    }
+fn pseudonym_privacy(state: &Privacy, value: &[u8]) -> String {
+    let digest = Sha256::new()
+        .chain_update(state.key)
+        .chain_update(value)
+        .finalize();
+    let hex: String = digest[..4].iter().map(|b| format!("{b:02x}")).collect();
+    format!("░{hex}░")
+}
 
-    /// Scans `items` as one space-separated text, so `-p` and its password in
-    /// separate arguments are seen together, and masks each item's share of a hit.
-    fn scan(&self, items: &[&str]) -> Vec<String> {
-        // Arguments cannot contain NUL, and pseudonyms never do.
-        let key = items.join("\0");
-        if let Some(masked) = self.cache.lock().unwrap().get(&key) {
-            return masked.split('\0').map(str::to_owned).collect();
-        }
-        let text = items.join(" ");
-        let bytes = text.as_bytes();
-        let mut found: Vec<Found> = Vec::new();
-        self.engine.find(bytes, &mut found);
-        let mut masked = Vec::with_capacity(bytes.len());
-        let mut start = 0;
-        for (index, item) in items.iter().enumerate() {
-            if index > 0 {
-                masked.push(0);
-            }
-            let end = start + item.len();
-            let mut done = start;
-            for hit in found
-                .iter()
-                .filter(|hit| hit.start < end && hit.end > start)
-            {
-                let (from, to) = (hit.start.max(start), hit.end.min(end));
-                masked.extend_from_slice(&bytes[done..from]);
-                masked.extend_from_slice(self.pseudonym(&bytes[from..to]).as_bytes());
-                done = to;
-            }
-            masked.extend_from_slice(&bytes[done..end]);
-            start = end + 1;
-        }
-        let masked = String::from_utf8_lossy(&masked).into_owned();
-        let mut cache = self.cache.lock().unwrap();
-        if cache.len() >= CACHE_LIMIT {
-            cache.clear();
-        }
-        cache.insert(key, masked.clone());
-        masked.split('\0').map(str::to_owned).collect()
+/// Scans `items` as one space-separated text, so `-p` and its password in
+/// separate arguments are seen together, and masks each item's share of a hit.
+fn scan_privacy(state: &Privacy, items: &[&str]) -> Vec<String> {
+    // Arguments cannot contain NUL, and pseudonyms never do.
+    let key = items.join("\0");
+    if let Some(masked) = state.cache.lock().unwrap().get(&key) {
+        return masked.split('\0').map(str::to_owned).collect();
     }
-
-    fn scrub(&self, value: &mut Value, field: Option<&str>) {
-        match value {
-            Value::String(text) if text.is_empty() => {}
-            Value::String(text) => {
-                let whole = match field {
-                    Some("ip") => text
-                        .parse::<std::net::IpAddr>()
-                        .is_ok_and(|ip| !ip.is_loopback() && !ip.is_unspecified()),
-                    Some(field) => WHOLE_FIELDS.contains(&field),
-                    None => false,
-                };
-                *text = if whole {
-                    self.pseudonym(text.as_bytes())
-                } else {
-                    self.scan(&[text]).remove(0)
-                };
-            }
-            Value::Array(items)
-                if items.len() > 1
-                    && !field.is_some_and(|field| WHOLE_FIELDS.contains(&field))
-                    && items.iter().all(Value::is_string) =>
-            {
-                let texts: Vec<&str> = items.iter().filter_map(Value::as_str).collect();
-                let masked = self.scan(&texts);
-                for (item, masked) in items.iter_mut().zip(masked) {
-                    *item = Value::String(masked);
-                }
-            }
-            Value::Array(items) => {
-                for item in items {
-                    self.scrub(item, field);
-                }
-            }
-            Value::Object(fields) => {
-                for (name, item) in fields {
-                    self.scrub(item, Some(name));
-                }
-            }
-            Value::Null | Value::Bool(_) | Value::Number(_) => {}
+    let text = items.join(" ");
+    let bytes = text.as_bytes();
+    let mut found: Vec<Found> = Vec::new();
+    state.engine.find(bytes, &mut found);
+    let mut masked = Vec::with_capacity(bytes.len());
+    let mut start = 0;
+    for (index, item) in items.iter().enumerate() {
+        if index > 0 {
+            masked.push(0);
         }
+        let end = start + item.len();
+        let mut done = start;
+        for hit in found
+            .iter()
+            .filter(|hit| hit.start < end && hit.end > start)
+        {
+            let (from, to) = (hit.start.max(start), hit.end.min(end));
+            masked.extend_from_slice(&bytes[done..from]);
+            masked.extend_from_slice(pseudonym_privacy(state, &bytes[from..to]).as_bytes());
+            done = to;
+        }
+        masked.extend_from_slice(&bytes[done..end]);
+        start = end + 1;
+    }
+    let masked = String::from_utf8_lossy(&masked).into_owned();
+    let mut cache = state.cache.lock().unwrap();
+    if cache.len() >= CACHE_LIMIT {
+        cache.clear();
+    }
+    cache.insert(key, masked.clone());
+    masked.split('\0').map(str::to_owned).collect()
+}
+
+fn scrub_privacy(state: &Privacy, value: &mut Value, field: Option<&str>) {
+    match value {
+        Value::String(text) if text.is_empty() => {}
+        Value::String(text) => {
+            let whole = match field {
+                Some("ip") => text
+                    .parse::<std::net::IpAddr>()
+                    .is_ok_and(|ip| !ip.is_loopback() && !ip.is_unspecified()),
+                Some(field) => WHOLE_FIELDS.contains(&field),
+                None => false,
+            };
+            *text = if whole {
+                pseudonym_privacy(state, text.as_bytes())
+            } else {
+                scan_privacy(state, &[text]).remove(0)
+            };
+        }
+        Value::Array(items)
+            if items.len() > 1
+                && !field.is_some_and(|field| WHOLE_FIELDS.contains(&field))
+                && items.iter().all(Value::is_string) =>
+        {
+            let texts: Vec<&str> = items.iter().filter_map(Value::as_str).collect();
+            let masked = scan_privacy(state, &texts);
+            for (item, masked) in items.iter_mut().zip(masked) {
+                *item = Value::String(masked);
+            }
+        }
+        Value::Array(items) => {
+            for item in items {
+                scrub_privacy(state, item, field);
+            }
+        }
+        Value::Object(fields) => {
+            for (name, item) in fields {
+                scrub_privacy(state, item, Some(name));
+            }
+        }
+        Value::Null | Value::Bool(_) | Value::Number(_) => {}
     }
 }
 
@@ -203,7 +205,7 @@ pub(super) fn configure_privacy(level: u8) -> Result<()> {
                 .map(|name| (Category::Username, name)),
         );
     }
-    let privacy = Privacy::new(level, learned, key).context("start privacy mode")?;
+    let privacy = create_privacy(level, learned, key).context("start privacy mode")?;
     let _ = PRIVACY.set(privacy);
     Ok(())
 }
@@ -215,7 +217,7 @@ pub(super) fn privacy_enabled() -> bool {
 /// The masked form of a whole value, such as the machine ID a host advertises.
 pub(super) fn pseudonym(value: &str) -> String {
     match PRIVACY.get() {
-        Some(privacy) => privacy.pseudonym(value.as_bytes()),
+        Some(privacy) => pseudonym_privacy(privacy, value.as_bytes()),
         None => value.to_owned(),
     }
 }
@@ -226,7 +228,7 @@ pub(super) fn scrub_response(response: &mut MonitorResponse) {
         return;
     };
     let event = match response {
-        MonitorResponse::Data(value) => return privacy.scrub(value, None),
+        MonitorResponse::Data(value) => return scrub_privacy(privacy, value, None),
         MonitorResponse::Started { initial, .. } => initial,
         MonitorResponse::Event {
             event: Some(event), ..
@@ -239,7 +241,7 @@ pub(super) fn scrub_response(response: &mut MonitorResponse) {
         | MonitorEvent::Activity(value)
         | MonitorEvent::Gap {
             snapshot: value, ..
-        } => privacy.scrub(value, None),
+        } => scrub_privacy(privacy, value, None),
         // Converted to JSON by the observation processor before this point.
         MonitorEvent::AcquiredSnapshot(_) | MonitorEvent::AcquisitionGap { .. } => {}
     }
@@ -247,11 +249,10 @@ pub(super) fn scrub_response(response: &mut MonitorResponse) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use serde_json::json;
+    use {super::*, serde_json::json};
 
     fn privacy() -> Privacy {
-        Privacy::new(
+        super::create_privacy(
             3,
             vec![
                 (Category::Hostname, "workstation-7".into()),
@@ -283,7 +284,7 @@ mod tests {
             "username": "alice",
             "uid": 1000,
         });
-        privacy.scrub(&mut value, None);
+        super::scrub_privacy(&privacy, &mut value, None);
         let text = value.to_string();
         for secret in ["hunter2secret", "alice", "workstation-7"] {
             assert!(!text.contains(secret), "{secret} in {text}");
@@ -301,7 +302,7 @@ mod tests {
             {"remote_hostname": "peer", "remote": {"ip": "192.0.2.2", "port": 22}},
             {"local": {"ip": "127.0.0.1", "port": 8080}, "gid": "fe80::2:c903:10:1234"},
         ]);
-        privacy.scrub(&mut value, None);
+        super::scrub_privacy(&privacy, &mut value, None);
         assert!(masked(value[0]["remote_hostname"].as_str().unwrap()));
         assert_eq!(value[0]["remote_hostname"], value[1]["remote_hostname"]);
         assert_ne!(value[0]["remote"]["ip"], value[1]["remote"]["ip"]);
@@ -316,13 +317,16 @@ mod tests {
         let mut value =
             json!({"comm": "cargo", "command_line": ["make", "-j", "16"], "text": "mov rax, 0x10"});
         let before = value.clone();
-        privacy.scrub(&mut value, None);
+        super::scrub_privacy(&privacy, &mut value, None);
         assert_eq!(value, before);
-        let other = Privacy::new(3, Vec::new(), [8; 32]).unwrap();
-        assert_ne!(privacy.pseudonym(b"10.0.0.1"), other.pseudonym(b"10.0.0.1"));
+        let other = super::create_privacy(3, Vec::new(), [8; 32]).unwrap();
+        assert_ne!(
+            super::pseudonym_privacy(&privacy, b"10.0.0.1"),
+            super::pseudonym_privacy(&other, b"10.0.0.1")
+        );
         assert_eq!(
-            privacy.pseudonym(b"10.0.0.1"),
-            privacy.pseudonym(b"10.0.0.1")
+            super::pseudonym_privacy(&privacy, b"10.0.0.1"),
+            super::pseudonym_privacy(&privacy, b"10.0.0.1")
         );
     }
 }

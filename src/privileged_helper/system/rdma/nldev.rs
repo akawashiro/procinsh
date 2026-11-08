@@ -3,6 +3,17 @@
 //! Resource dumps require a device index and reply with one nested table per
 //! message. Resources of processes outside the caller's PID namespace are omitted
 //! by the kernel; kernel-owned resources are always reported.
+//!
+//! # Interface
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`QUEUE_PAIR_LIMIT`] | `pub(super)` | `const QUEUE_PAIR_LIMIT: usize` | //! | [`ResourceOwner`] | `pub(super)` | `enum ResourceOwner` | //! | [`QueuePairEntry`] | `pub(super)` | `struct QueuePairEntry` | //! | [`CmIdEntry`] | `pub(super)` | `struct CmIdEntry` | //! | [`NldevResources`] | `pub(super)` | `struct NldevResources` | //! | [`read_resources`] | `pub(super)` | `fn read_resources(deadline: `[`Instant`]`) -> `[`Result`]`<`[`NldevResources`]`>` | use crate::ipc::rdma::{RdmaAddress, RdmaCmState, RdmaPortSpace, RdmaQpState, RdmaQpType}` | //! | [`ResourceOwner`] | `pub(super)` | `enum ResourceOwner` | //! | [`QueuePairEntry`] | `pub(super)` | `struct QueuePairEntry` | //! | [`CmIdEntry`] | `pub(super)` | `struct CmIdEntry` | //! | [`NldevResources`] | `pub(super)` | `struct NldevResources` | //! | [`read_resources`] | `pub(super)` | `fn read_resources(deadline: `[`Instant`]`) -> `[`Result`]`<`[`NldevResources`]`>` | use crate::ipc::rdma::{RdmaAddress, RdmaCmState, RdmaPortSpace, RdmaQpState, RdmaQpType}` | //! | [`ResourceOwner`] | `pub(super)` | `enum ResourceOwner` | //! | [`QueuePairEntry`] | `pub(super)` | `struct QueuePairEntry` | //! | [`CmIdEntry`] | `pub(super)` | `struct CmIdEntry` | //! | [`NldevResources`] | `pub(super)` | `struct NldevResources` | //! | [`read_resources`] | `pub(super)` | `fn read_resources(deadline: `[`Instant`]`) -> `[`Result`]`<`[`NldevResources`]`>` | use crate::ipc::rdma::{RdmaAddress, RdmaCmState, RdmaPortSpace, RdmaQpState, RdmaQpType}` |
+//! | [`ResourceOwner`] | `pub(super)` | `enum ResourceOwner` |
+//! | [`QueuePairEntry`] | `pub(super)` | `struct QueuePairEntry` |
+//! | [`CmIdEntry`] | `pub(super)` | `struct CmIdEntry` |
+//! | [`NldevResources`] | `pub(super)` | `struct NldevResources` |
+//! | [`read_resources`] | `pub(super)` | `fn read_resources(deadline: `[`Instant`]`) -> `[`Result`]`<`[`NldevResources`]`>` |
 
 use crate::ipc::rdma::{RdmaAddress, RdmaCmState, RdmaPortSpace, RdmaQpState, RdmaQpType};
 use crate::privileged_helper::netlink::{self, NetlinkDumpRequest};
@@ -129,6 +140,8 @@ fn parse_resource_entries(body: &[u8], table: u16, entry: u16) -> Result<(String
 }
 
 fn parse_queue_pair(device: &str, data: &[u8]) -> Result<QueuePairEntry> {
+    use crate::ipc::rdma::{rdma_qp_state_from_code, rdma_qp_type_from_code};
+
     let (mut port, mut qpn, mut remote_qpn, mut qp_type, mut state) =
         (None, None, None, None, None);
     let (mut pid, mut kernel) = (None, None);
@@ -137,8 +150,8 @@ fn parse_queue_pair(device: &str, data: &[u8]) -> Result<QueuePairEntry> {
             PORT_INDEX => port = Some(parse_u32_attribute(data)?),
             RES_LQPN => qpn = Some(parse_u32_attribute(data)?),
             RES_RQPN => remote_qpn = Some(parse_u32_attribute(data)?),
-            RES_TYPE => qp_type = Some(RdmaQpType::from_code(parse_u8_attribute(data)?)),
-            RES_STATE => state = Some(RdmaQpState::from_code(parse_u8_attribute(data)?)),
+            RES_TYPE => qp_type = Some(rdma_qp_type_from_code(parse_u8_attribute(data)?)),
+            RES_STATE => state = Some(rdma_qp_state_from_code(parse_u8_attribute(data)?)),
             RES_PID => pid = Some(parse_u32_attribute(data)?),
             RES_KERN_NAME => kernel = Some(decode_attribute_string(data)),
             _ => {}
@@ -157,6 +170,10 @@ fn parse_queue_pair(device: &str, data: &[u8]) -> Result<QueuePairEntry> {
 }
 
 fn parse_cm_id(device: &str, data: &[u8]) -> Result<CmIdEntry> {
+    use crate::ipc::rdma::{
+        decode_rdma_address, rdma_cm_state_from_code, rdma_port_space_from_code,
+    };
+
     let (mut id, mut qpn, mut state, mut port_space) = (None, None, None, None);
     let (mut source, mut destination) = (None, None);
     let (mut pid, mut kernel) = (None, None);
@@ -166,10 +183,10 @@ fn parse_cm_id(device: &str, data: &[u8]) -> Result<CmIdEntry> {
             RES_KERN_NAME => kernel = Some(decode_attribute_string(data)),
             RES_CM_IDN => id = Some(parse_u32_attribute(data)?),
             RES_LQPN => qpn = Some(parse_u32_attribute(data)?),
-            RES_STATE => state = Some(RdmaCmState::from_code(parse_u8_attribute(data)?)),
-            RES_PS => port_space = Some(RdmaPortSpace::from_code(parse_u32_attribute(data)?)),
-            RES_SRC_ADDR => source = RdmaAddress::decode(data),
-            RES_DST_ADDR => destination = RdmaAddress::decode(data),
+            RES_STATE => state = Some(rdma_cm_state_from_code(parse_u8_attribute(data)?)),
+            RES_PS => port_space = Some(rdma_port_space_from_code(parse_u32_attribute(data)?)),
+            RES_SRC_ADDR => source = decode_rdma_address(data),
+            RES_DST_ADDR => destination = decode_rdma_address(data),
             _ => {}
         }
     }

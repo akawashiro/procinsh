@@ -14,6 +14,11 @@ use crate::ipc::model::{
 use std::collections::{HashMap, HashSet};
 
 pub fn build_ipc_relations(result: &mut SystemSnapshot) -> bool {
+    use crate::ipc::model::{
+        socket_types::{opposite_fd_access, socket_protocol_is_tcp, socket_protocol_is_tcp_or_udp},
+        sockets::connection_status_socket_info,
+    };
+
     let mut owners: HashMap<_, _> = std::mem::take(&mut result.raw_owners).into_iter().collect();
     let infos: HashMap<_, _> = std::mem::take(&mut result.raw_sockets)
         .into_iter()
@@ -36,7 +41,9 @@ pub fn build_ipc_relations(result: &mut SystemSnapshot) -> bool {
             .copied()
             .unwrap_or(SocketConnectionStatus::Unknown);
         let info = infos.get(&resource.inode);
-        let status = info.map_or(observed, |info| info.connection_status(observed));
+        let status = info.map_or(observed, |info| {
+            connection_status_socket_info(info, observed)
+        });
         for endpoint in endpoints {
             endpoint.connection_status = Some(status);
             if info.is_none() {
@@ -50,7 +57,7 @@ pub fn build_ipc_relations(result: &mut SystemSnapshot) -> bool {
     // Socket inodes are global, but reversed tuples must also share a namespace. Build candidates from same net table below only if unique.
     let mut reverse: HashMap<_, Vec<u64>> = HashMap::new();
     for (&inode, info) in &infos {
-        if info.protocol.is_tcp_or_udp()
+        if socket_protocol_is_tcp_or_udp(info.protocol)
             && let (Some(local), Some(remote)) = (info.local, info.remote)
             && remote.port() != 0
             && !remote.ip().is_unspecified()
@@ -59,7 +66,7 @@ pub fn build_ipc_relations(result: &mut SystemSnapshot) -> bool {
             reverse
                 .entry((
                     inode_ns.get(&inode).copied(),
-                    info.protocol.is_tcp(),
+                    socket_protocol_is_tcp(info.protocol),
                     local,
                     remote,
                 ))
@@ -84,8 +91,8 @@ pub fn build_ipc_relations(result: &mut SystemSnapshot) -> bool {
                 if endpoint.process_id == peer.process_id && endpoint.fd == peer.fd {
                     continue;
                 }
-                let shared =
-                    endpoint.kind == FdKind::Socket || !endpoint.access.opposite(peer.access);
+                let shared = endpoint.kind == FdKind::Socket
+                    || !opposite_fd_access(endpoint.access, peer.access);
                 // Shared ownership is a group, not a full mesh of communication links.
                 if shared
                     && !std::ptr::eq(endpoint, &endpoints[0])
@@ -105,11 +112,11 @@ pub fn build_ipc_relations(result: &mut SystemSnapshot) -> bool {
                 let mut peers = Vec::new();
                 if let Some(peer) = info.peer_inode {
                     peers.push((peer, false));
-                } else if info.protocol.is_tcp_or_udp()
+                } else if socket_protocol_is_tcp_or_udp(info.protocol)
                     && let (Some(local), Some(remote)) = (info.local, info.remote)
                     && let Some(ids) = reverse.get(&(
                         inode_ns.get(&inode).copied(),
-                        info.protocol.is_tcp(),
+                        socket_protocol_is_tcp(info.protocol),
                         remote,
                         local,
                     ))

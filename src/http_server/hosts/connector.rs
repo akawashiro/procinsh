@@ -1,5 +1,11 @@
 //! The agent side of a hub link: reconnects with backoff and answers the hub's
 //! requests with this host's helper.
+//!
+//! # Interface
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`run_hub_connector`] | `pub(in crate::http_server)` | `async fn run_hub_connector( address: `[`String`]`, info: `[`HostInfo`]`, token: `[`Option`]`<`[`Arc`]`<str>>, client: `[`MonitorClient`]`, mut shutdown: `[`watch::Receiver`]`<bool>, )` |
 
 use super::identity::HostInfo;
 use super::listener::{IDLE_TIMEOUT, PING_INTERVAL};
@@ -63,30 +69,30 @@ pub(in crate::http_server) async fn run_hub_connector(
 /// never the sessions of this host's own viewers.
 #[derive(Default)]
 struct Sessions(Mutex<HashSet<u64>>);
-impl Sessions {
-    fn contains(&self, session: u64) -> bool {
-        self.0.lock().unwrap().contains(&session)
+fn sessions_contains(state: &Sessions, session: u64) -> bool {
+    state.0.lock().unwrap().contains(&session)
+}
+
+/// Records a started session, and forgets `used` once it is closed or failed.
+fn update_sessions(state: &Sessions, used: Option<u64>, closing: bool, response: &AgentResponse) {
+    let mut sessions = state.0.lock().unwrap();
+    if let Ok(MonitorResponse::Started { session, .. }) = response {
+        sessions.insert(*session);
     }
-    /// Records a started session, and forgets `used` once it is closed or failed.
-    fn update(&self, used: Option<u64>, closing: bool, response: &AgentResponse) {
-        let mut sessions = self.0.lock().unwrap();
-        if let Ok(MonitorResponse::Started { session, .. }) = response {
-            sessions.insert(*session);
-        }
-        let ended = closing
-            || matches!(
-                response,
-                Ok(MonitorResponse::Event { closed: true, .. }) | Err(_)
-            );
-        if let Some(session) = used
-            && ended
-        {
-            sessions.remove(&session);
-        }
+    let ended = closing
+        || matches!(
+            response,
+            Ok(MonitorResponse::Event { closed: true, .. }) | Err(_)
+        );
+    if let Some(session) = used
+        && ended
+    {
+        sessions.remove(&session);
     }
-    fn drain(&self) -> Vec<u64> {
-        self.0.lock().unwrap().drain().collect()
-    }
+}
+
+fn drain_sessions(state: &Sessions) -> Vec<u64> {
+    state.0.lock().unwrap().drain().collect()
 }
 
 async fn answer_monitor_request(
@@ -94,21 +100,22 @@ async fn answer_monitor_request(
     sessions: &Sessions,
     request: MonitorRequest,
 ) -> AgentResponse {
+    use crate::http_server::client::request_monitor_client;
+
     let (used, closing) = match &request {
         MonitorRequest::Poll { session } => (Some(*session), false),
         MonitorRequest::Close { session } => (Some(*session), true),
         _ => (None, false),
     };
     if let Some(session) = used
-        && !sessions.contains(session)
+        && !sessions_contains(sessions, session)
     {
         return Err("unknown observation session".into());
     }
-    let response = client
-        .request(request)
+    let response = request_monitor_client(client, request)
         .await
         .map_err(|error| format!("{error:#}"));
-    sessions.update(used, closing, &response);
+    update_sessions(sessions, used, closing, &response);
     response
 }
 
@@ -118,6 +125,8 @@ async fn run_agent_session(
     token: Option<&str>,
     client: &MonitorClient,
 ) -> Result<()> {
+    use crate::http_server::client::close_monitor_client;
+
     let mut stream = timeout(CONNECT_TIMEOUT, TcpStream::connect(address))
         .await
         .context("connect timed out")??;
@@ -207,8 +216,8 @@ async fn run_agent_session(
     reading.abort();
     writing.abort();
     // Observation sessions of this link have no reader anymore.
-    for session in sessions.drain() {
-        client.close(session);
+    for session in drain_sessions(&sessions) {
+        close_monitor_client(client, session);
     }
     result
 }

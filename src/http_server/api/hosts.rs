@@ -1,9 +1,12 @@
 //! List known hosts and resolve the helper client serving a requested host.
 //!
 //! # Interface
-//! - [`HostQuery`] (`pub(super)`): `struct HostQuery`.
-//! - [`list_hosts`] (`pub(super)`): `async fn list_hosts(`[`State`]`(s): `[`State`]`<`[`Arc`]`<`[`AppState`]`>>) -> `[`Json`]`<`[`Value`]`>`.
-//! - [`resolve_host_client`] (`pub(super)`): `fn resolve_host_client( s: &`[`AppState`]`, host: `[`Option`]`<&str>, ) -> `[`Result`]`<`[`MonitorClient`]`, `[`ApiError`]`>`.
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`HostQuery`] | `pub(super)` | `struct HostQuery` |
+//! | [`list_hosts`] | `pub(super)` | `async fn list_hosts(`[`State`]`(s): `[`State`]`<`[`Arc`]`<`[`AppState`]`>>) -> `[`Json`]`<`[`Value`]`>` |
+//! | [`resolve_host_client`] | `pub(super)` | `fn resolve_host_client( s: &`[`AppState`]`, host: `[`Option`]`<&str>, ) -> `[`Result`](anyhow::Result)`<`[`MonitorClient`]`, `[`ApiError`]`>` |
 
 use super::super::{
     AppState,
@@ -24,9 +27,11 @@ pub(super) struct HostQuery {
 
 /// `{"local": name, "hosts": [summary...]}` with the local host first.
 pub(super) async fn list_hosts(State(s): State<Arc<AppState>>) -> Json<Value> {
+    use crate::http_server::hosts::{local_host_registry, summaries_host_registry};
+
     Json(json!({
-        "local": s.hosts.local().name,
-        "hosts": s.hosts.summaries(),
+        "local": local_host_registry(&s.hosts).name,
+        "hosts": summaries_host_registry(&s.hosts),
     }))
 }
 
@@ -35,20 +40,26 @@ pub(super) fn resolve_host_client(
     s: &AppState,
     host: Option<&str>,
 ) -> Result<MonitorClient, ApiError> {
-    let Some(host) = host.filter(|host| *host != s.hosts.local().name) else {
+    use crate::http_server::{
+        api::process::create_api_error,
+        client::create_agent_monitor_client,
+        hosts::{local_host_registry, remote_host_registry},
+    };
+
+    let Some(host) = host.filter(|host| *host != local_host_registry(&s.hosts).name) else {
         return Ok(s.client.clone());
     };
-    match s.hosts.remote(host) {
-        RemoteHost::Online(link) => Ok(MonitorClient::agent(link)),
-        RemoteHost::Offline => Err(ApiError::new(
+    match remote_host_registry(&s.hosts, host) {
+        RemoteHost::Online(link) => Ok(create_agent_monitor_client(link)),
+        RemoteHost::Offline => Err(create_api_error(
             StatusCode::SERVICE_UNAVAILABLE,
             format!("Host {host} is offline"),
         )),
-        RemoteHost::Unknown if host == ALL_HOSTS => Err(ApiError::new(
+        RemoteHost::Unknown if host == ALL_HOSTS => Err(create_api_error(
             StatusCode::BAD_REQUEST,
             "Only SPACE events support all hosts".into(),
         )),
-        RemoteHost::Unknown => Err(ApiError::new(
+        RemoteHost::Unknown => Err(create_api_error(
             StatusCode::NOT_FOUND,
             format!("Unknown host {host}"),
         )),

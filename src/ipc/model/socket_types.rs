@@ -12,6 +12,16 @@
 //! | [`FdKind`] | `pub` | `enum FdKind` |
 //! | [`FdAccess`] | `pub` | `enum FdAccess` |
 //! | [`InetAddress`] | `pub` | `struct InetAddress` |
+//! | [`socket_type_from_code`] | `pub` | `fn socket_type_from_code(code: u32) -> `[`SocketType`] |
+//! | [`socket_protocol_is_tcp`] | `pub` | `fn socket_protocol_is_tcp(state: `[`SocketProtocol`]`) -> bool` |
+//! | [`socket_protocol_is_tcp_or_udp`] | `pub` | `fn socket_protocol_is_tcp_or_udp(state: `[`SocketProtocol`]`) -> bool` |
+//! | [`socket_protocol_from_codes`] | `pub` | `fn socket_protocol_from_codes(family: u32, socket_type: u32, protocol: u32) -> `[`SocketProtocol`] |
+//! | [`inet_socket_state`] | `pub` | `fn inet_socket_state(code: u32) -> `[`SocketState`] |
+//! | [`unix_proc_socket_state`] | `pub` | `fn unix_proc_socket_state(code: u32, listening: bool) -> `[`SocketState`] |
+//! | [`unix_diag_socket_state`] | `pub` | `fn unix_diag_socket_state(code: u32) -> `[`SocketState`] |
+//! | [`fd_access_from_flags`] | `pub` | `fn fd_access_from_flags(flags: u32) -> `[`FdAccess`] |
+//! | [`fd_access_from_mode`] | `pub` | `fn fd_access_from_mode(mode: `[`Option`]`<u32>) -> `[`FdAccess`] |
+//! | [`opposite_fd_access`] | `pub` | `fn opposite_fd_access(state: `[`FdAccess`]`, other: `[`FdAccess`]`) -> bool` |
 
 use std::{
     fmt,
@@ -33,18 +43,16 @@ pub enum SocketType {
     Packet,
     Unknown(u32),
 }
-impl SocketType {
-    pub fn from_code(code: u32) -> Self {
-        match code {
-            1 => Self::Stream,
-            2 => Self::Dgram,
-            3 => Self::Raw,
-            4 => Self::Rdm,
-            5 => Self::Seqpacket,
-            6 => Self::Dccp,
-            10 => Self::Packet,
-            n => Self::Unknown(n),
-        }
+pub fn socket_type_from_code(code: u32) -> SocketType {
+    match code {
+        1 => SocketType::Stream,
+        2 => SocketType::Dgram,
+        3 => SocketType::Raw,
+        4 => SocketType::Rdm,
+        5 => SocketType::Seqpacket,
+        6 => SocketType::Dccp,
+        10 => SocketType::Packet,
+        n => SocketType::Unknown(n),
     }
 }
 impl fmt::Display for SocketType {
@@ -80,37 +88,38 @@ pub enum SocketProtocol {
         protocol: u32,
     },
 }
-impl SocketProtocol {
-    pub fn is_tcp(self) -> bool {
-        matches!(self, Self::Tcp { .. })
-    }
+pub fn socket_protocol_is_tcp(state: SocketProtocol) -> bool {
+    matches!(state, SocketProtocol::Tcp { .. })
+}
 
-    pub fn is_tcp_or_udp(self) -> bool {
-        matches!(self, Self::Tcp { .. } | Self::Udp { .. })
-    }
+pub fn socket_protocol_is_tcp_or_udp(state: SocketProtocol) -> bool {
+    matches!(
+        state,
+        SocketProtocol::Tcp { .. } | SocketProtocol::Udp { .. }
+    )
+}
 
-    pub fn from_codes(family: u32, socket_type: u32, protocol: u32) -> Self {
-        let inet = match family as i32 {
-            libc::AF_INET => Some(AddressFamily::Ipv4),
-            libc::AF_INET6 => Some(AddressFamily::Ipv6),
-            _ => None,
-        };
-        match (family as i32, socket_type as i32, protocol as i32) {
-            (_, libc::SOCK_STREAM, libc::IPPROTO_TCP) if inet.is_some() => Self::Tcp {
-                family: inet.unwrap(),
-            },
-            (_, libc::SOCK_DGRAM, libc::IPPROTO_UDP) if inet.is_some() => Self::Udp {
-                family: inet.unwrap(),
-            },
-            (libc::AF_UNIX, _, _) => Self::Unix {
-                socket_type: SocketType::from_code(socket_type),
-            },
-            _ => Self::Other {
-                family,
-                socket_type: Some(SocketType::from_code(socket_type)),
-                protocol,
-            },
-        }
+pub fn socket_protocol_from_codes(family: u32, socket_type: u32, protocol: u32) -> SocketProtocol {
+    let inet = match family as i32 {
+        libc::AF_INET => Some(AddressFamily::Ipv4),
+        libc::AF_INET6 => Some(AddressFamily::Ipv6),
+        _ => None,
+    };
+    match (family as i32, socket_type as i32, protocol as i32) {
+        (_, libc::SOCK_STREAM, libc::IPPROTO_TCP) if inet.is_some() => SocketProtocol::Tcp {
+            family: inet.unwrap(),
+        },
+        (_, libc::SOCK_DGRAM, libc::IPPROTO_UDP) if inet.is_some() => SocketProtocol::Udp {
+            family: inet.unwrap(),
+        },
+        (libc::AF_UNIX, _, _) => SocketProtocol::Unix {
+            socket_type: socket_type_from_code(socket_type),
+        },
+        _ => SocketProtocol::Other {
+            family,
+            socket_type: Some(socket_type_from_code(socket_type)),
+            protocol,
+        },
     }
 }
 impl fmt::Display for SocketProtocol {
@@ -249,46 +258,44 @@ pub enum SocketState {
     UnknownInet(u32),
     UnknownUnix(u32),
 }
-impl SocketState {
-    pub fn inet(code: u32) -> Self {
+pub fn inet_socket_state(code: u32) -> SocketState {
+    match code {
+        1 => SocketState::Established,
+        2 => SocketState::SynSent,
+        3 => SocketState::SynRecv,
+        4 => SocketState::FinWait1,
+        5 => SocketState::FinWait2,
+        6 => SocketState::TimeWait,
+        7 => SocketState::Close,
+        8 => SocketState::CloseWait,
+        9 => SocketState::LastAck,
+        10 => SocketState::Listen,
+        11 => SocketState::Closing,
+        12 => SocketState::NewSynRecv,
+        n => SocketState::UnknownInet(n),
+    }
+}
+
+pub fn unix_proc_socket_state(code: u32, listening: bool) -> SocketState {
+    if listening {
+        SocketState::Listen
+    } else {
         match code {
-            1 => Self::Established,
-            2 => Self::SynSent,
-            3 => Self::SynRecv,
-            4 => Self::FinWait1,
-            5 => Self::FinWait2,
-            6 => Self::TimeWait,
-            7 => Self::Close,
-            8 => Self::CloseWait,
-            9 => Self::LastAck,
-            10 => Self::Listen,
-            11 => Self::Closing,
-            12 => Self::NewSynRecv,
-            n => Self::UnknownInet(n),
+            1 => SocketState::Unconnected,
+            2 => SocketState::Connecting,
+            3 => SocketState::Connected,
+            4 => SocketState::Disconnecting,
+            n => SocketState::UnknownUnix(n),
         }
     }
+}
 
-    pub fn unix_proc(code: u32, listening: bool) -> Self {
-        if listening {
-            Self::Listen
-        } else {
-            match code {
-                1 => Self::Unconnected,
-                2 => Self::Connecting,
-                3 => Self::Connected,
-                4 => Self::Disconnecting,
-                n => Self::UnknownUnix(n),
-            }
-        }
-    }
-
-    pub fn unix_diag(code: u32) -> Self {
-        match code {
-            1 => Self::Connected,
-            10 => Self::Listen,
-            7 => Self::Unconnected,
-            n => Self::UnknownUnix(n),
-        }
+pub fn unix_diag_socket_state(code: u32) -> SocketState {
+    match code {
+        1 => SocketState::Connected,
+        10 => SocketState::Listen,
+        7 => SocketState::Unconnected,
+        n => SocketState::UnknownUnix(n),
     }
 }
 impl fmt::Display for SocketState {
@@ -337,32 +344,33 @@ pub enum FdAccess {
     ReadWrite,
     Unknown,
 }
-impl FdAccess {
-    pub fn from_flags(flags: u32) -> Self {
-        if flags == u32::MAX || flags & libc::O_PATH as u32 != 0 {
-            Self::Unknown
-        } else {
-            Self::from_mode(Some(flags & libc::O_ACCMODE as u32))
-        }
+pub fn fd_access_from_flags(flags: u32) -> FdAccess {
+    if flags == u32::MAX || flags & libc::O_PATH as u32 != 0 {
+        FdAccess::Unknown
+    } else {
+        fd_access_from_mode(Some(flags & libc::O_ACCMODE as u32))
     }
+}
 
-    pub fn from_mode(mode: Option<u32>) -> Self {
-        match mode {
-            Some(0) => Self::Read,
-            Some(1) => Self::Write,
-            Some(2) => Self::ReadWrite,
-            _ => Self::Unknown,
-        }
+pub fn fd_access_from_mode(mode: Option<u32>) -> FdAccess {
+    match mode {
+        Some(0) => FdAccess::Read,
+        Some(1) => FdAccess::Write,
+        Some(2) => FdAccess::ReadWrite,
+        _ => FdAccess::Unknown,
     }
+}
 
-    pub fn opposite(self, other: Self) -> bool {
-        matches!(
-            (self, other),
-            (Self::Read, Self::Write | Self::ReadWrite)
-                | (Self::Write, Self::Read | Self::ReadWrite)
-                | (Self::ReadWrite, Self::Read | Self::Write | Self::ReadWrite)
-        )
-    }
+pub fn opposite_fd_access(state: FdAccess, other: FdAccess) -> bool {
+    matches!(
+        (state, other),
+        (FdAccess::Read, FdAccess::Write | FdAccess::ReadWrite)
+            | (FdAccess::Write, FdAccess::Read | FdAccess::ReadWrite)
+            | (
+                FdAccess::ReadWrite,
+                FdAccess::Read | FdAccess::Write | FdAccess::ReadWrite
+            )
+    )
 }
 impl fmt::Display for FdAccess {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

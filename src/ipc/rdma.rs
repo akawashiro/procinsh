@@ -2,17 +2,29 @@
 //! Unknown kernel codes are preserved.
 //!
 //! # Interface
-//! - [`RdmaQpType`] (`pub`): `enum RdmaQpType`.
-//! - [`RdmaQpState`] (`pub`): `enum RdmaQpState`.
-//! - [`RdmaCmState`] (`pub`): `enum RdmaCmState`.
-//! - [`RdmaPortSpace`] (`pub`): `enum RdmaPortSpace`.
-//! - [`IbGid`] (`pub`): `struct IbGid`.
-//! - [`RdmaAddress`] (`pub`): `enum RdmaAddress`.
-//! - [`RdmaPortInfo`] (`pub`): `struct RdmaPortInfo`.
-//! - [`RdmaEndpointOwner`] (`pub`): `enum RdmaEndpointOwner`.
-//! - [`RdmaEndpoint`] (`pub`): `struct RdmaEndpoint`.
-//! - [`RdmaCmInfo`] (`pub`): `struct RdmaCmInfo`.
-//! - [`RdmaRelation`] (`pub`): `struct RdmaRelation`.
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`RdmaQpType`] | `pub` | `enum RdmaQpType` |
+//! | [`RdmaQpState`] | `pub` | `enum RdmaQpState` |
+//! | [`RdmaCmState`] | `pub` | `enum RdmaCmState` |
+//! | [`RdmaPortSpace`] | `pub` | `enum RdmaPortSpace` |
+//! | [`IbGid`] | `pub` | `struct IbGid` |
+//! | [`RdmaAddress`] | `pub` | `enum RdmaAddress` |
+//! | [`RdmaPortInfo`] | `pub` | `struct RdmaPortInfo` |
+//! | [`RdmaEndpointOwner`] | `pub` | `enum RdmaEndpointOwner` |
+//! | [`RdmaEndpoint`] | `pub` | `struct RdmaEndpoint` |
+//! | [`RdmaCmInfo`] | `pub` | `struct RdmaCmInfo` |
+//! | [`RdmaRelation`] | `pub` | `struct RdmaRelation` |
+//! | [`rdma_qp_type_from_code`] | `pub` | `fn rdma_qp_type_from_code(code: u8) -> `[`RdmaQpType`] |
+//! | [`rdma_qp_type_is_connected`] | `pub` | `fn rdma_qp_type_is_connected(state: `[`RdmaQpType`]`) -> bool` |
+//! | [`rdma_qp_state_from_code`] | `pub` | `fn rdma_qp_state_from_code(code: u8) -> `[`RdmaQpState`] |
+//! | [`rdma_cm_state_from_code`] | `pub` | `fn rdma_cm_state_from_code(code: u8) -> `[`RdmaCmState`] |
+//! | [`rdma_port_space_from_code`] | `pub` | `fn rdma_port_space_from_code(code: u32) -> `[`RdmaPortSpace`] |
+//! | [`ib_gid_from_slice`] | `pub` | `fn ib_gid_from_slice(bytes: &[u8]) -> `[`Option`]`<`[`IbGid`]`>` |
+//! | [`parse_ib_gid`] | `pub` | `fn parse_ib_gid(text: &str) -> `[`Option`]`<`[`IbGid`]`>` |
+//! | [`decode_rdma_address`] | `pub` | `fn decode_rdma_address(bytes: &[u8]) -> `[`Option`]`<`[`RdmaAddress`]`>` |
+//! | [`ip_rdma_address`] | `pub` | `fn ip_rdma_address(state: &`[`RdmaAddress`]`) -> `[`Option`]`<`[`IpAddr`]`>` |
 
 use crate::ipc::schema::ProcessId;
 use std::{fmt, net::IpAddr};
@@ -33,28 +45,29 @@ pub enum RdmaQpType {
     Driver,
     Unknown(u8),
 }
-impl RdmaQpType {
-    pub fn from_code(code: u8) -> Self {
-        match code {
-            0 => Self::Smi,
-            1 => Self::Gsi,
-            2 => Self::Rc,
-            3 => Self::Uc,
-            4 => Self::Ud,
-            5 => Self::RawIpv6,
-            6 => Self::RawEthertype,
-            8 => Self::RawPacket,
-            9 => Self::XrcIni,
-            10 => Self::XrcTgt,
-            0xff => Self::Driver,
-            n => Self::Unknown(n),
-        }
+pub fn rdma_qp_type_from_code(code: u8) -> RdmaQpType {
+    match code {
+        0 => RdmaQpType::Smi,
+        1 => RdmaQpType::Gsi,
+        2 => RdmaQpType::Rc,
+        3 => RdmaQpType::Uc,
+        4 => RdmaQpType::Ud,
+        5 => RdmaQpType::RawIpv6,
+        6 => RdmaQpType::RawEthertype,
+        8 => RdmaQpType::RawPacket,
+        9 => RdmaQpType::XrcIni,
+        10 => RdmaQpType::XrcTgt,
+        0xff => RdmaQpType::Driver,
+        n => RdmaQpType::Unknown(n),
     }
+}
 
-    /// Types whose QP addresses exactly one remote QP.
-    pub fn is_connected(self) -> bool {
-        matches!(self, Self::Rc | Self::Uc | Self::XrcIni | Self::XrcTgt)
-    }
+/// Types whose QP addresses exactly one remote QP.
+pub fn rdma_qp_type_is_connected(state: RdmaQpType) -> bool {
+    matches!(
+        state,
+        RdmaQpType::Rc | RdmaQpType::Uc | RdmaQpType::XrcIni | RdmaQpType::XrcTgt
+    )
 }
 impl fmt::Display for RdmaQpType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -87,18 +100,16 @@ pub enum RdmaQpState {
     Err,
     Unknown(u8),
 }
-impl RdmaQpState {
-    pub fn from_code(code: u8) -> Self {
-        match code {
-            0 => Self::Reset,
-            1 => Self::Init,
-            2 => Self::Rtr,
-            3 => Self::Rts,
-            4 => Self::Sqd,
-            5 => Self::Sqe,
-            6 => Self::Err,
-            n => Self::Unknown(n),
-        }
+pub fn rdma_qp_state_from_code(code: u8) -> RdmaQpState {
+    match code {
+        0 => RdmaQpState::Reset,
+        1 => RdmaQpState::Init,
+        2 => RdmaQpState::Rtr,
+        3 => RdmaQpState::Rts,
+        4 => RdmaQpState::Sqd,
+        5 => RdmaQpState::Sqe,
+        6 => RdmaQpState::Err,
+        n => RdmaQpState::Unknown(n),
     }
 }
 impl fmt::Display for RdmaQpState {
@@ -132,22 +143,20 @@ pub enum RdmaCmState {
     Destroying,
     Unknown(u8),
 }
-impl RdmaCmState {
-    pub fn from_code(code: u8) -> Self {
-        match code {
-            0 => Self::Idle,
-            1 => Self::AddrQuery,
-            2 => Self::AddrResolved,
-            3 => Self::RouteQuery,
-            4 => Self::RouteResolved,
-            5 => Self::Connect,
-            6 => Self::Disconnect,
-            7 => Self::AddrBound,
-            8 => Self::Listen,
-            9 => Self::DeviceRemoval,
-            10 => Self::Destroying,
-            n => Self::Unknown(n),
-        }
+pub fn rdma_cm_state_from_code(code: u8) -> RdmaCmState {
+    match code {
+        0 => RdmaCmState::Idle,
+        1 => RdmaCmState::AddrQuery,
+        2 => RdmaCmState::AddrResolved,
+        3 => RdmaCmState::RouteQuery,
+        4 => RdmaCmState::RouteResolved,
+        5 => RdmaCmState::Connect,
+        6 => RdmaCmState::Disconnect,
+        7 => RdmaCmState::AddrBound,
+        8 => RdmaCmState::Listen,
+        9 => RdmaCmState::DeviceRemoval,
+        10 => RdmaCmState::Destroying,
+        n => RdmaCmState::Unknown(n),
     }
 }
 impl fmt::Display for RdmaCmState {
@@ -178,15 +187,13 @@ pub enum RdmaPortSpace {
     Ib,
     Unknown(u32),
 }
-impl RdmaPortSpace {
-    pub fn from_code(code: u32) -> Self {
-        match code {
-            0x0002 => Self::Ipoib,
-            0x0106 => Self::Tcp,
-            0x0111 => Self::Udp,
-            0x013f => Self::Ib,
-            n => Self::Unknown(n),
-        }
+pub fn rdma_port_space_from_code(code: u32) -> RdmaPortSpace {
+    match code {
+        0x0002 => RdmaPortSpace::Ipoib,
+        0x0106 => RdmaPortSpace::Tcp,
+        0x0111 => RdmaPortSpace::Udp,
+        0x013f => RdmaPortSpace::Ib,
+        n => RdmaPortSpace::Unknown(n),
     }
 }
 impl fmt::Display for RdmaPortSpace {
@@ -204,28 +211,26 @@ impl fmt::Display for RdmaPortSpace {
 /// A 128-bit IB global identifier, written like sysfs `gids/N`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct IbGid(pub [u8; 16]);
-impl IbGid {
-    pub fn from_slice(bytes: &[u8]) -> Option<Self> {
-        let gid = Self(bytes.try_into().ok()?);
-        (gid.0 != [0; 16]).then_some(gid)
-    }
+pub fn ib_gid_from_slice(bytes: &[u8]) -> Option<IbGid> {
+    let gid = IbGid(bytes.try_into().ok()?);
+    (gid.0 != [0; 16]).then_some(gid)
+}
 
-    /// Parses `fe80:0000:...:45c7`; the all-zero GID is unassigned.
-    pub fn parse(text: &str) -> Option<Self> {
-        let groups: Vec<_> = text.trim().split(':').collect();
-        if groups.len() != 8 {
+/// Parses `fe80:0000:...:45c7`; the all-zero GID is unassigned.
+pub fn parse_ib_gid(text: &str) -> Option<IbGid> {
+    let groups: Vec<_> = text.trim().split(':').collect();
+    if groups.len() != 8 {
+        return None;
+    }
+    let mut bytes = [0u8; 16];
+    for (index, group) in groups.iter().enumerate() {
+        if group.len() != 4 {
             return None;
         }
-        let mut bytes = [0u8; 16];
-        for (index, group) in groups.iter().enumerate() {
-            if group.len() != 4 {
-                return None;
-            }
-            bytes[index * 2..index * 2 + 2]
-                .copy_from_slice(&u16::from_str_radix(group, 16).ok()?.to_be_bytes());
-        }
-        Self::from_slice(&bytes)
+        bytes[index * 2..index * 2 + 2]
+            .copy_from_slice(&u16::from_str_radix(group, 16).ok()?.to_be_bytes());
     }
+    ib_gid_from_slice(&bytes)
 }
 impl fmt::Display for IbGid {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -257,41 +262,39 @@ pub enum RdmaAddress {
     },
 }
 const AF_IB: u16 = 27;
-impl RdmaAddress {
-    /// Decodes a CM address. A zero family means no address was assigned.
-    pub fn decode(bytes: &[u8]) -> Option<Self> {
-        let family = u16::from_ne_bytes(bytes.get(0..2)?.try_into().ok()?);
-        let port = || Some(u16::from_be_bytes(bytes.get(2..4)?.try_into().ok()?));
-        Some(match family {
-            0 => return None,
-            f if f == libc::AF_INET as u16 => Self::Inet {
-                ip: IpAddr::from(<[u8; 4]>::try_from(bytes.get(4..8)?).ok()?),
+/// Decodes a CM address. A zero family means no address was assigned.
+pub fn decode_rdma_address(bytes: &[u8]) -> Option<RdmaAddress> {
+    let family = u16::from_ne_bytes(bytes.get(0..2)?.try_into().ok()?);
+    let port = || Some(u16::from_be_bytes(bytes.get(2..4)?.try_into().ok()?));
+    Some(match family {
+        0 => return None,
+        f if f == libc::AF_INET as u16 => RdmaAddress::Inet {
+            ip: IpAddr::from(<[u8; 4]>::try_from(bytes.get(4..8)?).ok()?),
+            port: port()?,
+        },
+        f if f == libc::AF_INET6 as u16 => {
+            let ip = std::net::Ipv6Addr::from(<[u8; 16]>::try_from(bytes.get(8..24)?).ok()?);
+            RdmaAddress::Inet {
+                ip: ip
+                    .to_ipv4_mapped()
+                    .map(IpAddr::V4)
+                    .unwrap_or(IpAddr::V6(ip)),
                 port: port()?,
-            },
-            f if f == libc::AF_INET6 as u16 => {
-                let ip = std::net::Ipv6Addr::from(<[u8; 16]>::try_from(bytes.get(8..24)?).ok()?);
-                Self::Inet {
-                    ip: ip
-                        .to_ipv4_mapped()
-                        .map(IpAddr::V4)
-                        .unwrap_or(IpAddr::V6(ip)),
-                    port: port()?,
-                }
             }
-            AF_IB => Self::Ib {
-                pkey: port()?,
-                gid: IbGid::from_slice(bytes.get(8..24)?)?,
-                service_id: u64::from_be_bytes(bytes.get(24..32)?.try_into().ok()?),
-            },
-            family => Self::Unknown { family },
-        })
-    }
-
-    pub fn ip(&self) -> Option<IpAddr> {
-        match self {
-            Self::Inet { ip, .. } => Some(*ip),
-            _ => None,
         }
+        AF_IB => RdmaAddress::Ib {
+            pkey: port()?,
+            gid: ib_gid_from_slice(bytes.get(8..24)?)?,
+            service_id: u64::from_be_bytes(bytes.get(24..32)?.try_into().ok()?),
+        },
+        family => RdmaAddress::Unknown { family },
+    })
+}
+
+pub fn ip_rdma_address(state: &RdmaAddress) -> Option<IpAddr> {
+    match state {
+        RdmaAddress::Inet { ip, .. } => Some(*ip),
+        _ => None,
     }
 }
 impl fmt::Display for RdmaAddress {
@@ -451,19 +454,19 @@ mod tests {
             let code = case["code"].as_u64().unwrap();
             let label = match case["group"].as_str().unwrap() {
                 "qp_type" => {
-                    let kind = RdmaQpType::from_code(code as u8);
+                    let kind = super::rdma_qp_type_from_code(code as u8);
                     kind.to_string()
                 }
                 "qp_state" => {
-                    let kind = RdmaQpState::from_code(code as u8);
+                    let kind = super::rdma_qp_state_from_code(code as u8);
                     kind.to_string()
                 }
                 "cm_state" => {
-                    let kind = RdmaCmState::from_code(code as u8);
+                    let kind = super::rdma_cm_state_from_code(code as u8);
                     kind.to_string()
                 }
                 "port_space" => {
-                    let kind = RdmaPortSpace::from_code(code as u32);
+                    let kind = super::rdma_port_space_from_code(code as u32);
                     kind.to_string()
                 }
                 group => panic!("unknown group {group}"),
@@ -474,11 +477,11 @@ mod tests {
 
     #[test]
     fn gids_round_trip_and_zero_is_unassigned() {
-        let gid = IbGid::parse("fe80:0000:0000:0000:0002:c903:0028:45c7").unwrap();
+        let gid = super::parse_ib_gid("fe80:0000:0000:0000:0002:c903:0028:45c7").unwrap();
         assert_eq!(gid.to_string(), "fe80:0000:0000:0000:0002:c903:0028:45c7");
-        assert!(IbGid::parse("0000:0000:0000:0000:0000:0000:0000:0000").is_none());
-        assert!(IbGid::parse("fe80::1").is_none());
-        assert!(IbGid::from_slice(&[1; 15]).is_none());
+        assert!(super::parse_ib_gid("0000:0000:0000:0000:0000:0000:0000:0000").is_none());
+        assert!(super::parse_ib_gid("fe80::1").is_none());
+        assert!(super::ib_gid_from_slice(&[1; 15]).is_none());
     }
 
     #[test]
@@ -487,7 +490,7 @@ mod tests {
         v4[0..2].copy_from_slice(&(libc::AF_INET as u16).to_ne_bytes());
         v4[2..4].copy_from_slice(&20049u16.to_be_bytes());
         v4[4..8].copy_from_slice(&[10, 10, 10, 1]);
-        let address = RdmaAddress::decode(&v4).unwrap();
+        let address = super::decode_rdma_address(&v4).unwrap();
         assert_eq!(address.to_string(), "10.10.10.1:20049");
         assert_eq!(
             address,
@@ -501,7 +504,7 @@ mod tests {
         v6[2..4].copy_from_slice(&4791u16.to_be_bytes());
         v6[8..24].copy_from_slice(&"fe80::1".parse::<std::net::Ipv6Addr>().unwrap().octets());
         assert_eq!(
-            RdmaAddress::decode(&v6).unwrap().to_string(),
+            super::decode_rdma_address(&v6).unwrap().to_string(),
             "[fe80::1]:4791"
         );
         let mut ib = [0u8; 128];
@@ -512,18 +515,18 @@ mod tests {
         ib[23] = 0x51;
         ib[24..32].copy_from_slice(&0x0000_0000_0106_4e51u64.to_be_bytes());
         assert_eq!(
-            RdmaAddress::decode(&ib),
+            super::decode_rdma_address(&ib),
             Some(RdmaAddress::Ib {
-                gid: IbGid::parse("fe80:0000:0000:0000:0000:0000:0000:0051").unwrap(),
+                gid: super::parse_ib_gid("fe80:0000:0000:0000:0000:0000:0000:0051").unwrap(),
                 service_id: 0x0000_0000_0106_4e51,
                 pkey: 65535,
             })
         );
-        assert!(RdmaAddress::decode(&[0u8; 128]).is_none());
+        assert!(super::decode_rdma_address(&[0u8; 128]).is_none());
         assert_eq!(
-            RdmaAddress::decode(&[42, 0, 0, 0]),
+            super::decode_rdma_address(&[42, 0, 0, 0]),
             Some(RdmaAddress::Unknown { family: 42 })
         );
-        assert!(RdmaAddress::decode(&v4[..6]).is_none());
+        assert!(super::decode_rdma_address(&v4[..6]).is_none());
     }
 }

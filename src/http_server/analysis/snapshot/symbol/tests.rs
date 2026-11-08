@@ -67,23 +67,22 @@ impl Drop for Fixture {
         let _ = fs::remove_dir_all(&self.0);
     }
 }
-impl Fixture {
-    fn new() -> Self {
-        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-        let serial = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let dir = std::env::temp_dir().join(format!(
-            "procinsh-symbol-tests-{}-{serial}",
-            std::process::id()
-        ));
-        fs::create_dir(&dir).unwrap();
-        Self(dir)
-    }
+fn create_fixture() -> Fixture {
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let serial = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let dir = std::env::temp_dir().join(format!(
+        "procinsh-symbol-tests-{}-{serial}",
+        std::process::id()
+    ));
+    fs::create_dir(&dir).unwrap();
+    Fixture(dir)
+}
 
-    fn compile(&self, debug: &str, name: &str) -> PathBuf {
-        let source = self.0.join("fixture.c");
-        fs::write(
-            &source,
-            r#"
+fn compile_fixture(state: &Fixture, debug: &str, name: &str) -> PathBuf {
+    let source = state.0.join("fixture.c");
+    fs::write(
+        &source,
+        r#"
 static inline __attribute__((always_inline)) int inner(int x) {
     volatile int y = x + 7;
     return y * 3;
@@ -91,23 +90,22 @@ static inline __attribute__((always_inline)) int inner(int x) {
 __attribute__((noinline)) int outer(int x) { return inner(x) + 1; }
 int main(int argc, char **argv) { return outer(argc); }
 "#,
-        )
-        .unwrap();
-        let path = self.0.join(name);
-        let output = Command::new("clang")
-            .args([debug, "-O2", "-fPIE", "-pie"])
-            .arg(&source)
-            .arg("-o")
-            .arg(&path)
-            .output()
-            .expect("clang is required for DWARF fixtures");
-        assert!(
-            output.status.success(),
-            "{}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-        path
-    }
+    )
+    .unwrap();
+    let path = state.0.join(name);
+    let output = Command::new("clang")
+        .args([debug, "-O2", "-fPIE", "-pie"])
+        .arg(&source)
+        .arg("-o")
+        .arg(&path)
+        .output()
+        .expect("clang is required for DWARF fixtures");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    path
 }
 
 fn file_map(path: &Path) -> MemoryMap {
@@ -124,8 +122,8 @@ fn file_map(path: &Path) -> MemoryMap {
 
 #[test]
 fn dwarf_inline_source_only_and_cache_lifecycle() {
-    let fixture = Fixture::new();
-    let path = fixture.compile("-g", "full");
+    let fixture = create_fixture();
+    let path = compile_fixture(&fixture, "-g", "full");
     let map = file_map(&path);
     let mut cache = ElfCache::default();
     let miss = load_cached_elf_symbols(&mut cache, &map).unwrap();
@@ -149,7 +147,7 @@ fn dwarf_inline_source_only_and_cache_lifecycle() {
     assert_eq!(dwarf_info.offset, None);
 
     // Line tables without function DIEs or an ELF symbol table.
-    let lines_path = fixture.compile("-gline-tables-only", "lines");
+    let lines_path = compile_fixture(&fixture, "-gline-tables-only", "lines");
     let mut lines = load_elf_symbols(&lines_path).unwrap();
     let line_address = lines.symbols.iter().find(|s| s.2 == "main").unwrap().0;
     lines.symbols.clear();
@@ -177,8 +175,8 @@ fn dwarf_inline_source_only_and_cache_lifecycle() {
 
 #[test]
 fn compressed_debug_sections_reject_decompression_bombs() {
-    let fixture = Fixture::new();
-    let path = fixture.compile("-g", "compressed");
+    let fixture = create_fixture();
+    let path = compile_fixture(&fixture, "-g", "compressed");
     let mut bytes = fs::read(&path).unwrap();
     let file = object::File::parse(bytes.as_slice()).unwrap();
     let section = file.section_by_name(".debug_info").unwrap();
@@ -200,16 +198,21 @@ fn compressed_debug_sections_reject_decompression_bombs() {
 }
 
 fn load_elf_symbols(path: &Path) -> Option<ElfSymbols> {
-    ElfSymbols::parse(&fs::read(path).ok()?)
+    use crate::http_server::analysis::snapshot::symbol::cache::parse_elf_symbols;
+
+    parse_elf_symbols(&fs::read(path).ok()?)
 }
 
 fn load_cached_elf_symbols(cache: &mut ElfCache, map: &MemoryMap) -> Option<Arc<ElfSymbols>> {
+    use crate::http_server::analysis::snapshot::symbol::cache_elf_symbols_from_bytes;
+
     let path = Path::new(map.pathname.as_deref()?);
     let meta = fs::metadata(path).ok()?;
     if meta.len() > MAX_FILE_SIZE {
         return None;
     }
-    cache.insert(
+    cache_elf_symbols_from_bytes(
+        &mut *cache,
         map,
         ElfFile {
             identity: (
@@ -226,27 +229,35 @@ fn load_cached_elf_symbols(cache: &mut ElfCache, map: &MemoryMap) -> Option<Arc<
 
 #[test]
 fn rejected_file_versions_do_not_reuse_stale_symbols() {
-    let fixture = Fixture::new();
-    let path = fixture.compile("-g", "changed");
+    use crate::http_server::analysis::snapshot::symbol::{
+        lookup_cached_elf_file_identity, lookup_elf_symbols,
+    };
+
+    let fixture = create_fixture();
+    let path = compile_fixture(&fixture, "-g", "changed");
     let map = file_map(&path);
     let mut cache = ElfCache::default();
     assert!(load_cached_elf_symbols(&mut cache, &map).is_some());
-    let old = cache.identity(&map).unwrap();
+    let old = lookup_cached_elf_file_identity(&cache, &map).unwrap();
     fs::write(&path, b"not an ELF").unwrap();
     assert!(load_cached_elf_symbols(&mut cache, &map).is_none());
-    assert!(cache.get(&map).is_none());
-    let rejected = cache.identity(&map).unwrap();
+    assert!(lookup_elf_symbols(&cache, &map).is_none());
+    let rejected = lookup_cached_elf_file_identity(&cache, &map).unwrap();
     assert_ne!(rejected, old);
     assert_eq!(rejected.2, 10);
 }
 
 #[test]
 fn selected_elf_ranges_preserve_symbols_sources_and_unwind_data() {
-    use super::super::image::ElfImage;
+    use crate::http_server::analysis::snapshot::symbol::{
+        cache::{parse_elf_symbols, parse_reader_elf_symbols},
+        create_elf_image, extend_elf_image, names_elf_image, sections_elf_image, tables_elf_image,
+    };
+
     use crate::ipc::elf::{FileChunk, FileRange, MappedFileData};
-    let fixture = Fixture::new();
+    let fixture = create_fixture();
     for flag in ["-g", "-gline-tables-only"] {
-        let path = fixture.compile(flag, "sparse");
+        let path = compile_fixture(&fixture, flag, "sparse");
         let bytes = fs::read(&path).unwrap();
         let identity = (1, 2, bytes.len() as u64, 3, 4);
         let capture = |ranges: Vec<FileRange>| MappedFileData {
@@ -260,7 +271,7 @@ fn selected_elf_ranges_preserve_symbols_sources_and_unwind_data() {
                 })
                 .collect(),
         };
-        let mut image = ElfImage::new(capture(vec![FileRange {
+        let mut image = create_elf_image(capture(vec![FileRange {
             offset: 0,
             length: 64,
         }]))
@@ -268,19 +279,19 @@ fn selected_elf_ranges_preserve_symbols_sources_and_unwind_data() {
         let mut transferred = 64;
         for stage in 0..3 {
             let ranges = match stage {
-                0 => image.tables().unwrap(),
-                1 => image.names().unwrap(),
-                _ => image.sections().unwrap(),
+                0 => tables_elf_image(&image).unwrap(),
+                1 => names_elf_image(&image).unwrap(),
+                _ => sections_elf_image(&image).unwrap(),
             };
             transferred += ranges.iter().map(|range| range.length).sum::<u64>();
-            image.extend(capture(ranges)).unwrap();
+            extend_elf_image(&mut image, capture(ranges)).unwrap();
         }
         assert!(
             transferred < bytes.len() as u64,
             "unneeded file bytes should stay in helper"
         );
-        let complete = ElfSymbols::parse(&bytes).unwrap();
-        let sparse = ElfSymbols::parse_reader(&image).unwrap();
+        let complete = parse_elf_symbols(&bytes).unwrap();
+        let sparse = parse_reader_elf_symbols(&image).unwrap();
         assert_eq!(complete.symbols, sparse.symbols);
         assert_eq!(complete.segments, sparse.segments);
         assert_eq!(complete.unwind.eh_frame, sparse.unwind.eh_frame);
@@ -295,6 +306,6 @@ fn selected_elf_ranges_preserve_symbols_sources_and_unwind_data() {
         }
         let mut changed = capture(vec![]);
         changed.identity.4 += 1;
-        assert!(image.extend(changed).is_err());
+        assert!(extend_elf_image(&mut image, changed).is_err());
     }
 }

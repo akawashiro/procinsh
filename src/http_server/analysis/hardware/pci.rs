@@ -8,8 +8,9 @@
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
 //! | [`PciNode`] | `pub` | `struct PciNode` |
-//! | [`read_topology`] | `pub` | `fn read_topology(sources: &HardwareSources, sys: &Path) -> Vec<PciNode>` |
-//! | [`online_numa_nodes`] | `pub` | `fn online_numa_nodes(sources: &HardwareSources, sys: &Path) -> usize` |
+//! | [`bandwidth_pcie_link`] | `pub` | `fn bandwidth_pcie_link(state: `[`PcieLink`]`) -> f64` |
+//! | [`read_topology`] | `pub` | `fn read_topology(sources: &`[`HardwareSources`]`, sys: &`[`Path`]`) -> `[`Vec`]`<`[`PciNode`]`>` |
+//! | [`online_numa_nodes`] | `pub` | `fn online_numa_nodes(sources: &`[`HardwareSources`]`, sys: &`[`Path`]`) -> usize` |
 
 use super::observation::HardwareSources;
 use std::{
@@ -85,16 +86,14 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::hardware::PcieLink {
     }
 }
 
-impl PcieLink {
-    /// Usable bandwidth in GB/s after line encoding (8b/10b up to 5 GT/s, then 128b/130b).
-    pub fn bandwidth(self) -> f64 {
-        let encoding = if self.speed_gts <= 5.0 {
-            0.8
-        } else {
-            128.0 / 130.0
-        };
-        self.speed_gts * encoding * f64::from(self.width) / 8.0
-    }
+/// Usable bandwidth in GB/s after line encoding (8b/10b up to 5 GT/s, then 128b/130b).
+pub fn bandwidth_pcie_link(state: PcieLink) -> f64 {
+    let encoding = if state.speed_gts <= 5.0 {
+        0.8
+    } else {
+        128.0 / 130.0
+    };
+    state.speed_gts * encoding * f64::from(state.width) / 8.0
 }
 
 use crate::ipc::hardware::PcieLinkInfo;
@@ -159,7 +158,13 @@ pub struct PciNode {
 }
 
 fn read_sysfs_hex(sources: &HardwareSources, path: &Path) -> Option<u32> {
-    u32::from_str_radix(sources.text(path)?.trim_start_matches("0x"), 16).ok()
+    use crate::http_server::analysis::hardware::observation::text_hardware_sources;
+
+    u32::from_str_radix(
+        text_hardware_sources(sources, path)?.trim_start_matches("0x"),
+        16,
+    )
+    .ok()
 }
 
 fn is_function_address(name: &str) -> bool {
@@ -181,8 +186,9 @@ fn is_host_bridge(name: &str) -> bool {
 }
 
 fn read_pcie_link_speed(sources: &HardwareSources, path: &Path) -> Option<f64> {
-    sources
-        .text(path)?
+    use crate::http_server::analysis::hardware::observation::text_hardware_sources;
+
+    text_hardware_sources(sources, path)?
         .split_whitespace()
         .next()?
         .parse()
@@ -191,8 +197,9 @@ fn read_pcie_link_speed(sources: &HardwareSources, path: &Path) -> Option<f64> {
 }
 
 fn read_pcie_link(sources: &HardwareSources, dir: &Path, prefix: &str) -> Option<PcieLink> {
-    let width: u32 = sources
-        .text(&dir.join(format!("{prefix}_link_width")))?
+    use crate::http_server::analysis::hardware::observation::text_hardware_sources;
+
+    let width: u32 = text_hardware_sources(sources, &dir.join(format!("{prefix}_link_width")))?
         .parse()
         .ok()?;
     Some(PcieLink {
@@ -202,10 +209,11 @@ fn read_pcie_link(sources: &HardwareSources, dir: &Path, prefix: &str) -> Option
 }
 
 fn read_pci_bar_sizes(sources: &HardwareSources, dir: &Path) -> Vec<BarInfo> {
+    use crate::http_server::analysis::hardware::observation::text_hardware_sources;
+
     const IORESOURCE_MEM: u64 = 0x200;
     const IORESOURCE_PREFETCH: u64 = 0x2000;
-    sources
-        .text(&dir.join("resource"))
+    text_hardware_sources(sources, &dir.join("resource"))
         .unwrap_or_default()
         .lines()
         .take(6)
@@ -234,10 +242,12 @@ fn classify_pci_device(
     class: u32,
     vendor: Option<u32>,
 ) -> Option<HardwareKind> {
+    use crate::http_server::analysis::hardware::observation::hardware_sources_is_dir;
+
     const ASPEED: u32 = 0x1a03;
     const MATROX: u32 = 0x102b;
     const NVIDIA: u32 = 0x10de;
-    if sources.is_dir(&dir.join("infiniband")) || class >> 8 == 0x0c06 {
+    if hardware_sources_is_dir(sources, &dir.join("infiniband")) || class >> 8 == 0x0c06 {
         return Some(HardwareKind::Rdma);
     }
     match class >> 8 {
@@ -255,8 +265,12 @@ fn build_pci_node(
     dir: PathBuf,
     kind: Option<HardwareKind>,
 ) -> PciNode {
+    use crate::http_server::analysis::hardware::observation::{
+        link_hardware_sources, text_hardware_sources,
+    };
+
     let host = is_host_bridge(address);
-    let runtime_status = sources.text(&dir.join("power/runtime_status"));
+    let runtime_status = text_hardware_sources(sources, &dir.join("power/runtime_status"));
     // Link registers of a suspended device are not read; they would read as invalid.
     let awake = runtime_status.as_deref() != Some("suspended");
     PciNode {
@@ -278,20 +292,17 @@ fn build_pci_node(
         device_id: (!host)
             .then(|| read_sysfs_hex(sources, &dir.join("device")))
             .flatten(),
-        driver: sources
-            .link(&dir.join("driver"))
+        driver: link_hardware_sources(sources, &dir.join("driver"))
             .and_then(|p| Some(p.file_name()?.to_string_lossy().into_owned())),
-        numa_node: sources
-            .text(&dir.join("numa_node"))
+        numa_node: text_hardware_sources(sources, &dir.join("numa_node"))
             .and_then(|n| n.parse().ok()),
         link: (!host && awake).then(|| PcieLinkInfo {
             current: read_pcie_link(sources, &dir, "current"),
             max: read_pcie_link(sources, &dir, "max"),
         }),
-        power_state: sources.text(&dir.join("power_state")),
+        power_state: text_hardware_sources(sources, &dir.join("power_state")),
         runtime_status,
-        iommu_group: sources
-            .link(&dir.join("iommu_group"))
+        iommu_group: link_hardware_sources(sources, &dir.join("iommu_group"))
             .and_then(|p| p.file_name()?.to_str()?.parse().ok()),
         bars: if kind.is_some() {
             read_pci_bar_sizes(sources, &dir)
@@ -304,9 +315,14 @@ fn build_pci_node(
 
 /// Devices of interest and every bridge above them, parents before children.
 pub fn read_topology(sources: &HardwareSources, sys: &Path) -> Vec<PciNode> {
+    use crate::http_server::analysis::hardware::observation::{
+        link_hardware_sources, names_hardware_sources,
+    };
+
     let mut chains = Vec::new();
-    for name in sources.names(&sys.join("bus/pci/devices")) {
-        let Some(dir) = sources.link(&sys.join("bus/pci/devices").join(&name)) else {
+    for name in names_hardware_sources(sources, &sys.join("bus/pci/devices")) {
+        let Some(dir) = link_hardware_sources(sources, &sys.join("bus/pci/devices").join(&name))
+        else {
             continue;
         };
         let class = read_sysfs_hex(sources, &dir.join("class")).unwrap_or_default();
@@ -380,8 +396,9 @@ pub fn read_topology(sources: &HardwareSources, sys: &Path) -> Vec<PciNode> {
 
 /// Online NUMA node count, from `devices/system/node/online` such as `0` or `0-1`.
 pub fn online_numa_nodes(sources: &HardwareSources, sys: &Path) -> usize {
-    sources
-        .text(&sys.join("devices/system/node/online"))
+    use crate::http_server::analysis::hardware::observation::text_hardware_sources;
+
+    text_hardware_sources(sources, &sys.join("devices/system/node/online"))
         .map(|ranges| {
             ranges
                 .split(',')
@@ -411,62 +428,78 @@ pub mod fixture {
             let _ = fs::remove_dir_all(&self.root);
         }
     }
-    impl SysfsFixture {
-        pub fn sources(&self) -> super::HardwareSources {
-            super::HardwareSources::fixture(self.sys(), self.proc())
-        }
-        pub fn new(name: &str) -> Self {
-            let root =
-                std::env::temp_dir().join(format!("procinsh-sysfs-{name}-{}", std::process::id()));
-            let _ = fs::remove_dir_all(&root);
-            fs::create_dir_all(root.join("sys/bus/pci/devices")).unwrap();
-            fs::create_dir_all(root.join("sys/dev/char")).unwrap();
-            fs::create_dir_all(root.join("proc")).unwrap();
-            Self { root }
-        }
-        pub fn sys(&self) -> PathBuf {
-            self.root.join("sys")
-        }
-        pub fn proc(&self) -> PathBuf {
-            self.root.join("proc")
-        }
-        pub fn write(&self, path: &str, value: &str) {
-            let path = self.root.join(path);
-            fs::create_dir_all(path.parent().unwrap()).unwrap();
-            fs::write(path, format!("{value}\n")).unwrap();
-        }
-        /// Adds a device at `chain` (host bridge first) with attributes.
-        pub fn device(&self, chain: &[&str], attributes: &[(&str, &str)]) -> PathBuf {
-            let dir = chain
-                .iter()
-                .fold(self.sys().join("devices"), |dir, c| dir.join(c));
-            fs::create_dir_all(&dir).unwrap();
-            for (name, value) in attributes {
-                if let Some(target) = value.strip_prefix("->") {
-                    let _ = symlink(target, dir.join(name));
-                } else {
-                    let file = dir.join(name);
-                    fs::create_dir_all(file.parent().unwrap()).unwrap();
-                    fs::write(file, format!("{value}\n")).unwrap();
-                }
+    pub fn sources_sysfs_fixture(state: &SysfsFixture) -> super::HardwareSources {
+        use crate::http_server::analysis::hardware::observation::fixture_hardware_sources;
+
+        fixture_hardware_sources(sys_sysfs_fixture(state), proc_sysfs_fixture(state))
+    }
+
+    pub fn create_sysfs_fixture(name: &str) -> SysfsFixture {
+        let root =
+            std::env::temp_dir().join(format!("procinsh-sysfs-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("sys/bus/pci/devices")).unwrap();
+        fs::create_dir_all(root.join("sys/dev/char")).unwrap();
+        fs::create_dir_all(root.join("proc")).unwrap();
+        SysfsFixture { root }
+    }
+
+    pub fn sys_sysfs_fixture(state: &SysfsFixture) -> PathBuf {
+        state.root.join("sys")
+    }
+
+    pub fn proc_sysfs_fixture(state: &SysfsFixture) -> PathBuf {
+        state.root.join("proc")
+    }
+
+    pub fn write_sysfs_fixture(state: &SysfsFixture, path: &str, value: &str) {
+        let path = state.root.join(path);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, format!("{value}\n")).unwrap();
+    }
+
+    /// Adds a device at `chain` (host bridge first) with attributes.
+    pub fn device_sysfs_fixture(
+        state: &SysfsFixture,
+        chain: &[&str],
+        attributes: &[(&str, &str)],
+    ) -> PathBuf {
+        let dir = chain
+            .iter()
+            .fold(sys_sysfs_fixture(state).join("devices"), |dir, c| {
+                dir.join(c)
+            });
+        fs::create_dir_all(&dir).unwrap();
+        for (name, value) in attributes {
+            if let Some(target) = value.strip_prefix("->") {
+                let _ = symlink(target, dir.join(name));
+            } else {
+                let file = dir.join(name);
+                fs::create_dir_all(file.parent().unwrap()).unwrap();
+                fs::write(file, format!("{value}\n")).unwrap();
             }
-            let name = chain.last().unwrap();
-            let link = self.sys().join("bus/pci/devices").join(name);
-            if !link.exists() {
-                symlink(&dir, link).unwrap();
-            }
-            dir
         }
-        pub fn char_device(&self, number: &str, target: &Path) {
-            fs::create_dir_all(target).unwrap();
-            symlink(target, self.sys().join("dev/char").join(number)).unwrap();
+        let name = chain.last().unwrap();
+        let link = sys_sysfs_fixture(state).join("bus/pci/devices").join(name);
+        if !link.exists() {
+            symlink(&dir, link).unwrap();
         }
+        dir
+    }
+
+    pub fn char_device_sysfs_fixture(state: &SysfsFixture, number: &str, target: &Path) {
+        fs::create_dir_all(target).unwrap();
+        symlink(
+            target,
+            sys_sysfs_fixture(state).join("dev/char").join(number),
+        )
+        .unwrap();
     }
 
     /// This machine: a GPU and an InfiniBand HCA under root ports of different host
     /// bridges on one NUMA node, plus a BMC display adapter.
     pub fn workstation(name: &str) -> SysfsFixture {
-        let f = SysfsFixture::new(name);
+        let f = create_sysfs_fixture(name);
         let bridge = |speed: &'static str, width: &'static str| {
             vec![
                 ("class", "0x060400"),
@@ -477,27 +510,45 @@ pub mod fixture {
                 ("numa_node", "-1"),
             ]
         };
-        f.device(
+        device_sysfs_fixture(
+            &f,
             &["pci0000:00", "0000:00:01.1"],
             &bridge("8.0 GT/s PCIe", "16"),
         );
-        f.device(&["pci0000:00", "0000:00:01.1", "0000:01:00.0"], &[
-            ("class", "0x030000"), ("vendor", "0x10de"), ("device", "0x2c05"),
-            ("current_link_speed", "8.0 GT/s PCIe"), ("current_link_width", "16"),
-            ("max_link_speed", "32.0 GT/s PCIe"), ("max_link_width", "16"),
-            ("numa_node", "-1"), ("power_state", "D0"), ("power/runtime_status", "active"),
-            ("resource", "0x00000000f4000000 0x00000000f7ffffff 0x0000000000040200\n0x0000038090000000 0x000003809fffffff 0x000000000014220c\n0x0000000000000000 0x0000000000000000 0x0000000000000000"),
-            ("drm/card1/dev", "226:1"), ("drm/renderD128/dev", "226:128"),
-        ]);
-        f.device(
+        device_sysfs_fixture(
+            &f,
+            &["pci0000:00", "0000:00:01.1", "0000:01:00.0"],
+            &[
+                ("class", "0x030000"),
+                ("vendor", "0x10de"),
+                ("device", "0x2c05"),
+                ("current_link_speed", "8.0 GT/s PCIe"),
+                ("current_link_width", "16"),
+                ("max_link_speed", "32.0 GT/s PCIe"),
+                ("max_link_width", "16"),
+                ("numa_node", "-1"),
+                ("power_state", "D0"),
+                ("power/runtime_status", "active"),
+                (
+                    "resource",
+                    "0x00000000f4000000 0x00000000f7ffffff 0x0000000000040200\n0x0000038090000000 0x000003809fffffff 0x000000000014220c\n0x0000000000000000 0x0000000000000000 0x0000000000000000",
+                ),
+                ("drm/card1/dev", "226:1"),
+                ("drm/renderD128/dev", "226:128"),
+            ],
+        );
+        device_sysfs_fixture(
+            &f,
             &["pci0000:00", "0000:00:01.1", "0000:01:00.1"],
             &[("class", "0x040300"), ("vendor", "0x10de")],
         );
-        f.device(
+        device_sysfs_fixture(
+            &f,
             &["pci0000:80", "0000:80:03.4"],
             &bridge("5.0 GT/s PCIe", "8"),
         );
-        f.device(
+        device_sysfs_fixture(
+            &f,
             &["pci0000:80", "0000:80:03.4", "0000:85:00.0"],
             &[
                 ("class", "0x0c0600"),
@@ -514,12 +565,14 @@ pub mod fixture {
             ],
         );
         // A BMC VGA adapter is not a GPU.
-        f.device(
+        device_sysfs_fixture(
+            &f,
             &["pci0000:c0", "0000:c0:01.1", "0000:c1:00.0"],
             &[("class", "0x030000"), ("vendor", "0x1a03")],
         );
-        f.write("sys/devices/system/node/online", "0");
-        f.write(
+        write_sysfs_fixture(&f, "sys/devices/system/node/online", "0");
+        write_sysfs_fixture(
+            &f,
             "proc/driver/nvidia/gpus/0000:01:00.0/information",
             "Model: \t\t NVIDIA GeForce RTX 5070 Ti\nGPU UUID: \t GPU-dffb775f\nDevice Minor: \t 0",
         );
@@ -528,7 +581,7 @@ pub mod fixture {
 
     /// A DGX-like tree: two NUMA nodes, each with a PCIe switch holding two GPUs and a NIC.
     pub fn switched(name: &str) -> SysfsFixture {
-        let f = SysfsFixture::new(name);
+        let f = create_sysfs_fixture(name);
         for (bridge, bus, numa) in [("pci0000:00", 0u8, "0"), ("pci0000:80", 0x80, "1")] {
             let attrs = |class: &'static str, vendor: &'static str| {
                 vec![
@@ -544,12 +597,12 @@ pub mod fixture {
             // Root port, switch upstream port, three downstream ports and their devices.
             let rp = format!("0000:{bus:02x}:01.0");
             let usp = format!("0000:{:02x}:00.0", bus + 1);
-            f.device(&[bridge, &rp], &attrs("0x060400", "0x1022"));
-            f.device(&[bridge, &rp, &usp], &attrs("0x060400", "0x1000"));
+            device_sysfs_fixture(&f, &[bridge, &rp], &attrs("0x060400", "0x1022"));
+            device_sysfs_fixture(&f, &[bridge, &rp, &usp], &attrs("0x060400", "0x1000"));
             for port in 0..3u8 {
                 let dsp = format!("0000:{:02x}:{port:02x}.0", bus + 2);
                 let endpoint = format!("0000:{:02x}:00.0", bus + 3 + port);
-                f.device(&[bridge, &rp, &usp, &dsp], &attrs("0x060400", "0x1000"));
+                device_sysfs_fixture(&f, &[bridge, &rp, &usp, &dsp], &attrs("0x060400", "0x1000"));
                 let mut device = if port < 2 {
                     attrs("0x030200", "0x10de")
                 } else {
@@ -558,10 +611,10 @@ pub mod fixture {
                 if port == 2 {
                     device.push(("infiniband/mlx5_0/hca_type", "MT4123"));
                 }
-                f.device(&[bridge, &rp, &usp, &dsp, &endpoint], &device);
+                device_sysfs_fixture(&f, &[bridge, &rp, &usp, &dsp, &endpoint], &device);
             }
         }
-        f.write("sys/devices/system/node/online", "0-1");
+        write_sysfs_fixture(&f, "sys/devices/system/node/online", "0-1");
         f
     }
 }
@@ -575,8 +628,12 @@ mod tests {
 
     #[test]
     fn topology_keeps_devices_of_interest_and_their_bridges() {
+        use crate::http_server::analysis::hardware::pci::fixture::{
+            sources_sysfs_fixture, sys_sysfs_fixture,
+        };
+
         let f = fixture::workstation("pci");
-        let nodes = read_topology(&f.sources(), &f.sys());
+        let nodes = read_topology(&sources_sysfs_fixture(&f), &sys_sysfs_fixture(&f));
         let summary: Vec<_> = nodes
             .iter()
             .map(|n| (n.address.as_str(), n.parent.as_deref(), n.role, n.kind))
@@ -643,19 +700,23 @@ mod tests {
                 },
             ]
         );
-        assert_eq!(online_numa_nodes(&f.sources(), &f.sys()), 1);
+        assert_eq!(
+            online_numa_nodes(&sources_sysfs_fixture(&f), &sys_sysfs_fixture(&f)),
+            1
+        );
         assert!(
-            (PcieLink {
+            (super::bandwidth_pcie_link(PcieLink {
                 speed_gts: 5.0,
                 width: 8
-            }
-            .bandwidth()
-                - 4.0)
+            }) - 4.0)
                 .abs()
                 < 1e-9
         );
         let switched = fixture::switched("pci-switched");
-        let nodes = read_topology(&switched.sources(), &switched.sys());
+        let nodes = read_topology(
+            &sources_sysfs_fixture(&switched),
+            &sys_sysfs_fixture(&switched),
+        );
         assert_eq!(nodes.iter().filter(|n| n.kind.is_some()).count(), 6);
         assert_eq!(
             nodes
@@ -664,6 +725,12 @@ mod tests {
                 .count(),
             8
         );
-        assert_eq!(online_numa_nodes(&switched.sources(), &switched.sys()), 2);
+        assert_eq!(
+            online_numa_nodes(
+                &sources_sysfs_fixture(&switched),
+                &sys_sysfs_fixture(&switched)
+            ),
+            2
+        );
     }
 }

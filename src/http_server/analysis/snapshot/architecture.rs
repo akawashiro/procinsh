@@ -1,7 +1,13 @@
 //! Identify the instruction set from an acquired executable header.
 //!
 //! # Interface
-//! [`Architecture`] (`pub(in crate::http_server)`): `enum Architecture`.
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`Architecture`] | `pub(in crate::http_server)` | `enum Architecture` |
+//! | [`architecture_from_elf_header`] | `pub(in crate::http_server)` | `fn architecture_from_elf_header( header: &[u8; 20], ) -> `[`Option`]`<`[`Architecture`]`>` |
+//!
+
 use serde::{Deserialize, Serialize};
 
 /// 64-bit instruction set of a sampled process.
@@ -19,17 +25,17 @@ const ELFDATA2LSB: u8 = 1;
 const EM_X86_64: u16 = 62;
 const EM_AARCH64: u16 = 183;
 
-impl Architecture {
-    /// Classifies an ELF header; 32-bit, big-endian and other machines are unsupported.
-    pub(in crate::http_server) fn from_elf_header(header: &[u8; 20]) -> Option<Self> {
-        if &header[..4] != ELF_MAGIC || header[4] != ELFCLASS64 || header[5] != ELFDATA2LSB {
-            return None;
-        }
-        match u16::from_le_bytes([header[18], header[19]]) {
-            EM_X86_64 => Some(Self::X86_64),
-            EM_AARCH64 => Some(Self::Aarch64),
-            _ => None,
-        }
+/// Classifies an ELF header; 32-bit, big-endian and other machines are unsupported.
+pub(in crate::http_server) fn architecture_from_elf_header(
+    header: &[u8; 20],
+) -> Option<Architecture> {
+    if &header[..4] != ELF_MAGIC || header[4] != ELFCLASS64 || header[5] != ELFDATA2LSB {
+        return None;
+    }
+    match u16::from_le_bytes([header[18], header[19]]) {
+        EM_X86_64 => Some(Architecture::X86_64),
+        EM_AARCH64 => Some(Architecture::Aarch64),
+        _ => None,
     }
 }
 
@@ -49,27 +55,27 @@ mod tests {
     #[test]
     fn elf_header_identifies_supported_64_bit_machines() {
         assert_eq!(
-            Architecture::from_elf_header(&header(ELFCLASS64, ELFDATA2LSB, EM_X86_64)),
+            super::architecture_from_elf_header(&header(ELFCLASS64, ELFDATA2LSB, EM_X86_64)),
             Some(Architecture::X86_64)
         );
         assert_eq!(
-            Architecture::from_elf_header(&header(ELFCLASS64, ELFDATA2LSB, EM_AARCH64)),
+            super::architecture_from_elf_header(&header(ELFCLASS64, ELFDATA2LSB, EM_AARCH64)),
             Some(Architecture::Aarch64)
         );
         // 32-bit x86 (EM_386), 32-bit ARM (EM_ARM), big-endian and non-ELF files.
         assert_eq!(
-            Architecture::from_elf_header(&header(1, ELFDATA2LSB, 3)),
+            super::architecture_from_elf_header(&header(1, ELFDATA2LSB, 3)),
             None
         );
         assert_eq!(
-            Architecture::from_elf_header(&header(1, ELFDATA2LSB, 40)),
+            super::architecture_from_elf_header(&header(1, ELFDATA2LSB, 40)),
             None
         );
         assert_eq!(
-            Architecture::from_elf_header(&header(ELFCLASS64, 2, EM_AARCH64)),
+            super::architecture_from_elf_header(&header(ELFCLASS64, 2, EM_AARCH64)),
             None
         );
-        assert_eq!(Architecture::from_elf_header(&[0; 20]), None);
+        assert_eq!(super::architecture_from_elf_header(&[0; 20]), None);
         assert_eq!(
             serde_json::to_value([Architecture::X86_64, Architecture::Aarch64]).unwrap(),
             serde_json::json!(["x86_64", "aarch64"])
@@ -91,7 +97,7 @@ mod tests {
                     .unwrap()
                     .read_exact(&mut header)
                     .unwrap();
-                Architecture::from_elf_header(&header)
+                super::architecture_from_elf_header(&header)
             },
             Some(expected)
         );

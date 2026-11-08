@@ -2,7 +2,10 @@
 //! queue pairs connected within this host.
 //!
 //! # Interface
-//! - [`build_rdma_relations`] (`pub(super)`): `fn build_rdma_relations( resources: &`[`NldevResources`]`, ports: &[`[`crate::ipc::rdma::RdmaPortInfo`]`], neighbors: &`[`HashMap`]`<`[`IpAddr`]`, `[`crate::ipc::rdma::IbGid`]`>, processes: &`[`HashMap`]`<i32, `[`ProcessId`]`>, ) -> `[`Vec`]`<`[`crate::ipc::rdma::RdmaRelation`]`>`.
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`build_rdma_relations`] | `pub(super)` | `fn build_rdma_relations( resources: &`[`NldevResources`]`, ports: &[`[`RdmaPortInfo`]`], neighbors: &`[`HashMap`]`<`[`IpAddr`]`, `[`IbGid`]`>, processes: &`[`HashMap`]`<i32, `[`ProcessId`]`>, ) -> `[`Vec`]`<`[`RdmaRelation`]`>` |
 
 use super::nldev::{CmIdEntry, NldevResources, QueuePairEntry, ResourceOwner};
 use crate::ipc::schema::ProcessId;
@@ -20,13 +23,11 @@ struct Endpoint<'a> {
     cm: Option<&'a CmIdEntry>,
     remote_gid: Option<IbGid>,
 }
-impl Endpoint<'_> {
-    /// QPNs are unique per device, except the SMI and GSI QPs (0 and 1) of each port.
-    fn id(&self) -> String {
-        match self.entry.port {
-            Some(port) => format!("rdma:{}/{port}:{}", self.entry.device, self.entry.qpn),
-            None => format!("rdma:{}:{}", self.entry.device, self.entry.qpn),
-        }
+/// QPNs are unique per device, except the SMI and GSI QPs (0 and 1) of each port.
+fn id_endpoint(state: &Endpoint<'_>) -> String {
+    match state.entry.port {
+        Some(port) => format!("rdma:{}/{port}:{}", state.entry.device, state.entry.qpn),
+        None => format!("rdma:{}:{}", state.entry.device, state.entry.qpn),
     }
 }
 
@@ -113,6 +114,8 @@ pub(super) fn build_rdma_relations(
     neighbors: &HashMap<IpAddr, IbGid>,
     processes: &HashMap<i32, ProcessId>,
 ) -> Vec<RdmaRelation> {
+    use crate::ipc::rdma::{ip_rdma_address, rdma_qp_type_is_connected};
+
     let gids: HashMap<_, _> = ports
         .iter()
         .filter_map(|p| Some(((p.device.as_str(), p.port), p.gid?)))
@@ -130,7 +133,7 @@ pub(super) fn build_rdma_relations(
             let cm = cms.get(&(entry.device.as_str(), entry.qpn)).copied();
             let remote_gid = cm.and_then(|cm| match cm.destination? {
                 RdmaAddress::Ib { gid, .. } => Some(gid),
-                destination => neighbors.get(&destination.ip()?).copied(),
+                destination => neighbors.get(&ip_rdma_address(&destination)?).copied(),
             });
             Endpoint {
                 entry,
@@ -141,13 +144,13 @@ pub(super) fn build_rdma_relations(
         .collect();
     let mut by_qpn: HashMap<u32, Vec<usize>> = HashMap::new();
     for (index, e) in endpoints.iter().enumerate() {
-        if e.entry.qp_type.is_connected() && e.entry.remote_qpn.is_some() {
+        if rdma_qp_type_is_connected(e.entry.qp_type) && e.entry.remote_qpn.is_some() {
             by_qpn.entry(e.entry.qpn).or_default().push(index);
         }
     }
     let peer_of = |index: usize| -> Option<usize> {
         let a = &endpoints[index];
-        if !a.entry.qp_type.is_connected() {
+        if !rdma_qp_type_is_connected(a.entry.qp_type) {
             return None;
         }
         let matches: Vec<_> = by_qpn
@@ -171,7 +174,7 @@ pub(super) fn build_rdma_relations(
         // Pair only mutual unique matches, so each QP belongs to one relation.
         let peer = peer_of(index).filter(|&b| peer_of(b) == Some(index));
         let (first, second) = match peer {
-            Some(b) if endpoints[b].id() < e.id() => (b, Some(index)),
+            Some(b) if id_endpoint(&endpoints[b]) < id_endpoint(e) => (b, Some(index)),
             Some(b) => (index, Some(b)),
             None => (index, None),
         };
@@ -183,8 +186,8 @@ pub(super) fn build_rdma_relations(
         });
         result.push(RdmaRelation {
             id: match second_endpoint {
-                Some(peer) => format!("{}/{}", first_endpoint.id(), peer.id()),
-                None => first_endpoint.id(),
+                Some(peer) => format!("{}/{}", id_endpoint(first_endpoint), id_endpoint(peer)),
+                None => id_endpoint(first_endpoint),
             },
             endpoint: build_rdma_endpoint(first_endpoint.entry, processes),
             peer: second_endpoint.map(|peer| build_rdma_endpoint(peer.entry, processes)),
@@ -233,7 +236,7 @@ mod tests {
     use {
         super::*,
         crate::ipc::rdma::{
-            IbGid, RdmaAddress, RdmaCmState, RdmaPortInfo, RdmaPortSpace, RdmaQpState, RdmaQpType,
+            RdmaAddress, RdmaCmState, RdmaPortInfo, RdmaPortSpace, RdmaQpState, RdmaQpType,
         },
     };
 
@@ -275,13 +278,15 @@ mod tests {
     }
 
     fn rdma_port_fixture(device: &str, gid: &str) -> RdmaPortInfo {
+        use crate::ipc::rdma::parse_ib_gid;
+
         RdmaPortInfo {
             device: device.into(),
             port: 1,
             link_layer: Some("InfiniBand".into()),
             state: Some("ACTIVE".into()),
             lid: Some(1),
-            gid: IbGid::parse(gid),
+            gid: parse_ib_gid(gid),
             rate: None,
         }
     }
@@ -291,6 +296,8 @@ mod tests {
 
     #[test]
     fn remote_qps_keep_cm_destination_and_neighbor_gid() {
+        use crate::ipc::rdma::parse_ib_gid;
+
         let resources = NldevResources {
             queue_pairs: vec![
                 queue_pair_fixture(
@@ -311,7 +318,7 @@ mod tests {
             ..Default::default()
         };
         let neighbors =
-            HashMap::from([("10.10.10.1".parse().unwrap(), IbGid::parse(REMOTE).unwrap())]);
+            HashMap::from([("10.10.10.1".parse().unwrap(), parse_ib_gid(REMOTE).unwrap())]);
         let processes = HashMap::from([(
             42,
             ProcessId {
@@ -360,6 +367,8 @@ mod tests {
 
     #[test]
     fn local_pairs_need_unique_swaps_and_no_contradicting_addresses() {
+        use crate::ipc::rdma::parse_ib_gid;
+
         let process_owner_fixture = || ResourceOwner::Process(1);
         // Same device: a QPN swap identifies a loopback connection.
         let same = NldevResources {
@@ -404,7 +413,7 @@ mod tests {
             ..same
         };
         let neighbors =
-            HashMap::from([("10.0.0.9".parse().unwrap(), IbGid::parse(REMOTE).unwrap())]);
+            HashMap::from([("10.0.0.9".parse().unwrap(), parse_ib_gid(REMOTE).unwrap())]);
         let result = build_rdma_relations(
             &contradicted,
             &[rdma_port_fixture("ib0", LOCAL)],

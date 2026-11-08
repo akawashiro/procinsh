@@ -2,9 +2,13 @@
 //!
 //! # Interface
 //!
-//! | Definition | Visibility | Kind |
+//! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
 //! | [`SignalCollector`] | `pub(super)` | `struct SignalCollector` |
+//! | [`create_signal_collector`] | `pub(super)` | `fn create_signal_collector() -> `[`Result`]`<`[`SignalCollector`]`>` |
+//! | [`poll_signal_collector`] | `pub(super)` | `fn poll_signal_collector(state: &`[`SignalCollector`]`) -> `[`Result`]`<()>` |
+//! | [`drain_signal_collector`] | `pub(super)` | `fn drain_signal_collector( state: &`[`SignalCollector`]`, _snapshot: &`[`SystemSnapshot`]`, ) -> `[`Vec`]`<`[`SignalSample`]`>` |
+//! | [`lost_signal_collector`] | `pub(super)` | `fn lost_signal_collector(state: &`[`SignalCollector`]`) -> u64` |
 //!
 //! Drained observations use [`SignalSample`]; main matches them against captured process identities.
 
@@ -37,67 +41,69 @@ pub(super) struct SignalCollector {
     drops: Arc<AtomicU64>,
 }
 
-impl SignalCollector {
-    pub(super) fn new() -> Result<Self> {
-        let obj = ObjectBuilder::default()
-            .open_memory(include_bytes!(concat!(env!("OUT_DIR"), "/signals.bpf.o")))?
-            .load()
-            .context("signal collection requires CAP_BPF / CAP_PERFMON and compatible BTF")?;
-        let mut links = Vec::new();
-        for prog in obj.progs_mut() {
-            links.push(prog.attach().context("attach signal_generate")?);
-        }
-        let queue = Arc::new(Mutex::new(Vec::new()));
-        let q = queue.clone();
-        let drops = Arc::new(AtomicU64::new(0));
-        let d = drops.clone();
-        let map = obj
-            .maps()
-            .find(|m| m.name() == "events")
-            .context("signal events map")?;
-        let mut builder = RingBufferBuilder::new();
-        builder.add(&map, move |bytes| {
-            if let Some(sample) = decode_signal(bytes) {
-                let mut queue = q.lock().unwrap();
-                if queue.len() < MAX_EVENTS {
-                    queue.push(sample);
-                } else {
-                    d.fetch_add(1, Ordering::Relaxed);
-                }
+pub(super) fn create_signal_collector() -> Result<SignalCollector> {
+    let obj = ObjectBuilder::default()
+        .open_memory(include_bytes!(concat!(env!("OUT_DIR"), "/signals.bpf.o")))?
+        .load()
+        .context("signal collection requires CAP_BPF / CAP_PERFMON and compatible BTF")?;
+    let mut links = Vec::new();
+    for prog in obj.progs_mut() {
+        links.push(prog.attach().context("attach signal_generate")?);
+    }
+    let queue = Arc::new(Mutex::new(Vec::new()));
+    let q = queue.clone();
+    let drops = Arc::new(AtomicU64::new(0));
+    let d = drops.clone();
+    let map = obj
+        .maps()
+        .find(|m| m.name() == "events")
+        .context("signal events map")?;
+    let mut builder = RingBufferBuilder::new();
+    builder.add(&map, move |bytes| {
+        if let Some(sample) = decode_signal(bytes) {
+            let mut queue = q.lock().unwrap();
+            if queue.len() < MAX_EVENTS {
+                queue.push(sample);
+            } else {
+                d.fetch_add(1, Ordering::Relaxed);
             }
-            0
-        })?;
-        Ok(Self {
-            ring: builder.build()?,
-            _links: links,
-            obj,
-            queue,
-            drops,
-        })
-    }
-
-    pub(super) fn poll(&self) -> Result<()> {
-        let consumed = self.ring.consume_raw_n(8192);
-        if consumed < 0 {
-            return Err(std::io::Error::from_raw_os_error(-consumed).into());
         }
-        Ok(())
-    }
+        0
+    })?;
+    Ok(SignalCollector {
+        ring: builder.build()?,
+        _links: links,
+        obj,
+        queue,
+        drops,
+    })
+}
 
-    pub(super) fn drain(&self, _snapshot: &SystemSnapshot) -> Vec<SignalSample> {
-        self.queue.lock().unwrap().drain(..).collect()
+pub(super) fn poll_signal_collector(state: &SignalCollector) -> Result<()> {
+    let consumed = state.ring.consume_raw_n(8192);
+    if consumed < 0 {
+        return Err(std::io::Error::from_raw_os_error(-consumed).into());
     }
+    Ok(())
+}
 
-    pub(super) fn lost(&self) -> u64 {
-        self.obj
-            .maps()
-            .find(|m| m.name() == "lost")
-            .and_then(|m| m.lookup(&0u32.to_ne_bytes(), MapFlags::ANY).ok().flatten())
-            .and_then(|v| v.try_into().ok())
-            .map(u64::from_ne_bytes)
-            .unwrap_or(0)
-            .saturating_add(self.drops.load(Ordering::Relaxed))
-    }
+pub(super) fn drain_signal_collector(
+    state: &SignalCollector,
+    _snapshot: &SystemSnapshot,
+) -> Vec<SignalSample> {
+    state.queue.lock().unwrap().drain(..).collect()
+}
+
+pub(super) fn lost_signal_collector(state: &SignalCollector) -> u64 {
+    state
+        .obj
+        .maps()
+        .find(|m| m.name() == "lost")
+        .and_then(|m| m.lookup(&0u32.to_ne_bytes(), MapFlags::ANY).ok().flatten())
+        .and_then(|v| v.try_into().ok())
+        .map(u64::from_ne_bytes)
+        .unwrap_or(0)
+        .saturating_add(state.drops.load(Ordering::Relaxed))
 }
 
 #[cfg(test)]

@@ -1,12 +1,19 @@
-use super::helper_service::{CollectorManager, HelperIpcService};
+use crate::ipc::schema::ProcessId;
 use crate::ipc::{schema::*, transport};
-use crate::{ipc::schema::ProcessId, privileged_helper::process};
 use std::{io::Write, os::unix::net::UnixStream, sync::Arc, time::Duration};
 
 #[test]
 fn validates_identity_before_creating_collectors_and_releases_sessions() {
-    let collectors = Arc::new(CollectorManager::new(Duration::from_millis(100)));
-    let mut ipc_service = HelperIpcService::new(collectors.clone());
+    use crate::privileged_helper::{
+        helper_service::{
+            create_collector_manager, create_helper_ipc_service, dispatch_helper_ipc_service,
+            join_collection_workers, stop_collector_manager,
+        },
+        process::{create_target, observer_count_process_monitor},
+    };
+
+    let collectors = Arc::new(create_collector_manager(Duration::from_millis(100)));
+    let mut ipc_service = create_helper_ipc_service(collectors.clone());
     for id in [
         ProcessId {
             pid: -1,
@@ -18,53 +25,61 @@ fn validates_identity_before_creating_collectors_and_releases_sessions() {
         },
     ] {
         assert!(
-            ipc_service
-                .dispatch(MonitorRequest::Process {
+            dispatch_helper_ipc_service(
+                &mut ipc_service,
+                MonitorRequest::Process {
                     id,
                     resource: ProcessResource::Maps
-                })
-                .is_err()
+                }
+            )
+            .is_err()
         );
         assert!(
-            ipc_service
-                .dispatch(MonitorRequest::ObserveProcess { id })
+            dispatch_helper_ipc_service(&mut ipc_service, MonitorRequest::ObserveProcess { id })
                 .is_err()
         );
-        assert_eq!(collectors.monitoring.observer_count(), 0);
+        assert_eq!(observer_count_process_monitor(&collectors.monitoring), 0);
     }
-    let target = process::Target::new("sleeping");
-    let MonitorResponse::Started { session, .. } = ipc_service
-        .dispatch(MonitorRequest::ObserveProcess { id: target.id })
-        .unwrap()
-    else {
+    let target = create_target("sleeping");
+    let MonitorResponse::Started { session, .. } = dispatch_helper_ipc_service(
+        &mut ipc_service,
+        MonitorRequest::ObserveProcess { id: target.id },
+    )
+    .unwrap() else {
         panic!("expected session")
     };
-    assert_eq!(collectors.monitoring.observer_count(), 1);
-    ipc_service
-        .dispatch(MonitorRequest::Close { session })
-        .unwrap();
-    assert_eq!(collectors.monitoring.observer_count(), 0);
+    assert_eq!(observer_count_process_monitor(&collectors.monitoring), 1);
+    dispatch_helper_ipc_service(&mut ipc_service, MonitorRequest::Close { session }).unwrap();
+    assert_eq!(observer_count_process_monitor(&collectors.monitoring), 0);
     assert!(
-        ipc_service
-            .dispatch(MonitorRequest::Poll { session })
-            .is_err()
+        dispatch_helper_ipc_service(&mut ipc_service, MonitorRequest::Poll { session }).is_err()
     );
-    let _ = ipc_service
-        .dispatch(MonitorRequest::ObserveProcess { id: target.id })
-        .unwrap();
+    let _ = dispatch_helper_ipc_service(
+        &mut ipc_service,
+        MonitorRequest::ObserveProcess { id: target.id },
+    )
+    .unwrap();
     drop(ipc_service);
-    assert_eq!(collectors.monitoring.observer_count(), 0);
-    collectors.stop();
-    collectors.join_collectors().unwrap();
+    assert_eq!(observer_count_process_monitor(&collectors.monitoring), 0);
+    stop_collector_manager(&collectors);
+    join_collection_workers(&collectors).unwrap();
 }
 
 #[test]
 fn disconnect_drops_all_parent_sessions() {
-    let collectors = Arc::new(CollectorManager::new(Duration::from_millis(100)));
+    use crate::privileged_helper::{
+        helper_service::{
+            create_collector_manager, create_helper_ipc_service, join_collection_workers,
+            serve_helper_ipc_service, stop_collector_manager,
+        },
+        process::{create_target, observer_count_process_monitor},
+    };
+
+    let collectors = Arc::new(create_collector_manager(Duration::from_millis(100)));
     let (mut client, server) = UnixStream::pair().unwrap();
-    let ipc_service = HelperIpcService::new(collectors.clone());
-    let worker = std::thread::spawn(move || ipc_service.serve(server));
-    let target = process::Target::new("sleeping");
+    let ipc_service = create_helper_ipc_service(collectors.clone());
+    let worker = std::thread::spawn(move || serve_helper_ipc_service(ipc_service, server));
+    let target = create_target("sleeping");
     transport::send(
         &mut client,
         &MonitorRequest::ObserveProcess { id: target.id },
@@ -73,12 +88,12 @@ fn disconnect_drops_all_parent_sessions() {
     .unwrap();
     let response: WireResponse = transport::read(&mut client, MAX_RESPONSE).unwrap();
     assert!(matches!(response, Ok(MonitorResponse::Started { .. })));
-    assert_eq!(collectors.monitoring.observer_count(), 1);
+    assert_eq!(observer_count_process_monitor(&collectors.monitoring), 1);
     drop(client);
     assert!(worker.join().unwrap().is_err());
-    assert_eq!(collectors.monitoring.observer_count(), 0);
-    collectors.stop();
-    collectors.join_collectors().unwrap();
+    assert_eq!(observer_count_process_monitor(&collectors.monitoring), 0);
+    stop_collector_manager(&collectors);
+    join_collection_workers(&collectors).unwrap();
 }
 
 #[test]

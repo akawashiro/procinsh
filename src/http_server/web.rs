@@ -103,8 +103,10 @@ pub(super) fn router() -> Router<Arc<AppState>> {
 
 #[cfg(test)]
 mod tests {
-    use super::{WebAssets, build_html, embedded_asset};
-    use axum::{body::to_bytes, http::StatusCode};
+    use {
+        super::{WebAssets, build_html, embedded_asset},
+        axum::{body::to_bytes, http::StatusCode},
+    };
 
     const SHA: &str = "0123456789abcdef0123456789abcdef01234567";
     fn templates() -> Vec<String> {

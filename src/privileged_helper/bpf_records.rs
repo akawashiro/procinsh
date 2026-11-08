@@ -1,15 +1,20 @@
 //! Decode fixed-layout native BPF records after bounded kernel reads.
 //!
 //! # Interface
-//! - [`decode_file`] (`pub`): `fn decode_file(data: &[u8]) -> `[`Option`]`<`[`FileActivity`]`>`.
-//! - [`decode_ipc`] (`pub`): `fn decode_ipc(bytes: &[u8]) -> `[`Option`]`<`[`IpcEvent`]`>`.
-//! - [`decode_signal`] (`pub`): `fn decode_signal(bytes: &[u8]) -> `[`Option`]`<`[`SignalSample`]`>`.
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`decode_file`] | `pub` | `fn decode_file(data: &[u8]) -> `[`Option`]`<`[`FileActivity`]`>` |
+//! | [`decode_ipc`] | `pub` | `fn decode_ipc(bytes: &[u8]) -> `[`Option`]`<`[`IpcEvent`]`>` |
+//! | [`decode_signal`] | `pub` | `fn decode_signal(bytes: &[u8]) -> `[`Option`]`<`[`SignalSample`]`>` |
 
 use crate::ipc::activity::{FileActivity, IpcEvent, SignalSample};
-use crate::ipc::model::resource::{DeviceId, FileIdentity};
+use crate::ipc::model::resource::FileIdentity;
 use crate::ipc::schema::ProcessId;
 
 pub fn decode_file(data: &[u8]) -> Option<FileActivity> {
+    use crate::ipc::model::resource::device_id_from_kernel;
+
     if data.len() != 4144 {
         return None;
     }
@@ -34,7 +39,7 @@ pub fn decode_file(data: &[u8]) -> Option<FileActivity> {
                 / 1_000_000_000) as u64,
         },
         file: FileIdentity {
-            device: DeviceId::from_kernel(dev),
+            device: device_id_from_kernel(dev),
             inode: u64_at(8),
             generation: u32_at(44),
         },
