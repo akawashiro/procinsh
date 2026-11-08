@@ -1,8 +1,12 @@
-//! Acquire raw process/thread counters with monotonic timestamps.
+//! Acquire raw process/thread counters and assemble process and thread observations.
 //!
 //! # Interface
-//! [`capture_sample`] (`pub(super)`): `fn capture_sample(id: `[`ProcessId`]`) -> `[`anyhow::Result`]`<`[`ProcessSample`]`>`.
-//! Shared observation values and calculations come from [`crate::ipc::model::process`].
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`capture_sample`] | `pub(super)` | `fn capture_sample(id: `[`ProcessId`]`) -> `[`Result`]`<`[`ProcessSample`]`>` |
+//! | [`collect_process_observation`] | `pub(in crate::privileged_helper)` | `fn collect_process_observation( id: `[`ProcessId`]`, ) -> `[`Result`]`<`[`crate::ipc::acquisition::ObservationData`]`>` |
+//! | [`collect_thread_observation`] | `pub(in crate::privileged_helper)` | `fn collect_thread_observation( id: `[`ProcessId`]`, ) -> `[`Result`]`<`[`crate::ipc::acquisition::ObservationData`]`>` |
 
 #[cfg(test)]
 use crate::ipc::model::process::IoStats;
@@ -13,9 +17,7 @@ use crate::{
 };
 use anyhow::Result;
 
-pub(in crate::privileged_helper::process) fn capture_sample(
-    id: ProcessId,
-) -> Result<ProcessSample> {
+pub(super) fn capture_sample(id: ProcessId) -> Result<ProcessSample> {
     process::validate_process_identity(id)?;
     let stat = procfs::read_process_stat(&format!("/proc/{}/stat", id.pid))?;
     let now = crate::ipc::model::process::monotonic_ns();
@@ -35,7 +37,7 @@ pub(in crate::privileged_helper::process) fn capture_sample(
     let io = procfs::read_process_io_stats(id.pid).ok();
     process::validate_process_identity(id)?;
     Ok(ProcessSample {
-        timestamp: process::timestamp_ms(),
+        timestamp: crate::privileged_helper::timestamp_ms(),
         process_id: id,
         rss_bytes: stat.rss,
         vms_bytes: stat.vms,
@@ -50,6 +52,24 @@ pub(in crate::privileged_helper::process) fn capture_sample(
         priority: stat.priority,
         ticks: stat.ticks,
         measured_at: now,
+    })
+}
+
+pub(in crate::privileged_helper) fn collect_process_observation(
+    id: ProcessId,
+) -> Result<crate::ipc::acquisition::ObservationData> {
+    Ok(crate::ipc::acquisition::ObservationData {
+        process_sample: capture_sample(id)?,
+        threads_only: false,
+    })
+}
+
+pub(in crate::privileged_helper) fn collect_thread_observation(
+    id: ProcessId,
+) -> Result<crate::ipc::acquisition::ObservationData> {
+    Ok(crate::ipc::acquisition::ObservationData {
+        process_sample: capture_sample(id)?,
+        threads_only: true,
     })
 }
 

@@ -4,6 +4,7 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
+//! | [`SubscribeError`] | `pub(in crate::privileged_helper)` | `enum SubscribeError` |
 //! | [`ProcessMonitor`] | `pub(in crate::privileged_helper)` | `struct ProcessMonitor` |
 //! | [`ObservationPermit`] | `pub(in crate::privileged_helper)` | `struct ObservationPermit` |
 //! | [`ObservationSession`] | `pub(in crate::privileged_helper)` | `struct ObservationSession` |
@@ -21,7 +22,6 @@ use std::collections::VecDeque;
 // Session handles and lifecycle methods are re-exported by the process façade.
 #[cfg(test)]
 use crate::http_server::analysis::history;
-use crate::privileged_helper::process::SubscribeError;
 use {super::sampling::capture_sample, crate::ipc::model::process::ProcessSample};
 
 use crate::{
@@ -39,6 +39,14 @@ use std::{
 use tokio::sync::watch;
 
 use crate::ipc::acquisition::ProcessDetailSnapshot;
+
+/// Failure to reserve a process observation subscription.
+#[derive(Debug, PartialEq, Eq)]
+pub(in crate::privileged_helper) enum SubscribeError {
+    Stopped,
+    TooManySubscribers,
+}
+
 /// Manages process observation sessions, collector workers and shutdown.
 pub(in crate::privileged_helper) struct ProcessMonitor {
     interval: Duration,
@@ -271,7 +279,7 @@ fn refresh_maps(target: &mut ProcessDetailSnapshot) {
             if target.maps_error.take().is_some() {
                 log::info!("memory maps recovered pid={}", id.pid);
             }
-            target.maps_captured_at = Some(process::timestamp_ms());
+            target.maps_captured_at = Some(crate::privileged_helper::timestamp_ms());
             target.rollup = maps::read_memory_rollup(id.pid);
         }
         Err(e) => {

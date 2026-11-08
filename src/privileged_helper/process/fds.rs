@@ -4,12 +4,13 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`collect_file_descriptors`] | `pub(super)` | `fn collect_file_descriptors(id: `[`ProcessId`]`) -> `[`Result`]`<`[`FileDescriptors`]`>` |
+//! | [`collect_file_descriptors`] | `pub(in crate::privileged_helper)` | `fn collect_file_descriptors(id: `[`ProcessId`]`) -> `[`Result`]`<`[`FileDescriptors`]`>` |
 
 use crate::ipc::model::socket_types::{
     AddressFamily, SocketConnectionStatus, SocketProtocol, SocketState, SocketType,
 };
 use crate::ipc::model::socket_types::{FdAccess, FdKind, InetAddress};
+use crate::privileged_helper::timestamp_ms;
 use anyhow::Result;
 use std::{
     collections::{HashMap, HashSet},
@@ -19,7 +20,7 @@ use std::{
     time::{Duration, Instant},
 };
 use {
-    super::{permission_help, procfs, timestamp_ms, validate_process_identity},
+    super::{permission_help, procfs, validate_process_identity},
     crate::{
         ipc::{model::sockets::SocketInfo, schema::ProcessId},
         privileged_helper::process::sockets,
@@ -265,7 +266,9 @@ fn connected_socket_key(info: &SocketInfo) -> Option<InetKey> {
     Some((socket_protocol_is_tcp(info.protocol), local, remote))
 }
 
-pub(super) fn collect_file_descriptors(id: ProcessId) -> Result<FileDescriptors> {
+pub(in crate::privileged_helper) fn collect_file_descriptors(
+    id: ProcessId,
+) -> Result<FileDescriptors> {
     use crate::{
         ipc::model::sockets::connection_status_socket_info,
         privileged_helper::process::{

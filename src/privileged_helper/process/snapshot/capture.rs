@@ -370,7 +370,7 @@ fn process_sample(
     thread.latest = LiveSample {
         tid,
         executable_header,
-        sampled_at: Some(process::timestamp_ms().saturating_sub(age)),
+        sampled_at: Some(crate::privileged_helper::timestamp_ms().saturating_sub(age)),
         sample_time_ns: Some(sample.time_ns),
         #[cfg(test)]
         sample_source: Some(sample.source),
