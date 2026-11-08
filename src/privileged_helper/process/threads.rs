@@ -8,7 +8,7 @@
 //! | [`read_thread_sample`] | `pub(super)` | `fn read_thread_sample(pid: i32, tid: i32) -> `[`Result`]`<`[`ThreadSample`]`>` |
 
 use super::procfs::{self, Stat};
-use crate::ipc::model::threads::{SchedulerPolicy, ThreadSample, parse_cpu_affinity};
+use crate::ipc::model::threads::{ThreadSample, parse_cpu_affinity};
 use anyhow::{Result, ensure};
 use std::fs;
 
@@ -27,6 +27,8 @@ pub(super) fn collect_thread_ids(pid: i32) -> Result<Vec<i32>> {
 }
 
 pub(super) fn read_thread_sample(pid: i32, tid: i32) -> Result<ThreadSample> {
+    use crate::ipc::model::threads::scheduler_policy_from_code;
+
     let path = format!("/proc/{pid}/task/{tid}");
     let s: Stat = procfs::read_process_stat(&format!("{path}/stat"))?;
     let f = procfs::read_procfs_fields(&format!("{path}/status")).unwrap_or_default();
@@ -37,7 +39,7 @@ pub(super) fn read_thread_sample(pid: i32, tid: i32) -> Result<ThreadSample> {
         cpu: s.cpu,
         priority: s.priority,
         nice: s.nice,
-        scheduler: SchedulerPolicy::from_code(s.policy),
+        scheduler: scheduler_policy_from_code(s.policy),
         affinity: f
             .get("Cpus_allowed_list")
             .and_then(|v| parse_cpu_affinity(v)),

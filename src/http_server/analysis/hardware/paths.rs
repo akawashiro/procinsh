@@ -85,6 +85,8 @@ fn chain<'a>(node: &'a PciNode, nodes: &HashMap<&str, &'a PciNode>) -> Vec<&'a P
 /// Paths between every pair of endpoints. With one online NUMA node, devices
 /// without a NUMA node share it.
 pub fn build_hardware_paths(nodes: &[PciNode], numa_nodes: usize) -> Vec<HardwarePath> {
+    use crate::http_server::analysis::hardware::pci::bandwidth_pcie_link;
+
     let by_address: HashMap<&str, &PciNode> =
         nodes.iter().map(|n| (n.address.as_str(), n)).collect();
     let endpoints: Vec<_> = nodes
@@ -151,7 +153,7 @@ pub fn build_hardware_paths(nodes: &[PciNode], numa_nodes: usize) -> Vec<Hardwar
                 .iter()
                 .chain(down)
                 .filter_map(|n| n.link?.current)
-                .min_by(|x, y| x.bandwidth().total_cmp(&y.bandwidth()));
+                .min_by(|x, y| bandwidth_pcie_link(*x).total_cmp(&bandwidth_pcie_link(*y)));
             result.push(HardwarePath {
                 id: format!("{}/{}", a.address, b.address),
                 a: a.address.clone(),
@@ -167,11 +169,12 @@ pub fn build_hardware_paths(nodes: &[PciNode], numa_nodes: usize) -> Vec<Hardwar
 
 #[cfg(test)]
 mod tests {
-    use super::super::pci::{fixture, read_topology};
-    use crate::ipc::hardware::PcieLink;
     use {
-        super::build_hardware_paths,
-        crate::ipc::hardware::{HardwarePath, PathClass},
+        super::{
+            super::pci::{fixture, read_topology},
+            build_hardware_paths,
+        },
+        crate::ipc::hardware::{HardwarePath, PathClass, PcieLink},
     };
 
     fn class_of(
@@ -188,8 +191,12 @@ mod tests {
 
     #[test]
     fn classes_match_nvidia_topology_and_find_the_bottleneck() {
+        use crate::http_server::analysis::hardware::pci::fixture::{
+            sources_sysfs_fixture, sys_sysfs_fixture,
+        };
+
         let f = fixture::workstation("paths");
-        let nodes = read_topology(&f.sources(), &f.sys());
+        let nodes = read_topology(&sources_sysfs_fixture(&f), &sys_sysfs_fixture(&f));
         let found = build_hardware_paths(&nodes, 1);
         // This machine: GPU and HCA under different host bridges of one NUMA node.
         let (class, via, bottleneck) = class_of(&found, "0000:01:00.0", "0000:85:00.0");
@@ -212,7 +219,7 @@ mod tests {
         );
 
         let f = fixture::switched("paths-switched");
-        let nodes = read_topology(&f.sources(), &f.sys());
+        let nodes = read_topology(&sources_sysfs_fixture(&f), &sys_sysfs_fixture(&f));
         let found = build_hardware_paths(&nodes, 2);
         // Two GPUs behind one switch.
         let (class, via, _) = class_of(&found, "0000:03:00.0", "0000:04:00.0");

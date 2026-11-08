@@ -3,11 +3,14 @@
 //! Watching the merged view starts collection on every online agent.
 //!
 //! # Interface
-//! - [`build_merged_event_response`] (`pub(super)`): `async fn build_merged_event_response(s: `[`Arc`]`<`[`AppState`]`>) -> `[`Result`]`<`[`Response`]`, `[`ApiError`]`>`.
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`build_merged_event_response`] | `pub(super)` | `async fn build_merged_event_response(s: `[`Arc`]`<`[`AppState`]`>) -> `[`Result`](anyhow::Result)`<`[`Response`]`, `[`ApiError`]`>` |
 
 use super::super::{
     AppState,
-    client::{MonitorClient, ObservationSession},
+    client::ObservationSession,
     delivery::SnapshotEncoder,
     hosts::{AgentLink, correlate_host_connections},
 };
@@ -48,6 +51,8 @@ async fn forward_host_events(
     out: Outgoing,
     latest: Latest,
 ) {
+    use crate::http_server::{client::poll_observation_session, state::stopped_app_state};
+
     let mut delivery = SnapshotEncoder::default();
     let mut event = session.initial.take();
     let mut closed = false;
@@ -68,13 +73,13 @@ async fn forward_host_events(
                 }
             }
         }
-        if closed || state.stopped() {
+        if closed || stopped_app_state(&state) {
             break;
         }
         if idle {
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
-        match session.poll().await {
+        match poll_observation_session(&session).await {
             Ok(next) => (event, closed) = next,
             Err(error) => {
                 log::debug!("merged view lost host {host}: {error:#}");
@@ -93,9 +98,13 @@ async fn forward_remote(
     out: Outgoing,
     latest: Latest,
 ) {
-    match MonitorClient::agent(link)
-        .observe(MonitorRequest::ObserveSystem)
-        .await
+    use crate::http_server::client::{create_agent_monitor_client, observe_monitor_client};
+
+    match observe_monitor_client(
+        &create_agent_monitor_client(link),
+        MonitorRequest::ObserveSystem,
+    )
+    .await
     {
         Ok(session) => forward_host_events(state, session, host, out, latest).await,
         Err(error) => log::warn!("merged view skips host {host}: {error:#}"),
@@ -109,9 +118,18 @@ enum Step {
 }
 
 pub(super) async fn build_merged_event_response(s: Arc<AppState>) -> Result<Response, ApiError> {
+    use crate::http_server::{
+        client::observe_monitor_client,
+        hosts::{
+            changes_host_registry, local_host_registry, online_host_registry,
+            summaries_host_registry,
+        },
+        state::stopped_app_state,
+    };
+
     // The local host fails the request like the single-host view does.
-    let local = s.client.observe(MonitorRequest::ObserveSystem).await?;
-    let local_name = s.hosts.local().name.clone();
+    let local = observe_monitor_client(&s.client, MonitorRequest::ObserveSystem).await?;
+    let local_name = local_host_registry(&s.hosts).name.clone();
     let (out, mut incoming) = mpsc::channel(64);
     let latest = Latest::default();
     // Dropping the stream drops the set, which aborts every forwarder and its session.
@@ -123,7 +141,7 @@ pub(super) async fn build_merged_event_response(s: Arc<AppState>) -> Result<Resp
         out.clone(),
         latest.clone(),
     ));
-    let mut changes = s.hosts.changes();
+    let mut changes = changes_host_registry(&s.hosts);
     let stream = async_stream::stream! {
         // The link each remote host is forwarded from; a reconnect gets a new forwarder.
         let mut forwarded: HashMap<String, Arc<AgentLink>> = HashMap::new();
@@ -131,7 +149,7 @@ pub(super) async fn build_merged_event_response(s: Arc<AppState>) -> Result<Resp
         let mut links = String::new();
         let mut step = Step::Hosts;
         loop {
-            if s.stopped() { break; }
+            if stopped_app_state(&s) { break; }
             match step {
                 Step::Message(Some((event, data))) => {
                     yield Ok::<_, Infallible>(Event::default().event(event).data(data));
@@ -139,14 +157,14 @@ pub(super) async fn build_merged_event_response(s: Arc<AppState>) -> Result<Resp
                 Step::Message(None) => break,
                 Step::Hosts => {
                     changes.mark_unchanged();
-                    for (name, link) in s.hosts.online() {
+                    for (name, link) in online_host_registry(&s.hosts) {
                         if forwarded.get(&name).is_some_and(|known| Arc::ptr_eq(known, &link)) {
                             continue;
                         }
                         forwarded.insert(name.clone(), link.clone());
                         forwarders.spawn(forward_remote(s.clone(), link, name, out.clone(), latest.clone()));
                     }
-                    let hosts = json!({"local": local_name, "hosts": s.hosts.summaries()});
+                    let hosts = json!({"local": local_name, "hosts": summaries_host_registry(&s.hosts)});
                     yield Ok(Event::default().event("hosts").data(hosts.to_string()));
                 }
                 Step::Tick => {

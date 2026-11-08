@@ -276,8 +276,7 @@ pub(in crate::http_server) fn correlate_host_connections(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use serde_json::json;
+    use {super::*, serde_json::json};
 
     fn tcp(id: &str, local: &str, remote: &str) -> Value {
         let address = |text: &str| {

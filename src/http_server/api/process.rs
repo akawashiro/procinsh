@@ -1,17 +1,21 @@
 //! Serve process metadata and observation HTTP endpoints.
 //!
 //! # Interface
-//! - [`ApiError`] (`pub(super)`): `struct ApiError`.
-//! - [`ProcessQuery`] (`pub(super)`): `struct ProcessQuery`.
-//! - [`get_server_config`] (`pub(super)`): `async fn get_server_config(`[`State`]`(s): `[`State`]`<`[`Arc`]`<`[`AppState`]`>>) -> `[`Json`]`<`[`Value`]`>`.
-//! - [`list_processes`] (`pub(super)`): `async fn list_processes( `[`State`]`(s): `[`State`]`<`[`Arc`]`<`[`AppState`]`>>, `[`Query`]`(query): `[`Query`]`<`[`HostQuery`]`>, ) -> `[`ApiResult`].
-//! - [`get_process_observation`] (`pub(super)`): `async fn get_process_observation( `[`State`]`(s): `[`State`]`<`[`Arc`]`<`[`AppState`]`>>, `[`Query`]`(query): `[`Query`]`<`[`ProcessQuery`]`>, ) -> `[`ApiResult`].
-//! - [`get_process_threads`] (`pub(super)`): `async fn get_process_threads( `[`State`]`(s): `[`State`]`<`[`Arc`]`<`[`AppState`]`>>, `[`Query`]`(query): `[`Query`]`<`[`ProcessQuery`]`>, ) -> `[`ApiResult`].
-//! - [`get_process_maps`] (`pub(super)`): `async fn get_process_maps( `[`State`]`(s): `[`State`]`<`[`Arc`]`<`[`AppState`]`>>, `[`Query`]`(query): `[`Query`]`<`[`ProcessQuery`]`>, ) -> `[`ApiResult`].
-//! - [`get_process_environment`] (`pub(super)`): `async fn get_process_environment( `[`State`]`(s): `[`State`]`<`[`Arc`]`<`[`AppState`]`>>, `[`Query`]`(query): `[`Query`]`<`[`ProcessQuery`]`>, ) -> `[`ApiResult`].
-//! - [`get_process_file_descriptors`] (`pub(super)`): `async fn get_process_file_descriptors( `[`State`]`(s): `[`State`]`<`[`Arc`]`<`[`AppState`]`>>, `[`Query`]`(query): `[`Query`]`<`[`ProcessQuery`]`>, ) -> `[`ApiResult`].
-//! - [`get_process_auxiliary_vector`] (`pub(super)`): `async fn get_process_auxiliary_vector( `[`State`]`(s): `[`State`]`<`[`Arc`]`<`[`AppState`]`>>, `[`Query`]`(query): `[`Query`]`<`[`ProcessQuery`]`>, ) -> `[`ApiResult`].
-//! - [`stream_process_events`] (`pub(super)`): `async fn stream_process_events( `[`State`]`(s): `[`State`]`<`[`Arc`]`<`[`AppState`]`>>, `[`Query`]`(query): `[`Query`]`<`[`ProcessQuery`]`>, ) -> `[`Result`]`<`[`Response`]`, `[`ApiError`]`>`.
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`ApiError`] | `pub(super)` | `struct ApiError` |
+//! | [`ProcessQuery`] | `pub(super)` | `struct ProcessQuery` |
+//! | [`create_api_error`] | `pub(super)` | `fn create_api_error(status: `[`StatusCode`]`, message: `[`String`]`) -> `[`ApiError`] |
+//! | [`get_server_config`] | `pub(super)` | `async fn get_server_config(`[`State`]`(s): `[`State`]`<`[`Arc`]`<`[`AppState`]`>>) -> `[`Json`]`<`[`Value`]`>` |
+//! | [`list_processes`] | `pub(super)` | `async fn list_processes( `[`State`]`(s): `[`State`]`<`[`Arc`]`<`[`AppState`]`>>, `[`Query`]`(query): `[`Query`]`<`[`HostQuery`]`>, ) -> `[`ApiResult`] |
+//! | [`get_process_observation`] | `pub(super)` | `async fn get_process_observation( `[`State`]`(s): `[`State`]`<`[`Arc`]`<`[`AppState`]`>>, `[`Query`]`(query): `[`Query`]`<`[`ProcessQuery`]`>, ) -> `[`ApiResult`] |
+//! | [`get_process_threads`] | `pub(super)` | `async fn get_process_threads( `[`State`]`(s): `[`State`]`<`[`Arc`]`<`[`AppState`]`>>, `[`Query`]`(query): `[`Query`]`<`[`ProcessQuery`]`>, ) -> `[`ApiResult`] |
+//! | [`get_process_maps`] | `pub(super)` | `async fn get_process_maps( `[`State`]`(s): `[`State`]`<`[`Arc`]`<`[`AppState`]`>>, `[`Query`]`(query): `[`Query`]`<`[`ProcessQuery`]`>, ) -> `[`ApiResult`] |
+//! | [`get_process_environment`] | `pub(super)` | `async fn get_process_environment( `[`State`]`(s): `[`State`]`<`[`Arc`]`<`[`AppState`]`>>, `[`Query`]`(query): `[`Query`]`<`[`ProcessQuery`]`>, ) -> `[`ApiResult`] |
+//! | [`get_process_file_descriptors`] | `pub(super)` | `async fn get_process_file_descriptors( `[`State`]`(s): `[`State`]`<`[`Arc`]`<`[`AppState`]`>>, `[`Query`]`(query): `[`Query`]`<`[`ProcessQuery`]`>, ) -> `[`ApiResult`] |
+//! | [`get_process_auxiliary_vector`] | `pub(super)` | `async fn get_process_auxiliary_vector( `[`State`]`(s): `[`State`]`<`[`Arc`]`<`[`AppState`]`>>, `[`Query`]`(query): `[`Query`]`<`[`ProcessQuery`]`>, ) -> `[`ApiResult`] |
+//! | [`stream_process_events`] | `pub(super)` | `async fn stream_process_events( `[`State`]`(s): `[`State`]`<`[`Arc`]`<`[`AppState`]`>>, `[`Query`]`(query): `[`Query`]`<`[`ProcessQuery`]`>, ) -> `[`Result`](anyhow::Result)`<`[`Response`]`, `[`ApiError`]`>` |
 
 use super::super::AppState;
 use super::hosts::{HostQuery, resolve_host_client};
@@ -30,10 +34,8 @@ use serde_json::{Value, json};
 use std::sync::Arc;
 
 pub(super) struct ApiError(StatusCode, String);
-impl ApiError {
-    pub(super) fn new(status: StatusCode, message: String) -> Self {
-        Self(status, message)
-    }
+pub(super) fn create_api_error(status: StatusCode, message: String) -> ApiError {
+    ApiError(status, message)
 }
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
@@ -76,12 +78,10 @@ pub(super) struct ProcessQuery {
     pid: i32,
     start_time_ticks: u64,
 }
-impl ProcessQuery {
-    fn id(&self) -> ProcessId {
-        ProcessId {
-            pid: self.pid,
-            start_time_ticks: self.start_time_ticks,
-        }
+fn id_process_query(state: &ProcessQuery) -> ProcessId {
+    ProcessId {
+        pid: state.pid,
+        start_time_ticks: state.start_time_ticks,
     }
 }
 
@@ -90,7 +90,9 @@ async fn request_process_data(
     host: Option<&str>,
     request: MonitorRequest,
 ) -> ApiResult {
-    match resolve_host_client(state, host)?.request(request).await? {
+    use crate::http_server::client::request_monitor_client;
+
+    match request_monitor_client(&(resolve_host_client(state, host)?), request).await? {
         MonitorResponse::Data(value) => Ok(Json(value)),
         _ => Err(anyhow::anyhow!("unexpected monitor IPC response").into()),
     }
@@ -150,7 +152,7 @@ async fn request_process_resource(
     query: ProcessQuery,
     resource: ProcessResource,
 ) -> ApiResult {
-    let id = query.id();
+    let id = id_process_query(&query);
     request_process_data(
         state,
         query.host.as_deref(),
@@ -163,8 +165,14 @@ pub(super) async fn stream_process_events(
     State(s): State<Arc<AppState>>,
     Query(query): Query<ProcessQuery>,
 ) -> Result<Response, ApiError> {
-    let session = resolve_host_client(&s, query.host.as_deref())?
-        .observe(MonitorRequest::ObserveProcess { id: query.id() })
-        .await?;
+    use crate::http_server::client::observe_monitor_client;
+
+    let session = observe_monitor_client(
+        &(resolve_host_client(&s, query.host.as_deref())?),
+        MonitorRequest::ObserveProcess {
+            id: id_process_query(&query),
+        },
+    )
+    .await?;
     Ok(super::stream::build_sse_response(s, session))
 }

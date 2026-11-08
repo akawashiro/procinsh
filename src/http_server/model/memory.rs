@@ -4,8 +4,8 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`deserialize_hex`] | `pub` | `fn deserialize_hex<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<u64, D::Error>` |
-//! | [`hex`] | `pub` | `fn hex<S: serde::Serializer>(value: &u64, serializer: S) -> Result<S::Ok, S::Error>` |
+//! | [`deserialize_hex`] | `pub` | `fn deserialize_hex<'de, D: `[`serde::Deserializer`]`<'de>>(deserializer: D) -> `[`Result`]`<u64, D::Error>` |
+//! | [`hex`] | `pub` | `fn hex<S: `[`serde::Serializer`]`>(value: &u64, serializer: S) -> `[`Result`]`<S::Ok, S::Error>` |
 
 use crate::ipc::model::memory::MemoryMap;
 use crate::{http_server::model::resource::decimal, ipc::model::resource::DeviceId};
@@ -131,6 +131,8 @@ mod tests {
 
     #[test]
     fn maps_and_smaps_keep_paths_and_boundaries() {
+        use crate::ipc::model::memory::memory_map_contains;
+
         let maps = parse_smaps("1000-2000 r-xp 00001000 08:01 10 /tmp/a b (deleted)\nRss: 4 kB\nPss: 2 kB\n2000-3000 rw-p 0 00:00 0\n").unwrap();
         assert_eq!(
             maps[0].mapping.pathname.as_deref(),
@@ -142,8 +144,8 @@ mod tests {
         assert_eq!(detailed["pss_bytes"], 2048);
         assert_eq!(detailed["start"], "0x0000000000001000");
         assert!(detailed.get("mapping").is_none());
-        assert!(maps[0].mapping.contains(0x1000));
-        assert!(!maps[0].mapping.contains(0x2000));
+        assert!(memory_map_contains(&maps[0].mapping, 0x1000));
+        assert!(!memory_map_contains(&maps[0].mapping, 0x2000));
         assert!(maps[1].mapping.pathname.is_none());
         assert!(parse_map("2000-1000 rw-p 0 00:00 0").is_err());
     }

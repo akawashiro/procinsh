@@ -129,27 +129,30 @@ mod tests {
     struct TestRepository {
         root: PathBuf,
     }
-    impl TestRepository {
-        fn new() -> Self {
-            static NEXT: AtomicUsize = AtomicUsize::new(0);
-            let root = env::temp_dir().join(format!(
-                "procinsh-build-git-{}-{}",
-                std::process::id(),
-                NEXT.fetch_add(1, Ordering::Relaxed)
-            ));
-            fs::create_dir(&root).unwrap();
-            let repo = Self { root };
-            repo.run(&["init", "--initial-branch=main"]);
-            fs::write(repo.root.join("source"), "first").unwrap();
-            repo.commit();
-            repo
-        }
-        fn run(&self, args: &[&str]) -> String {
-            git_text(&self.root, args).unwrap()
-        }
-        fn commit(&self) {
-            self.run(&["add", "source"]);
-            self.run(&[
+    fn create_test_repository() -> TestRepository {
+        static NEXT: AtomicUsize = AtomicUsize::new(0);
+        let root = env::temp_dir().join(format!(
+            "procinsh-build-git-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir(&root).unwrap();
+        let repo = TestRepository { root };
+        run_test_repository(&repo, &["init", "--initial-branch=main"]);
+        fs::write(repo.root.join("source"), "first").unwrap();
+        commit_test_repository(&repo);
+        repo
+    }
+
+    fn run_test_repository(state: &TestRepository, args: &[&str]) -> String {
+        git_text(&state.root, args).unwrap()
+    }
+
+    fn commit_test_repository(state: &TestRepository) {
+        run_test_repository(state, &["add", "source"]);
+        run_test_repository(
+            state,
+            &[
                 "-c",
                 "user.name=Build Test",
                 "-c",
@@ -157,8 +160,8 @@ mod tests {
                 "commit",
                 "-m",
                 "test source",
-            ]);
-        }
+            ],
+        );
     }
     impl Drop for TestRepository {
         fn drop(&mut self) {
@@ -196,7 +199,7 @@ mod tests {
 
     #[test]
     fn checkout_identity_and_tracked_changes() {
-        let repo = TestRepository::new();
+        let repo = create_test_repository();
         let original = revision(&repo.root, None).unwrap();
         assert!(!original.dirty);
         fs::write(repo.root.join("untracked"), "ignored for dirty detection").unwrap();
@@ -205,7 +208,7 @@ mod tests {
         assert!(revision(&repo.root, None).unwrap().dirty);
         // An explicit preview revision remains authoritative in a dirty checkout.
         assert!(!revision(&repo.root, Some(&original.sha)).unwrap().dirty);
-        repo.commit();
+        commit_test_repository(&repo);
         let next = revision(&repo.root, None).unwrap();
         assert_ne!(next.sha, original.sha);
         assert!(!next.dirty);
@@ -213,18 +216,21 @@ mod tests {
 
     #[test]
     fn ignores_parent_checkout_and_handles_linked_worktree() {
-        let repo = TestRepository::new();
+        let repo = create_test_repository();
         let packaged = repo.root.join("target/package/procinsh");
         fs::create_dir_all(&packaged).unwrap();
         assert_eq!(revision(&packaged, None), None);
         let worktree = repo.root.join("linked");
-        repo.run(&[
-            "worktree",
-            "add",
-            "--detach",
-            worktree.to_str().unwrap(),
-            "HEAD",
-        ]);
+        run_test_repository(
+            &repo,
+            &[
+                "worktree",
+                "add",
+                "--detach",
+                worktree.to_str().unwrap(),
+                "HEAD",
+            ],
+        );
         assert!(worktree.join(".git").is_file());
         assert_eq!(revision(&worktree, None), revision(&repo.root, None));
         let gitless = repo.root.join("exported");

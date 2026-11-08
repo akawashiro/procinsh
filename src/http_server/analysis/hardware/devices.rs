@@ -4,7 +4,7 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`build_hardware_device`] | `pub` | `fn build_hardware_device(sources: &`[`HardwareSources`]`, node: &`[`PciNode`]`, proc: &`[`Path`]`) -> `[`HardwareDevice`] |
+//! | [`build_hardware_device`] | `pub` | `fn build_hardware_device( sources: &`[`HardwareSources`]`, node: &`[`PciNode`]`, proc: &`[`Path`]`, ) -> `[`HardwareDevice`] |
 
 use super::observation::HardwareSources;
 use crate::ipc::hardware::{GpuInfo, HardwareDevice, RdmaDeviceInfo};
@@ -104,20 +104,22 @@ fn nvidia_information(
     proc: &Path,
     address: &str,
 ) -> Vec<(String, String)> {
-    sources
-        .text(
-            &proc
-                .join("driver/nvidia/gpus")
-                .join(address)
-                .join("information"),
-        )
-        .unwrap_or_default()
-        .lines()
-        .filter_map(|line| {
-            let (key, value) = line.split_once(':')?;
-            Some((key.trim().to_owned(), value.trim().to_owned()))
-        })
-        .collect()
+    use crate::http_server::analysis::hardware::observation::text_hardware_sources;
+
+    text_hardware_sources(
+        sources,
+        &proc
+            .join("driver/nvidia/gpus")
+            .join(address)
+            .join("information"),
+    )
+    .unwrap_or_default()
+    .lines()
+    .filter_map(|line| {
+        let (key, value) = line.split_once(':')?;
+        Some((key.trim().to_owned(), value.trim().to_owned()))
+    })
+    .collect()
 }
 
 fn shorten_pci_address(address: &str) -> &str {
@@ -129,6 +131,10 @@ pub fn build_hardware_device(
     node: &PciNode,
     proc: &Path,
 ) -> HardwareDevice {
+    use crate::http_server::analysis::hardware::observation::{
+        names_hardware_sources, text_hardware_sources,
+    };
+
     let hex = |value: Option<u32>, width: usize| value.map(|v| format!("0x{v:0width$x}"));
     let gpu = (node.kind == Some(HardwareKind::Gpu)).then(|| {
         let info = nvidia_information(sources, proc, &node.address);
@@ -143,22 +149,20 @@ pub fn build_hardware_device(
             model: field("Model"),
             uuid: field("GPU UUID"),
             minor: field("Device Minor").and_then(|m| m.parse().ok()),
-            drm: sources
-                .names(&node.path.join("drm"))
+            drm: names_hardware_sources(sources, &node.path.join("drm"))
                 .into_iter()
                 .filter(|n| n.starts_with("card") || n.starts_with("renderD"))
                 .filter(|n| !n.contains('-'))
                 .collect(),
         }
     });
-    let rdma: Vec<_> = sources
-        .names(&node.path.join("infiniband"))
+    let rdma: Vec<_> = names_hardware_sources(sources, &node.path.join("infiniband"))
         .into_iter()
         .map(|name| {
             let dir = node.path.join("infiniband").join(&name);
             RdmaDeviceInfo {
-                hca_type: sources.text(&dir.join("hca_type")),
-                fw_ver: sources.text(&dir.join("fw_ver")),
+                hca_type: text_hardware_sources(sources, &dir.join("hca_type")),
+                fw_ver: text_hardware_sources(sources, &dir.join("fw_ver")),
                 name,
             }
         })
@@ -208,7 +212,7 @@ pub fn build_hardware_device(
         gpu,
         rdma,
         netdevs: if node.role == HardwareRole::Endpoint {
-            sources.names(&node.path.join("net"))
+            names_hardware_sources(sources, &node.path.join("net"))
         } else {
             vec![]
         },

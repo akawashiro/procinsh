@@ -6,6 +6,13 @@
 //! | --- | --- | --- |
 //! | [`HardwareSources`] | `pub` | `struct HardwareSources` |
 //! | [`HardwareObservation`] | `pub` | `struct HardwareObservation` |
+//! | [`acquired_hardware_sources`] | `pub` | `fn acquired_hardware_sources(files: `[`crate::ipc::hardware::HardwareFiles`]`) -> `[`HardwareSources`] |
+//! | [`text_hardware_sources`] | `pub(super)` | `fn text_hardware_sources( state: &`[`HardwareSources`]`, path: &`[`std::path::Path`]`, ) -> `[`Option`]`<`[`String`]`>` |
+//! | [`names_hardware_sources`] | `pub(super)` | `fn names_hardware_sources( state: &`[`HardwareSources`]`, path: &`[`std::path::Path`]`, ) -> `[`Vec`]`<`[`String`]`>` |
+//! | [`link_hardware_sources`] | `pub(super)` | `fn link_hardware_sources( state: &`[`HardwareSources`]`, path: &`[`std::path::Path`]`, ) -> `[`Option`]`<`[`PathBuf`]`>` |
+//! | [`hardware_sources_is_dir`] | `pub(super)` | `fn hardware_sources_is_dir(state: &`[`HardwareSources`]`, path: &`[`std::path::Path`]`) -> bool` |
+//! | [`observe_hardware_observation`] | `pub` | `fn observe_hardware_observation(sources: &`[`HardwareSources`]`) -> `[`HardwareObservation`] |
+//! | [`handles_hardware_observation`] | `pub` | `fn handles_hardware_observation( state: &`[`HardwareObservation`]`, sources: &`[`HardwareSources`]`, ) -> `[`DeviceHandleCollector`] |
 
 use super::handles::DeviceHandleCollector;
 use super::pci::{online_numa_nodes, read_topology};
@@ -27,52 +34,69 @@ pub struct HardwareSources {
 }
 impl Default for HardwareSources {
     fn default() -> Self {
-        Self::acquired(crate::ipc::hardware::HardwareFiles::default())
+        acquired_hardware_sources(crate::ipc::hardware::HardwareFiles::default())
     }
 }
-impl HardwareSources {
-    pub fn acquired(files: crate::ipc::hardware::HardwareFiles) -> Self {
-        Self::at("/sys".into(), "/proc".into(), files)
+pub fn acquired_hardware_sources(files: crate::ipc::hardware::HardwareFiles) -> HardwareSources {
+    at_hardware_sources("/sys".into(), "/proc".into(), files)
+}
+
+fn at_hardware_sources(
+    sys: PathBuf,
+    proc: PathBuf,
+    files: crate::ipc::hardware::HardwareFiles,
+) -> HardwareSources {
+    HardwareSources {
+        sys,
+        proc,
+        texts: files
+            .texts
+            .into_iter()
+            .map(|(p, v)| (p.into(), v))
+            .collect(),
+        directories: files
+            .directories
+            .into_iter()
+            .map(|(p, v)| (p.into(), v))
+            .collect(),
+        links: files
+            .links
+            .into_iter()
+            .map(|(p, v)| (p.into(), v.into()))
+            .collect(),
     }
-    fn at(sys: PathBuf, proc: PathBuf, files: crate::ipc::hardware::HardwareFiles) -> Self {
-        Self {
-            sys,
-            proc,
-            texts: files
-                .texts
-                .into_iter()
-                .map(|(p, v)| (p.into(), v))
-                .collect(),
-            directories: files
-                .directories
-                .into_iter()
-                .map(|(p, v)| (p.into(), v))
-                .collect(),
-            links: files
-                .links
-                .into_iter()
-                .map(|(p, v)| (p.into(), v.into()))
-                .collect(),
-        }
-    }
-    pub(super) fn text(&self, path: &std::path::Path) -> Option<String> {
-        let value = self.texts.get(path)?.trim();
-        (!value.is_empty()).then(|| value.to_owned())
-    }
-    pub(super) fn names(&self, path: &std::path::Path) -> Vec<String> {
-        self.directories.get(path).cloned().unwrap_or_default()
-    }
-    pub(super) fn link(&self, path: &std::path::Path) -> Option<PathBuf> {
-        self.links.get(path).cloned()
-    }
-    pub(super) fn is_dir(&self, path: &std::path::Path) -> bool {
-        self.directories.contains_key(path)
-    }
-    #[cfg(test)]
-    pub(super) fn fixture(sys: PathBuf, proc: PathBuf) -> Self {
-        let files = super::acquisition::collect_hardware_files(&sys, &proc);
-        Self::at(sys, proc, files)
-    }
+}
+
+pub(super) fn text_hardware_sources(
+    state: &HardwareSources,
+    path: &std::path::Path,
+) -> Option<String> {
+    let value = state.texts.get(path)?.trim();
+    (!value.is_empty()).then(|| value.to_owned())
+}
+
+pub(super) fn names_hardware_sources(
+    state: &HardwareSources,
+    path: &std::path::Path,
+) -> Vec<String> {
+    state.directories.get(path).cloned().unwrap_or_default()
+}
+
+pub(super) fn link_hardware_sources(
+    state: &HardwareSources,
+    path: &std::path::Path,
+) -> Option<PathBuf> {
+    state.links.get(path).cloned()
+}
+
+pub(super) fn hardware_sources_is_dir(state: &HardwareSources, path: &std::path::Path) -> bool {
+    state.directories.contains_key(path)
+}
+
+#[cfg(test)]
+pub(super) fn fixture_hardware_sources(sys: PathBuf, proc: PathBuf) -> HardwareSources {
+    let files = super::acquisition::collect_hardware_files(&sys, &proc);
+    at_hardware_sources(sys, proc, files)
 }
 #[cfg(test)]
 #[path = "../../../privileged_helper/system/hardware_capture.rs"]
@@ -84,34 +108,37 @@ pub struct HardwareObservation {
     pub paths: Vec<HardwarePath>,
 }
 
-impl HardwareObservation {
-    /// Reads GPUs, RDMA NICs, accelerators and NVSwitches with their bridges and paths.
-    pub fn observe(sources: &HardwareSources) -> Self {
-        let nodes = read_topology(sources, &sources.sys);
-        Self {
-            paths: build_hardware_paths(&nodes, online_numa_nodes(sources, &sources.sys)),
-            devices: nodes
-                .iter()
-                .map(|n| build_hardware_device(sources, n, &sources.proc))
-                .collect(),
-        }
-    }
-
-    /// A collector for descriptors of this observation's devices.
-    pub fn handles(&self, sources: &HardwareSources) -> DeviceHandleCollector {
-        let addresses: HashSet<_> = self.devices.iter().map(|d| d.address.clone()).collect();
-        let minors: HashMap<_, _> = self
-            .devices
+/// Reads GPUs, RDMA NICs, accelerators and NVSwitches with their bridges and paths.
+pub fn observe_hardware_observation(sources: &HardwareSources) -> HardwareObservation {
+    let nodes = read_topology(sources, &sources.sys);
+    HardwareObservation {
+        paths: build_hardware_paths(&nodes, online_numa_nodes(sources, &sources.sys)),
+        devices: nodes
             .iter()
-            .filter_map(|d| Some((d.gpu.as_ref()?.minor?, d.address.clone())))
-            .collect();
-        DeviceHandleCollector::new(sources, addresses, minors)
+            .map(|n| build_hardware_device(sources, n, &sources.proc))
+            .collect(),
     }
+}
+
+/// A collector for descriptors of this observation's devices.
+pub fn handles_hardware_observation(
+    state: &HardwareObservation,
+    sources: &HardwareSources,
+) -> DeviceHandleCollector {
+    use crate::http_server::analysis::hardware::handles::create_device_handle_collector;
+
+    let addresses: HashSet<_> = state.devices.iter().map(|d| d.address.clone()).collect();
+    let minors: HashMap<_, _> = state
+        .devices
+        .iter()
+        .filter_map(|d| Some((d.gpu.as_ref()?.minor?, d.address.clone())))
+        .collect();
+    create_device_handle_collector(sources, addresses, minors)
 }
 
 #[cfg(test)]
 pub fn observe_at(root: &std::path::Path) -> HardwareObservation {
-    HardwareObservation::observe(&HardwareSources::fixture(
+    observe_hardware_observation(&fixture_hardware_sources(
         root.join("sys"),
         root.join("proc"),
     ))
@@ -119,21 +146,24 @@ pub fn observe_at(root: &std::path::Path) -> HardwareObservation {
 
 #[cfg(test)]
 mod tests {
-    use super::super::pci::fixture;
-    use super::*;
+    use super::{super::pci::fixture, *};
 
     #[test]
     fn captured_hardware_survives_removal_of_all_source_files() {
+        use crate::http_server::analysis::hardware::pci::fixture::{
+            proc_sysfs_fixture, sys_sysfs_fixture,
+        };
+
         let f = fixture::workstation("captured-only");
-        let sys = f.sys();
-        let proc = f.proc();
+        let sys = sys_sysfs_fixture(&f);
+        let proc = proc_sysfs_fixture(&f);
         let files = super::super::acquisition::collect_hardware_files(&sys, &proc);
         assert!(!files.truncated);
         let encoded = crate::ipc::codec::encode(&files, 16 * 1024 * 1024).unwrap();
         let captured = crate::ipc::codec::decode(&encoded).unwrap();
         std::fs::remove_dir_all(&f.root).unwrap();
-        let sources = HardwareSources::at(sys, proc, captured);
-        let observation = HardwareObservation::observe(&sources);
+        let sources = super::at_hardware_sources(sys, proc, captured);
+        let observation = super::observe_hardware_observation(&sources);
         let gpu = observation
             .devices
             .iter()

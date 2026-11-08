@@ -4,7 +4,7 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`classify_register_value`] | `pub` | `fn classify_register_value(name: &str, role: `[`RegisterRole`]`, value: u64, maps: &[`[`MemoryMap`]`]) -> `[`Register`] |
+//! | [`classify_register_value`] | `pub` | `fn classify_register_value( name: &str, role: `[`RegisterRole`]`, value: u64, maps: &[`[`MemoryMap`]`], ) -> `[`Register`] |
 //! | [`classify_sample_registers`] | `pub` | `fn classify_sample_registers(r: &`[`RegisterSet`]`, maps: &[`[`MemoryMap`]`]) -> `[`Vec`]`<`[`Register`]`>` |
 
 use crate::ipc::model::memory::{MemoryKind, MemoryMap};
@@ -63,13 +63,15 @@ pub fn classify_register_value(
     value: u64,
     maps: &[MemoryMap],
 ) -> Register {
-    let map = maps.iter().find(|m| m.contains(value));
+    use crate::ipc::model::memory::{kind_memory_map, memory_map_contains};
+
+    let map = maps.iter().find(|m| memory_map_contains(m, value));
     Register {
         name: name.into(),
         role,
         value,
         decimal: value.to_string(),
-        kind: map.map_or(MemoryKind::Integer, MemoryMap::kind),
+        kind: map.map_or(MemoryKind::Integer, kind_memory_map),
         mapping: map.map(|m| RegisterMapping {
             pathname: m.pathname.clone(),
             readable: m.readable,
@@ -92,14 +94,14 @@ struct RegisterSetJson {
 }
 impl serde::Serialize for RegisterSet {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        self.validate().map_err(serde::ser::Error::custom)?;
+        crate::ipc::registers::validate_register_set(self).map_err(serde::ser::Error::custom)?;
         RegisterSetJson::serialize(self, s)
     }
 }
 impl<'de> serde::Deserialize<'de> for RegisterSet {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         let result = RegisterSetJson::deserialize(d)?;
-        result.validate().map_err(serde::de::Error::custom)?;
+        crate::ipc::registers::validate_register_set(&result).map_err(serde::de::Error::custom)?;
         Ok(result)
     }
 }
@@ -190,10 +192,12 @@ impl serde::Serialize for RegisterRole {
 
 #[cfg(test)]
 mod tests {
-    use crate::ipc::model::memory::MemoryKind;
     use {
         super::*,
-        crate::ipc::registers::{RegisterRole, RegisterSet},
+        crate::ipc::{
+            model::memory::MemoryKind,
+            registers::{RegisterRole, RegisterSet},
+        },
     };
 
     #[cfg(target_arch = "x86_64")]
@@ -250,6 +254,8 @@ mod tests {
     }
     #[test]
     fn native_registers_round_trip_and_reject_wrong_counts() {
+        use crate::ipc::registers::pc_register_set;
+
         let mut registers = RegisterSet {
             flags_available: true,
             code_pac_mask: Some(0xff00_0000_0000_0000),
@@ -263,7 +269,7 @@ mod tests {
         assert!(decoded.flags_available);
         let json = serde_json::to_value(&registers).unwrap();
         let decoded: RegisterSet = serde_json::from_value(json.clone()).unwrap();
-        assert_eq!(decoded.pc(), 100 + RegisterSet::PC as u64);
+        assert_eq!(pc_register_set(&decoded), 100 + RegisterSet::PC as u64);
         let mut invalid = json;
         invalid["values"].as_array_mut().unwrap().pop();
         assert!(serde_json::from_value::<RegisterSet>(invalid).is_err());

@@ -30,7 +30,9 @@ pub fn instruction_address(address: u64, return_address: bool) -> u64 {
 /// Convert a corrected runtime address into an ELF address, accounting for the
 /// mapping offset, PIE/ASLR load bias, and page-aligned segment mappings.
 pub fn elf_address(address: u64, map: &MemoryMap, elf: &ElfSymbols, page: u64) -> Option<u64> {
-    if page == 0 || !map.contains(address) {
+    use crate::ipc::model::memory::memory_map_contains;
+
+    if page == 0 || !memory_map_contains(map, address) {
         return None;
     }
     let offset = address

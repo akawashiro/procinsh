@@ -1,5 +1,15 @@
 //! Linux perf ABI with the native register layout from `arch`. Events
 //! follow a TID across CPU migration.
+//!
+//! # Interface
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`PerfEventReader`] | `pub(super)` | `struct PerfEventReader` |
+//! | [`open_perf_event_reader`] | `pub(super)` | `fn open_perf_event_reader(tid: i32) -> `[`Result`]`<`[`PerfEventReader`]`>` |
+//! | [`context_switch_perf_event_reader`] | `pub(super)` | `fn context_switch_perf_event_reader(tid: i32) -> `[`Result`]`<`[`PerfEventReader`]`>` |
+//! | [`drain_perf_event_reader`] | `pub(super)` | `fn drain_perf_event_reader(state: &mut `[`PerfEventReader`]`) -> `[`Result`]`<`[`Option`]`<`[`RawSample`]`>>` |
+
 use anyhow::{Context, Result, bail, ensure};
 use std::{
     os::fd::{AsRawFd, FromRawFd, OwnedFd},
@@ -73,179 +83,183 @@ fn user_stack_bytes() -> u32 {
     }
 }
 
-impl PerfEventReader {
-    pub(super) fn open(tid: i32) -> Result<Self> {
-        let attr = Attr {
+pub(super) fn open_perf_event_reader(tid: i32) -> Result<PerfEventReader> {
+    let attr = Attr {
+        kind: 1,
+        size: std::mem::size_of::<Attr>() as u32,
+        config: 0,
+        period: 10_000_000,
+        sample_type: SAMPLE_TYPE,
+        // CPU clock, 100 Hz of scheduled user CPU time, CLOCK_MONOTONIC.
+        flags: (1 << 5) | (1 << 6) | (1 << 25),
+        wakeup: 1,
+        regs: PERF_REGS_MASK,
+        stack: user_stack_bytes(),
+        clock: libc::CLOCK_MONOTONIC,
+        ..Attr::default()
+    };
+    open_attr_perf_event_reader(tid, attr, false)
+}
+
+pub(super) fn context_switch_perf_event_reader(tid: i32) -> Result<PerfEventReader> {
+    open_attr_perf_event_reader(
+        tid,
+        Attr {
             kind: 1,
             size: std::mem::size_of::<Attr>() as u32,
-            config: 0,
-            period: 10_000_000,
+            config: 3, // PERF_COUNT_SW_CONTEXT_SWITCHES, including kernel switch-out.
+            period: 1,
             sample_type: SAMPLE_TYPE,
-            // CPU clock, 100 Hz of scheduled user CPU time, CLOCK_MONOTONIC.
-            flags: (1 << 5) | (1 << 6) | (1 << 25),
+            flags: (1 << 18) | (1 << 25) | (1 << 26),
             wakeup: 1,
             regs: PERF_REGS_MASK,
             stack: user_stack_bytes(),
             clock: libc::CLOCK_MONOTONIC,
             ..Attr::default()
-        };
-        Self::open_attr(tid, attr, false)
+        },
+        true,
+    )
+}
+
+fn open_attr_perf_event_reader(
+    tid: i32,
+    attr: Attr,
+    context_switch: bool,
+) -> Result<PerfEventReader> {
+    let fd = unsafe { libc::syscall(libc::SYS_perf_event_open, &attr, tid, -1, -1, 8) };
+    if fd < 0 {
+        return Err(std::io::Error::last_os_error())
+            .context("perf_event_open (check CAP_PERFMON / perf_event_paranoid)");
     }
-    pub(super) fn context_switch(tid: i32) -> Result<Self> {
-        Self::open_attr(
-            tid,
-            Attr {
-                kind: 1,
-                size: std::mem::size_of::<Attr>() as u32,
-                config: 3, // PERF_COUNT_SW_CONTEXT_SWITCHES, including kernel switch-out.
-                period: 1,
-                sample_type: SAMPLE_TYPE,
-                flags: (1 << 18) | (1 << 25) | (1 << 26),
-                wakeup: 1,
-                regs: PERF_REGS_MASK,
-                stack: user_stack_bytes(),
-                clock: libc::CLOCK_MONOTONIC,
-                ..Attr::default()
-            },
-            true,
-        )
-    }
-    fn open_attr(tid: i32, attr: Attr, context_switch: bool) -> Result<Self> {
-        let fd = unsafe { libc::syscall(libc::SYS_perf_event_open, &attr, tid, -1, -1, 8) };
-        if fd < 0 {
-            return Err(std::io::Error::last_os_error())
-                .context("perf_event_open (check CAP_PERFMON / perf_event_paranoid)");
-        }
-        let fd = unsafe { OwnedFd::from_raw_fd(fd as i32) };
-        let page = unsafe { libc::sysconf(libc::_SC_PAGESIZE) } as usize;
-        let length = page * 17;
-        let mapping = unsafe {
-            libc::mmap(
-                std::ptr::null_mut(),
-                length,
-                libc::PROT_READ | libc::PROT_WRITE,
-                libc::MAP_SHARED,
-                fd.as_raw_fd(),
-                0,
-            )
-        };
-        if mapping == libc::MAP_FAILED {
-            bail!("perf mmap: {}", std::io::Error::last_os_error());
-        }
-        let mapping = mapping.cast::<u8>();
-        // perf_event_mmap_page ABI: head/tail at 1024/1032, offset/size at 1040/1048.
-        let offset = unsafe { std::ptr::read_volatile(mapping.add(1040).cast::<u64>()) } as usize;
-        let capacity = unsafe { std::ptr::read_volatile(mapping.add(1048).cast::<u64>()) } as usize;
-        if offset < page
-            || capacity == 0
-            || offset.checked_add(capacity).is_none_or(|end| end > length)
-        {
-            unsafe {
-                libc::munmap(mapping.cast(), length);
-            }
-            bail!("invalid perf ring layout");
-        }
-        Ok(Self {
-            _fd: fd,
-            mapping,
+    let fd = unsafe { OwnedFd::from_raw_fd(fd as i32) };
+    let page = unsafe { libc::sysconf(libc::_SC_PAGESIZE) } as usize;
+    let length = page * 17;
+    let mapping = unsafe {
+        libc::mmap(
+            std::ptr::null_mut(),
             length,
-            offset,
-            capacity,
-            tail: 0,
-            lost: 0,
-            context_switch,
-            pending: None,
-        })
+            libc::PROT_READ | libc::PROT_WRITE,
+            libc::MAP_SHARED,
+            fd.as_raw_fd(),
+            0,
+        )
+    };
+    if mapping == libc::MAP_FAILED {
+        bail!("perf mmap: {}", std::io::Error::last_os_error());
     }
-    fn copy(&self, position: u64, length: usize) -> Vec<u8> {
-        (0..length)
-            .map(|i| unsafe {
-                std::ptr::read_volatile(self.mapping.add(
-                    self.offset + (position.wrapping_add(i as u64) % self.capacity as u64) as usize,
-                ))
-            })
-            .collect()
-    }
-    pub(super) fn drain(&mut self) -> Result<Option<RawSample>> {
-        let head = unsafe { &*self.mapping.add(1024).cast::<AtomicU64>() }.load(Ordering::Acquire);
-        let mut latest = None;
-        let result = (|| {
-            ensure!(
-                head.wrapping_sub(self.tail) <= self.capacity as u64,
-                "perf ring overrun"
-            );
-            while self.tail != head {
-                ensure!(
-                    head.wrapping_sub(self.tail) >= PERF_EVENT_HEADER_SIZE as u64,
-                    "truncated perf header"
-                );
-                let header = self.copy(self.tail, PERF_EVENT_HEADER_SIZE);
-                let kind = u32::from_ne_bytes(header[..4].try_into()?);
-                let size =
-                    u16::from_ne_bytes(header[6..PERF_EVENT_HEADER_SIZE].try_into()?) as usize;
-                ensure!(
-                    size >= PERF_EVENT_HEADER_SIZE
-                        && size <= self.capacity
-                        && size as u64 <= head.wrapping_sub(self.tail),
-                    "invalid perf record size"
-                );
-                let bytes = self.copy(
-                    self.tail.wrapping_add(PERF_EVENT_HEADER_SIZE as u64),
-                    size - PERF_EVENT_HEADER_SIZE,
-                );
-                self.tail = self.tail.wrapping_add(size as u64);
-                let misc = u16::from_ne_bytes(header[4..6].try_into()?);
-                match kind {
-                    PERF_RECORD_SAMPLE => {
-                        let sample = parse_perf_sample(&bytes)?;
-                        if self.context_switch {
-                            self.pending = sample;
-                        } else if sample.is_some() {
-                            latest = sample;
-                        }
-                    }
-                    PERF_RECORD_SWITCH if self.context_switch => {
-                        // sample_id_all trailer: TID, TIME, CPU. A switch-in,
-                        // missing sample, or loss must never classify an old sample.
-                        let mut c = Cursor(&bytes);
-                        let tids = c.take(8)?;
-                        let tid = i32::from_ne_bytes(tids[4..].try_into()?);
-                        let time = c.u64()?;
-                        let cpu = c.u64()? as u32;
-                        if let Some(mut sample) = self.pending.take()
-                            && misc & PERF_RECORD_MISC_SWITCH_OUT != 0
-                            && sample.tid == tid
-                            && sample.time_ns <= time
-                            && sample.cpu == Some(cpu)
-                        {
-                            sample.source = SampleSource::ContextSwitch {
-                                preempted: misc & PERF_RECORD_MISC_SWITCH_OUT_PREEMPT != 0,
-                            };
-                            latest = Some(sample);
-                        }
-                    }
-                    PERF_RECORD_THROTTLE | PERF_RECORD_UNTHROTTLE if self.context_switch => {
-                        self.pending = None;
-                    }
-                    PERF_RECORD_LOST => {
-                        self.pending = None;
-                        let mut cursor = Cursor(&bytes);
-                        cursor.u64()?;
-                        self.lost = self.lost.saturating_add(cursor.u64()?);
-                    }
-                    _ => {}
-                }
-            }
-            Ok(latest)
-        })();
-        if result.is_err() {
-            self.lost = self.lost.saturating_add(1);
-            self.tail = head;
-            self.pending = None;
+    let mapping = mapping.cast::<u8>();
+    // perf_event_mmap_page ABI: head/tail at 1024/1032, offset/size at 1040/1048.
+    let offset = unsafe { std::ptr::read_volatile(mapping.add(1040).cast::<u64>()) } as usize;
+    let capacity = unsafe { std::ptr::read_volatile(mapping.add(1048).cast::<u64>()) } as usize;
+    if offset < page || capacity == 0 || offset.checked_add(capacity).is_none_or(|end| end > length)
+    {
+        unsafe {
+            libc::munmap(mapping.cast(), length);
         }
-        unsafe { &*self.mapping.add(1032).cast::<AtomicU64>() }.store(self.tail, Ordering::Release);
-        result
+        bail!("invalid perf ring layout");
     }
+    Ok(PerfEventReader {
+        _fd: fd,
+        mapping,
+        length,
+        offset,
+        capacity,
+        tail: 0,
+        lost: 0,
+        context_switch,
+        pending: None,
+    })
+}
+
+fn copy_perf_event_reader(state: &PerfEventReader, position: u64, length: usize) -> Vec<u8> {
+    (0..length)
+        .map(|i| unsafe {
+            std::ptr::read_volatile(state.mapping.add(
+                state.offset + (position.wrapping_add(i as u64) % state.capacity as u64) as usize,
+            ))
+        })
+        .collect()
+}
+
+pub(super) fn drain_perf_event_reader(state: &mut PerfEventReader) -> Result<Option<RawSample>> {
+    let head = unsafe { &*state.mapping.add(1024).cast::<AtomicU64>() }.load(Ordering::Acquire);
+    let mut latest = None;
+    let result = (|| {
+        ensure!(
+            head.wrapping_sub(state.tail) <= state.capacity as u64,
+            "perf ring overrun"
+        );
+        while state.tail != head {
+            ensure!(
+                head.wrapping_sub(state.tail) >= PERF_EVENT_HEADER_SIZE as u64,
+                "truncated perf header"
+            );
+            let header = copy_perf_event_reader(state, state.tail, PERF_EVENT_HEADER_SIZE);
+            let kind = u32::from_ne_bytes(header[..4].try_into()?);
+            let size = u16::from_ne_bytes(header[6..PERF_EVENT_HEADER_SIZE].try_into()?) as usize;
+            ensure!(
+                size >= PERF_EVENT_HEADER_SIZE
+                    && size <= state.capacity
+                    && size as u64 <= head.wrapping_sub(state.tail),
+                "invalid perf record size"
+            );
+            let bytes = copy_perf_event_reader(
+                state,
+                state.tail.wrapping_add(PERF_EVENT_HEADER_SIZE as u64),
+                size - PERF_EVENT_HEADER_SIZE,
+            );
+            state.tail = state.tail.wrapping_add(size as u64);
+            let misc = u16::from_ne_bytes(header[4..6].try_into()?);
+            match kind {
+                PERF_RECORD_SAMPLE => {
+                    let sample = parse_perf_sample(&bytes)?;
+                    if state.context_switch {
+                        state.pending = sample;
+                    } else if sample.is_some() {
+                        latest = sample;
+                    }
+                }
+                PERF_RECORD_SWITCH if state.context_switch => {
+                    // sample_id_all trailer: TID, TIME, CPU. A switch-in,
+                    // missing sample, or loss must never classify an old sample.
+                    let mut c = Cursor(&bytes);
+                    let tids = take_cursor(&mut c, 8)?;
+                    let tid = i32::from_ne_bytes(tids[4..].try_into()?);
+                    let time = u64_cursor(&mut c)?;
+                    let cpu = u64_cursor(&mut c)? as u32;
+                    if let Some(mut sample) = state.pending.take()
+                        && misc & PERF_RECORD_MISC_SWITCH_OUT != 0
+                        && sample.tid == tid
+                        && sample.time_ns <= time
+                        && sample.cpu == Some(cpu)
+                    {
+                        sample.source = SampleSource::ContextSwitch {
+                            preempted: misc & PERF_RECORD_MISC_SWITCH_OUT_PREEMPT != 0,
+                        };
+                        latest = Some(sample);
+                    }
+                }
+                PERF_RECORD_THROTTLE | PERF_RECORD_UNTHROTTLE if state.context_switch => {
+                    state.pending = None;
+                }
+                PERF_RECORD_LOST => {
+                    state.pending = None;
+                    let mut cursor = Cursor(&bytes);
+                    u64_cursor(&mut cursor)?;
+                    state.lost = state.lost.saturating_add(u64_cursor(&mut cursor)?);
+                }
+                _ => {}
+            }
+        }
+        Ok(latest)
+    })();
+    if result.is_err() {
+        state.lost = state.lost.saturating_add(1);
+        state.tail = head;
+        state.pending = None;
+    }
+    unsafe { &*state.mapping.add(1032).cast::<AtomicU64>() }.store(state.tail, Ordering::Release);
+    result
 }
 impl Drop for PerfEventReader {
     fn drop(&mut self) {
@@ -255,25 +269,24 @@ impl Drop for PerfEventReader {
     }
 }
 struct Cursor<'a>(&'a [u8]);
-impl<'a> Cursor<'a> {
-    fn take(&mut self, n: usize) -> Result<&'a [u8]> {
-        ensure!(n <= self.0.len(), "truncated perf sample");
-        let (value, rest) = self.0.split_at(n);
-        self.0 = rest;
-        Ok(value)
-    }
-    fn u64(&mut self) -> Result<u64> {
-        Ok(u64::from_ne_bytes(self.take(8)?.try_into()?))
-    }
+fn take_cursor<'a>(state: &mut Cursor<'a>, n: usize) -> Result<&'a [u8]> {
+    ensure!(n <= state.0.len(), "truncated perf sample");
+    let (value, rest) = state.0.split_at(n);
+    state.0 = rest;
+    Ok(value)
+}
+
+fn u64_cursor<'a>(state: &mut Cursor<'a>) -> Result<u64> {
+    Ok(u64::from_ne_bytes(take_cursor(state, 8)?.try_into()?))
 }
 
 fn parse_perf_sample(bytes: &[u8]) -> Result<Option<RawSample>> {
     let mut c = Cursor(bytes);
-    let tids = c.take(8)?;
+    let tids = take_cursor(&mut c, 8)?;
     let tid = i32::from_ne_bytes(tids[4..].try_into()?);
-    let time_ns = c.u64()?;
-    let cpu = c.u64()? as u32;
-    let abi = c.u64()?;
+    let time_ns = u64_cursor(&mut c)?;
+    let cpu = u64_cursor(&mut c)? as u32;
+    let abi = u64_cursor(&mut c)?;
     if abi == 0 {
         return Ok(None);
     }
@@ -281,15 +294,15 @@ fn parse_perf_sample(bytes: &[u8]) -> Result<Option<RawSample>> {
     let mut values = vec![0; RegisterSet::COUNT];
     for (i, value) in values.iter_mut().enumerate() {
         if PERF_REGS_MASK & (1 << i) != 0 {
-            *value = c.u64()?;
+            *value = u64_cursor(&mut c)?;
         }
     }
-    let length = usize::try_from(c.u64()?)?;
-    let stack = c.take(length)?;
+    let length = usize::try_from(u64_cursor(&mut c)?)?;
+    let stack = take_cursor(&mut c, length)?;
     let used = if length == 0 {
         0
     } else {
-        usize::try_from(c.u64()?)?
+        usize::try_from(u64_cursor(&mut c)?)?
     };
     ensure!(used <= length, "invalid perf dynamic stack size");
     Ok(Some(RawSample {
@@ -376,7 +389,11 @@ mod tests {
         let mut event = fake_event();
         for preempted in [false, true] {
             push(&event, PERF_RECORD_SAMPLE, 0, &sample_bytes(100));
-            assert!(event.drain().unwrap().is_none());
+            assert!(
+                super::drain_perf_event_reader(&mut event)
+                    .unwrap()
+                    .is_none()
+            );
             push(
                 &event,
                 PERF_RECORD_SWITCH,
@@ -388,7 +405,7 @@ mod tests {
                     },
                 &switch_bytes(42, 101),
             );
-            let sample = event.drain().unwrap().unwrap();
+            let sample = super::drain_perf_event_reader(&mut event).unwrap().unwrap();
             assert_eq!(sample.source, SampleSource::ContextSwitch { preempted });
             assert_eq!(sample.registers.values[8], 108);
         }
@@ -427,7 +444,11 @@ mod tests {
                 PERF_RECORD_MISC_SWITCH_OUT,
                 &switch_bytes(42, 102),
             );
-            assert!(event.drain().unwrap().is_none());
+            assert!(
+                super::drain_perf_event_reader(&mut event)
+                    .unwrap()
+                    .is_none()
+            );
         }
         push(&event, PERF_RECORD_SAMPLE, 0, &sample_bytes(100));
         push(
@@ -436,14 +457,18 @@ mod tests {
             PERF_RECORD_MISC_SWITCH_OUT,
             &[0; 8],
         );
-        assert!(event.drain().is_err());
+        assert!(super::drain_perf_event_reader(&mut event).is_err());
         push(
             &event,
             PERF_RECORD_SWITCH,
             PERF_RECORD_MISC_SWITCH_OUT,
             &switch_bytes(42, 101),
         );
-        assert!(event.drain().unwrap().is_none());
+        assert!(
+            super::drain_perf_event_reader(&mut event)
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[test]
@@ -485,20 +510,30 @@ mod tests {
             }
         }
         unsafe { &*mapping.add(1024).cast::<AtomicU64>() }.store(4114, Ordering::Release);
-        assert!(event.drain().unwrap().is_none());
+        assert!(
+            super::drain_perf_event_reader(&mut event)
+                .unwrap()
+                .is_none()
+        );
         assert_eq!(event.lost, 17);
         assert_eq!(
             unsafe { &*mapping.add(1032).cast::<AtomicU64>() }.load(Ordering::Acquire),
             4114
         );
         unsafe { &*mapping.add(1024).cast::<AtomicU64>() }.store(10000, Ordering::Release);
-        assert!(event.drain().is_err());
+        assert!(super::drain_perf_event_reader(&mut event).is_err());
         assert_eq!(event.lost, 18);
         assert_eq!(event.tail, 10000);
-        assert!(event.drain().unwrap().is_none());
+        assert!(
+            super::drain_perf_event_reader(&mut event)
+                .unwrap()
+                .is_none()
+        );
     }
     #[test]
     fn parses_register_order_and_dynamic_stack_and_rejects_truncation() {
+        use crate::ipc::registers::{pc_register_set, sp_register_set};
+
         let mut b = Vec::new();
         for x in [(42u64 << 32) | 42, 123, 7, 2] {
             b.extend(x.to_ne_bytes());
@@ -516,8 +551,8 @@ mod tests {
         assert_eq!(s.registers.values[8], 108);
         assert_eq!(s.registers.flags_available, cfg!(target_arch = "x86_64"));
         assert!(s.registers.code_pac_mask.is_none());
-        assert_eq!(s.registers.pc(), 100 + RegisterSet::PC as u64);
-        assert_eq!(s.registers.sp(), 100 + RegisterSet::SP as u64);
+        assert_eq!(pc_register_set(&s.registers), 100 + RegisterSet::PC as u64);
+        assert_eq!(sp_register_set(&s.registers), 100 + RegisterSet::SP as u64);
 
         assert_eq!(s.stack.len(), 8);
         for n in 0..b.len() {

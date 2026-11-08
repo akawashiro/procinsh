@@ -10,6 +10,8 @@
 //! | [`IpcKind`] | `pub` | `enum IpcKind` |
 //! | [`IpcIdentity`] | `pub` | `struct IpcIdentity` |
 //! | [`FileIdentity`] | `pub` | `struct FileIdentity` |
+//! | [`device_id_from_stat`] | `pub` | `fn device_id_from_stat(device: u64) -> `[`DeviceId`] |
+//! | [`device_id_from_kernel`] | `pub` | `fn device_id_from_kernel(device: u64) -> `[`DeviceId`] |
 
 use std::fmt;
 
@@ -18,19 +20,17 @@ pub struct DeviceId {
     pub major: u32,
     pub minor: u32,
 }
-impl DeviceId {
-    pub fn from_stat(device: u64) -> Self {
-        Self {
-            major: libc::major(device),
-            minor: libc::minor(device),
-        }
+pub fn device_id_from_stat(device: u64) -> DeviceId {
+    DeviceId {
+        major: libc::major(device),
+        minor: libc::minor(device),
     }
+}
 
-    pub fn from_kernel(device: u64) -> Self {
-        Self {
-            major: (device >> 20) as u32,
-            minor: (device & ((1 << 20) - 1)) as u32,
-        }
+pub fn device_id_from_kernel(device: u64) -> DeviceId {
+    DeviceId {
+        major: (device >> 20) as u32,
+        minor: (device & ((1 << 20) - 1)) as u32,
     }
 }
 

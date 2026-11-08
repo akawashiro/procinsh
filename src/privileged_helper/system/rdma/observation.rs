@@ -1,12 +1,14 @@
 //! One RDMA observation for a system snapshot.
 //!
 //! # Interface
-//! - [`RdmaObservation`] (`pub(in crate::privileged_helper::system)`): `struct RdmaObservation`.
-//! - [`collect_rdma_observation`] (`pub(in crate::privileged_helper::system)`): `fn collect_rdma_observation( sys: &`[`Path`]`, processes: &`[`HashMap`]`<i32, `[`ProcessId`]`>, deadline: `[`Instant`]`, ) -> `[`RdmaObservation`].
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`RdmaObservation`] | `pub(in crate::privileged_helper::system)` | `struct RdmaObservation` |
+//! | [`collect_rdma_observation`] | `pub(in crate::privileged_helper::system)` | `fn collect_rdma_observation( sys: &`[`Path`]`, processes: &`[`HashMap`]`<i32, `[`ProcessId`]`>, deadline: `[`Instant`]`, ) -> `[`RdmaObservation`] |
 
 use super::super::ipoib;
 use super::{nldev, ports, relations};
-use crate::ipc::rdma::IbGid;
 use crate::ipc::rdma::{RdmaPortInfo, RdmaRelation};
 use crate::ipc::schema::ProcessId;
 use std::{collections::HashMap, path::Path, time::Instant};
@@ -26,6 +28,8 @@ pub(in crate::privileged_helper::system) fn collect_rdma_observation(
     processes: &HashMap<i32, ProcessId>,
     deadline: Instant,
 ) -> RdmaObservation {
+    use crate::ipc::rdma::{ip_rdma_address, parse_ib_gid};
+
     let root = &sys.join("class/infiniband");
     let mut result = RdmaObservation::default();
     // Opening NETLINK_RDMA can autoload ib_core; a host without devices is not queried.
@@ -50,16 +54,15 @@ pub(in crate::privileged_helper::system) fn collect_rdma_observation(
         ));
     }
     let mut neighbors = HashMap::new();
-    if resources
-        .cm_ids
-        .iter()
-        .any(|cm| cm.destination.is_some_and(|d| d.ip().is_some()))
-    {
+    if resources.cm_ids.iter().any(|cm| {
+        cm.destination
+            .is_some_and(|d| ip_rdma_address(&d).is_some())
+    }) {
         match ipoib::ipoib_gids(deadline) {
             Ok(found) => {
                 neighbors = found
                     .into_iter()
-                    .filter_map(|(ip, gid)| Some((ip, IbGid::parse(&gid)?)))
+                    .filter_map(|(ip, gid)| Some((ip, parse_ib_gid(&gid)?)))
                     .collect()
             }
             Err(error) => result

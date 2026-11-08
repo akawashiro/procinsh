@@ -1,8 +1,11 @@
 //! Encode observation events and build server-sent-event responses.
 //!
 //! # Interface
-//! - [`encode_sse_events`] (`pub(super)`): `fn encode_sse_events( event: `[`MonitorEvent`]`, delivery: &mut `[`SnapshotEncoder`]`, ) -> (`[`Vec`]`<(&'static str, `[`String`]`)>, `[`Option`]`<`[`Arc`]`<`[`Value`]`>>)`.
-//! - [`build_sse_response`] (`pub(super)`): `fn build_sse_response( state: `[`Arc`]`<`[`AppState`]`>, mut session: `[`ObservationSession`]`, ) -> `[`Response`].
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`encode_sse_events`] | `pub(super)` | `fn encode_sse_events( event: `[`MonitorEvent`]`, delivery: &mut `[`SnapshotEncoder`]`, ) -> (`[`Vec`]`<(&'static str, `[`String`]`)>, `[`Option`]`<`[`Arc`]`<`[`Value`]`>>)` |
+//! | [`build_sse_response`] | `pub(super)` | `fn build_sse_response( state: `[`Arc`]`<`[`AppState`]`>, mut session: `[`ObservationSession`]`, ) -> `[`Response`] |
 
 use super::super::{AppState, client::ObservationSession, delivery::SnapshotEncoder};
 use crate::http_server::protocol::MonitorEvent;
@@ -24,6 +27,8 @@ pub(super) fn encode_sse_events(
     event: MonitorEvent,
     delivery: &mut SnapshotEncoder,
 ) -> (Vec<(&'static str, String)>, Option<Arc<Value>>) {
+    use crate::http_server::delivery::encode_snapshot_encoder;
+
     match event {
         MonitorEvent::AcquiredSnapshot(_) | MonitorEvent::AcquisitionGap { .. } => {
             unreachable!("acquisition snapshots must be processed before HTTP output")
@@ -32,16 +37,16 @@ pub(super) fn encode_sse_events(
         MonitorEvent::Activity(data) => (vec![("activity", data.to_string())], None),
         MonitorEvent::Snapshot(data) => {
             let data = Arc::new(data);
-            let encoded = delivery
-                .encode(data.clone(), false, Instant::now())
-                .unwrap();
+            let encoded =
+                encode_snapshot_encoder(&mut *delivery, data.clone(), false, Instant::now())
+                    .unwrap();
             (vec![("snapshot", encoded)], Some(data))
         }
         MonitorEvent::Gap { dropped, snapshot } => {
             let snapshot = Arc::new(snapshot);
-            let encoded = delivery
-                .encode(snapshot.clone(), true, Instant::now())
-                .unwrap();
+            let encoded =
+                encode_snapshot_encoder(&mut *delivery, snapshot.clone(), true, Instant::now())
+                    .unwrap();
             (
                 vec![
                     (
@@ -60,6 +65,8 @@ pub(super) fn build_sse_response(
     state: Arc<AppState>,
     mut session: ObservationSession,
 ) -> Response {
+    use crate::http_server::{client::poll_observation_session, state::stopped_app_state};
+
     let stream = async_stream::stream! {
         let mut delivery = SnapshotEncoder::default();
         let mut event = session.initial.take();
@@ -73,9 +80,9 @@ pub(super) fn build_sse_response(
                     yield Ok::<_, Infallible>(Event::default().event(name).data(data));
                 }
             }
-            if closed || state.stopped() { break; }
+            if closed || stopped_app_state(&state) { break; }
             if idle { tokio::time::sleep(Duration::from_millis(100)).await; }
-            match session.poll().await {
+            match poll_observation_session(&session).await {
                 Ok(next) => { (event, closed) = next; }
                 Err(error) => { log::debug!("observation IPC ended: {error:#}"); break; }
             }

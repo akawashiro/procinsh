@@ -5,6 +5,8 @@
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
 //! | [`ReverseDnsResolver`] | `pub` | `struct ReverseDnsResolver` |
+//! | [`create_reverse_dns_resolver`] | `pub` | `fn create_reverse_dns_resolver() -> `[`ReverseDnsResolver`] |
+//! | [`lookup_reverse_dns_resolver`] | `pub` | `fn lookup_reverse_dns_resolver(state: &`[`ReverseDnsResolver`]`, ip: `[`IpAddr`]`) -> `[`Option`]`<`[`String`]`>` |
 
 use std::{
     collections::HashMap,
@@ -22,58 +24,56 @@ pub struct ReverseDnsResolver {
     cache: Arc<Mutex<HashMap<IpAddr, Entry>>>,
     tx: mpsc::SyncSender<IpAddr>,
 }
-impl ReverseDnsResolver {
-    pub fn new() -> Self {
-        let cache = Arc::new(Mutex::new(HashMap::<IpAddr, Entry>::new()));
-        let (tx, rx) = mpsc::sync_channel::<IpAddr>(4096);
-        let rx = Arc::new(Mutex::new(rx));
-        for _ in 0..4 {
-            let (cache, rx) = (cache.clone(), rx.clone());
-            std::thread::spawn(move || {
-                loop {
-                    let ip = match rx.lock().unwrap().recv() {
-                        Ok(ip) => ip,
-                        Err(_) => break,
-                    };
-                    let name = reverse_lookup_hostname(ip);
-                    let ttl = if name.is_some() { 300 } else { 60 };
-                    cache.lock().unwrap().insert(
-                        ip,
-                        Entry {
-                            name,
-                            expires: Instant::now() + Duration::from_secs(ttl),
-                            pending: false,
-                        },
-                    );
-                }
-            });
-        }
-        Self { cache, tx }
+pub fn create_reverse_dns_resolver() -> ReverseDnsResolver {
+    let cache = Arc::new(Mutex::new(HashMap::<IpAddr, Entry>::new()));
+    let (tx, rx) = mpsc::sync_channel::<IpAddr>(4096);
+    let rx = Arc::new(Mutex::new(rx));
+    for _ in 0..4 {
+        let (cache, rx) = (cache.clone(), rx.clone());
+        std::thread::spawn(move || {
+            loop {
+                let ip = match rx.lock().unwrap().recv() {
+                    Ok(ip) => ip,
+                    Err(_) => break,
+                };
+                let name = reverse_lookup_hostname(ip);
+                let ttl = if name.is_some() { 300 } else { 60 };
+                cache.lock().unwrap().insert(
+                    ip,
+                    Entry {
+                        name,
+                        expires: Instant::now() + Duration::from_secs(ttl),
+                        pending: false,
+                    },
+                );
+            }
+        });
     }
+    ReverseDnsResolver { cache, tx }
+}
 
-    pub fn lookup(&self, ip: IpAddr) -> Option<String> {
-        let mut cache = self.cache.lock().unwrap();
-        if let Some(entry) = cache.get(&ip)
-            && (entry.pending || entry.expires > Instant::now())
-        {
-            return entry.name.clone();
-        }
-        cache.retain(|_, e| e.pending || e.expires > Instant::now());
-        if cache.len() >= 4096 {
-            return None;
-        }
-        if self.tx.try_send(ip).is_ok() {
-            cache.insert(
-                ip,
-                Entry {
-                    name: None,
-                    expires: Instant::now(),
-                    pending: true,
-                },
-            );
-        }
-        None
+pub fn lookup_reverse_dns_resolver(state: &ReverseDnsResolver, ip: IpAddr) -> Option<String> {
+    let mut cache = state.cache.lock().unwrap();
+    if let Some(entry) = cache.get(&ip)
+        && (entry.pending || entry.expires > Instant::now())
+    {
+        return entry.name.clone();
     }
+    cache.retain(|_, e| e.pending || e.expires > Instant::now());
+    if cache.len() >= 4096 {
+        return None;
+    }
+    if state.tx.try_send(ip).is_ok() {
+        cache.insert(
+            ip,
+            Entry {
+                name: None,
+                expires: Instant::now(),
+                pending: true,
+            },
+        );
+    }
+    None
 }
 
 fn reverse_lookup_hostname(ip: IpAddr) -> Option<String> {
@@ -124,7 +124,7 @@ fn reverse_lookup_hostname(ip: IpAddr) -> Option<String> {
 
 impl Default for ReverseDnsResolver {
     fn default() -> Self {
-        Self::new()
+        create_reverse_dns_resolver()
     }
 }
 
@@ -140,9 +140,9 @@ mod tests {
             tx,
         };
         let ip: IpAddr = "2001:db8::1".parse().unwrap();
-        assert_eq!(r.lookup(ip), None);
+        assert_eq!(super::lookup_reverse_dns_resolver(&r, ip), None);
         assert_eq!(rx.try_recv().unwrap(), ip);
-        assert_eq!(r.lookup(ip), None);
+        assert_eq!(super::lookup_reverse_dns_resolver(&r, ip), None);
         assert!(rx.try_recv().is_err());
         r.cache.lock().unwrap().insert(
             ip,
@@ -152,7 +152,7 @@ mod tests {
                 pending: false,
             },
         );
-        assert_eq!(r.lookup(ip), None);
+        assert_eq!(super::lookup_reverse_dns_resolver(&r, ip), None);
         assert_eq!(rx.try_recv().unwrap(), ip);
         for (ip, name, pending) in [
             ("192.0.2.1", Some("example.test".to_string()), false),
@@ -168,7 +168,7 @@ mod tests {
                     pending,
                 },
             );
-            assert_eq!(r.lookup(ip), name);
+            assert_eq!(super::lookup_reverse_dns_resolver(&r, ip), name);
             assert!(rx.try_recv().is_err());
         }
         for i in 0..4096u32 {
@@ -181,7 +181,10 @@ mod tests {
                 },
             );
         }
-        assert_eq!(r.lookup("192.0.2.3".parse().unwrap()), None);
+        assert_eq!(
+            super::lookup_reverse_dns_resolver(&r, "192.0.2.3".parse().unwrap()),
+            None
+        );
         assert!(rx.try_recv().is_err());
     }
 }

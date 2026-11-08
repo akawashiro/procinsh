@@ -125,6 +125,8 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::model::process::ProcessSample 
 
 /// Produces an initial observation with absent CPU percentages and rates.
 pub fn initial_observation(current: &ProcessSample) -> ProcessObservation {
+    use crate::http_server::model::threads::observation_thread_sample;
+
     ProcessObservation {
         timestamp: current.timestamp,
         process_id: current.process_id,
@@ -143,7 +145,7 @@ pub fn initial_observation(current: &ProcessSample) -> ProcessObservation {
         threads: current
             .threads
             .iter()
-            .map(ThreadSample::observation)
+            .map(observation_thread_sample)
             .collect(),
     }
 }

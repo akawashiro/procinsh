@@ -2,7 +2,7 @@
 //!
 //! # Interface
 //!
-//! No named types or functions are exported; shared values come from their definition modules.
+//! No named types or functions are exported.
 
 #[cfg(test)]
 use crate::ipc::activity::{CpuActivity, IpcActivity};
@@ -24,12 +24,16 @@ impl std::fmt::Display for SensorState {
 }
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::ipc::acquisition::{SensorState, SystemActivity, SystemMonitorStatus};
-    use serde_json::{json, to_value};
+    use {
+        super::*,
+        crate::ipc::acquisition::{SensorState, SystemActivity, SystemMonitorStatus},
+        serde_json::{json, to_value},
+    };
 
     #[test]
     fn activity_preserves_fields_counters_and_structured_sensor_states() {
+        use crate::ipc::model::resource::device_id_from_stat;
+
         let id = ProcessId {
             pid: 42,
             start_time_ticks: 123,
@@ -43,7 +47,7 @@ mod tests {
                 process_id: id,
                 resource: IpcIdentity {
                     kind: crate::ipc::model::resource::IpcKind::Pipe,
-                    device: crate::ipc::model::resource::DeviceId::from_stat(1),
+                    device: device_id_from_stat(1),
                     inode: 2,
                 },
                 write: true,

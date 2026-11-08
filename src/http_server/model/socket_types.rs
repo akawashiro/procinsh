@@ -2,7 +2,7 @@
 //!
 //! # Interface
 //!
-//! No named types or functions are exported; shared values come from their definition modules.
+//! No named types or functions are exported.
 
 use crate::ipc::model::socket_types::{AddressFamily, SocketType};
 use std::net::IpAddr;
@@ -213,10 +213,12 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::model::socket_types::InetAddre
 #[cfg(test)]
 mod tests {
 
-    use crate::ipc::model::socket_types::{FdAccess, SocketProtocol, SocketState, SocketType};
+    use crate::ipc::model::socket_types::{FdAccess, SocketProtocol, SocketState};
 
     #[test]
     fn kinds_keep_codes_and_match_shared_display_contract() {
+        use crate::ipc::model::socket_types::socket_protocol_from_codes;
+
         let cases: serde_json::Value = serde_json::from_str(include_str!(
             "../../privileged_helper/test_support/socket-protocols.json"
         ))
@@ -227,7 +229,7 @@ mod tests {
             let protocol = codes[2].as_u64().unwrap() as u32;
             let kind = match codes[1].as_u64() {
                 Some(socket_type) => {
-                    SocketProtocol::from_codes(family, socket_type as u32, protocol)
+                    socket_protocol_from_codes(family, socket_type as u32, protocol)
                 }
                 None => SocketProtocol::Other {
                     family,
@@ -242,21 +244,26 @@ mod tests {
 
     #[test]
     fn unknown_codes_and_descriptor_capabilities_are_preserved() {
+        use crate::ipc::model::socket_types::{
+            fd_access_from_flags, inet_socket_state, opposite_fd_access, socket_type_from_code,
+            unix_proc_socket_state,
+        };
+
         assert_eq!(
-            serde_json::to_value(SocketType::from_code(999)).unwrap(),
+            serde_json::to_value(socket_type_from_code(999)).unwrap(),
             serde_json::json!({"kind":"unknown","code":999})
         );
         assert_eq!(
-            serde_json::to_value(SocketState::inet(99)).unwrap(),
+            serde_json::to_value(inet_socket_state(99)).unwrap(),
             serde_json::json!({"kind":"unknown_inet","code":99})
         );
         assert_eq!(
-            SocketState::unix_proc(99, false),
+            unix_proc_socket_state(99, false),
             SocketState::UnknownUnix(99)
         );
-        assert_eq!(FdAccess::from_flags(libc::O_PATH as u32), FdAccess::Unknown);
-        assert_eq!(FdAccess::from_flags(u32::MAX), FdAccess::Unknown);
-        assert!(!FdAccess::Unknown.opposite(FdAccess::Write));
-        assert!(FdAccess::Read.opposite(FdAccess::Write));
+        assert_eq!(fd_access_from_flags(libc::O_PATH as u32), FdAccess::Unknown);
+        assert_eq!(fd_access_from_flags(u32::MAX), FdAccess::Unknown);
+        assert!(!opposite_fd_access(FdAccess::Unknown, FdAccess::Write));
+        assert!(opposite_fd_access(FdAccess::Read, FdAccess::Write));
     }
 }

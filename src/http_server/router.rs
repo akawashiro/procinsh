@@ -37,15 +37,17 @@ fn compression_layer() -> CompressionLayer<impl Predicate> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use axum::{
-        body::{Body, HttpBody},
-        http::Request,
-        response::{Sse, sse::Event},
-        routing::get,
+    use {
+        super::*,
+        axum::{
+            body::{Body, HttpBody},
+            http::Request,
+            response::{Sse, sse::Event},
+            routing::get,
+        },
+        std::{convert::Infallible, io::Write, time::Duration},
+        tower::ServiceExt,
     };
-    use std::{convert::Infallible, io::Write, time::Duration};
-    use tower::ServiceExt;
 
     #[tokio::test]
     async fn compression_flushes_small_snapshot_activity_and_gap_events() {

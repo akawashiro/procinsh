@@ -1,3 +1,12 @@
+//! Encode helper system observations into snapshot, activity and gap events.
+//!
+//! # Interface
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`SnapshotEncoder`] | `pub(in crate::privileged_helper)` | `struct SnapshotEncoder` |
+//! | [`encode_snapshot_encoder`] | `pub(in crate::privileged_helper)` | `fn encode_snapshot_encoder( state: &mut `[`SnapshotEncoder`]`, snapshot: `[`Arc`]`<`[`SystemSnapshot`]`>, force_full: bool, now: `[`Instant`]`, ) -> `[`serde_json::Result`]`<`[`String`]`>` |
+
 use crate::ipc::hardware::{DeviceHandle, HardwareDevice, HardwarePath};
 use crate::ipc::model::system::{FdRelation, SystemSnapshot};
 use crate::ipc::rdma::{RdmaPortInfo, RdmaRelation};
@@ -110,151 +119,152 @@ fn entry_delta<'a, T: Serialize + PartialEq>(
     })
 }
 
-impl SnapshotEncoder {
-    /// Encodes full or delta SSE snapshots with a sequence and, for deltas, base sequence.
-    /// Map deltas use start addresses; FD relation and device handle deltas use IDs.
-    /// Hardware devices and paths are always sent in full. Collections
-    /// use replacement when a delta is larger. Unchanged maps are omitted and retain
-    /// their epoch. Initial, forced gap recovery and 60-second refresh snapshots
-    /// include all maps. The baseline advances only after successful serialization.
-    pub(in crate::privileged_helper) fn encode(
-        &mut self,
-        snapshot: Arc<SystemSnapshot>,
-        force_full: bool,
-        now: Instant,
-    ) -> serde_json::Result<String> {
-        let started = Instant::now();
-        let sequence = self.sequence + 1;
-        let full = force_full
-            || self
-                .last_full
-                .is_none_or(|last| now.duration_since(last) >= Duration::from_secs(60));
-        let previous: HashMap<_, _> = self
-            .previous
-            .as_ref()
-            .into_iter()
-            .flat_map(|s| &s.processes)
-            .map(|p| (p.identity, p))
-            .collect();
-        let mut epochs = HashMap::new();
-        let processes = snapshot
-            .processes
-            .iter()
-            .map(|p| {
-                let unchanged = !full
-                    && previous
-                        .get(&p.identity)
-                        .is_some_and(|old| old.maps == p.maps);
-                let epoch = if unchanged {
-                    self.epochs[&p.identity]
-                } else {
-                    p.maps_epoch
-                };
-                epochs.insert(p.identity, epoch);
-                let delta = if !full && !unchanged {
-                    previous
-                        .get(&p.identity)
-                        .map(|old| map_delta(&old.maps, &p.maps))
-                } else {
-                    None
-                };
-                let delta = delta.filter(|d| {
-                    serde_json::to_vec(d).unwrap().len() + 6
-                        < serde_json::to_vec(&p.maps).unwrap().len()
-                });
-                let include_maps = !unchanged && delta.is_none();
-                ProcessPayload {
-                    identity: &p.identity,
-                    parent_id: &p.parent_id,
-                    name: &p.name,
-                    command_line: &p.command_line,
-                    uid: &p.uid,
-                    username: &p.username,
-                    euid: &p.euid,
-                    effective_username: &p.effective_username,
-                    maps_error: &p.maps_error,
-                    maps_epoch: epoch,
-                    maps: include_maps.then_some(p.maps.as_slice()),
-                    maps_delta: delta,
-                }
-            })
-            .collect();
-        let baseline = self.previous.as_deref();
-        let relations_delta = (!full)
-            .then(|| {
-                entry_delta(
-                    baseline.map(|s| s.fd_relations.as_slice()),
-                    &snapshot.fd_relations,
-                    |r| &r.id,
-                )
-            })
-            .flatten();
-        let rdma_delta = (!full)
-            .then(|| {
-                entry_delta(
-                    baseline.map(|s| s.rdma_relations.as_slice()),
-                    &snapshot.rdma_relations,
-                    |r| &r.id,
-                )
-            })
-            .flatten();
-        let handles_delta = (!full)
-            .then(|| {
-                entry_delta(
-                    baseline.map(|s| s.device_handles.as_slice()),
-                    &snapshot.device_handles,
-                    |h| &h.id,
-                )
-            })
-            .flatten();
-        let data = serde_json::to_string(&SnapshotPayload {
-            captured_at: snapshot.captured_at,
-            processes,
-            kind: if full { "full" } else { "delta" },
-            sequence,
-            base_sequence: (!full).then_some(self.sequence),
-            fd_relations: relations_delta
-                .is_none()
-                .then_some(snapshot.fd_relations.as_slice()),
-            fd_relations_delta: relations_delta,
-            rdma_ports: &snapshot.rdma_ports,
-            rdma_relations: rdma_delta
-                .is_none()
-                .then_some(snapshot.rdma_relations.as_slice()),
-            rdma_relations_delta: rdma_delta,
-            hardware_devices: &snapshot.hardware_devices,
-            hardware_paths: &snapshot.hardware_paths,
-            device_handles: handles_delta
-                .is_none()
-                .then_some(snapshot.device_handles.as_slice()),
-            device_handles_delta: handles_delta,
-            warnings: &snapshot.warnings,
-            inspected_processes: snapshot.inspected_processes,
-            inspected_fds: snapshot.inspected_fds,
-        })?;
-        log::debug!(
-            "snapshot_delta kind={} payload_bytes={} encode_us={}",
-            if full { "full" } else { "delta" },
-            data.len(),
-            started.elapsed().as_micros()
-        );
-        self.sequence = sequence;
-        self.previous = Some(snapshot);
-        self.epochs = epochs;
-        if full {
-            self.last_full = Some(now);
-        }
-        Ok(data)
+/// Encodes full or delta SSE snapshots with a sequence and, for deltas, base sequence.
+/// Map deltas use start addresses; FD relation and device handle deltas use IDs.
+/// Hardware devices and paths are always sent in full. Collections
+/// use replacement when a delta is larger. Unchanged maps are omitted and retain
+/// their epoch. Initial, forced gap recovery and 60-second refresh snapshots
+/// include all maps. The baseline advances only after successful serialization.
+pub(in crate::privileged_helper) fn encode_snapshot_encoder(
+    state: &mut SnapshotEncoder,
+    snapshot: Arc<SystemSnapshot>,
+    force_full: bool,
+    now: Instant,
+) -> serde_json::Result<String> {
+    let started = Instant::now();
+    let sequence = state.sequence + 1;
+    let full = force_full
+        || state
+            .last_full
+            .is_none_or(|last| now.duration_since(last) >= Duration::from_secs(60));
+    let previous: HashMap<_, _> = state
+        .previous
+        .as_ref()
+        .into_iter()
+        .flat_map(|s| &s.processes)
+        .map(|p| (p.identity, p))
+        .collect();
+    let mut epochs = HashMap::new();
+    let processes = snapshot
+        .processes
+        .iter()
+        .map(|p| {
+            let unchanged = !full
+                && previous
+                    .get(&p.identity)
+                    .is_some_and(|old| old.maps == p.maps);
+            let epoch = if unchanged {
+                state.epochs[&p.identity]
+            } else {
+                p.maps_epoch
+            };
+            epochs.insert(p.identity, epoch);
+            let delta = if !full && !unchanged {
+                previous
+                    .get(&p.identity)
+                    .map(|old| map_delta(&old.maps, &p.maps))
+            } else {
+                None
+            };
+            let delta = delta.filter(|d| {
+                serde_json::to_vec(d).unwrap().len() + 6
+                    < serde_json::to_vec(&p.maps).unwrap().len()
+            });
+            let include_maps = !unchanged && delta.is_none();
+            ProcessPayload {
+                identity: &p.identity,
+                parent_id: &p.parent_id,
+                name: &p.name,
+                command_line: &p.command_line,
+                uid: &p.uid,
+                username: &p.username,
+                euid: &p.euid,
+                effective_username: &p.effective_username,
+                maps_error: &p.maps_error,
+                maps_epoch: epoch,
+                maps: include_maps.then_some(p.maps.as_slice()),
+                maps_delta: delta,
+            }
+        })
+        .collect();
+    let baseline = state.previous.as_deref();
+    let relations_delta = (!full)
+        .then(|| {
+            entry_delta(
+                baseline.map(|s| s.fd_relations.as_slice()),
+                &snapshot.fd_relations,
+                |r| &r.id,
+            )
+        })
+        .flatten();
+    let rdma_delta = (!full)
+        .then(|| {
+            entry_delta(
+                baseline.map(|s| s.rdma_relations.as_slice()),
+                &snapshot.rdma_relations,
+                |r| &r.id,
+            )
+        })
+        .flatten();
+    let handles_delta = (!full)
+        .then(|| {
+            entry_delta(
+                baseline.map(|s| s.device_handles.as_slice()),
+                &snapshot.device_handles,
+                |h| &h.id,
+            )
+        })
+        .flatten();
+    let data = serde_json::to_string(&SnapshotPayload {
+        captured_at: snapshot.captured_at,
+        processes,
+        kind: if full { "full" } else { "delta" },
+        sequence,
+        base_sequence: (!full).then_some(state.sequence),
+        fd_relations: relations_delta
+            .is_none()
+            .then_some(snapshot.fd_relations.as_slice()),
+        fd_relations_delta: relations_delta,
+        rdma_ports: &snapshot.rdma_ports,
+        rdma_relations: rdma_delta
+            .is_none()
+            .then_some(snapshot.rdma_relations.as_slice()),
+        rdma_relations_delta: rdma_delta,
+        hardware_devices: &snapshot.hardware_devices,
+        hardware_paths: &snapshot.hardware_paths,
+        device_handles: handles_delta
+            .is_none()
+            .then_some(snapshot.device_handles.as_slice()),
+        device_handles_delta: handles_delta,
+        warnings: &snapshot.warnings,
+        inspected_processes: snapshot.inspected_processes,
+        inspected_fds: snapshot.inspected_fds,
+    })?;
+    log::debug!(
+        "snapshot_delta kind={} payload_bytes={} encode_us={}",
+        if full { "full" } else { "delta" },
+        data.len(),
+        started.elapsed().as_micros()
+    );
+    state.sequence = sequence;
+    state.previous = Some(snapshot);
+    state.epochs = epochs;
+    if full {
+        state.last_full = Some(now);
     }
+    Ok(data)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::ipc::model::system::ProcessSnapshot;
-    use crate::ipc::model::{memory::MemoryMap, resource::DeviceId};
+    use {
+        super::*,
+        crate::ipc::model::{memory::MemoryMap, system::ProcessSnapshot},
+    };
 
     fn fixture(start: u64, mapped: bool, epoch: u64) -> Arc<SystemSnapshot> {
+        use crate::ipc::model::resource::device_id_from_stat;
+
         Arc::new(SystemSnapshot {
             processes: vec![ProcessSnapshot {
                 identity: ProcessId {
@@ -279,7 +289,7 @@ mod tests {
                         executable: false,
                         private: true,
                         file_offset: 0,
-                        device: DeviceId::from_stat(0),
+                        device: device_id_from_stat(0),
                         inode: 1,
                         pathname: None,
                     }]
@@ -296,10 +306,15 @@ mod tests {
         full: bool,
         now: Instant,
     ) -> serde_json::Value {
-        serde_json::from_str(&delivery.encode(data, full, now).unwrap()).unwrap()
+        serde_json::from_str(
+            &super::encode_snapshot_encoder(&mut *delivery, data, full, now).unwrap(),
+        )
+        .unwrap()
     }
     #[test]
     fn application_json_encoder_preserves_typed_full_and_delta_contracts() {
+        use crate::privileged_helper::http_delivery::encode_snapshot_encoder;
+
         let now = Instant::now();
         let mut typed = SnapshotEncoder::default();
         let mut application = crate::privileged_helper::http_delivery::SnapshotEncoder::default();
@@ -332,10 +347,14 @@ mod tests {
             let force = index == 4;
             let time = now + Duration::from_secs(if index == 5 { 70 } else { index as u64 });
             let value = Arc::new(serde_json::to_value(&data).unwrap());
-            let expected: serde_json::Value =
-                serde_json::from_str(&typed.encode(Arc::new(data), force, time).unwrap()).unwrap();
-            let actual: serde_json::Value =
-                serde_json::from_str(&application.encode(value, force, time).unwrap()).unwrap();
+            let expected: serde_json::Value = serde_json::from_str(
+                &super::encode_snapshot_encoder(&mut typed, Arc::new(data), force, time).unwrap(),
+            )
+            .unwrap();
+            let actual: serde_json::Value = serde_json::from_str(
+                &encode_snapshot_encoder(&mut application, value, force, time).unwrap(),
+            )
+            .unwrap();
             assert_eq!(actual, expected, "snapshot {index}");
         }
     }
@@ -440,6 +459,8 @@ mod tests {
     }
     #[test]
     fn entry_deltas_reconstruct_maps_and_relations() {
+        use crate::ipc::model::resource::device_id_from_stat;
+
         let now = Instant::now();
         let mut initial = (*fixture(1, true, 1)).clone();
         initial.processes[0].maps = (0..100)
@@ -459,7 +480,7 @@ mod tests {
                     fd_count: 1,
                     resource: crate::ipc::model::resource::IpcIdentity {
                         kind: crate::ipc::model::resource::IpcKind::Pipe,
-                        device: DeviceId::from_stat(0),
+                        device: device_id_from_stat(0),
                         inode: 1,
                     },
                     kind: crate::ipc::model::socket_types::FdKind::Pipe,

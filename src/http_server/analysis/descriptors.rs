@@ -236,8 +236,10 @@ pub fn resolve_descriptor_relations(data: &mut FileDescriptors) {
 
 #[cfg(test)]
 mod inode_tests {
-    use super::*;
-    use crate::ipc::descriptors::{FileDescriptorInfo, Key};
+    use {
+        super::*,
+        crate::ipc::descriptors::{FileDescriptorInfo, Key},
+    };
 
     fn descriptor_with_inodes(inode: u64, peer_inode: Option<u64>) -> FileDescriptorInfo {
         FileDescriptorInfo {

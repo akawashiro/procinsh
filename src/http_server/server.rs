@@ -1,14 +1,13 @@
 //! Bind HTTP and agent listeners and manage application shutdown.
 //!
 //! # Interface
-//! - [`ServerConfig`] (`pub(crate)`): `struct ServerConfig`.
-//! - [`serve_http_requests`] (`pub(super)`): `async fn serve_http_requests( config: `[`ServerConfig`]`, client: `[`super::client::MonitorClient`]`, ) -> `[`Result`]`<()>`.
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`ServerConfig`] | `pub(crate)` | `struct ServerConfig` |
+//! | [`serve_http_requests`] | `pub(super)` | `async fn serve_http_requests( config: `[`ServerConfig`]`, client: `[`super::client::MonitorClient`]`, ) -> `[`Result`]`<()>` |
 
-use super::{
-    AppState,
-    hosts::{self, HostInfo, HostRegistry},
-    router::router,
-};
+use super::{hosts, router::router};
 use anyhow::{Context, Result, ensure};
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 use tokio::{sync::watch, task::JoinSet};
@@ -34,6 +33,11 @@ pub(super) async fn serve_http_requests(
     config: ServerConfig,
     client: super::client::MonitorClient,
 ) -> Result<()> {
+    use crate::http_server::{
+        hosts::{create_host_registry, local_host_info},
+        state::{remote_app_state, stop_app_state},
+    };
+
     let listen = &config.listen;
     ensure!(!listen.is_empty(), "no HTTP listen addresses specified");
     let mut listeners = Vec::with_capacity(listen.len());
@@ -54,9 +58,9 @@ pub(super) async fn serve_http_requests(
     let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
         .context("could not install SIGTERM handler")?;
     let interval = Duration::from_secs(1);
-    let info = HostInfo::local(config.host_name);
-    let registry = Arc::new(HostRegistry::new(info.clone()));
-    let state = Arc::new(AppState::remote(interval, client.clone(), registry.clone()));
+    let info = local_host_info(config.host_name);
+    let registry = Arc::new(create_host_registry(info.clone()));
+    let state = Arc::new(remote_app_state(interval, client.clone(), registry.clone()));
     let (shutdown, _) = watch::channel(false);
     let token: Option<Arc<str>> = config.agent_token.map(Into::into);
     let mut links = JoinSet::new();
@@ -125,7 +129,7 @@ pub(super) async fn serve_http_requests(
             }
         },
     };
-    state.stop();
+    stop_app_state(&state);
     shutdown.send_replace(true);
     while links.join_next().await.is_some() {}
     while let Some(server) = servers.join_next().await {

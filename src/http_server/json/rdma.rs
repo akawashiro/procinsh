@@ -1,7 +1,11 @@
 //! JSON representations of native RDMA observations.
 //!
 //! # Interface
+//!
+//! No named types or functions are exported.
+//!
 //! Installs serde implementations; no named items are exported.
+
 use crate::ipc::rdma::*;
 use crate::ipc::schema::ProcessId;
 use std::net::IpAddr;
@@ -277,7 +281,8 @@ impl serde::Serialize for IbGid {
 impl<'de> serde::Deserialize<'de> for IbGid {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         let text = <String as serde::Deserialize>::deserialize(d)?;
-        Self::parse(&text).ok_or_else(|| serde::de::Error::custom("invalid IB GID"))
+        crate::ipc::rdma::parse_ib_gid(&text)
+            .ok_or_else(|| serde::de::Error::custom("invalid IB GID"))
     }
 }
 
@@ -296,6 +301,11 @@ mod tests {
 
     #[test]
     fn codes_match_shared_json_contract() {
+        use crate::ipc::rdma::{
+            rdma_cm_state_from_code, rdma_port_space_from_code, rdma_qp_state_from_code,
+            rdma_qp_type_from_code,
+        };
+
         let cases: serde_json::Value = serde_json::from_str(include_str!(
             "../../privileged_helper/test_support/rdma-codes.json"
         ))
@@ -304,19 +314,19 @@ mod tests {
             let code = case["code"].as_u64().unwrap();
             let value = match case["group"].as_str().unwrap() {
                 "qp_type" => {
-                    let kind = RdmaQpType::from_code(code as u8);
+                    let kind = rdma_qp_type_from_code(code as u8);
                     serde_json::to_value(kind).unwrap()
                 }
                 "qp_state" => {
-                    let kind = RdmaQpState::from_code(code as u8);
+                    let kind = rdma_qp_state_from_code(code as u8);
                     serde_json::to_value(kind).unwrap()
                 }
                 "cm_state" => {
-                    let kind = RdmaCmState::from_code(code as u8);
+                    let kind = rdma_cm_state_from_code(code as u8);
                     serde_json::to_value(kind).unwrap()
                 }
                 "port_space" => {
-                    let kind = RdmaPortSpace::from_code(code as u32);
+                    let kind = rdma_port_space_from_code(code as u32);
                     serde_json::to_value(kind).unwrap()
                 }
                 group => panic!("unknown group {group}"),
@@ -327,7 +337,9 @@ mod tests {
 
     #[test]
     fn gids_serialize_as_canonical_strings() {
-        let gid = IbGid::parse("fe80:0000:0000:0000:0002:c903:0028:45c7").unwrap();
+        use crate::ipc::rdma::parse_ib_gid;
+
+        let gid = parse_ib_gid("fe80:0000:0000:0000:0002:c903:0028:45c7").unwrap();
         assert_eq!(
             serde_json::to_value(gid).unwrap(),
             "fe80:0000:0000:0000:0002:c903:0028:45c7"
@@ -336,6 +348,8 @@ mod tests {
 
     #[test]
     fn cm_addresses_serialize_inet_and_ib() {
+        use crate::ipc::rdma::parse_ib_gid;
+
         let address = RdmaAddress::Inet {
             ip: "10.10.10.1".parse().unwrap(),
             port: 20049,
@@ -345,7 +359,7 @@ mod tests {
             serde_json::json!({"kind":"inet","ip":"10.10.10.1","port":20049})
         );
         let address = RdmaAddress::Ib {
-            gid: IbGid::parse("fe80:0000:0000:0000:0000:0000:0000:0051").unwrap(),
+            gid: parse_ib_gid("fe80:0000:0000:0000:0000:0000:0000:0051").unwrap(),
             service_id: 0x0000_0000_0106_4e51,
             pkey: 65535,
         };

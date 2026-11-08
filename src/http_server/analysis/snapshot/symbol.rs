@@ -6,19 +6,35 @@
 //! | --- | --- | --- |
 //! | [`ElfImage`] | `pub` | `struct ElfImage` |
 //! | [`ElfCache`] | `pub` | `struct ElfCache` |
-//! | [`elf_address`] | `pub` | `fn elf_address(address: u64, map: &`[`MemoryMap`](crate::ipc::model::memory::MemoryMap)`, elf: &`[`cache::ElfSymbols`]`, page: u64) -> `[`Option`]`<u64>` |
+//! | [`elf_address`] | `pub` | `fn elf_address(address: u64, map: &`[`MemoryMap`](crate::ipc::model::memory::MemoryMap)`, elf: &`[`ElfSymbols`](cache::ElfSymbols)`, page: u64) -> `[`Option`]`<u64>` |
 //! | [`instruction_address`] | `pub` | `fn instruction_address(address: u64, return_address: bool) -> u64` |
-//! | [`resolve_frame`] | `pub` | `fn resolve_frame(address: u64, elf: &`[`cache::ElfSymbols`]`) -> `[`Option`]`<`[`resolve::SymbolInfo`]`>` |
+//! | [`resolve_frame`] | `pub` | `fn resolve_frame(address: u64, elf: &`[`ElfSymbols`](cache::ElfSymbols)`) -> `[`Option`]`<`[`SymbolInfo`](resolve::SymbolInfo)`>` |
+//! | [`lookup_elf_symbols`] | `pub` | `fn lookup_elf_symbols(state: &`[`ElfCache`]`, map: &`[`MemoryMap`](crate::ipc::model::memory::MemoryMap)`) -> `[`Option`]`<`[`Arc`](std::sync::Arc)`<`[`ElfSymbols`](cache::ElfSymbols)`>>` |
+//! | [`lookup_cached_elf_file_identity`] | `pub` | `fn lookup_cached_elf_file_identity(state: &`[`ElfCache`]`, map: &`[`MemoryMap`](crate::ipc::model::memory::MemoryMap)`) -> `[`Option`]`<`[`ElfFileId`](crate::ipc::elf::ElfFileId)`>` |
+//! | [`cache_elf_symbols_from_image`] | `pub` | `fn cache_elf_symbols_from_image( state: &mut `[`ElfCache`]`, map: &`[`MemoryMap`](crate::ipc::model::memory::MemoryMap)`, file: &`[`super::image::ElfImage`](image::ElfImage)`, ) -> `[`Option`]`<`[`Arc`](std::sync::Arc)`<`[`ElfSymbols`](cache::ElfSymbols)`>>` |
+//! | [`create_elf_image`] | `pub` | `fn create_elf_image(data: `[`MappedFileData`](crate::ipc::elf::MappedFileData)`) -> `[`Result`](anyhow::Result)`<`[`ElfImage`]`>` |
+//! | [`extend_elf_image`] | `pub` | `fn extend_elf_image(state: &mut `[`ElfImage`]`, data: `[`MappedFileData`](crate::ipc::elf::MappedFileData)`) -> `[`Result`](anyhow::Result)`<()>` |
+//! | [`names_elf_image`] | `pub` | `fn names_elf_image(state: &`[`ElfImage`]`) -> `[`Result`](anyhow::Result)`<`[`Vec`]`<`[`FileRange`](crate::ipc::elf::FileRange)`>>` |
+//! | [`sections_elf_image`] | `pub` | `fn sections_elf_image(state: &`[`ElfImage`]`) -> `[`Result`](anyhow::Result)`<`[`Vec`]`<`[`FileRange`](crate::ipc::elf::FileRange)`>>` |
+//! | [`tables_elf_image`] | `pub` | `fn tables_elf_image(state: &`[`ElfImage`]`) -> `[`Result`](anyhow::Result)`<`[`Vec`]`<`[`FileRange`](crate::ipc::elf::FileRange)`>>` |
 
 mod cache;
 mod image;
-pub use image::ElfImage;
+pub use image::{
+    ElfImage, create_elf_image, extend_elf_image, names_elf_image, sections_elf_image,
+    tables_elf_image,
+};
 mod resolve;
-pub use cache::ElfCache;
 #[cfg(test)]
 pub use cache::ElfFile;
 #[cfg(test)]
 pub use cache::ElfSymbols;
+pub use cache::{
+    ElfCache, cache_elf_symbols_from_image, lookup_cached_elf_file_identity, lookup_elf_symbols,
+};
 #[cfg(test)]
 pub use resolve::SymbolInfo;
 pub use resolve::{elf_address, instruction_address, resolve_frame};
+
+#[cfg(test)]
+pub use cache::cache_elf_symbols_from_bytes;

@@ -1,4 +1,3 @@
-use super::AppState;
 use axum::{
     body::{Body, to_bytes},
     http::Request,
@@ -42,10 +41,15 @@ async fn read_next_sse_json(body: &mut Body) -> serde_json::Value {
 
 #[tokio::test]
 async fn explicit_identity_is_required_without_selection() {
-    let state = Arc::new(AppState::new(Duration::from_millis(100)));
+    use crate::privileged_helper::{
+        process::{create_target, observer_count_process_monitor},
+        state::{create_app_state, stop_app_state},
+    };
+
+    let state = Arc::new(create_app_state(Duration::from_millis(100)));
     let app = super::router::router(state.clone(), "127.0.0.1:8080".parse().unwrap());
     // Observe a child to exercise explicit process selection through the API.
-    let target = super::process::Target::new("sleeping");
+    let target = create_target("sleeping");
     let id = target.id;
     for method in ["GET", "POST", "DELETE"] {
         let mut req = build_http_request("/api/target");
@@ -171,17 +175,22 @@ async fn explicit_identity_is_required_without_selection() {
             );
         }
     }
-    assert_eq!(state.monitoring.observer_count(), 0);
-    state.stop();
+    assert_eq!(observer_count_process_monitor(&state.monitoring), 0);
+    stop_app_state(&state);
 }
 
 #[tokio::test]
 async fn target_streams_have_independent_lifetimes_and_histories() {
-    let state = Arc::new(AppState::new(Duration::from_millis(100)));
+    use crate::privileged_helper::{
+        process::{create_target, observer_count_process_monitor},
+        state::{create_app_state, join_collectors_app_state, stop_app_state},
+    };
+
+    let state = Arc::new(create_app_state(Duration::from_millis(100)));
     let app = super::router::router(state.clone(), "127.0.0.1:8080".parse().unwrap());
     // Keep the observed thread set fixed: inspecting this test process would
     // also sample the collector threads created by each additional session.
-    let target = super::process::Target::new("sleeping");
+    let target = create_target("sleeping");
     let id = target.id;
     let uri = format!("/api/processes/events?{}", process_query_string(id));
     let mut a = app
@@ -218,9 +227,9 @@ async fn target_streams_have_independent_lifetimes_and_histories() {
             .len(),
         1
     );
-    assert_eq!(state.monitoring.observer_count(), 2);
+    assert_eq!(observer_count_process_monitor(&state.monitoring), 2);
     drop(a);
-    assert_eq!(state.monitoring.observer_count(), 1);
+    assert_eq!(observer_count_process_monitor(&state.monitoring), 1);
     assert_eq!(
         read_next_sse_json(&mut b).await["summary"]["identity"]["pid"],
         id.pid
@@ -243,7 +252,7 @@ async fn target_streams_have_independent_lifetimes_and_histories() {
     let response = app.clone().oneshot(build_http_request(&uri)).await.unwrap();
     assert_eq!(response.status(), 200);
     bodies.push(response.into_body());
-    state.stop();
+    stop_app_state(&state);
     assert_eq!(
         app.clone()
             .oneshot(build_http_request(&uri))
@@ -258,18 +267,27 @@ async fn target_streams_have_independent_lifetimes_and_histories() {
             .unwrap()
             .unwrap();
     }
-    assert_eq!(state.monitoring.observer_count(), 0);
-    state.join_collectors().unwrap();
+    assert_eq!(observer_count_process_monitor(&state.monitoring), 0);
+    join_collectors_app_state(&state).unwrap();
 }
 
 #[tokio::test]
 async fn closing_a_session_stops_its_collector() {
-    let state = Arc::new(AppState::new(Duration::from_millis(100)));
+    use crate::privileged_helper::{
+        process::{
+            observe_process_monitor, observer_count_process_monitor, reserve_process_monitor,
+        },
+        state::{create_app_state, join_collectors_app_state, stop_app_state},
+    };
+
+    let state = Arc::new(create_app_state(Duration::from_millis(100)));
     let id = super::process::read_process_identity(std::process::id() as i32).unwrap();
-    let session = state
-        .monitoring
-        .observe(id, state.monitoring.reserve().unwrap())
-        .unwrap();
+    let session = observe_process_monitor(
+        &state.monitoring,
+        id,
+        reserve_process_monitor(&state.monitoring).unwrap(),
+    )
+    .unwrap();
     let receiver = session.receiver.clone();
     drop(session);
     tokio::time::timeout(Duration::from_secs(2), async {
@@ -279,19 +297,21 @@ async fn closing_a_session_stops_its_collector() {
     })
     .await
     .unwrap();
-    assert_eq!(state.monitoring.observer_count(), 0);
-    state.stop();
-    state.join_collectors().unwrap();
+    assert_eq!(observer_count_process_monitor(&state.monitoring), 0);
+    stop_app_state(&state);
+    join_collectors_app_state(&state).unwrap();
 }
-
-use super::process::Target;
 
 #[tokio::test]
 async fn api_explicit_identity_validation_and_removed_snapshot() {
-    use axum::{body::Body, http::Request};
-    use tower::ServiceExt;
-    let target = Target::new("sleeping");
-    let state = Arc::new(AppState::new(Duration::from_secs(1)));
+    use crate::privileged_helper::{process::create_target, state::create_app_state};
+
+    use {
+        axum::{body::Body, http::Request},
+        tower::ServiceExt,
+    };
+    let target = create_target("sleeping");
+    let state = Arc::new(create_app_state(Duration::from_secs(1)));
     let app = super::router::router(state, "127.0.0.1:8080".parse().unwrap());
     for path in ["environment", "auxv", "fds"] {
         for (start, expected) in [

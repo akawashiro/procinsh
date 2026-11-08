@@ -1,12 +1,15 @@
 //! Local RDMA port addresses and link state from sysfs.
 //!
 //! # Interface
-//! - [`list_rdma_devices`] (`pub(super)`): `fn list_rdma_devices(root: &`[`Path`]`) -> `[`Vec`]`<`[`String`]`>`.
-//! - [`read_rdma_ports`] (`pub(super)`): `fn read_rdma_ports(root: &`[`Path`]`) -> `[`Vec`]`<`[`crate::ipc::rdma::RdmaPortInfo`]`>`.
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`list_rdma_devices`] | `pub(super)` | `fn list_rdma_devices(root: &`[`Path`]`) -> `[`Vec`]`<`[`String`]`>` |
+//! | [`read_rdma_ports`] | `pub(super)` | `fn read_rdma_ports(root: &`[`Path`]`) -> `[`Vec`]`<`[`RdmaPortInfo`]`>` |
 
 use std::{fs, path::Path};
 
-use crate::ipc::rdma::{IbGid, RdmaPortInfo};
+use crate::ipc::rdma::RdmaPortInfo;
 
 fn read_sysfs_text(path: &Path) -> Option<String> {
     let value = fs::read_to_string(path).ok()?;
@@ -31,6 +34,8 @@ pub(super) fn list_rdma_devices(root: &Path) -> Vec<String> {
 }
 
 pub(super) fn read_rdma_ports(root: &Path) -> Vec<RdmaPortInfo> {
+    use crate::ipc::rdma::parse_ib_gid;
+
     let mut result = Vec::new();
     for device in list_rdma_devices(root) {
         let ports = root.join(&device).join("ports");
@@ -52,7 +57,7 @@ pub(super) fn read_rdma_ports(root: &Path) -> Vec<RdmaPortInfo> {
                 lid: read_sysfs_text(&path.join("lid"))
                     .and_then(|s| u32::from_str_radix(s.trim_start_matches("0x"), 16).ok())
                     .filter(|lid| *lid != 0),
-                gid: read_sysfs_text(&path.join("gids/0")).and_then(|s| IbGid::parse(&s)),
+                gid: read_sysfs_text(&path.join("gids/0")).and_then(|s| parse_ib_gid(&s)),
                 rate: read_sysfs_text(&path.join("rate")),
             });
         }

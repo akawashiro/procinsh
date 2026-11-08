@@ -4,17 +4,24 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`Wire`] | `pub` | `trait Wire` |
-//! | [`Encoder`] | `pub` | `struct Encoder` |
-//! | [`Decoder`] | `pub` | `struct Decoder<'a>` |
 //! | [`LimitExceeded`] | `pub` | `struct LimitExceeded` |
-//! | [`encode`] | `pub` | `fn encode<T: Wire>(value: &T, limit: usize) -> anyhow::Result<Vec<u8>>` |
-//! | [`decode`] | `pub` | `fn decode<T: Wire>(bytes: &[u8]) -> anyhow::Result<T>` |
+//! | [`Encoder`] | `pub` | `struct Encoder` |
+//! | [`Decoder`] | `pub` | `struct Decoder` |
+//! | [`Wire`] | `pub` | `trait Wire` |
+//! | [`append_encoder`] | `pub(crate)` | `fn append_encoder(state: &mut `[`Encoder`]`, bytes: &[u8]) -> `[`Result`]`<()>` |
+//! | [`length_encoder`] | `pub(crate)` | `fn length_encoder(state: &mut `[`Encoder`]`, length: usize) -> `[`Result`]`<()>` |
+//! | [`blob_encoder`] | `pub(crate)` | `fn blob_encoder(state: &mut `[`Encoder`]`, bytes: &[u8]) -> `[`Result`]`<()>` |
+//! | [`take_decoder`] | `pub(crate)` | `fn take_decoder<'a>(state: &mut `[`Decoder`]`<'a>, length: usize) -> `[`Result`]`<&'a [u8]>` |
+//! | [`length_decoder`] | `pub(crate)` | `fn length_decoder<'a>(state: &mut `[`Decoder`]`<'a>) -> `[`Result`]`<usize>` |
+//! | [`blob_decoder`] | `pub(crate)` | `fn blob_decoder<'a>(state: &mut `[`Decoder`]`<'a>) -> `[`Result`]`<&'a [u8]>` |
+//! | [`encode`] | `pub` | `fn encode<T: `[`Wire`]`>(value: &T, limit: usize) -> `[`Result`]`<`[`Vec`]`<u8>>` |
+//! | [`decode`] | `pub` | `fn decode<T: `[`Wire`]`>(bytes: &[u8]) -> `[`Result`]`<T>` |
 //!
 //! Struct fields follow their declared wire order; enum variants have explicit
 //! byte tags. Strings and collections have u32 lengths. Integers and floats use
 //! their native byte representation. Rust padding, pointers and container layouts
 //! are never copied. The peers run on the same machine and are built together.
+
 use anyhow::{Result, bail, ensure};
 use std::sync::Arc;
 
@@ -39,43 +46,43 @@ pub trait Wire: Sized {
     fn write(&self, output: &mut Encoder) -> Result<()>;
     fn read(input: &mut Decoder<'_>) -> Result<Self>;
 }
-impl Encoder {
-    pub(crate) fn append(&mut self, bytes: &[u8]) -> Result<()> {
-        if bytes.len() > self.limit.saturating_sub(self.bytes.len()) {
-            return Err(LimitExceeded.into());
-        }
-        self.bytes.extend_from_slice(bytes);
-        Ok(())
+pub(crate) fn append_encoder(state: &mut Encoder, bytes: &[u8]) -> Result<()> {
+    if bytes.len() > state.limit.saturating_sub(state.bytes.len()) {
+        return Err(LimitExceeded.into());
     }
-    pub(crate) fn length(&mut self, length: usize) -> Result<()> {
-        u32::try_from(length)
-            .map_err(|_| LimitExceeded)?
-            .write(self)
-    }
-    pub(crate) fn blob(&mut self, bytes: &[u8]) -> Result<()> {
-        self.length(bytes.len())?;
-        self.append(bytes)
-    }
+    state.bytes.extend_from_slice(bytes);
+    Ok(())
 }
-impl<'a> Decoder<'a> {
-    pub(crate) fn take(&mut self, length: usize) -> Result<&'a [u8]> {
-        ensure!(length <= self.bytes.len(), "truncated monitor value");
-        let (bytes, remaining) = self.bytes.split_at(length);
-        self.bytes = remaining;
-        Ok(bytes)
-    }
-    pub(crate) fn length(&mut self) -> Result<usize> {
-        let length = u32::read(self)? as usize;
-        ensure!(
-            length <= self.bytes.len(),
-            "invalid monitor collection length"
-        );
-        Ok(length)
-    }
-    pub(crate) fn blob(&mut self) -> Result<&'a [u8]> {
-        let length = self.length()?;
-        self.take(length)
-    }
+
+pub(crate) fn length_encoder(state: &mut Encoder, length: usize) -> Result<()> {
+    u32::try_from(length)
+        .map_err(|_| LimitExceeded)?
+        .write(state)
+}
+
+pub(crate) fn blob_encoder(state: &mut Encoder, bytes: &[u8]) -> Result<()> {
+    length_encoder(state, bytes.len())?;
+    append_encoder(state, bytes)
+}
+pub(crate) fn take_decoder<'a>(state: &mut Decoder<'a>, length: usize) -> Result<&'a [u8]> {
+    ensure!(length <= state.bytes.len(), "truncated monitor value");
+    let (bytes, remaining) = state.bytes.split_at(length);
+    state.bytes = remaining;
+    Ok(bytes)
+}
+
+pub(crate) fn length_decoder<'a>(state: &mut Decoder<'a>) -> Result<usize> {
+    let length = u32::read(state)? as usize;
+    ensure!(
+        length <= state.bytes.len(),
+        "invalid monitor collection length"
+    );
+    Ok(length)
+}
+
+pub(crate) fn blob_decoder<'a>(state: &mut Decoder<'a>) -> Result<&'a [u8]> {
+    let length = length_decoder(state)?;
+    take_decoder(state, length)
 }
 
 pub fn encode<T: Wire>(value: &T, limit: usize) -> Result<Vec<u8>> {
@@ -97,9 +104,9 @@ pub fn decode<T: Wire>(bytes: &[u8]) -> Result<T> {
 macro_rules! number {
     ($($type:ty),+ $(,)?) => {$(
         impl Wire for $type {
-            fn write(&self, output: &mut Encoder) -> Result<()> { output.append(&self.to_ne_bytes()) }
+            fn write(&self, output: &mut Encoder) -> Result<()> { append_encoder(&mut *output, &self.to_ne_bytes()) }
             fn read(input: &mut Decoder<'_>) -> Result<Self> {
-                Ok(Self::from_ne_bytes(input.take(std::mem::size_of::<Self>())?.try_into()?))
+                Ok(Self::from_ne_bytes(take_decoder(&mut *input, std::mem::size_of::<Self>())?.try_into()?))
             }
         }
     )+};
@@ -119,22 +126,22 @@ impl Wire for bool {
 }
 impl Wire for String {
     fn write(&self, output: &mut Encoder) -> Result<()> {
-        output.blob(self.as_bytes())
+        blob_encoder(&mut *output, self.as_bytes())
     }
     fn read(input: &mut Decoder<'_>) -> Result<Self> {
-        Ok(std::str::from_utf8(input.blob()?)?.to_owned())
+        Ok(std::str::from_utf8(blob_decoder(&mut *input)?)?.to_owned())
     }
 }
 impl<T: Wire> Wire for Vec<T> {
     fn write(&self, output: &mut Encoder) -> Result<()> {
-        output.length(self.len())?;
+        length_encoder(&mut *output, self.len())?;
         for value in self {
             value.write(output)?;
         }
         Ok(())
     }
     fn read(input: &mut Decoder<'_>) -> Result<Self> {
-        let length = input.length()?;
+        let length = length_decoder(&mut *input)?;
         let mut values = Vec::with_capacity(length.min(4096));
         for _ in 0..length {
             values.push(T::read(input)?);
@@ -295,8 +302,7 @@ pub(crate) use {wire_enum, wire_struct};
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::ipc::schema::*;
+    use {super::*, crate::ipc::schema::*};
     #[test]
     fn native_numbers_strings_and_socket_scope_roundtrip() {
         let scalar = 0x0102030405060708u64;
@@ -350,6 +356,8 @@ mod tests {
     }
     #[test]
     fn captured_snapshots_remain_typed_until_main_processing() {
+        use crate::ipc::rdma::parse_ib_gid;
+
         let snapshot = crate::ipc::model::system::SystemSnapshot {
             captured_at: 123,
             rdma_ports: vec![crate::ipc::rdma::RdmaPortInfo {
@@ -358,7 +366,7 @@ mod tests {
                 link_layer: Some("InfiniBand".into()),
                 state: Some("ACTIVE".into()),
                 lid: Some(42),
-                gid: crate::ipc::rdma::IbGid::parse("fe80:0000:0000:0000:0000:0000:0000:0051"),
+                gid: parse_ib_gid("fe80:0000:0000:0000:0000:0000:0000:0051"),
                 rate: Some("100 Gb/sec".into()),
             }],
             raw_sockets: vec![(

@@ -6,8 +6,8 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`deserialize_decimal`] | `pub` | `fn deserialize_decimal<'de, D: serde::Deserializer<'de>>( deserializer: D, ) -> Result<u64, D::Error>` |
-//! | [`decimal`] | `pub` | `fn decimal<S: serde::Serializer>(value: &u64, serializer: S) -> Result<S::Ok, S::Error>` |
+//! | [`deserialize_decimal`] | `pub` | `fn deserialize_decimal<'de, D: `[`serde::Deserializer`]`<'de>>( deserializer: D, ) -> `[`Result`](anyhow::Result)`<u64, D::Error>` |
+//! | [`decimal`] | `pub` | `fn decimal<S: `[`serde::Serializer`]`>(value: &u64, serializer: S) -> `[`Result`](anyhow::Result)`<S::Ok, S::Error>` |
 
 use crate::ipc::model::resource::{DeviceId, IpcKind};
 use serde::Deserialize;
@@ -110,16 +110,18 @@ mod tests {
 
     #[test]
     fn devices_and_large_inodes_keep_identity() {
+        use crate::ipc::model::resource::{device_id_from_kernel, device_id_from_stat};
+
         let device = DeviceId {
             major: 259,
             minor: 1048575,
         };
         assert_eq!(
-            DeviceId::from_stat(libc::makedev(device.major, device.minor)),
+            device_id_from_stat(libc::makedev(device.major, device.minor)),
             device
         );
         assert_eq!(
-            DeviceId::from_kernel(((device.major as u64) << 20) | device.minor as u64),
+            device_id_from_kernel(((device.major as u64) << 20) | device.minor as u64),
             device
         );
         let file = FileIdentity {

@@ -1,4 +1,4 @@
-use super::{AppState, router::router};
+use super::router::router;
 use axum::{Router, extract::Request};
 use std::{sync::Arc, time::Duration};
 
@@ -6,8 +6,10 @@ use axum::body::Body;
 use tower::ServiceExt;
 
 fn build_test_app() -> Router {
+    use crate::privileged_helper::state::create_app_state;
+
     router(
-        Arc::new(AppState::new(Duration::from_secs(1))),
+        Arc::new(create_app_state(Duration::from_secs(1))),
         "127.0.0.1:8080".parse().unwrap(),
     )
 }

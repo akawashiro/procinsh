@@ -6,10 +6,12 @@
 //! | --- | --- | --- |
 //! | [`MemoryKind`] | `pub` | `enum MemoryKind` |
 //! | [`MemoryMap`] | `pub` | `struct MemoryMap` |
-//! | [`MappingSnapshot`] | `pub` | `struct MappingSnapshot` |
 //! | [`SmapsEntry`] | `pub` | `struct SmapsEntry` |
-//! | [`parse_map`] | `pub` | `fn parse_map(line: &str) -> Result<MemoryMap>` |
-//! | [`parse_smaps`] | `pub` | `fn parse_smaps(text: &str) -> Result<Vec<SmapsEntry>>` |
+//! | [`MappingSnapshot`] | `pub` | `struct MappingSnapshot` |
+//! | [`memory_map_contains`] | `pub` | `fn memory_map_contains(state: &`[`MemoryMap`]`, address: u64) -> bool` |
+//! | [`kind_memory_map`] | `pub` | `fn kind_memory_map(state: &`[`MemoryMap`]`) -> `[`MemoryKind`] |
+//! | [`parse_map`] | `pub` | `fn parse_map(line: &str) -> `[`Result`]`<`[`MemoryMap`]`>` |
+//! | [`parse_smaps`] | `pub` | `fn parse_smaps(text: &str) -> `[`Result`]`<`[`Vec`]`<`[`SmapsEntry`]`>>` |
 
 use crate::ipc::model::resource::DeviceId;
 use anyhow::{Context, Result, ensure};
@@ -58,20 +60,18 @@ impl From<MemoryMap> for SmapsEntry {
     }
 }
 
-impl MemoryMap {
-    pub fn contains(&self, address: u64) -> bool {
-        self.start <= address && address < self.end
-    }
+pub fn memory_map_contains(state: &MemoryMap, address: u64) -> bool {
+    state.start <= address && address < state.end
+}
 
-    pub fn kind(&self) -> MemoryKind {
-        match self.pathname.as_deref() {
-            Some(p) if p.starts_with("[stack") => MemoryKind::Stack,
-            Some("[heap]") => MemoryKind::Heap,
-            Some(p) if p.contains(".so") => MemoryKind::SharedLibrary,
-            _ if self.executable => MemoryKind::Executable,
-            Some(p) if p.starts_with('/') => MemoryKind::File,
-            _ => MemoryKind::Anonymous,
-        }
+pub fn kind_memory_map(state: &MemoryMap) -> MemoryKind {
+    match state.pathname.as_deref() {
+        Some(p) if p.starts_with("[stack") => MemoryKind::Stack,
+        Some("[heap]") => MemoryKind::Heap,
+        Some(p) if p.contains(".so") => MemoryKind::SharedLibrary,
+        _ if state.executable => MemoryKind::Executable,
+        Some(p) if p.starts_with('/') => MemoryKind::File,
+        _ => MemoryKind::Anonymous,
     }
 }
 

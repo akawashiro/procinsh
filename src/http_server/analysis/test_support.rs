@@ -1,15 +1,17 @@
 //! Local fixture acquisition for unprivileged-analysis tests.
 pub(super) mod process {
-    use crate::{
-        http_server::analysis::snapshot::symbol::{ElfCache, ElfFile, ElfSymbols},
-        ipc::{model::memory::MemoryMap, schema::ProcessId},
-    };
-    use std::{
-        fs,
-        io::{BufRead, BufReader},
-        os::unix::fs::MetadataExt,
-        process::{Child, Command, Stdio},
-        sync::Arc,
+    use {
+        crate::{
+            http_server::analysis::snapshot::symbol::{ElfCache, ElfFile, ElfSymbols},
+            ipc::{model::memory::MemoryMap, schema::ProcessId},
+        },
+        std::{
+            fs,
+            io::{BufRead, BufReader},
+            os::unix::fs::MetadataExt,
+            process::{Child, Command, Stdio},
+            sync::Arc,
+        },
     };
     pub(crate) mod procfs {
         pub fn page_size() -> u64 {
@@ -27,9 +29,12 @@ pub(super) mod process {
         use std::fs;
     }
     pub fn load(cache: &mut ElfCache, pid: i32, map: &MemoryMap) -> Option<Arc<ElfSymbols>> {
+        use crate::http_server::analysis::snapshot::symbol::cache_elf_symbols_from_bytes;
+
         let path = format!("/proc/{pid}/root{}", map.pathname.as_deref()?);
         let meta = fs::metadata(&path).ok()?;
-        cache.insert(
+        cache_elf_symbols_from_bytes(
+            &mut *cache,
             map,
             ElfFile {
                 identity: (
@@ -49,8 +54,9 @@ pub(super) mod process {
         tid: i32,
         maps: &[MemoryMap],
     ) -> anyhow::Result<(crate::ipc::registers::RegisterSet, Vec<u8>)> {
-        use crate::ipc::registers::RegisterSet;
-        use anyhow::ensure;
+        use crate::ipc::{model::memory::memory_map_contains, registers::sp_register_set};
+
+        use {crate::ipc::registers::RegisterSet, anyhow::ensure};
         fn ptrace(op: libc::c_uint, tid: i32, addr: usize, data: usize) -> anyhow::Result<()> {
             ensure!(
                 unsafe {
@@ -123,14 +129,17 @@ pub(super) mod process {
                 regs.r8, regs.r9, regs.r10, regs.r11, regs.r12, regs.r13, regs.r14, regs.r15,
             ]);
         }
-        let map = maps.iter().find(|m| m.contains(r.sp())).unwrap();
-        let mut stack = vec![0u8; (map.end - r.sp()).min(16384) as usize];
+        let map = maps
+            .iter()
+            .find(|m| memory_map_contains(m, sp_register_set(&r)))
+            .unwrap();
+        let mut stack = vec![0u8; (map.end - sp_register_set(&r)).min(16384) as usize];
         let local = libc::iovec {
             iov_base: stack.as_mut_ptr().cast(),
             iov_len: stack.len(),
         };
         let remote = libc::iovec {
-            iov_base: r.sp() as *mut libc::c_void,
+            iov_base: sp_register_set(&r) as *mut libc::c_void,
             iov_len: stack.len(),
         };
         let length = unsafe { libc::process_vm_readv(tid, &local, 1, &remote, 1, 0) };
@@ -142,41 +151,40 @@ pub(super) mod process {
         pub id: ProcessId,
         child: Child,
     }
-    impl TestTarget {
-        pub fn new(name: &str) -> Self {
-            crate::test_support::build_targets();
-            let mut child = Command::new(format!("tests/targets/bin/{name}"))
-                .stdout(Stdio::piped())
-                .spawn()
-                .unwrap();
-            let mut line = String::new();
-            BufReader::new(child.stdout.take().unwrap())
-                .read_line(&mut line)
-                .unwrap();
-            let pid = child.id() as i32;
-            let stat = fs::read_to_string(format!("/proc/{pid}/stat")).unwrap();
-            let start = stat[stat.rfind(')').unwrap() + 1..]
-                .split_whitespace()
-                .nth(19)
-                .unwrap()
-                .parse()
-                .unwrap();
-            Self {
-                id: ProcessId {
-                    pid,
-                    start_time_ticks: start,
-                },
-                child,
-            }
+    pub fn create_test_target(name: &str) -> TestTarget {
+        crate::test_support::build_targets();
+        let mut child = Command::new(format!("tests/targets/bin/{name}"))
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap();
+        let mut line = String::new();
+        BufReader::new(child.stdout.take().unwrap())
+            .read_line(&mut line)
+            .unwrap();
+        let pid = child.id() as i32;
+        let stat = fs::read_to_string(format!("/proc/{pid}/stat")).unwrap();
+        let start = stat[stat.rfind(')').unwrap() + 1..]
+            .split_whitespace()
+            .nth(19)
+            .unwrap()
+            .parse()
+            .unwrap();
+        TestTarget {
+            id: ProcessId {
+                pid,
+                start_time_ticks: start,
+            },
+            child,
         }
-        pub fn assert_detached(&self) {
-            for tid in fs::read_dir(format!("/proc/{}/task", self.id.pid))
-                .unwrap()
-                .flatten()
-            {
-                let status = fs::read_to_string(tid.path().join("status")).unwrap();
-                assert!(status.lines().any(|line| line.trim() == "TracerPid:\t0"));
-            }
+    }
+
+    pub fn assert_detached_test_target(state: &TestTarget) {
+        for tid in fs::read_dir(format!("/proc/{}/task", state.id.pid))
+            .unwrap()
+            .flatten()
+        {
+            let status = fs::read_to_string(tid.path().join("status")).unwrap();
+            assert!(status.lines().any(|line| line.trim() == "TracerPid:\t0"));
         }
     }
     impl Drop for TestTarget {

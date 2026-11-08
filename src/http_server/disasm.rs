@@ -1,7 +1,11 @@
 //! Decode captured instruction bytes in the unprivileged HTTP process.
 //!
 //! # Interface
-//! [`decode_response`] (`pub(super)`): `fn decode_response(response: &mut MonitorResponse) -> anyhow::Result<()>`.
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`decode_response`] | `pub(super)` | `fn decode_response(response: &mut `[`MonitorResponse`]`) -> `[`Result`]`<()>` |
+//!
 //! The response envelope is [`MonitorResponse`].
 
 use crate::http_server::analysis::snapshot::architecture::Architecture;
@@ -31,72 +35,73 @@ struct Disassembly {
     error: Option<String>,
 }
 
-impl Disassembly {
-    fn append_error(&mut self, detail: String) {
-        self.error = Some(match self.error.take() {
-            Some(error) => format!("{error} {detail}"),
-            None => detail,
+fn append_error_disassembly(state: &mut Disassembly, detail: String) {
+    state.error = Some(match state.error.take() {
+        Some(error) => format!("{error} {detail}"),
+        None => detail,
+    });
+}
+
+/// Decode from the sampled PC, a known instruction boundary. Invalid bytes
+/// stop the decode; skip-data mode is deliberately disabled.
+fn decode_disassembly(state: &mut Disassembly, architecture: Option<Architecture>) -> Result<()> {
+    let address = u64::from_str_radix(state.address.trim_start_matches("0x"), 16)?;
+    state.instructions.clear();
+    let Some(architecture) = architecture else {
+        append_error_disassembly(
+            state,
+            "Unsupported or unknown process instruction set.".into(),
+        );
+        return Ok(());
+    };
+    if architecture == Architecture::Aarch64 && !address.is_multiple_of(4) {
+        append_error_disassembly(state, "Unaligned AArch64 instruction address.".into());
+        return Ok(());
+    }
+    let decoder = match architecture {
+        Architecture::X86_64 => Capstone::new()
+            .x86()
+            .mode(arch::x86::ArchMode::Mode64)
+            .syntax(arch::x86::ArchSyntax::Intel)
+            .build()?,
+        Architecture::Aarch64 => Capstone::new()
+            .arm64()
+            .mode(arch::arm64::ArchMode::Arm)
+            .build()?,
+    };
+    let bytes = &state.bytes[..state.bytes.len().min(MAX_BYTES)];
+    let decoded = decoder.disasm_count(bytes, address, MAX_INSTRUCTIONS)?;
+    let mut used = 0;
+    for instruction in decoded.iter() {
+        used += instruction.bytes().len();
+        let mnemonic = instruction.mnemonic().unwrap_or("");
+        let operands = instruction.op_str().unwrap_or("");
+        let text = if operands.is_empty() {
+            mnemonic.into()
+        } else {
+            format!("{mnemonic} {operands}")
+        };
+        state.instructions.push(Instruction {
+            address: format!("0x{:016x}", instruction.address()),
+            bytes: instruction.bytes().to_vec(),
+            text,
+            current: state.instructions.is_empty(),
         });
     }
-
-    /// Decode from the sampled PC, a known instruction boundary. Invalid bytes
-    /// stop the decode; skip-data mode is deliberately disabled.
-    fn decode(&mut self, architecture: Option<Architecture>) -> Result<()> {
-        let address = u64::from_str_radix(self.address.trim_start_matches("0x"), 16)?;
-        self.instructions.clear();
-        let Some(architecture) = architecture else {
-            self.append_error("Unsupported or unknown process instruction set.".into());
-            return Ok(());
+    if state.instructions.len() < MAX_INSTRUCTIONS && used < bytes.len() {
+        // Capstone does not distinguish invalid x86 encodings from an
+        // incomplete instruction. For fixed-width A64 the tail is exact.
+        let reason = if architecture == Architecture::Aarch64 && bytes.len() - used < 4 {
+            "The captured range ends mid-instruction."
+        } else {
+            "Invalid, unsupported, or truncated instruction encoding (range may end mid-instruction)."
         };
-        if architecture == Architecture::Aarch64 && !address.is_multiple_of(4) {
-            self.append_error("Unaligned AArch64 instruction address.".into());
-            return Ok(());
-        }
-        let decoder = match architecture {
-            Architecture::X86_64 => Capstone::new()
-                .x86()
-                .mode(arch::x86::ArchMode::Mode64)
-                .syntax(arch::x86::ArchSyntax::Intel)
-                .build()?,
-            Architecture::Aarch64 => Capstone::new()
-                .arm64()
-                .mode(arch::arm64::ArchMode::Arm)
-                .build()?,
-        };
-        let bytes = &self.bytes[..self.bytes.len().min(MAX_BYTES)];
-        let decoded = decoder.disasm_count(bytes, address, MAX_INSTRUCTIONS)?;
-        let mut used = 0;
-        for instruction in decoded.iter() {
-            used += instruction.bytes().len();
-            let mnemonic = instruction.mnemonic().unwrap_or("");
-            let operands = instruction.op_str().unwrap_or("");
-            let text = if operands.is_empty() {
-                mnemonic.into()
-            } else {
-                format!("{mnemonic} {operands}")
-            };
-            self.instructions.push(Instruction {
-                address: format!("0x{:016x}", instruction.address()),
-                bytes: instruction.bytes().to_vec(),
-                text,
-                current: self.instructions.is_empty(),
-            });
-        }
-        if self.instructions.len() < MAX_INSTRUCTIONS && used < bytes.len() {
-            // Capstone does not distinguish invalid x86 encodings from an
-            // incomplete instruction. For fixed-width A64 the tail is exact.
-            let reason = if architecture == Architecture::Aarch64 && bytes.len() - used < 4 {
-                "The captured range ends mid-instruction."
-            } else {
-                "Invalid, unsupported, or truncated instruction encoding (range may end mid-instruction)."
-            };
-            self.append_error(format!(
-                "0x{:016x}: {reason}",
-                address.wrapping_add(used as u64)
-            ));
-        }
-        Ok(())
+        append_error_disassembly(
+            state,
+            format!("0x{:016x}: {reason}", address.wrapping_add(used as u64)),
+        );
     }
+    Ok(())
 }
 
 /// IPC observations carry captured bytes and acquisition errors. Decode only
@@ -124,7 +129,7 @@ pub(super) fn decode_response(response: &mut MonitorResponse) -> Result<()> {
                 .flatten();
             if let Some(code) = sample.get_mut("disassembly").filter(|code| !code.is_null()) {
                 let mut decoded: Disassembly = serde_json::from_value(code.take())?;
-                decoded.decode(architecture)?;
+                decode_disassembly(&mut decoded, architecture)?;
                 *code = serde_json::to_value(decoded)?;
             }
         }
@@ -136,14 +141,12 @@ pub(super) fn decode_response(response: &mut MonitorResponse) -> Result<()> {
 mod tests {
     use super::*;
 
-    impl Disassembly {
-        fn empty(address: u64) -> Self {
-            Self {
-                address: format!("0x{address:016x}"),
-                bytes: Vec::new(),
-                instructions: Vec::new(),
-                error: None,
-            }
+    fn empty_disassembly(address: u64) -> Disassembly {
+        Disassembly {
+            address: format!("0x{address:016x}"),
+            bytes: Vec::new(),
+            instructions: Vec::new(),
+            error: None,
         }
     }
     #[test]
@@ -212,9 +215,9 @@ mod tests {
 
     #[test]
     fn decodes_variable_length_instructions_and_runtime_branch_target() {
-        let mut code = Disassembly::empty(0x7fff_1234_5000);
+        let mut code = empty_disassembly(0x7fff_1234_5000);
         code.bytes = vec![0x55, 0x48, 0x89, 0xe5, 0xe8, 0x10, 0, 0, 0, 0xc3];
-        code.decode(Some(Architecture::X86_64)).unwrap();
+        super::decode_disassembly(&mut code, Some(Architecture::X86_64)).unwrap();
         assert!(code.error.is_none());
         assert_eq!(code.instructions.len(), 4);
         assert_eq!(code.instructions[0].text, "push rbp");
@@ -230,24 +233,24 @@ mod tests {
 
     #[test]
     fn stops_on_truncated_or_invalid_instructions_and_bounds_output() {
-        let mut code = Disassembly::empty(0x1000);
+        let mut code = empty_disassembly(0x1000);
         code.bytes = vec![0x90, 0x48, 0x8b];
-        code.decode(Some(Architecture::X86_64)).unwrap();
+        super::decode_disassembly(&mut code, Some(Architecture::X86_64)).unwrap();
         assert_eq!(code.instructions.len(), 1);
         assert!(code.error.as_ref().unwrap().contains("mid-instruction"));
-        let mut invalid = Disassembly::empty(0x1000);
+        let mut invalid = empty_disassembly(0x1000);
         invalid.bytes = vec![0xf0, 0x90]; // LOCK NOP is invalid.
-        invalid.decode(Some(Architecture::X86_64)).unwrap();
+        super::decode_disassembly(&mut invalid, Some(Architecture::X86_64)).unwrap();
         assert!(invalid.instructions.is_empty());
         assert!(invalid.error.is_some());
-        let mut many = Disassembly::empty(0x1000);
+        let mut many = empty_disassembly(0x1000);
         many.bytes = vec![0x90; 512];
-        many.decode(Some(Architecture::X86_64)).unwrap();
+        super::decode_disassembly(&mut many, Some(Architecture::X86_64)).unwrap();
         assert_eq!(many.instructions.len(), MAX_INSTRUCTIONS);
     }
     #[test]
     fn arm64_decodes_runtime_references_and_rejects_unaligned_and_invalid_bytes() {
-        let mut code = Disassembly::empty(0x1234);
+        let mut code = empty_disassembly(0x1234);
         // NOP; BL +16; ADR x0, +16; ADRP x0, +4096; RET.
         code.bytes = [
             0xd503201fu32,
@@ -259,7 +262,7 @@ mod tests {
         .into_iter()
         .flat_map(u32::to_le_bytes)
         .collect();
-        code.decode(Some(Architecture::Aarch64)).unwrap();
+        super::decode_disassembly(&mut code, Some(Architecture::Aarch64)).unwrap();
         assert!(code.error.is_none(), "{:?}", code.error);
         assert_eq!(code.instructions.len(), 5);
         assert_eq!(code.instructions[0].text, "nop");
@@ -270,21 +273,21 @@ mod tests {
         assert!(code.instructions[0].current);
         assert!(code.instructions[1..].iter().all(|i| !i.current));
         code.bytes.push(0);
-        code.decode(Some(Architecture::Aarch64)).unwrap();
+        super::decode_disassembly(&mut code, Some(Architecture::Aarch64)).unwrap();
         assert!(code.error.as_ref().unwrap().contains("mid-instruction"));
-        let mut code = Disassembly::empty(0x1001);
+        let mut code = empty_disassembly(0x1001);
         code.bytes = 0xd503201fu32.to_le_bytes().to_vec();
-        code.decode(Some(Architecture::Aarch64)).unwrap();
+        super::decode_disassembly(&mut code, Some(Architecture::Aarch64)).unwrap();
         assert!(code.instructions.is_empty());
         assert!(code.error.as_ref().unwrap().contains("Unaligned"));
-        let mut code = Disassembly::empty(0x1000);
+        let mut code = empty_disassembly(0x1000);
         code.bytes = vec![0xff; 4];
-        code.decode(Some(Architecture::Aarch64)).unwrap();
+        super::decode_disassembly(&mut code, Some(Architecture::Aarch64)).unwrap();
         assert!(code.instructions.is_empty());
         assert!(code.error.is_some());
-        let mut code = Disassembly::empty(0x1000);
+        let mut code = empty_disassembly(0x1000);
         code.bytes = [0x1f, 0x20, 0x03, 0xd5].repeat(100);
-        code.decode(Some(Architecture::Aarch64)).unwrap();
+        super::decode_disassembly(&mut code, Some(Architecture::Aarch64)).unwrap();
         assert_eq!(code.instructions.len(), MAX_INSTRUCTIONS);
     }
 }

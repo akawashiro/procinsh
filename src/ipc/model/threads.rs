@@ -6,9 +6,10 @@
 //! | --- | --- | --- |
 //! | [`SchedulerPolicy`] | `pub` | `enum SchedulerPolicy` |
 //! | [`CpuRange`] | `pub` | `struct CpuRange` |
-//! | [`parse_cpu_affinity`] | `pub` | `fn parse_cpu_affinity(text: &str) -> Option<Vec<CpuRange>>` |
 //! | [`ThreadObservation`] | `pub` | `struct ThreadObservation` |
 //! | [`ThreadSample`] | `pub` | `struct ThreadSample` |
+//! | [`scheduler_policy_from_code`] | `pub` | `fn scheduler_policy_from_code(code: u32) -> `[`SchedulerPolicy`] |
+//! | [`parse_cpu_affinity`] | `pub` | `fn parse_cpu_affinity(text: &str) -> `[`Option`]`<`[`Vec`]`<`[`CpuRange`]`>>` |
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SchedulerPolicy {
@@ -21,18 +22,16 @@ pub enum SchedulerPolicy {
     Ext,
     Unknown(u32),
 }
-impl SchedulerPolicy {
-    pub fn from_code(code: u32) -> Self {
-        match code {
-            0 => Self::Other,
-            1 => Self::Fifo,
-            2 => Self::Rr,
-            3 => Self::Batch,
-            5 => Self::Idle,
-            6 => Self::Deadline,
-            7 => Self::Ext,
-            n => Self::Unknown(n),
-        }
+pub fn scheduler_policy_from_code(code: u32) -> SchedulerPolicy {
+    match code {
+        0 => SchedulerPolicy::Other,
+        1 => SchedulerPolicy::Fifo,
+        2 => SchedulerPolicy::Rr,
+        3 => SchedulerPolicy::Batch,
+        5 => SchedulerPolicy::Idle,
+        6 => SchedulerPolicy::Deadline,
+        7 => SchedulerPolicy::Ext,
+        n => SchedulerPolicy::Unknown(n),
     }
 }
 /// Inclusive range of CPU indices in a thread's affinity mask.

@@ -1,7 +1,7 @@
 //! A hub and an agent in one process, linked over loopback TCP, each with a
 //! scripted helper.
 
-use super::{AppState, client::MonitorClient, hosts, router::router};
+use super::{client::MonitorClient, hosts, router::router};
 use crate::ipc::{schema::*, transport};
 use axum::{
     body::{Body, HttpBody},
@@ -17,10 +17,12 @@ use tokio::{net::TcpListener, sync::watch, time::timeout};
 use tower::ServiceExt;
 
 fn host_info_fixture(name: &str) -> hosts::HostInfo {
+    use crate::http_server::hosts::local_host_info;
+
     hosts::HostInfo {
         name: name.into(),
         machine_id: format!("{name}-machine"),
-        ..hosts::HostInfo::local(None)
+        ..local_host_info(None)
     }
 }
 
@@ -37,6 +39,8 @@ fn scripted_helper(
     relation: Value,
     closed: Arc<Mutex<Vec<u64>>>,
 ) -> MonitorClient {
+    use crate::http_server::client::create_monitor_client;
+
     let (application, mut helper) = UnixStream::pair().unwrap();
     std::thread::spawn(move || {
         let mut sessions = 0;
@@ -107,7 +111,7 @@ fn scripted_helper(
             }
         }
     });
-    MonitorClient::new(application).unwrap()
+    create_monitor_client(application).unwrap()
 }
 
 fn build_http_request(path: &str) -> Request<Body> {
@@ -170,6 +174,14 @@ async fn decode_sse_events(app: &axum::Router, path: &str) -> Body {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn hub_serves_agent_processes_details_and_space_until_offline() {
+    use crate::http_server::{
+        client::{
+            create_agent_monitor_client, create_unavailable_monitor_client, request_monitor_client,
+        },
+        hosts::{create_host_registry, remote_host_registry},
+        state::remote_app_state,
+    };
+
     let hub_closed = Arc::new(Mutex::new(Vec::new()));
     let agent_closed = Arc::new(Mutex::new(Vec::new()));
     let hub_client = scripted_helper(
@@ -182,8 +194,8 @@ async fn hub_serves_agent_processes_details_and_space_until_offline() {
         create_tcp_listener("y", ("10.0.0.2", 443), ("10.0.0.1", 5000)),
         agent_closed.clone(),
     );
-    let registry = Arc::new(hosts::HostRegistry::new(host_info_fixture("hub")));
-    let state = Arc::new(AppState::remote(
+    let registry = Arc::new(create_host_registry(host_info_fixture("hub")));
+    let state = Arc::new(remote_app_state(
         Duration::from_secs(1),
         hub_client,
         registry.clone(),
@@ -206,7 +218,7 @@ async fn hub_serves_agent_processes_details_and_space_until_offline() {
         address.to_string(),
         host_info_fixture("intruder"),
         Some("guess".into()),
-        MonitorClient::unavailable(),
+        create_unavailable_monitor_client(),
         stop_wrong.subscribe(),
     ));
     let (stop_agent, _) = watch::channel(false);
@@ -218,7 +230,10 @@ async fn hub_serves_agent_processes_details_and_space_until_offline() {
         stop_agent.subscribe(),
     ));
     wait_until("agent online", || {
-        matches!(registry.remote("agent-a"), hosts::RemoteHost::Online(_))
+        matches!(
+            remote_host_registry(&registry, "agent-a"),
+            hosts::RemoteHost::Online(_)
+        )
     })
     .await;
     let (status, list) = decode_sse_json(&app, "/api/hosts").await;
@@ -336,19 +351,24 @@ async fn hub_serves_agent_processes_details_and_space_until_offline() {
     );
 
     // The hub cannot poll sessions it did not start on the agent.
-    let hosts::RemoteHost::Online(link) = registry.remote("agent-a") else {
+    let hosts::RemoteHost::Online(link) = remote_host_registry(&registry, "agent-a") else {
         panic!("agent online");
     };
-    let foreign = MonitorClient::agent(link)
-        .request(MonitorRequest::Poll { session: 999 })
-        .await;
+    let foreign = request_monitor_client(
+        &create_agent_monitor_client(link),
+        MonitorRequest::Poll { session: 999 },
+    )
+    .await;
     assert!(format!("{:#}", foreign.err().unwrap()).contains("unknown observation session"));
 
     // The agent leaves: requests fail as unavailable and the host is listed offline.
     stop_agent.send_replace(true);
     agent.await.unwrap();
     wait_until("agent offline", || {
-        matches!(registry.remote("agent-a"), hosts::RemoteHost::Offline)
+        matches!(
+            remote_host_registry(&registry, "agent-a"),
+            hosts::RemoteHost::Offline
+        )
     })
     .await;
     assert_eq!(

@@ -1,8 +1,18 @@
 //! Collect and retain bounded process snapshots from perf and ptrace samples.
 //!
 //! # Interface
-//! [`Sampler`] (`pub(in crate::privileged_helper::process)`): `struct Sampler`.
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`Sampler`] | `pub(in crate::privileged_helper::process)` | `struct Sampler` |
+//! | [`create_sampler`] | `pub(in crate::privileged_helper::process)` | `fn create_sampler(id: `[`ProcessId`]`) -> `[`Sampler`] |
+//! | [`bootstrap_sampler`] | `pub(in crate::privileged_helper::process)` | `fn bootstrap_sampler( state: &mut `[`Sampler`]`, maps: &[`[`MemoryMap`]`], ) -> `[`Result`]`<()>` |
+//! | [`poll_sampler`] | `pub(in crate::privileged_helper::process)` | `fn poll_sampler( state: &mut `[`Sampler`]`, maps: &[`[`MemoryMap`]`], ) -> `[`Result`]`<()>` |
+//! | [`mapping_snapshots_sampler`] | `pub(in crate::privileged_helper::process)` | `fn mapping_snapshots_sampler( state: &`[`Sampler`]`, ) -> `[`Vec`]`<`[`MappingSnapshot`]`>` |
+//! | [`latest_sampler`] | `pub(in crate::privileged_helper::process)` | `fn latest_sampler(state: &`[`Sampler`]`) -> `[`Vec`]`<`[`LiveSample`]`>` |
+//!
 
+use super::perf::PerfEventReader;
 use super::sample::monotonic_ns;
 #[cfg(test)]
 use crate::http_server::analysis::snapshot::{
@@ -26,7 +36,6 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
-use {super::perf::PerfEventReader, crate::ipc::acquisition::InstructionBytes};
 
 fn executable_header(pid: i32) -> Option<[u8; 20]> {
     use std::io::Read;
@@ -40,28 +49,26 @@ fn executable_header(pid: i32) -> Option<[u8; 20]> {
 const PTRACE_INTERVAL: Duration = Duration::from_secs(10);
 
 use crate::ipc::acquisition::LiveSample;
-impl LiveSample {
-    fn waiting(tid: i32, executable_header: Option<[u8; 20]>) -> Self {
-        Self {
-            tid,
-            executable_header,
-            sampled_at: None,
-            sample_time_ns: None,
-            #[cfg(test)]
-            sample_source: None,
-            sample_age_ms: None,
-            cpu: None,
-            lost_samples: 0,
-            registers: Vec::new(),
-            raw_registers: None,
-            stack_bytes: Vec::new(),
-            map_epoch: None,
-            context: None,
-            call_stack: Vec::new(),
-            disassembly: None,
-            unwind_stop: "Waiting for sample".into(),
-            error: None,
-        }
+fn create_waiting_live_sample(tid: i32, executable_header: Option<[u8; 20]>) -> LiveSample {
+    LiveSample {
+        tid,
+        executable_header,
+        sampled_at: None,
+        sample_time_ns: None,
+        #[cfg(test)]
+        sample_source: None,
+        sample_age_ms: None,
+        cpu: None,
+        lost_samples: 0,
+        registers: Vec::new(),
+        raw_registers: None,
+        stack_bytes: Vec::new(),
+        map_epoch: None,
+        context: None,
+        call_stack: Vec::new(),
+        disassembly: None,
+        unwind_stop: "Waiting for sample".into(),
+        error: None,
     }
 }
 struct Thread {
@@ -85,209 +92,228 @@ pub(in crate::privileged_helper::process) struct Sampler {
     next_ptrace: Option<Instant>,
     context: Arc<MappingSnapshot>,
 }
-impl Sampler {
-    pub(in crate::privileged_helper::process) fn new(id: ProcessId) -> Self {
-        Self {
-            id,
-            executable_header: executable_header(id.pid),
-            threads: BTreeMap::new(),
-            #[cfg(test)]
-            symbols: ElfCache::default(),
-            #[cfg(test)]
-            unwind: StackUnwinder::default(),
-            next_ptrace: None,
-            context: Arc::new(MappingSnapshot {
-                epoch: 0,
-                maps: Vec::new(),
-            }),
+pub(in crate::privileged_helper::process) fn create_sampler(id: ProcessId) -> Sampler {
+    Sampler {
+        id,
+        executable_header: executable_header(id.pid),
+        threads: BTreeMap::new(),
+        #[cfg(test)]
+        symbols: ElfCache::default(),
+        #[cfg(test)]
+        unwind: StackUnwinder::default(),
+        next_ptrace: None,
+        context: Arc::new(MappingSnapshot {
+            epoch: 0,
+            maps: Vec::new(),
+        }),
+    }
+}
+
+/// Captures the initial ptrace snapshot and schedules the next attempt ten seconds
+/// after completion, including failed capture attempts.
+pub(in crate::privileged_helper::process) fn bootstrap_sampler(
+    state: &mut Sampler,
+    maps: &[MemoryMap],
+) -> Result<()> {
+    // Discover all threads and open perf events before interrupting any thread.
+    state.next_ptrace = None;
+    poll_sampler(state, maps)?;
+    capture_ptrace_sampler(state, maps)
+}
+
+fn capture_ptrace_sampler(state: &mut Sampler, maps: &[MemoryMap]) -> Result<()> {
+    for (&tid, thread) in &mut state.threads {
+        thread.ptrace_error = None;
+        thread.latest.error = thread.setup_error.clone();
+        match super::ptrace::capture_thread_snapshot(tid, maps) {
+            Ok(sample) => process_sample(
+                state.id.pid,
+                #[cfg(test)]
+                &mut state.unwind,
+                #[cfg(test)]
+                &mut state.symbols,
+                thread,
+                sample,
+                maps,
+                Arc::clone(&state.context),
+            ),
+            Err(error) => {
+                let message = format!("ptrace sampling: {error:#}");
+                thread.ptrace_error = Some(message.clone());
+                thread.latest.error = Some(match thread.latest.error.take() {
+                    Some(error) => format!("{error}; {message}"),
+                    None => message,
+                });
+            }
         }
     }
-    /// Captures the initial ptrace snapshot and schedules the next attempt ten seconds
-    /// after completion, including failed capture attempts.
-    pub(in crate::privileged_helper::process) fn bootstrap(
-        &mut self,
-        maps: &[MemoryMap],
-    ) -> Result<()> {
-        // Discover all threads and open perf events before interrupting any thread.
-        self.next_ptrace = None;
-        self.poll(maps)?;
-        self.capture_ptrace(maps)
+    // Schedule from completion, including failed attempts; never catch up in a burst.
+    state.next_ptrace = Some(Instant::now() + PTRACE_INTERVAL);
+    process::validate_process_identity(state.id)
+}
+
+/// Drains perf samples and captures current threads when the ptrace deadline is due.
+pub(in crate::privileged_helper::process) fn poll_sampler(
+    state: &mut Sampler,
+    maps: &[MemoryMap],
+) -> Result<()> {
+    #[cfg(test)]
+    use crate::http_server::analysis::snapshot::symbol::cache_elf_symbols_from_bytes;
+    #[cfg(test)]
+    use crate::http_server::analysis::snapshot::symbol::lookup_elf_symbols;
+    #[cfg(test)]
+    use crate::http_server::analysis::snapshot::unwind::refresh_stack_unwinder;
+    use {
+        crate::privileged_helper::process::snapshot::perf::context_switch_perf_event_reader,
+        crate::privileged_helper::process::snapshot::perf::drain_perf_event_reader,
+        crate::privileged_helper::process::snapshot::perf::open_perf_event_reader,
+    };
+
+    process::validate_process_identity(state.id)?;
+    if state.context.maps.as_slice() != maps {
+        state.context = Arc::new(MappingSnapshot {
+            epoch: state.context.epoch + 1,
+            maps: maps.to_vec(),
+        });
     }
-    fn capture_ptrace(&mut self, maps: &[MemoryMap]) -> Result<()> {
-        for (&tid, thread) in &mut self.threads {
-            thread.ptrace_error = None;
-            thread.latest.error = thread.setup_error.clone();
-            match super::ptrace::capture_thread_snapshot(tid, maps) {
-                Ok(sample) => process_sample(
-                    self.id.pid,
-                    #[cfg(test)]
-                    &mut self.unwind,
-                    #[cfg(test)]
-                    &mut self.symbols,
-                    thread,
-                    sample,
-                    maps,
-                    Arc::clone(&self.context),
-                ),
-                Err(error) => {
-                    let message = format!("ptrace sampling: {error:#}");
-                    thread.ptrace_error = Some(message.clone());
-                    thread.latest.error = Some(match thread.latest.error.take() {
+    #[cfg(test)]
+    {
+        for map in maps.iter().filter(|map| map.executable && map.inode != 0) {
+            if lookup_elf_symbols(&state.symbols, map).is_none()
+                && let Some(file) = process::elf::read_mapped_elf_file(state.id.pid, map)
+            {
+                cache_elf_symbols_from_bytes(&mut state.symbols, map, file);
+            }
+        }
+        refresh_stack_unwinder(&mut state.unwind, maps, &state.symbols);
+    }
+    let mut alive = BTreeSet::new();
+    for tid in super::super::threads::collect_thread_ids(state.id.pid)? {
+        let Ok(stat) =
+            procfs::read_process_stat(&format!("/proc/{}/task/{tid}/stat", state.id.pid))
+        else {
+            continue;
+        };
+        alive.insert(tid);
+        if state
+            .threads
+            .get(&tid)
+            .is_some_and(|thread| thread.start_time != stat.start_time)
+        {
+            state.threads.remove(&tid);
+        }
+        let thread = state.threads.entry(tid).or_insert_with(|| {
+            let mut latest = create_waiting_live_sample(tid, state.executable_header);
+            let event = match open_perf_event_reader(tid) {
+                Ok(event) => Some(event),
+                Err(e) => {
+                    latest.error = Some(format!("{e:#}"));
+                    None
+                }
+            };
+            let switch_event = match context_switch_perf_event_reader(tid) {
+                Ok(event) => Some(event),
+                Err(e) => {
+                    let message = format!("context-switch perf: {e:#}");
+                    latest.error = Some(match latest.error.take() {
                         Some(error) => format!("{error}; {message}"),
                         None => message,
                     });
+                    None
                 }
-            }
-        }
-        // Schedule from completion, including failed attempts; never catch up in a burst.
-        self.next_ptrace = Some(Instant::now() + PTRACE_INTERVAL);
-        process::validate_process_identity(self.id)
-    }
-    /// Drains perf samples and captures current threads when the ptrace deadline is due.
-    pub(in crate::privileged_helper::process) fn poll(&mut self, maps: &[MemoryMap]) -> Result<()> {
-        process::validate_process_identity(self.id)?;
-        if self.context.maps.as_slice() != maps {
-            self.context = Arc::new(MappingSnapshot {
-                epoch: self.context.epoch + 1,
-                maps: maps.to_vec(),
-            });
-        }
-        #[cfg(test)]
-        {
-            for map in maps.iter().filter(|map| map.executable && map.inode != 0) {
-                if self.symbols.get(map).is_none()
-                    && let Some(file) = process::elf::read_mapped_elf_file(self.id.pid, map)
-                {
-                    self.symbols.insert(map, file);
-                }
-            }
-            self.unwind.refresh(maps, &self.symbols);
-        }
-        let mut alive = BTreeSet::new();
-        for tid in super::super::threads::collect_thread_ids(self.id.pid)? {
-            let Ok(stat) =
-                procfs::read_process_stat(&format!("/proc/{}/task/{tid}/stat", self.id.pid))
-            else {
-                continue;
             };
-            alive.insert(tid);
-            if self
-                .threads
-                .get(&tid)
-                .is_some_and(|thread| thread.start_time != stat.start_time)
-            {
-                self.threads.remove(&tid);
+            Thread {
+                switch_event,
+                setup_error: latest.error.clone(),
+                ptrace_error: None,
+                start_time: stat.start_time,
+                event,
+                latest,
+                sampled_ns: None,
+                code_pac_mask: None,
             }
-            let thread = self.threads.entry(tid).or_insert_with(|| {
-                let mut latest = LiveSample::waiting(tid, self.executable_header);
-                let event = match PerfEventReader::open(tid) {
-                    Ok(event) => Some(event),
-                    Err(e) => {
-                        latest.error = Some(format!("{e:#}"));
-                        None
-                    }
-                };
-                let switch_event = match PerfEventReader::context_switch(tid) {
-                    Ok(event) => Some(event),
-                    Err(e) => {
-                        let message = format!("context-switch perf: {e:#}");
-                        latest.error = Some(match latest.error.take() {
-                            Some(error) => format!("{error}; {message}"),
-                            None => message,
-                        });
-                        None
-                    }
-                };
-                Thread {
-                    switch_event,
-                    setup_error: latest.error.clone(),
-                    ptrace_error: None,
-                    start_time: stat.start_time,
-                    event,
-                    latest,
-                    sampled_ns: None,
-                    code_pac_mask: None,
-                }
-            });
-            let mut newest = None;
-            let mut lost = 0u64;
-            thread.latest.error = match (&thread.setup_error, &thread.ptrace_error) {
-                (Some(perf), Some(ptrace)) => Some(format!("{perf}; {ptrace}")),
-                (perf, ptrace) => perf.clone().or_else(|| ptrace.clone()),
-            };
-            for event in [&mut thread.event, &mut thread.switch_event]
-                .into_iter()
-                .flatten()
-            {
-                match event.drain() {
-                    Ok(Some(sample)) if sample.tid == tid => {
-                        if newest
-                            .as_ref()
-                            .is_none_or(|old: &super::sample::RawSample| {
-                                sample.time_ns > old.time_ns
-                            })
-                        {
-                            newest = Some(sample);
-                        }
-                    }
-                    Ok(_) => {}
-                    Err(e) => thread.latest.error = Some(format!("{e:#}")),
-                }
-                lost = lost.saturating_add(event.lost);
-            }
-            thread.latest.lost_samples = lost;
-            if let Some(sample) = newest
-                && thread.sampled_ns.is_none_or(|time| sample.time_ns > time)
-            {
-                process_sample(
-                    self.id.pid,
-                    #[cfg(test)]
-                    &mut self.unwind,
-                    #[cfg(test)]
-                    &mut self.symbols,
-                    thread,
-                    sample,
-                    maps,
-                    Arc::clone(&self.context),
-                );
-            }
-        }
-        self.threads.retain(|tid, _| alive.contains(tid));
-        if self
-            .next_ptrace
-            .is_some_and(|deadline| Instant::now() >= deadline)
+        });
+        let mut newest = None;
+        let mut lost = 0u64;
+        thread.latest.error = match (&thread.setup_error, &thread.ptrace_error) {
+            (Some(perf), Some(ptrace)) => Some(format!("{perf}; {ptrace}")),
+            (perf, ptrace) => perf.clone().or_else(|| ptrace.clone()),
+        };
+        for event in [&mut thread.event, &mut thread.switch_event]
+            .into_iter()
+            .flatten()
         {
-            self.capture_ptrace(maps)?;
-        }
-        process::validate_process_identity(self.id)?;
-        Ok(())
-    }
-    /// Returns each mapping context referenced by retained thread samples once.
-    pub(in crate::privileged_helper::process) fn mapping_snapshots(&self) -> Vec<MappingSnapshot> {
-        let mut snapshots = BTreeMap::new();
-        for thread in self.threads.values() {
-            if let Some(context) = &thread.latest.context {
-                snapshots
-                    .entry(context.epoch)
-                    .or_insert_with(|| context.as_ref().clone());
+            match drain_perf_event_reader(&mut *event) {
+                Ok(Some(sample)) if sample.tid == tid => {
+                    if newest
+                        .as_ref()
+                        .is_none_or(|old: &super::sample::RawSample| sample.time_ns > old.time_ns)
+                    {
+                        newest = Some(sample);
+                    }
+                }
+                Ok(_) => {}
+                Err(e) => thread.latest.error = Some(format!("{e:#}")),
             }
+            lost = lost.saturating_add(event.lost);
         }
-        snapshots.into_values().collect()
+        thread.latest.lost_samples = lost;
+        if let Some(sample) = newest
+            && thread.sampled_ns.is_none_or(|time| sample.time_ns > time)
+        {
+            process_sample(
+                state.id.pid,
+                #[cfg(test)]
+                &mut state.unwind,
+                #[cfg(test)]
+                &mut state.symbols,
+                thread,
+                sample,
+                maps,
+                Arc::clone(&state.context),
+            );
+        }
     }
-    /// Returns the latest samples with ages refreshed from monotonic time.
-    pub(in crate::privileged_helper::process) fn latest(&self) -> Vec<LiveSample> {
-        let now = monotonic_ns();
-        self.threads
-            .values()
-            .map(|thread| {
-                let mut latest = thread.latest.clone();
-                latest.sample_age_ms = thread
-                    .sampled_ns
-                    .map(|time| now.saturating_sub(time) / 1_000_000);
-                latest
-            })
-            .collect()
+    state.threads.retain(|tid, _| alive.contains(tid));
+    if state
+        .next_ptrace
+        .is_some_and(|deadline| Instant::now() >= deadline)
+    {
+        capture_ptrace_sampler(state, maps)?;
     }
+    process::validate_process_identity(state.id)?;
+    Ok(())
+}
+
+/// Returns each mapping context referenced by retained thread samples once.
+pub(in crate::privileged_helper::process) fn mapping_snapshots_sampler(
+    state: &Sampler,
+) -> Vec<MappingSnapshot> {
+    let mut snapshots = BTreeMap::new();
+    for thread in state.threads.values() {
+        if let Some(context) = &thread.latest.context {
+            snapshots
+                .entry(context.epoch)
+                .or_insert_with(|| context.as_ref().clone());
+        }
+    }
+    snapshots.into_values().collect()
+}
+
+/// Returns the latest samples with ages refreshed from monotonic time.
+pub(in crate::privileged_helper::process) fn latest_sampler(state: &Sampler) -> Vec<LiveSample> {
+    let now = monotonic_ns();
+    state
+        .threads
+        .values()
+        .map(|thread| {
+            let mut latest = thread.latest.clone();
+            latest.sample_age_ms = thread
+                .sampled_ns
+                .map(|time| now.saturating_sub(time) / 1_000_000);
+            latest
+        })
+        .collect()
 }
 
 fn process_sample(
@@ -299,6 +325,18 @@ fn process_sample(
     maps: &[MemoryMap],
     context: Arc<MappingSnapshot>,
 ) {
+    #[cfg(test)]
+    use crate::http_server::analysis::snapshot::symbol::lookup_elf_symbols;
+    #[cfg(test)]
+    use crate::http_server::analysis::snapshot::unwind::unwind_stack;
+
+    #[cfg(test)]
+    use crate::ipc::model::memory::memory_map_contains;
+    use {
+        crate::ipc::registers::pc_register_set,
+        crate::privileged_helper::process::snapshot::instruction_bytes::capture_instruction_bytes,
+    };
+
     if thread.sampled_ns.is_some_and(|time| sample.time_ns <= time) {
         return;
     }
@@ -310,14 +348,14 @@ fn process_sample(
     let r = &sample.registers;
     #[cfg(test)]
     let (frames, reason) = {
-        let (mut frames, reason) = unwind.walk(r, maps, &sample.stack);
+        let (mut frames, reason) = unwind_stack(&mut *unwind, r, maps, &sample.stack);
         for (index, frame) in frames.iter_mut().enumerate() {
             let address = instruction_address(frame.address, index > 0);
             let info = maps
                 .iter()
-                .find(|m| m.contains(address) && m.inode != 0)
+                .find(|m| memory_map_contains(m, address) && m.inode != 0)
                 .and_then(|map| {
-                    let elf = symbols.get(map)?;
+                    let elf = lookup_elf_symbols(symbols, map)?;
                     resolve_frame(elf_address(address, map, &elf, procfs::page_size())?, &elf)
                 });
             apply_symbol_info(frame, info);
@@ -326,7 +364,7 @@ fn process_sample(
     };
     #[cfg(not(test))]
     let (frames, reason) = (Vec::new(), String::new());
-    let code = InstructionBytes::capture(pid, r.pc(), maps);
+    let code = capture_instruction_bytes(pid, pc_register_set(r), maps);
     let age = monotonic_ns().saturating_sub(sample.time_ns) / 1_000_000;
     thread.sampled_ns = Some(sample.time_ns);
     thread.latest = LiveSample {
@@ -370,12 +408,13 @@ fn apply_symbol_info(frame: &mut StackFrame, info: Option<SymbolInfo>) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::ipc::stack::SourceFrame;
+    use {super::*, crate::ipc::stack::SourceFrame};
 
     #[test]
     fn applying_symbols_replaces_fields_and_preserves_json_contract() {
-        let mut frame = StackFrame::raw(0x1234);
+        use crate::http_server::analysis::snapshot::stack::create_raw_stack_frame;
+
+        let mut frame = create_raw_stack_frame(0x1234);
         let info = SymbolInfo {
             name: Some("inner".into()),
             offset: Some(0xa),
@@ -399,20 +438,21 @@ mod tests {
             })
         );
         apply_symbol_info(&mut frame, None);
-        assert_eq!(frame, StackFrame::raw(0x1234));
+        assert_eq!(frame, create_raw_stack_frame(0x1234));
     }
 }
 
 #[cfg(test)]
 mod live_tests {
-    use super::Sampler;
-    use super::*;
-    use crate::privileged_helper::process::Target;
-    use std::{
-        io::{BufRead, BufReader, Write},
-        os::{fd::OwnedFd, unix::net::UnixStream},
-        process::{Command, Stdio},
-        time::{Duration, Instant},
+    use {
+        super::{Sampler, *},
+        crate::privileged_helper::process::Target,
+        std::{
+            io::{BufRead, BufReader, Write},
+            os::{fd::OwnedFd, unix::net::UnixStream},
+            process::{Command, Stdio},
+            time::{Duration, Instant},
+        },
     };
 
     /// Commands one worker at a time and waits for readiness or completed join.
@@ -421,71 +461,77 @@ mod live_tests {
         connection: BufReader<UnixStream>,
     }
 
-    impl ThreadController {
-        fn new() -> Self {
-            crate::test_support::build_targets();
-            let (connection, child_connection) = UnixStream::pair().unwrap();
-            connection
-                .set_read_timeout(Some(Duration::from_secs(10)))
-                .unwrap();
-            connection
-                .set_write_timeout(Some(Duration::from_secs(10)))
-                .unwrap();
-            let stdin: OwnedFd = child_connection.try_clone().unwrap().into();
-            let stdout: OwnedFd = child_connection.into();
-            let child = Command::new("tests/targets/bin/thread_lifecycle")
-                .arg("--allow-inspector")
-                .stdin(Stdio::from(stdin))
-                .stdout(Stdio::from(stdout))
-                .spawn()
-                .unwrap();
-            let id = process::read_process_identity(child.id() as i32).unwrap();
-            let mut controller = Self {
-                target: Target {
-                    child,
-                    id,
-                    address: 0,
-                },
-                connection: BufReader::new(connection),
-            };
-            assert_eq!(controller.response().trim(), "ready");
-            controller
-        }
+    fn create_thread_controller() -> ThreadController {
+        crate::test_support::build_targets();
+        let (connection, child_connection) = UnixStream::pair().unwrap();
+        connection
+            .set_read_timeout(Some(Duration::from_secs(10)))
+            .unwrap();
+        connection
+            .set_write_timeout(Some(Duration::from_secs(10)))
+            .unwrap();
+        let stdin: OwnedFd = child_connection.try_clone().unwrap().into();
+        let stdout: OwnedFd = child_connection.into();
+        let child = Command::new("tests/targets/bin/thread_lifecycle")
+            .arg("--allow-inspector")
+            .stdin(Stdio::from(stdin))
+            .stdout(Stdio::from(stdout))
+            .spawn()
+            .unwrap();
+        let id = process::read_process_identity(child.id() as i32).unwrap();
+        let mut controller = ThreadController {
+            target: Target {
+                child,
+                id,
+                address: 0,
+            },
+            connection: BufReader::new(connection),
+        };
+        assert_eq!(response_thread_controller(&mut controller).trim(), "ready");
+        controller
+    }
 
-        fn response(&mut self) -> String {
-            let mut response = String::new();
-            assert!(
-                self.connection.read_line(&mut response).unwrap() > 0,
-                "lifecycle fixture closed its control connection"
-            );
-            response
-        }
+    fn response_thread_controller(state: &mut ThreadController) -> String {
+        let mut response = String::new();
+        assert!(
+            state.connection.read_line(&mut response).unwrap() > 0,
+            "lifecycle fixture closed its control connection"
+        );
+        response
+    }
 
-        fn command(&mut self, command: &str) -> i32 {
-            writeln!(self.connection.get_mut(), "{command}").unwrap();
-            self.response().trim().parse().unwrap()
-        }
+    fn command_thread_controller(state: &mut ThreadController, command: &str) -> i32 {
+        writeln!(state.connection.get_mut(), "{command}").unwrap();
+        response_thread_controller(state).trim().parse().unwrap()
     }
 
     fn poll_until(sampler: &mut Sampler, maps: &[MemoryMap], condition: impl Fn(&Sampler) -> bool) {
         let deadline = Instant::now() + Duration::from_secs(10);
         while Instant::now() < deadline {
-            sampler.poll(maps).unwrap();
+            super::poll_sampler(&mut *sampler, maps).unwrap();
             if condition(sampler) {
                 return;
             }
             std::thread::sleep(Duration::from_millis(20));
         }
-        panic!("no expected live sample: {:?}", sampler.latest());
+        panic!(
+            "no expected live sample: {:?}",
+            super::latest_sampler(sampler)
+        );
     }
 
     #[test]
     fn live_sleeping_bootstrap_and_perf_handoff() {
-        let target = Target::new("sleeping");
+        use crate::privileged_helper::process::{
+            create_target, snapshot::perf::open_perf_event_reader,
+            test_support::assert_detached_target,
+        };
+
+        let target = create_target("sleeping");
         let maps = process::maps::read_maps(target.id.pid).unwrap();
-        let mut sampler = Sampler::new(target.id);
-        sampler.bootstrap(&maps).unwrap();
-        let first = sampler.latest()[0].clone();
+        let mut sampler = super::create_sampler(target.id);
+        super::bootstrap_sampler(&mut sampler, &maps).unwrap();
+        let first = super::latest_sampler(&sampler)[0].clone();
         assert_eq!(first.sample_source, Some(SampleSource::Ptrace), "{first:?}");
         assert_eq!(
             serde_json::to_value(&first).unwrap()["architecture"],
@@ -512,37 +558,41 @@ mod live_tests {
             "{:?}",
             first.call_stack
         );
-        target.assert_detached();
-        PerfEventReader::open(target.id.pid)
+        assert_detached_target(&target);
+        open_perf_event_reader(target.id.pid)
             .expect("perf access is required in the Docker test container");
         poll_until(&mut sampler, &maps, |s| {
-            s.latest()[0].sampled_at > first.sampled_at
-                && s.latest()[0].sample_source != Some(SampleSource::Ptrace)
+            super::latest_sampler(s)[0].sampled_at > first.sampled_at
+                && super::latest_sampler(s)[0].sample_source != Some(SampleSource::Ptrace)
         });
-        target.assert_detached();
+        assert_detached_target(&target);
         // The periodic capture also hands control back to real perf updates.
         sampler.next_ptrace = Some(Instant::now());
-        sampler.poll(&maps).unwrap();
+        super::poll_sampler(&mut sampler, &maps).unwrap();
         assert_eq!(
-            sampler.latest()[0].sample_source,
+            super::latest_sampler(&sampler)[0].sample_source,
             Some(SampleSource::Ptrace)
         );
         let periodic_ns = sampler.threads[&target.id.pid].sampled_ns;
         poll_until(&mut sampler, &maps, |s| {
             s.threads[&target.id.pid].sampled_ns > periodic_ns
-                && s.latest()[0].sample_source != Some(SampleSource::Ptrace)
+                && super::latest_sampler(s)[0].sample_source != Some(SampleSource::Ptrace)
         });
-        target.assert_detached();
+        assert_detached_target(&target);
         drop(sampler);
-        target.assert_detached();
+        assert_detached_target(&target);
     }
 
     #[test]
     fn periodic_ptrace_waits_for_deadline_and_refreshes_sleeping_thread() {
-        let target = Target::new("sleeping");
+        use crate::privileged_helper::process::{
+            create_target, test_support::assert_detached_target,
+        };
+
+        let target = create_target("sleeping");
         let maps = process::maps::read_maps(target.id.pid).unwrap();
-        let mut sampler = Sampler::new(target.id);
-        sampler.bootstrap(&maps).unwrap();
+        let mut sampler = super::create_sampler(target.id);
+        super::bootstrap_sampler(&mut sampler, &maps).unwrap();
         let deadline = sampler.next_ptrace.unwrap();
         assert!(deadline.duration_since(Instant::now()) > Duration::from_secs(9));
         // Isolate the periodic source from interrupt-induced context-switch samples.
@@ -550,11 +600,11 @@ mod live_tests {
         thread.event = None;
         thread.switch_event = None;
         let first = thread.sampled_ns;
-        sampler.poll(&maps).unwrap();
+        super::poll_sampler(&mut sampler, &maps).unwrap();
         assert_eq!(sampler.threads[&target.id.pid].sampled_ns, first);
         assert_eq!(sampler.next_ptrace, Some(deadline));
         sampler.next_ptrace = Some(Instant::now() - Duration::from_secs(30));
-        sampler.poll(&maps).unwrap();
+        super::poll_sampler(&mut sampler, &maps).unwrap();
         let thread = &sampler.threads[&target.id.pid];
         assert!(thread.sampled_ns > first);
         assert_eq!(thread.latest.sample_source, Some(SampleSource::Ptrace));
@@ -564,17 +614,21 @@ mod live_tests {
             sampler.next_ptrace.unwrap().duration_since(Instant::now()) > Duration::from_secs(9)
         );
         let second = thread.sampled_ns;
-        sampler.poll(&maps).unwrap();
+        super::poll_sampler(&mut sampler, &maps).unwrap();
         assert_eq!(sampler.threads[&target.id.pid].sampled_ns, second);
-        target.assert_detached();
+        assert_detached_target(&target);
     }
 
     #[test]
     fn periodic_ptrace_captures_all_threads_including_newly_discovered_threads() {
-        let target = Target::new("threads");
+        use crate::privileged_helper::process::{
+            create_target, test_support::assert_detached_target,
+        };
+
+        let target = create_target("threads");
         let maps = process::maps::read_maps(target.id.pid).unwrap();
-        let mut sampler = Sampler::new(target.id);
-        sampler.bootstrap(&maps).unwrap();
+        let mut sampler = super::create_sampler(target.id);
+        super::bootstrap_sampler(&mut sampler, &maps).unwrap();
         // This fixture also churns short-lived threads; only its main and four
         // permanent workers are guaranteed to survive the entire capture sweep.
         let stable_tids: Vec<_> = sampler
@@ -599,7 +653,7 @@ mod live_tests {
         let rediscovered = target.id.pid;
         sampler.threads.remove(&rediscovered);
         sampler.next_ptrace = Some(Instant::now());
-        sampler.poll(&maps).unwrap();
+        super::poll_sampler(&mut sampler, &maps).unwrap();
         assert!(sampler.threads.contains_key(&rediscovered));
         for tid in stable_tids {
             let thread = &sampler.threads[&tid];
@@ -610,15 +664,19 @@ mod live_tests {
                 assert!(thread.sampled_ns > *previous);
             }
         }
-        target.assert_detached();
+        assert_detached_target(&target);
     }
 
     #[test]
     fn periodic_ptrace_failure_preserves_sample_and_retries_only_when_due() {
-        let target = Target::new("sleeping");
+        use crate::privileged_helper::process::{
+            create_target, test_support::assert_detached_target,
+        };
+
+        let target = create_target("sleeping");
         let maps = process::maps::read_maps(target.id.pid).unwrap();
-        let mut sampler = Sampler::new(target.id);
-        sampler.bootstrap(&maps).unwrap();
+        let mut sampler = super::create_sampler(target.id);
+        super::bootstrap_sampler(&mut sampler, &maps).unwrap();
         let thread = sampler.threads.get_mut(&target.id.pid).unwrap();
         thread.event = None;
         thread.switch_event = None;
@@ -639,7 +697,7 @@ mod live_tests {
         );
         assert!(libc::WIFSTOPPED(status));
         sampler.next_ptrace = Some(Instant::now());
-        sampler.poll(&maps).unwrap();
+        super::poll_sampler(&mut sampler, &maps).unwrap();
         let failed_deadline = sampler.next_ptrace.unwrap();
         let thread = &sampler.threads[&target.id.pid];
         assert_eq!(thread.sampled_ns, first);
@@ -656,27 +714,31 @@ mod live_tests {
             unsafe { libc::ptrace(libc::PTRACE_DETACH, target.id.pid, 0, 0) },
             0
         );
-        target.assert_detached();
-        sampler.poll(&maps).unwrap();
+        assert_detached_target(&target);
+        super::poll_sampler(&mut sampler, &maps).unwrap();
         assert_eq!(sampler.next_ptrace, Some(failed_deadline));
         assert_eq!(sampler.threads[&target.id.pid].sampled_ns, first);
         assert!(sampler.threads[&target.id.pid].latest.error.is_some());
         sampler.next_ptrace = Some(Instant::now());
-        sampler.poll(&maps).unwrap();
+        super::poll_sampler(&mut sampler, &maps).unwrap();
         let thread = &sampler.threads[&target.id.pid];
         assert!(thread.sampled_ns > first);
         assert!(thread.ptrace_error.is_none());
         assert_eq!(thread.latest.error, thread.setup_error);
         assert_eq!(thread.latest.sample_source, Some(SampleSource::Ptrace));
-        target.assert_detached();
+        assert_detached_target(&target);
     }
 
     #[test]
     fn sample_ordering_preserves_bootstrap_then_accepts_newer_perf() {
-        let target = Target::new("sleeping");
+        use crate::privileged_helper::process::{
+            create_target, test_support::assert_detached_target,
+        };
+
+        let target = create_target("sleeping");
         let maps = process::maps::read_maps(target.id.pid).unwrap();
-        let mut sampler = Sampler::new(target.id);
-        sampler.bootstrap(&maps).unwrap();
+        let mut sampler = super::create_sampler(target.id);
+        super::bootstrap_sampler(&mut sampler, &maps).unwrap();
         let thread = sampler.threads.get_mut(&target.id.pid).unwrap();
         let time = thread.sampled_ns.unwrap();
         let sample = super::super::sample::RawSample {
@@ -718,25 +780,31 @@ mod live_tests {
         assert_eq!(thread.sampled_ns, Some(time + 1));
         assert_eq!(thread.latest.sample_source, Some(SampleSource::CpuClock));
         assert_eq!(thread.latest.cpu, Some(7));
-        target.assert_detached();
+        assert_detached_target(&target);
     }
 
     #[test]
     fn live_blocked_samples_refresh_known_registers_and_bound_deep_stacks() {
-        let target = Target::new("blocked_stack");
-        PerfEventReader::open(target.id.pid)
+        use crate::privileged_helper::process::{
+            create_target,
+            snapshot::perf::{context_switch_perf_event_reader, open_perf_event_reader},
+            test_support::assert_detached_target,
+        };
+
+        let target = create_target("blocked_stack");
+        open_perf_event_reader(target.id.pid)
             .expect("perf access is required in the Docker test container");
-        PerfEventReader::context_switch(target.id.pid).unwrap();
+        context_switch_perf_event_reader(target.id.pid).unwrap();
         let maps = process::maps::read_maps(target.id.pid).unwrap();
-        let mut sampler = Sampler::new(target.id);
+        let mut sampler = super::create_sampler(target.id);
         let mut complete = false;
         let mut truncated = false;
         let mut previous = None;
         let mut updates = 0;
         let deadline = Instant::now() + Duration::from_secs(3);
         while Instant::now() < deadline {
-            sampler.poll(&maps).unwrap();
-            let sample = &sampler.latest()[0];
+            super::poll_sampler(&mut sampler, &maps).unwrap();
+            let sample = &super::latest_sampler(&sampler)[0];
             if sample.sample_source == Some(SampleSource::ContextSwitch { preempted: false }) {
                 assert!(sample.error.is_none(), "{:?}", sample.error);
                 let names = if cfg!(target_arch = "aarch64") {
@@ -774,31 +842,38 @@ mod live_tests {
         assert!(
             complete && truncated && updates >= 5,
             "complete={complete} truncated={truncated} updates={updates}: {:?}",
-            sampler.latest()
+            super::latest_sampler(&sampler)
         );
         eprintln!(
             "Blocked fixture: {updates} distinct updates in 3s; R12–R15 matched; complete and bounded deep stacks verified"
         );
-        target.assert_detached();
+        assert_detached_target(&target);
     }
 
     #[test]
     fn live_busy_and_recursive_samples_advance_without_tracing() {
+        use crate::privileged_helper::process::{
+            create_target, snapshot::perf::open_perf_event_reader,
+            test_support::assert_detached_target,
+        };
+
         for name in [
             "busy_loop",
             "recursive",
             "recursive_no_fp",
             "recursive_no_fp_nopie",
         ] {
-            let target = Target::new(name);
-            PerfEventReader::open(target.id.pid)
+            let target = create_target(name);
+            open_perf_event_reader(target.id.pid)
                 .expect("perf access is required in the Docker test container");
             let maps = process::maps::read_maps(target.id.pid).unwrap();
-            let mut sampler = Sampler::new(target.id);
+            let mut sampler = super::create_sampler(target.id);
             poll_until(&mut sampler, &maps, |s| {
-                s.latest().iter().any(|t| t.sampled_at.is_some())
+                super::latest_sampler(s)
+                    .iter()
+                    .any(|t| t.sampled_at.is_some())
             });
-            let first = sampler.latest()[0].clone();
+            let first = super::latest_sampler(&sampler)[0].clone();
             assert_eq!(
                 first.registers.len(),
                 if cfg!(target_arch = "aarch64") {
@@ -836,24 +911,33 @@ mod live_tests {
                 );
             }
             poll_until(&mut sampler, &maps, |s| {
-                s.latest()[0].sampled_at > first.sampled_at
+                super::latest_sampler(s)[0].sampled_at > first.sampled_at
             });
-            target.assert_detached();
+            assert_detached_target(&target);
             drop(sampler);
-            target.assert_detached();
+            assert_detached_target(&target);
         }
     }
 
     #[test]
     fn live_no_fp_unwinds_across_shared_library_and_libc() {
-        let target = Target::new("shared_no_fp");
-        PerfEventReader::open(target.id.pid)
+        use crate::{
+            ipc::model::memory::memory_map_contains,
+            privileged_helper::process::{
+                create_target,
+                snapshot::perf::{context_switch_perf_event_reader, open_perf_event_reader},
+                test_support::assert_detached_target,
+            },
+        };
+
+        let target = create_target("shared_no_fp");
+        open_perf_event_reader(target.id.pid)
             .expect("perf access is required in the Docker test container");
-        PerfEventReader::context_switch(target.id.pid).unwrap();
+        context_switch_perf_event_reader(target.id.pid).unwrap();
         let maps = process::maps::read_maps(target.id.pid).unwrap();
-        let mut sampler = Sampler::new(target.id);
+        let mut sampler = super::create_sampler(target.id);
         poll_until(&mut sampler, &maps, |s| {
-            let latest = s.latest();
+            let latest = super::latest_sampler(s);
             latest.iter().any(|sample| {
                 sample
                     .call_stack
@@ -867,7 +951,7 @@ mod live_tests {
                         .any(|f| f.symbol.as_deref() == Some("main"))
                     && sample.call_stack.iter().any(|f| {
                         maps.iter().any(|map| {
-                            map.contains(f.address)
+                            memory_map_contains(map, f.address)
                                 && map
                                     .pathname
                                     .as_deref()
@@ -876,61 +960,71 @@ mod live_tests {
                     })
             })
         });
-        target.assert_detached();
+        assert_detached_target(&target);
     }
 
     #[test]
     fn live_thread_lifecycle_discovers_and_removes_acknowledged_threads() {
-        let mut controller = ThreadController::new();
+        use crate::privileged_helper::process::test_support::assert_detached_target;
+
+        let mut controller = create_thread_controller();
         let id = controller.target.id;
         let maps = process::maps::read_maps(id.pid).unwrap();
-        let mut sampler = Sampler::new(id);
-        sampler.poll(&maps).unwrap();
+        let mut sampler = super::create_sampler(id);
+        super::poll_sampler(&mut sampler, &maps).unwrap();
         for _ in 0..3 {
-            let tid = controller.command("start");
+            let tid = command_thread_controller(&mut controller, "start");
             assert_ne!(tid, id.pid);
-            sampler.poll(&maps).unwrap();
+            super::poll_sampler(&mut sampler, &maps).unwrap();
             let thread = sampler
                 .threads
                 .get(&tid)
                 .expect("new worker was not discovered");
             assert!(thread.event.is_some(), "{:?}", thread.setup_error);
             assert!(thread.switch_event.is_some(), "{:?}", thread.setup_error);
-            assert_eq!(controller.command("stop"), tid);
+            assert_eq!(command_thread_controller(&mut controller, "stop"), tid);
             // pthread_join has completed. Wait only for procfs to drop the task,
             // without racing an uncontrolled stream of replacement threads.
             poll_until(&mut sampler, &maps, |s| !s.threads.contains_key(&tid));
-            assert!(!sampler.latest().iter().any(|sample| sample.tid == tid));
+            assert!(
+                !super::latest_sampler(&sampler)
+                    .iter()
+                    .any(|sample| sample.tid == tid)
+            );
             assert!(sampler.threads.contains_key(&id.pid));
         }
-        controller.target.assert_detached();
+        assert_detached_target(&controller.target);
     }
 
     #[test]
     fn live_sampler_rejects_mismatched_process_identity() {
-        let controller = ThreadController::new();
+        use crate::privileged_helper::process::test_support::assert_detached_target;
+
+        let controller = create_thread_controller();
         let id = controller.target.id;
         let maps = process::maps::read_maps(id.pid).unwrap();
         let stale = ProcessId {
             start_time_ticks: id.start_time_ticks + 1,
             ..id
         };
-        let mut sampler = Sampler::new(stale);
-        assert!(sampler.poll(&maps).is_err());
+        let mut sampler = super::create_sampler(stale);
+        assert!(super::poll_sampler(&mut sampler, &maps).is_err());
         assert!(sampler.threads.is_empty());
-        controller.target.assert_detached();
+        assert_detached_target(&controller.target);
     }
 
     #[test]
     fn live_sampler_rejects_exited_process() {
-        let mut controller = ThreadController::new();
+        use crate::privileged_helper::process::test_support::assert_detached_target;
+
+        let mut controller = create_thread_controller();
         let id = controller.target.id;
         let maps = process::maps::read_maps(id.pid).unwrap();
-        let mut sampler = Sampler::new(id);
-        sampler.poll(&maps).unwrap();
-        controller.target.assert_detached();
+        let mut sampler = super::create_sampler(id);
+        super::poll_sampler(&mut sampler, &maps).unwrap();
+        assert_detached_target(&controller.target);
         controller.target.child.kill().unwrap();
         controller.target.child.wait().unwrap();
-        assert!(sampler.poll(&maps).is_err());
+        assert!(super::poll_sampler(&mut sampler, &maps).is_err());
     }
 }

@@ -1,10 +1,19 @@
 //! Register values shared with native acquisition.
 //!
 //! # Interface
-//! - [`RegisterSet`] (`pub`): `struct RegisterSet`.
-//! - [`RegisterRole`] (`pub`): `enum RegisterRole`.
-//! - [`Register`] (`pub`): `struct Register`.
-//! - [`RegisterMapping`] (`pub`): `struct RegisterMapping`.
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`RegisterSet`] | `pub` | `struct RegisterSet` |
+//! | [`RegisterRole`] | `pub` | `enum RegisterRole` |
+//! | [`Register`] | `pub` | `struct Register` |
+//! | [`RegisterMapping`] | `pub` | `struct RegisterMapping` |
+//! | [`validate_register_set`] | `pub` | `fn validate_register_set(state: &`[`RegisterSet`]`) -> `[`anyhow::Result`]`<()>` |
+//! | [`pc_register_set`] | `pub` | `fn pc_register_set(state: &`[`RegisterSet`]`) -> u64` |
+//! | [`sp_register_set`] | `pub` | `fn sp_register_set(state: &`[`RegisterSet`]`) -> u64` |
+//! | [`fp_register_set`] | `pub` | `fn fp_register_set(state: &`[`RegisterSet`]`) -> u64` |
+//! | [`lr_register_set`] | `pub` | `fn lr_register_set(state: &`[`RegisterSet`]`) -> u64` |
+
 use crate::ipc::model::memory::MemoryKind;
 
 /// Native Linux PERF_REG_* values. Ptrace also supplies ARM64 PSTATE at
@@ -28,29 +37,33 @@ impl RegisterSet {
     pub const PC: usize = if cfg!(target_arch = "aarch64") { 32 } else { 8 };
     pub const SP: usize = if cfg!(target_arch = "aarch64") { 31 } else { 7 };
     pub const FP: usize = if cfg!(target_arch = "aarch64") { 29 } else { 6 };
+}
 
-    pub fn validate(&self) -> anyhow::Result<()> {
-        anyhow::ensure!(
-            self.values.len() == Self::COUNT,
-            "Invalid native register count"
-        );
-        Ok(())
-    }
-    pub fn pc(&self) -> u64 {
-        self.values[Self::PC]
-    }
-    pub fn sp(&self) -> u64 {
-        self.values[Self::SP]
-    }
-    pub fn fp(&self) -> u64 {
-        self.values[Self::FP]
-    }
-    pub fn lr(&self) -> u64 {
-        if cfg!(target_arch = "aarch64") {
-            self.values[30]
-        } else {
-            0
-        }
+pub fn validate_register_set(state: &RegisterSet) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        state.values.len() == RegisterSet::COUNT,
+        "Invalid native register count"
+    );
+    Ok(())
+}
+
+pub fn pc_register_set(state: &RegisterSet) -> u64 {
+    state.values[RegisterSet::PC]
+}
+
+pub fn sp_register_set(state: &RegisterSet) -> u64 {
+    state.values[RegisterSet::SP]
+}
+
+pub fn fp_register_set(state: &RegisterSet) -> u64 {
+    state.values[RegisterSet::FP]
+}
+
+pub fn lr_register_set(state: &RegisterSet) -> u64 {
+    if cfg!(target_arch = "aarch64") {
+        state.values[30]
+    } else {
+        0
     }
 }
 
@@ -98,7 +111,7 @@ pub struct RegisterMapping {
 
 impl crate::ipc::codec::Wire for RegisterSet {
     fn write(&self, o: &mut crate::ipc::codec::Encoder) -> anyhow::Result<()> {
-        self.validate()?;
+        validate_register_set(self)?;
         self.values.write(o)?;
         self.flags_available.write(o)?;
         self.code_pac_mask.write(o)
@@ -109,7 +122,7 @@ impl crate::ipc::codec::Wire for RegisterSet {
             flags_available: crate::ipc::codec::Wire::read(i)?,
             code_pac_mask: crate::ipc::codec::Wire::read(i)?,
         };
-        result.validate()?;
+        validate_register_set(&result)?;
         Ok(result)
     }
 }

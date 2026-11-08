@@ -55,9 +55,8 @@ pub(in crate::privileged_helper::process) fn capture_sample(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use {
-        super::capture_sample,
+        super::{capture_sample, *},
         crate::{
             http_server::model::process::{initial_observation, next_observation},
             ipc::model::process::ProcessSample,
