@@ -4,7 +4,7 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`observation_thread_sample`] | `pub` | `fn observation_thread_sample(sample: &`[`ThreadSample`]`) -> `[`ThreadObservation`] |
+//! | [`observation_thread_sample`] | `pub(super)` | `fn observation_thread_sample(sample: &`[`ThreadSample`]`) -> `[`ThreadObservation`] |
 
 use crate::ipc::model::threads::{CpuRange, SchedulerPolicy, ThreadObservation, ThreadSample};
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -38,8 +38,8 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::model::threads::SchedulerPolic
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::model::threads::CpuRange")]
 struct CpuRangeJson {
-    pub start: u32,
-    pub end: u32,
+    start: u32,
+    end: u32,
 }
 impl serde::Serialize for crate::ipc::model::threads::CpuRange {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -57,17 +57,17 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::model::threads::CpuRange {
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::model::threads::ThreadObservation")]
 struct ThreadObservationJson {
-    pub tid: i32,
-    pub name: String,
-    pub state: String,
-    pub cpu: i32,
-    pub cpu_percent: Option<f64>,
-    pub priority: i64,
-    pub nice: i64,
-    pub scheduler: SchedulerPolicy,
-    pub affinity: Option<Vec<CpuRange>>,
-    pub voluntary_context_switches: Option<u64>,
-    pub nonvoluntary_context_switches: Option<u64>,
+    tid: i32,
+    name: String,
+    state: String,
+    cpu: i32,
+    cpu_percent: Option<f64>,
+    priority: i64,
+    nice: i64,
+    scheduler: SchedulerPolicy,
+    affinity: Option<Vec<CpuRange>>,
+    voluntary_context_switches: Option<u64>,
+    nonvoluntary_context_switches: Option<u64>,
 }
 impl serde::Serialize for crate::ipc::model::threads::ThreadObservation {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -86,18 +86,18 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::model::threads::ThreadObservat
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::model::threads::ThreadSample")]
 struct ThreadSampleJson {
-    pub tid: i32,
-    pub name: String,
-    pub state: String,
-    pub cpu: i32,
-    pub priority: i64,
-    pub nice: i64,
-    pub scheduler: SchedulerPolicy,
-    pub affinity: Option<Vec<CpuRange>>,
-    pub voluntary_context_switches: Option<u64>,
-    pub nonvoluntary_context_switches: Option<u64>,
-    pub ticks: u64,
-    pub start_time: u64,
+    tid: i32,
+    name: String,
+    state: String,
+    cpu: i32,
+    priority: i64,
+    nice: i64,
+    scheduler: SchedulerPolicy,
+    affinity: Option<Vec<CpuRange>>,
+    voluntary_context_switches: Option<u64>,
+    nonvoluntary_context_switches: Option<u64>,
+    ticks: u64,
+    start_time: u64,
 }
 impl serde::Serialize for crate::ipc::model::threads::ThreadSample {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -111,7 +111,7 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::model::threads::ThreadSample {
     }
 }
 
-pub fn observation_thread_sample(sample: &ThreadSample) -> ThreadObservation {
+pub(super) fn observation_thread_sample(sample: &ThreadSample) -> ThreadObservation {
     ThreadObservation {
         tid: sample.tid,
         name: sample.name.clone(),

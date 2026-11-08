@@ -4,36 +4,36 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`AddressFamily`] | `pub` | `enum AddressFamily` |
-//! | [`SocketType`] | `pub` | `enum SocketType` |
-//! | [`SocketProtocol`] | `pub` | `enum SocketProtocol` |
-//! | [`SocketConnectionStatus`] | `pub` | `enum SocketConnectionStatus` |
-//! | [`SocketState`] | `pub` | `enum SocketState` |
-//! | [`FdKind`] | `pub` | `enum FdKind` |
-//! | [`FdAccess`] | `pub` | `enum FdAccess` |
-//! | [`InetAddress`] | `pub` | `struct InetAddress` |
-//! | [`socket_type_from_code`] | `pub` | `fn socket_type_from_code(code: u32) -> `[`SocketType`] |
-//! | [`socket_protocol_is_tcp`] | `pub` | `fn socket_protocol_is_tcp(state: `[`SocketProtocol`]`) -> bool` |
-//! | [`socket_protocol_is_tcp_or_udp`] | `pub` | `fn socket_protocol_is_tcp_or_udp(state: `[`SocketProtocol`]`) -> bool` |
-//! | [`socket_protocol_from_codes`] | `pub` | `fn socket_protocol_from_codes(family: u32, socket_type: u32, protocol: u32) -> `[`SocketProtocol`] |
-//! | [`inet_socket_state`] | `pub` | `fn inet_socket_state(code: u32) -> `[`SocketState`] |
-//! | [`unix_proc_socket_state`] | `pub` | `fn unix_proc_socket_state(code: u32, listening: bool) -> `[`SocketState`] |
-//! | [`unix_diag_socket_state`] | `pub` | `fn unix_diag_socket_state(code: u32) -> `[`SocketState`] |
-//! | [`fd_access_from_flags`] | `pub` | `fn fd_access_from_flags(flags: u32) -> `[`FdAccess`] |
-//! | [`fd_access_from_mode`] | `pub` | `fn fd_access_from_mode(mode: `[`Option`]`<u32>) -> `[`FdAccess`] |
-//! | [`opposite_fd_access`] | `pub` | `fn opposite_fd_access(state: `[`FdAccess`]`, other: `[`FdAccess`]`) -> bool` |
+//! | [`AddressFamily`] | `pub(crate)` | `enum AddressFamily` |
+//! | [`SocketType`] | `pub(crate)` | `enum SocketType` |
+//! | [`SocketProtocol`] | `pub(crate)` | `enum SocketProtocol` |
+//! | [`SocketConnectionStatus`] | `pub(crate)` | `enum SocketConnectionStatus` |
+//! | [`SocketState`] | `pub(crate)` | `enum SocketState` |
+//! | [`FdKind`] | `pub(crate)` | `enum FdKind` |
+//! | [`FdAccess`] | `pub(crate)` | `enum FdAccess` |
+//! | [`InetAddress`] | `pub(crate)` | `struct InetAddress` |
+//! | [`socket_type_from_code`] | `pub(crate)` | `fn socket_type_from_code(code: u32) -> `[`SocketType`] |
+//! | [`socket_protocol_is_tcp`] | `pub(crate)` | `fn socket_protocol_is_tcp(state: `[`SocketProtocol`]`) -> bool` |
+//! | [`socket_protocol_is_tcp_or_udp`] | `pub(crate)` | `fn socket_protocol_is_tcp_or_udp(state: `[`SocketProtocol`]`) -> bool` |
+//! | [`socket_protocol_from_codes`] | `pub(crate)` | `fn socket_protocol_from_codes(family: u32, socket_type: u32, protocol: u32) -> `[`SocketProtocol`] |
+//! | [`inet_socket_state`] | `pub(crate)` | `fn inet_socket_state(code: u32) -> `[`SocketState`] |
+//! | [`unix_proc_socket_state`] | `pub(crate)` | `fn unix_proc_socket_state(code: u32, listening: bool) -> `[`SocketState`] |
+//! | [`unix_diag_socket_state`] | `pub(crate)` | `fn unix_diag_socket_state(code: u32) -> `[`SocketState`] |
+//! | [`fd_access_from_flags`] | `pub(crate)` | `fn fd_access_from_flags(flags: u32) -> `[`FdAccess`] |
+//! | [`fd_access_from_mode`] | `pub(crate)` | `fn fd_access_from_mode(mode: `[`Option`]`<u32>) -> `[`FdAccess`] |
+//! | [`opposite_fd_access`] | `pub(crate)` | `fn opposite_fd_access(state: `[`FdAccess`]`, other: `[`FdAccess`]`) -> bool` |
 
 use std::{
     fmt,
     net::{IpAddr, SocketAddr},
 };
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum AddressFamily {
+pub(crate) enum AddressFamily {
     Ipv4,
     Ipv6,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum SocketType {
+pub(crate) enum SocketType {
     Stream,
     Dgram,
     Raw,
@@ -43,7 +43,7 @@ pub enum SocketType {
     Packet,
     Unknown(u32),
 }
-pub fn socket_type_from_code(code: u32) -> SocketType {
+pub(crate) fn socket_type_from_code(code: u32) -> SocketType {
     match code {
         1 => SocketType::Stream,
         2 => SocketType::Dgram,
@@ -70,7 +70,7 @@ impl fmt::Display for SocketType {
     }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum SocketProtocol {
+pub(crate) enum SocketProtocol {
     Tcp {
         family: AddressFamily,
     },
@@ -88,18 +88,22 @@ pub enum SocketProtocol {
         protocol: u32,
     },
 }
-pub fn socket_protocol_is_tcp(state: SocketProtocol) -> bool {
+pub(crate) fn socket_protocol_is_tcp(state: SocketProtocol) -> bool {
     matches!(state, SocketProtocol::Tcp { .. })
 }
 
-pub fn socket_protocol_is_tcp_or_udp(state: SocketProtocol) -> bool {
+pub(crate) fn socket_protocol_is_tcp_or_udp(state: SocketProtocol) -> bool {
     matches!(
         state,
         SocketProtocol::Tcp { .. } | SocketProtocol::Udp { .. }
     )
 }
 
-pub fn socket_protocol_from_codes(family: u32, socket_type: u32, protocol: u32) -> SocketProtocol {
+pub(crate) fn socket_protocol_from_codes(
+    family: u32,
+    socket_type: u32,
+    protocol: u32,
+) -> SocketProtocol {
     let inet = match family as i32 {
         libc::AF_INET => Some(AddressFamily::Ipv4),
         libc::AF_INET6 => Some(AddressFamily::Ipv6),
@@ -229,7 +233,7 @@ fn netlink_name(protocol: u32) -> Option<&'static str> {
 /// A peer includes an unnamed UNIX endpoint or a Netlink default destination;
 /// it does not identify a process. Unknown observations must remain visible.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum SocketConnectionStatus {
+pub(crate) enum SocketConnectionStatus {
     Listening,
     Unconnected,
     PeerPresent,
@@ -238,7 +242,7 @@ pub enum SocketConnectionStatus {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SocketState {
+pub(crate) enum SocketState {
     Established,
     SynSent,
     SynRecv,
@@ -258,7 +262,7 @@ pub enum SocketState {
     UnknownInet(u32),
     UnknownUnix(u32),
 }
-pub fn inet_socket_state(code: u32) -> SocketState {
+pub(crate) fn inet_socket_state(code: u32) -> SocketState {
     match code {
         1 => SocketState::Established,
         2 => SocketState::SynSent,
@@ -276,7 +280,7 @@ pub fn inet_socket_state(code: u32) -> SocketState {
     }
 }
 
-pub fn unix_proc_socket_state(code: u32, listening: bool) -> SocketState {
+pub(crate) fn unix_proc_socket_state(code: u32, listening: bool) -> SocketState {
     if listening {
         SocketState::Listen
     } else {
@@ -290,7 +294,7 @@ pub fn unix_proc_socket_state(code: u32, listening: bool) -> SocketState {
     }
 }
 
-pub fn unix_diag_socket_state(code: u32) -> SocketState {
+pub(crate) fn unix_diag_socket_state(code: u32) -> SocketState {
     match code {
         1 => SocketState::Connected,
         10 => SocketState::Listen,
@@ -323,7 +327,7 @@ impl fmt::Display for SocketState {
     }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum FdKind {
+pub(crate) enum FdKind {
     Pipe,
     Socket,
     Fifo,
@@ -338,13 +342,13 @@ impl fmt::Display for FdKind {
     }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum FdAccess {
+pub(crate) enum FdAccess {
     Read,
     Write,
     ReadWrite,
     Unknown,
 }
-pub fn fd_access_from_flags(flags: u32) -> FdAccess {
+pub(crate) fn fd_access_from_flags(flags: u32) -> FdAccess {
     if flags == u32::MAX || flags & libc::O_PATH as u32 != 0 {
         FdAccess::Unknown
     } else {
@@ -352,7 +356,7 @@ pub fn fd_access_from_flags(flags: u32) -> FdAccess {
     }
 }
 
-pub fn fd_access_from_mode(mode: Option<u32>) -> FdAccess {
+pub(crate) fn fd_access_from_mode(mode: Option<u32>) -> FdAccess {
     match mode {
         Some(0) => FdAccess::Read,
         Some(1) => FdAccess::Write,
@@ -361,7 +365,7 @@ pub fn fd_access_from_mode(mode: Option<u32>) -> FdAccess {
     }
 }
 
-pub fn opposite_fd_access(state: FdAccess, other: FdAccess) -> bool {
+pub(crate) fn opposite_fd_access(state: FdAccess, other: FdAccess) -> bool {
     matches!(
         (state, other),
         (FdAccess::Read, FdAccess::Write | FdAccess::ReadWrite)
@@ -383,9 +387,9 @@ impl fmt::Display for FdAccess {
     }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct InetAddress {
-    pub ip: IpAddr,
-    pub port: u16,
+pub(crate) struct InetAddress {
+    pub(crate) ip: IpAddr,
+    pub(crate) port: u16,
 }
 impl From<SocketAddr> for InetAddress {
     fn from(address: SocketAddr) -> Self {

@@ -4,12 +4,12 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`ElfSymbols`] | `pub` | `struct ElfSymbols` |
-//! | [`ElfCache`] | `pub` | `struct ElfCache` |
+//! | [`ElfSymbols`] | `pub(crate)` | `struct ElfSymbols` |
+//! | [`ElfCache`] | `pub(crate)` | `struct ElfCache` |
 //! | [`parse_reader_elf_symbols`] | `pub(super)` | `fn parse_reader_elf_symbols<'a, R: `[`object::read::ReadRef`]`<'a>>( bytes: R, ) -> `[`Option`]`<`[`ElfSymbols`]`>` |
-//! | [`cache_elf_symbols_from_image`] | `pub` | `fn cache_elf_symbols_from_image( state: &mut `[`ElfCache`]`, map: &`[`MemoryMap`]`, file: &`[`super::image::ElfImage`]`, ) -> `[`Option`]`<`[`Arc`]`<`[`ElfSymbols`]`>>` |
-//! | [`lookup_cached_elf_file_identity`] | `pub` | `fn lookup_cached_elf_file_identity(state: &`[`ElfCache`]`, map: &`[`MemoryMap`]`) -> `[`Option`]`<`[`ElfFileId`]`>` |
-//! | [`lookup_elf_symbols`] | `pub` | `fn lookup_elf_symbols(state: &`[`ElfCache`]`, map: &`[`MemoryMap`]`) -> `[`Option`]`<`[`Arc`]`<`[`ElfSymbols`]`>>` |
+//! | [`cache_elf_symbols_from_image`] | `pub(crate)` | `fn cache_elf_symbols_from_image( state: &mut `[`ElfCache`]`, map: &`[`MemoryMap`]`, file: &`[`super::image::ElfImage`]`, ) -> `[`Option`]`<`[`Arc`]`<`[`ElfSymbols`]`>>` |
+//! | [`lookup_cached_elf_file_identity`] | `pub(crate)` | `fn lookup_cached_elf_file_identity(state: &`[`ElfCache`]`, map: &`[`MemoryMap`]`) -> `[`Option`]`<`[`ElfFileId`]`>` |
+//! | [`lookup_elf_symbols`] | `pub(crate)` | `fn lookup_elf_symbols(state: &`[`ElfCache`]`, map: &`[`MemoryMap`]`) -> `[`Option`]`<`[`Arc`]`<`[`ElfSymbols`]`>>` |
 
 use crate::ipc::model::memory::MemoryMap;
 use object::{Object, ObjectSection, ObjectSegment, ObjectSymbol};
@@ -21,16 +21,17 @@ type DwarfReader = gimli::EndianArcSlice<gimli::RunTimeEndian>;
 
 /// Parsed ELF data from verified bytes acquired by the helper. The DWARF context uses owned,
 /// bounded section bytes and never opens supplementary or split debug files.
-pub struct ElfSymbols {
+pub(crate) struct ElfSymbols {
     /// Shared ELF section bytes used by the unwinder.
-    pub unwind: framehop::ExplicitModuleSectionInfo<Arc<[u8]>>,
-    pub segments: Vec<(u64, u64, u64)>,
-    pub symbols: Vec<(u64, u64, String)>,
-    pub dwarf: Option<Mutex<addr2line::Context<DwarfReader>>>,
+    pub(in crate::http_server::analysis::snapshot) unwind:
+        framehop::ExplicitModuleSectionInfo<Arc<[u8]>>,
+    pub(super) segments: Vec<(u64, u64, u64)>,
+    pub(super) symbols: Vec<(u64, u64, String)>,
+    pub(super) dwarf: Option<Mutex<addr2line::Context<DwarfReader>>>,
 }
 
 #[cfg(test)]
-pub fn parse_elf_symbols(bytes: &[u8]) -> Option<ElfSymbols> {
+pub(super) fn parse_elf_symbols(bytes: &[u8]) -> Option<ElfSymbols> {
     parse_reader_elf_symbols(bytes)
 }
 
@@ -174,9 +175,9 @@ const MAX_CACHE_BYTES: u64 = 128 * 1024 * 1024;
 
 use crate::ipc::elf::ElfFileId;
 #[cfg(test)]
-pub struct ElfFile {
-    pub identity: ElfFileId,
-    pub bytes: Vec<u8>,
+pub(crate) struct ElfFile {
+    pub(crate) identity: ElfFileId,
+    pub(crate) bytes: Vec<u8>,
 }
 type MappedFileId = (u32, u32, u64);
 
@@ -185,13 +186,13 @@ type MappedFileId = (u32, u32, u64);
 /// it also retains at most 64 rejected versions without their file bytes.
 /// Unwinder-held `Arc`s may outlive cache eviction.
 #[derive(Default)]
-pub struct ElfCache {
+pub(crate) struct ElfCache {
     entries: HashMap<ElfFileId, Arc<ElfSymbols>>,
     mappings: HashMap<MappedFileId, ElfFileId>,
     failures: HashMap<MappedFileId, ElfFileId>,
 }
 #[cfg(test)]
-pub fn cache_elf_symbols_from_bytes(
+pub(crate) fn cache_elf_symbols_from_bytes(
     state: &mut ElfCache,
     map: &MemoryMap,
     file: ElfFile,
@@ -202,7 +203,7 @@ pub fn cache_elf_symbols_from_bytes(
     insert_reader_elf_cache(state, map, file.identity, file.bytes.as_slice())
 }
 
-pub fn cache_elf_symbols_from_image(
+pub(crate) fn cache_elf_symbols_from_image(
     state: &mut ElfCache,
     map: &MemoryMap,
     file: &super::image::ElfImage,
@@ -263,7 +264,10 @@ fn insert_reader_elf_cache<'a, R: object::read::ReadRef<'a>>(
 }
 
 /// Version known to main, including unsupported files cached as failures.
-pub fn lookup_cached_elf_file_identity(state: &ElfCache, map: &MemoryMap) -> Option<ElfFileId> {
+pub(crate) fn lookup_cached_elf_file_identity(
+    state: &ElfCache,
+    map: &MemoryMap,
+) -> Option<ElfFileId> {
     let key = (map.device.major, map.device.minor, map.inode);
     state
         .mappings
@@ -273,7 +277,7 @@ pub fn lookup_cached_elf_file_identity(state: &ElfCache, map: &MemoryMap) -> Opt
         .copied()
 }
 
-pub fn lookup_elf_symbols(state: &ElfCache, map: &MemoryMap) -> Option<Arc<ElfSymbols>> {
+pub(crate) fn lookup_elf_symbols(state: &ElfCache, map: &MemoryMap) -> Option<Arc<ElfSymbols>> {
     state
         .entries
         .get(

@@ -13,14 +13,16 @@ pub(super) mod process {
             sync::Arc,
         },
     };
-    pub(crate) mod procfs {
-        pub fn page_size() -> u64 {
+    pub(in crate::http_server::analysis) mod procfs {
+        pub(in crate::http_server::analysis) fn page_size() -> u64 {
             (unsafe { libc::sysconf(libc::_SC_PAGESIZE) }) as u64
         }
     }
-    pub(crate) mod maps {
+    pub(in crate::http_server::analysis) mod maps {
         use crate::ipc::model::memory::parse_map;
-        pub fn read_maps(pid: i32) -> anyhow::Result<Vec<crate::ipc::model::memory::MemoryMap>> {
+        pub(in crate::http_server::analysis) fn read_maps(
+            pid: i32,
+        ) -> anyhow::Result<Vec<crate::ipc::model::memory::MemoryMap>> {
             fs::read_to_string(format!("/proc/{pid}/maps"))?
                 .lines()
                 .map(parse_map)
@@ -28,7 +30,11 @@ pub(super) mod process {
         }
         use std::fs;
     }
-    pub fn load(cache: &mut ElfCache, pid: i32, map: &MemoryMap) -> Option<Arc<ElfSymbols>> {
+    pub(in crate::http_server::analysis) fn load(
+        cache: &mut ElfCache,
+        pid: i32,
+        map: &MemoryMap,
+    ) -> Option<Arc<ElfSymbols>> {
         use crate::http_server::analysis::snapshot::symbol::cache_elf_symbols_from_bytes;
 
         let path = format!("/proc/{pid}/root{}", map.pathname.as_deref()?);
@@ -50,7 +56,7 @@ pub(super) mod process {
     }
     /// Stop a fixture while copying native registers and a bounded stack. The
     /// guard also detaches if test acquisition fails or an assertion unwinds.
-    pub fn capture_registers(
+    pub(in crate::http_server::analysis) fn capture_registers(
         tid: i32,
         maps: &[MemoryMap],
     ) -> anyhow::Result<(crate::ipc::registers::RegisterSet, Vec<u8>)> {
@@ -147,11 +153,11 @@ pub(super) mod process {
         stack.truncate(length as usize);
         Ok((r, stack))
     }
-    pub struct TestTarget {
-        pub id: ProcessId,
+    pub(crate) struct TestTarget {
+        pub(in crate::http_server::analysis) id: ProcessId,
         child: Child,
     }
-    pub fn create_test_target(name: &str) -> TestTarget {
+    pub(in crate::http_server::analysis) fn create_test_target(name: &str) -> TestTarget {
         crate::test_support::build_targets();
         let mut child = Command::new(format!("tests/targets/bin/{name}"))
             .stdout(Stdio::piped())
@@ -178,7 +184,7 @@ pub(super) mod process {
         }
     }
 
-    pub fn assert_detached_test_target(state: &TestTarget) {
+    pub(in crate::http_server::analysis) fn assert_detached_test_target(state: &TestTarget) {
         for tid in fs::read_dir(format!("/proc/{}/task", state.id.pid))
             .unwrap()
             .flatten()

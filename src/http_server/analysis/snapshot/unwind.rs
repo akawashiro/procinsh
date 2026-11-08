@@ -4,9 +4,9 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`StackUnwinder`] | `pub` | `struct StackUnwinder` |
-//! | [`refresh_stack_unwinder`] | `pub` | `fn refresh_stack_unwinder(state: &mut `[`StackUnwinder`]`, maps: &[`[`MemoryMap`]`], symbols: &`[`ElfCache`]`)` |
-//! | [`unwind_stack`] | `pub` | `fn unwind_stack( state: &mut `[`StackUnwinder`]`, registers: &`[`RegisterSet`]`, maps: &[`[`MemoryMap`]`], stack: &[u8], ) -> (`[`Vec`]`<`[`StackFrame`]`>, `[`String`]`)` |
+//! | [`StackUnwinder`] | `pub(crate)` | `struct StackUnwinder` |
+//! | [`refresh_stack_unwinder`] | `pub(crate)` | `fn refresh_stack_unwinder(state: &mut `[`StackUnwinder`]`, maps: &[`[`MemoryMap`]`], symbols: &`[`ElfCache`]`)` |
+//! | [`unwind_stack`] | `pub(crate)` | `fn unwind_stack( state: &mut `[`StackUnwinder`]`, registers: &`[`RegisterSet`]`, maps: &[`[`MemoryMap`]`], stack: &[u8], ) -> (`[`Vec`]`<`[`StackFrame`]`>, `[`String`]`)` |
 
 use crate::ipc::model::memory::MemoryMap;
 use crate::ipc::registers::RegisterSet;
@@ -25,7 +25,7 @@ type Mapping = (u64, u64, u64, u64, u32, u32);
 
 #[derive(Default)]
 /// Unwinds sampled stacks using cached rules and executable mapping metadata.
-pub struct StackUnwinder {
+pub(crate) struct StackUnwinder {
     #[cfg(target_arch = "aarch64")]
     unwinder: UnwinderAarch64<Arc<[u8]>>,
     #[cfg(target_arch = "x86_64")]
@@ -40,7 +40,11 @@ pub struct StackUnwinder {
 
 /// Rebuild on executable-map changes, including unload/reload and ASLR.
 /// Failed acquisitions remain diagnostic until executable mappings change.
-pub fn refresh_stack_unwinder(state: &mut StackUnwinder, maps: &[MemoryMap], symbols: &ElfCache) {
+pub(crate) fn refresh_stack_unwinder(
+    state: &mut StackUnwinder,
+    maps: &[MemoryMap],
+    symbols: &ElfCache,
+) {
     use crate::http_server::analysis::snapshot::symbol::lookup_elf_symbols;
 
     let mappings: Vec<_> = maps
@@ -88,7 +92,7 @@ pub fn refresh_stack_unwinder(state: &mut StackUnwinder, maps: &[MemoryMap], sym
 }
 
 /// Unwinds from the supplied register values and captured stack bytes.
-pub fn unwind_stack(
+pub(crate) fn unwind_stack(
     state: &mut StackUnwinder,
     registers: &RegisterSet,
     maps: &[MemoryMap],

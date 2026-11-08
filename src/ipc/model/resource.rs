@@ -6,28 +6,28 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`DeviceId`] | `pub` | `struct DeviceId` |
-//! | [`IpcKind`] | `pub` | `enum IpcKind` |
-//! | [`IpcIdentity`] | `pub` | `struct IpcIdentity` |
-//! | [`FileIdentity`] | `pub` | `struct FileIdentity` |
-//! | [`device_id_from_stat`] | `pub` | `fn device_id_from_stat(device: u64) -> `[`DeviceId`] |
-//! | [`device_id_from_kernel`] | `pub` | `fn device_id_from_kernel(device: u64) -> `[`DeviceId`] |
+//! | [`DeviceId`] | `pub(crate)` | `struct DeviceId` |
+//! | [`IpcKind`] | `pub(crate)` | `enum IpcKind` |
+//! | [`IpcIdentity`] | `pub(crate)` | `struct IpcIdentity` |
+//! | [`FileIdentity`] | `pub(crate)` | `struct FileIdentity` |
+//! | [`device_id_from_stat`] | `pub(crate)` | `fn device_id_from_stat(device: u64) -> `[`DeviceId`] |
+//! | [`device_id_from_kernel`] | `pub(crate)` | `fn device_id_from_kernel(device: u64) -> `[`DeviceId`] |
 
 use std::fmt;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct DeviceId {
-    pub major: u32,
-    pub minor: u32,
+pub(crate) struct DeviceId {
+    pub(crate) major: u32,
+    pub(crate) minor: u32,
 }
-pub fn device_id_from_stat(device: u64) -> DeviceId {
+pub(crate) fn device_id_from_stat(device: u64) -> DeviceId {
     DeviceId {
         major: libc::major(device),
         minor: libc::minor(device),
     }
 }
 
-pub fn device_id_from_kernel(device: u64) -> DeviceId {
+pub(crate) fn device_id_from_kernel(device: u64) -> DeviceId {
     DeviceId {
         major: (device >> 20) as u32,
         minor: (device & ((1 << 20) - 1)) as u32,
@@ -35,7 +35,7 @@ pub fn device_id_from_kernel(device: u64) -> DeviceId {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum IpcKind {
+pub(crate) enum IpcKind {
     Pipe,
     Socket,
 }
@@ -48,16 +48,16 @@ impl fmt::Display for IpcKind {
     }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct IpcIdentity {
-    pub kind: IpcKind,
-    pub device: DeviceId,
-    pub inode: u64,
+pub(crate) struct IpcIdentity {
+    pub(crate) kind: IpcKind,
+    pub(crate) device: DeviceId,
+    pub(crate) inode: u64,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct FileIdentity {
-    pub device: DeviceId,
-    pub inode: u64,
-    pub generation: u32,
+pub(crate) struct FileIdentity {
+    pub(crate) device: DeviceId,
+    pub(crate) inode: u64,
+    pub(crate) generation: u32,
 }
 
 crate::ipc::codec::wire_struct!(DeviceId { major, minor });

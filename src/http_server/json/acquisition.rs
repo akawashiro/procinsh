@@ -37,24 +37,24 @@ use std::sync::Arc;
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::acquisition::ProcessSummary")]
 struct ProcessSummaryJson {
-    pub identity: ProcessId,
+    identity: ProcessId,
     #[serde(skip)]
-    pub parent_pid: i32,
-    pub name: String,
-    pub executable: Option<String>,
-    pub command_line: Option<Vec<String>>,
-    pub uid: Option<u32>,
-    pub username: Option<String>,
-    pub euid: Option<u32>,
-    pub effective_username: Option<String>,
-    pub state: String,
+    parent_pid: i32,
+    name: String,
+    executable: Option<String>,
+    command_line: Option<Vec<String>>,
+    uid: Option<u32>,
+    username: Option<String>,
+    euid: Option<u32>,
+    effective_username: Option<String>,
+    state: String,
     /// Unix milliseconds derived from boot time and process start ticks; absent if unavailable.
-    pub started_at: Option<u64>,
-    pub cpu_percent: Option<f64>,
-    pub rss_bytes: u64,
-    pub thread_count: u32,
-    pub raw_ticks: u64,
-    pub raw_measured_ns: u64,
+    started_at: Option<u64>,
+    cpu_percent: Option<f64>,
+    rss_bytes: u64,
+    thread_count: u32,
+    raw_ticks: u64,
+    raw_measured_ns: u64,
 }
 impl serde::Serialize for crate::ipc::acquisition::ProcessSummary {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -66,9 +66,9 @@ impl serde::Serialize for crate::ipc::acquisition::ProcessSummary {
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::acquisition::MemoryRollup")]
 struct MemoryRollupJson {
-    pub rss_bytes: Option<u64>,
-    pub pss_bytes: Option<u64>,
-    pub private_bytes: Option<u64>,
+    rss_bytes: Option<u64>,
+    pss_bytes: Option<u64>,
+    private_bytes: Option<u64>,
 }
 impl serde::Serialize for crate::ipc::acquisition::MemoryRollup {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -80,11 +80,11 @@ impl serde::Serialize for crate::ipc::acquisition::MemoryRollup {
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::acquisition::MemoryMaps")]
 struct MemoryMapsJson {
-    pub process_id: ProcessId,
-    pub maps: Vec<SmapsEntry>,
-    pub error: Option<String>,
-    pub captured_at: Option<u64>,
-    pub rollup: Option<MemoryRollup>,
+    process_id: ProcessId,
+    maps: Vec<SmapsEntry>,
+    error: Option<String>,
+    captured_at: Option<u64>,
+    rollup: Option<MemoryRollup>,
 }
 impl serde::Serialize for crate::ipc::acquisition::MemoryMaps {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -97,9 +97,9 @@ impl serde::Serialize for crate::ipc::acquisition::MemoryMaps {
 #[serde(remote = "crate::ipc::acquisition::InstructionBytes")]
 struct InstructionBytesJson {
     #[serde(serialize_with = "crate::http_server::model::memory::hex")]
-    pub address: u64,
-    pub bytes: Vec<u8>,
-    pub error: Option<String>,
+    address: u64,
+    bytes: Vec<u8>,
+    error: Option<String>,
 }
 impl serde::Serialize for crate::ipc::acquisition::InstructionBytes {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -111,27 +111,27 @@ impl serde::Serialize for crate::ipc::acquisition::InstructionBytes {
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::acquisition::LiveSample")]
 struct LiveSampleJson {
-    pub tid: i32,
+    tid: i32,
     #[serde(rename = "architecture", serialize_with = "serialize_architecture")]
-    pub executable_header: Option<[u8; 20]>,
-    pub sampled_at: Option<u64>,
-    pub sample_time_ns: Option<u64>,
+    executable_header: Option<[u8; 20]>,
+    sampled_at: Option<u64>,
+    sample_time_ns: Option<u64>,
     #[cfg(test)]
     #[serde(skip)]
-    pub sample_source: Option<SampleSource>,
-    pub sample_age_ms: Option<u64>,
-    pub cpu: Option<u32>,
-    pub lost_samples: u64,
-    pub registers: Vec<Register>,
-    pub raw_registers: Option<RegisterSet>,
-    pub stack_bytes: Vec<u8>,
-    pub map_epoch: Option<u64>,
+    sample_source: Option<SampleSource>,
+    sample_age_ms: Option<u64>,
+    cpu: Option<u32>,
+    lost_samples: u64,
+    registers: Vec<Register>,
+    raw_registers: Option<RegisterSet>,
+    stack_bytes: Vec<u8>,
+    map_epoch: Option<u64>,
     #[serde(skip)]
-    pub context: Option<Arc<MappingSnapshot>>,
-    pub call_stack: Vec<StackFrame>,
-    pub disassembly: Option<InstructionBytes>,
-    pub unwind_stop: String,
-    pub error: Option<String>,
+    context: Option<Arc<MappingSnapshot>>,
+    call_stack: Vec<StackFrame>,
+    disassembly: Option<InstructionBytes>,
+    unwind_stop: String,
+    error: Option<String>,
 }
 impl serde::Serialize for crate::ipc::acquisition::LiveSample {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -143,21 +143,21 @@ impl serde::Serialize for crate::ipc::acquisition::LiveSample {
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::acquisition::ProcessDetailSnapshot")]
 struct ProcessDetailSnapshotJson {
-    pub summary: ProcessSummary,
-    pub exited: bool,
-    pub error: Option<String>,
+    summary: ProcessSummary,
+    exited: bool,
+    error: Option<String>,
     #[cfg(test)]
-    pub observation: Option<ProcessObservation>,
-    pub process_sample: ProcessSample,
+    observation: Option<ProcessObservation>,
+    process_sample: ProcessSample,
     #[cfg(test)]
-    pub history: VecDeque<HistoryPoint>,
-    pub maps: Vec<SmapsEntry>,
-    pub maps_error: Option<String>,
-    pub maps_captured_at: Option<u64>,
-    pub rollup: Option<MemoryRollup>,
-    pub live_samples: Vec<LiveSample>,
-    pub mapping_snapshots: Vec<MappingSnapshot>,
-    pub sampling_error: Option<String>,
+    history: VecDeque<HistoryPoint>,
+    maps: Vec<SmapsEntry>,
+    maps_error: Option<String>,
+    maps_captured_at: Option<u64>,
+    rollup: Option<MemoryRollup>,
+    live_samples: Vec<LiveSample>,
+    mapping_snapshots: Vec<MappingSnapshot>,
+    sampling_error: Option<String>,
 }
 impl serde::Serialize for crate::ipc::acquisition::ProcessDetailSnapshot {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -169,15 +169,15 @@ impl serde::Serialize for crate::ipc::acquisition::ProcessDetailSnapshot {
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::acquisition::SystemActivity")]
 struct SystemActivityJson {
-    pub captured_at: u64,
-    pub window_ms: u64,
-    pub files: Vec<FileActivity>,
-    pub ipc: Vec<IpcActivity>,
-    pub cpu: Vec<CpuActivity>,
-    pub signals: Vec<SignalEvent>,
-    pub status: SystemMonitorStatus,
+    captured_at: u64,
+    window_ms: u64,
+    files: Vec<FileActivity>,
+    ipc: Vec<IpcActivity>,
+    cpu: Vec<CpuActivity>,
+    signals: Vec<SignalEvent>,
+    status: SystemMonitorStatus,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub raw_activity: Option<RawActivity>,
+    raw_activity: Option<RawActivity>,
 }
 impl serde::Serialize for crate::ipc::acquisition::SystemActivity {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -190,23 +190,23 @@ impl serde::Serialize for crate::ipc::acquisition::SystemActivity {
 #[serde(remote = "crate::ipc::acquisition::SystemMonitorStatus")]
 /// State and collection health of the system monitoring sensors.
 struct SystemMonitorStatusJson {
-    pub active: bool,
-    pub ipc: SensorState,
-    pub cpu: SensorState,
-    pub files: SensorState,
-    pub signals: SensorState,
+    active: bool,
+    ipc: SensorState,
+    cpu: SensorState,
+    files: SensorState,
+    signals: SensorState,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub signals_lost: Option<u64>,
+    signals_lost: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub coverage: Option<String>,
+    coverage: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub files_coverage: Option<String>,
+    files_coverage: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub lost: Option<u64>,
+    lost: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub unresolved: Option<u64>,
+    unresolved: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub files_lost: Option<u64>,
+    files_lost: Option<u64>,
 }
 impl serde::Serialize for crate::ipc::acquisition::SystemMonitorStatus {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {

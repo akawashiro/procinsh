@@ -1,13 +1,17 @@
 //! Process history points interpreted by main.
 //!
 //! # Interface
-//! - [`HistoryPoint`] (`pub`): `struct HistoryPoint`.
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`HistoryPoint`] | `pub(crate)` | `struct HistoryPoint` |
+
 #[derive(Clone, Debug)]
-pub struct HistoryPoint {
-    pub timestamp: u64,
-    pub cpu_percent: Option<f64>,
-    pub rss_bytes: u64,
-    pub vms_bytes: u64,
+pub(crate) struct HistoryPoint {
+    pub(crate) timestamp: u64,
+    pub(crate) cpu_percent: Option<f64>,
+    pub(crate) rss_bytes: u64,
+    pub(crate) vms_bytes: u64,
 }
 
 crate::ipc::codec::wire_struct!(HistoryPoint {

@@ -4,9 +4,7 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`process_from_summary`] | `pub(super)` | `fn process_from_summary( summary: `[`ProcessSummary`]`, parent_id: `[`Option`]`<`[`ProcessId`]`>, ) -> `[`ProcessSnapshot`] |
 //! | [`collect_system_snapshot`] | `pub(super)` | `fn collect_system_snapshot() -> `[`SystemSnapshot`] |
-//! | [`collect_system_snapshot_from_sources`] | `pub(super)` | `fn collect_system_snapshot_from_sources(sources: &`[`HardwareSources`]`) -> `[`SystemSnapshot`] |
 
 #[cfg(not(test))]
 use super::hardware::HardwareSources;
@@ -91,10 +89,7 @@ fn apply_remote_gids(
     }
 }
 
-pub(super) fn process_from_summary(
-    summary: ProcessSummary,
-    parent_id: Option<ProcessId>,
-) -> ProcessSnapshot {
+fn process_from_summary(summary: ProcessSummary, parent_id: Option<ProcessId>) -> ProcessSnapshot {
     ProcessSnapshot {
         identity: summary.identity,
         parent_id,
@@ -115,7 +110,7 @@ pub(super) fn collect_system_snapshot() -> SystemSnapshot {
 }
 
 /// Collects with hardware read from `sources`, which tests point at fixtures.
-pub(super) fn collect_system_snapshot_from_sources(sources: &HardwareSources) -> SystemSnapshot {
+fn collect_system_snapshot_from_sources(sources: &HardwareSources) -> SystemSnapshot {
     #[cfg(test)]
     use crate::http_server::analysis::hardware::finish_device_handle_collector;
     #[cfg(test)]

@@ -12,8 +12,7 @@
 //! | [`observe_process_monitor`] | `pub(in crate::privileged_helper)` | `fn observe_process_monitor( monitor: &`[`Arc`]`<`[`ProcessMonitor`]`>, id: `[`ProcessId`]`, permit: `[`ObservationPermit`]`, ) -> `[`Result`]`<`[`ObservationSession`]`>` |
 //! | [`stop_process_monitor`] | `pub(in crate::privileged_helper)` | `fn stop_process_monitor(state: &`[`ProcessMonitor`]`)` |
 //! | [`process_monitor_is_stopped`] | `pub(in crate::privileged_helper)` | `fn process_monitor_is_stopped(state: &`[`ProcessMonitor`]`) -> bool` |
-//! | [`join_process_collectors`] | `pub(in crate::privileged_helper)` | `fn join_process_collectors( state: &`[`ProcessMonitor`]`, ) -> `[`Result`]`<()>` |
-//! | [`capture_target`] | `pub(in crate::privileged_helper::process)` | `fn capture_target( id: `[`ProcessId`]`, ) -> `[`Result`]`<(`[`ProcessDetailSnapshot`]`, `[`ProcessSample`]`)>` |
+//! | [`join_process_collectors`] | `pub(in crate::privileged_helper)` | `fn join_process_collectors(state: &`[`ProcessMonitor`]`) -> `[`Result`]`<()>` |
 
 #[cfg(test)]
 use crate::http_server::model::process::{initial_observation, next_observation};
@@ -227,9 +226,7 @@ pub(in crate::privileged_helper) fn join_process_collectors(state: &ProcessMonit
     Ok(())
 }
 
-pub(in crate::privileged_helper::process) fn capture_target(
-    id: ProcessId,
-) -> Result<(ProcessDetailSnapshot, ProcessSample)> {
+fn capture_target(id: ProcessId) -> Result<(ProcessDetailSnapshot, ProcessSample)> {
     process::validate_process_identity(id)?;
     let stat = procfs::read_process_stat(&format!("/proc/{}/stat", id.pid))?;
     let summary = process::collect_process_summary(&stat, &process::read_user_names());

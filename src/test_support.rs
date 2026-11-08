@@ -5,7 +5,7 @@
 
 use std::{process::Command, sync::OnceLock};
 
-pub(crate) fn build_targets() {
+pub(super) fn build_targets() {
     static BUILD: OnceLock<()> = OnceLock::new();
     BUILD.get_or_init(|| {
         assert!(

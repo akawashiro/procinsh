@@ -4,15 +4,15 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`decode_file`] | `pub` | `fn decode_file(data: &[u8]) -> `[`Option`]`<`[`FileActivity`]`>` |
-//! | [`decode_ipc`] | `pub` | `fn decode_ipc(bytes: &[u8]) -> `[`Option`]`<`[`IpcEvent`]`>` |
-//! | [`decode_signal`] | `pub` | `fn decode_signal(bytes: &[u8]) -> `[`Option`]`<`[`SignalSample`]`>` |
+//! | [`decode_file`] | `pub(super)` | `fn decode_file(data: &[u8]) -> `[`Option`]`<`[`FileActivity`]`>` |
+//! | [`decode_ipc`] | `pub(super)` | `fn decode_ipc(bytes: &[u8]) -> `[`Option`]`<`[`IpcEvent`]`>` |
+//! | [`decode_signal`] | `pub(super)` | `fn decode_signal(bytes: &[u8]) -> `[`Option`]`<`[`SignalSample`]`>` |
 
 use crate::ipc::activity::{FileActivity, IpcEvent, SignalSample};
 use crate::ipc::model::resource::FileIdentity;
 use crate::ipc::schema::ProcessId;
 
-pub fn decode_file(data: &[u8]) -> Option<FileActivity> {
+pub(super) fn decode_file(data: &[u8]) -> Option<FileActivity> {
     use crate::ipc::model::resource::device_id_from_kernel;
 
     if data.len() != 4144 {
@@ -50,7 +50,7 @@ pub fn decode_file(data: &[u8]) -> Option<FileActivity> {
     })
 }
 
-pub fn decode_ipc(bytes: &[u8]) -> Option<IpcEvent> {
+pub(super) fn decode_ipc(bytes: &[u8]) -> Option<IpcEvent> {
     if bytes.len() != 56 {
         return None;
     }
@@ -68,7 +68,7 @@ pub fn decode_ipc(bytes: &[u8]) -> Option<IpcEvent> {
     })
 }
 
-pub fn decode_signal(bytes: &[u8]) -> Option<SignalSample> {
+pub(super) fn decode_signal(bytes: &[u8]) -> Option<SignalSample> {
     if bytes.len() != 40 {
         return None;
     }

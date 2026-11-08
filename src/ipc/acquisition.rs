@@ -1,19 +1,23 @@
 //! Raw process acquisition, bounded samples and sensor diagnostics.
 //!
 //! # Interface
-//! - [`ProcessSummary`] (`pub`): `struct ProcessSummary`.
-//! - [`MemoryRollup`] (`pub`): `struct MemoryRollup`.
-//! - [`MemoryMaps`] (`pub`): `struct MemoryMaps`.
-//! - [`InstructionBytes`] (`pub`): `struct InstructionBytes`.
-//! - [`LiveSample`] (`pub`): `struct LiveSample`.
-//! - [`ProcessDetailSnapshot`] (`pub`): `struct ProcessDetailSnapshot`.
-//! - [`SystemActivity`] (`pub`): `struct SystemActivity`.
-//! - [`SystemMonitorStatus`] (`pub`): `struct SystemMonitorStatus`.
-//! - [`SensorState`] (`pub`): `enum SensorState`.
-//! - [`SampleSource`] (`pub`): `enum SampleSource`.
-//! - [`ObservationData`] (`pub`): `struct ObservationData`.
-//! - [`EnvironmentData`] (`pub`): `struct EnvironmentData`.
-//! - [`AuxData`] (`pub`): `struct AuxData`.
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`ProcessSummary`] | `pub(crate)` | `struct ProcessSummary` |
+//! | [`MemoryRollup`] | `pub(crate)` | `struct MemoryRollup` |
+//! | [`MemoryMaps`] | `pub(crate)` | `struct MemoryMaps` |
+//! | [`InstructionBytes`] | `pub(crate)` | `struct InstructionBytes` |
+//! | [`LiveSample`] | `pub(crate)` | `struct LiveSample` |
+//! | [`ProcessDetailSnapshot`] | `pub(crate)` | `struct ProcessDetailSnapshot` |
+//! | [`SystemActivity`] | `pub(crate)` | `struct SystemActivity` |
+//! | [`SystemMonitorStatus`] | `pub(crate)` | `struct SystemMonitorStatus` |
+//! | [`SensorState`] | `pub(crate)` | `enum SensorState` |
+//! | [`SampleSource`] | `pub(crate)` | `enum SampleSource` |
+//! | [`ObservationData`] | `pub(crate)` | `struct ObservationData` |
+//! | [`EnvironmentData`] | `pub(crate)` | `struct EnvironmentData` |
+//! | [`AuxData`] | `pub(crate)` | `struct AuxData` |
+
 use crate::ipc::{
     activity::{CpuActivity, FileActivity, IpcActivity, RawActivity, SignalEvent},
     model::{
@@ -30,117 +34,117 @@ use crate::ipc::{history::HistoryPoint, model::process::ProcessObservation};
 use std::collections::VecDeque;
 use std::sync::Arc;
 #[derive(Clone, Debug)]
-pub struct ProcessSummary {
-    pub identity: ProcessId,
-    pub parent_pid: i32,
-    pub name: String,
-    pub executable: Option<String>,
-    pub command_line: Option<Vec<String>>,
-    pub uid: Option<u32>,
-    pub username: Option<String>,
-    pub euid: Option<u32>,
-    pub effective_username: Option<String>,
-    pub state: String,
+pub(crate) struct ProcessSummary {
+    pub(crate) identity: ProcessId,
+    pub(crate) parent_pid: i32,
+    pub(crate) name: String,
+    pub(crate) executable: Option<String>,
+    pub(crate) command_line: Option<Vec<String>>,
+    pub(crate) uid: Option<u32>,
+    pub(crate) username: Option<String>,
+    pub(crate) euid: Option<u32>,
+    pub(crate) effective_username: Option<String>,
+    pub(crate) state: String,
     /// Unix milliseconds derived from boot time and process start ticks; absent if unavailable.
-    pub started_at: Option<u64>,
-    pub cpu_percent: Option<f64>,
-    pub rss_bytes: u64,
-    pub thread_count: u32,
-    pub raw_ticks: u64,
-    pub raw_measured_ns: u64,
+    pub(crate) started_at: Option<u64>,
+    pub(crate) cpu_percent: Option<f64>,
+    pub(crate) rss_bytes: u64,
+    pub(crate) thread_count: u32,
+    pub(crate) raw_ticks: u64,
+    pub(crate) raw_measured_ns: u64,
 }
 #[derive(Clone, Debug, Default)]
-pub struct MemoryRollup {
-    pub rss_bytes: Option<u64>,
-    pub pss_bytes: Option<u64>,
-    pub private_bytes: Option<u64>,
+pub(crate) struct MemoryRollup {
+    pub(crate) rss_bytes: Option<u64>,
+    pub(crate) pss_bytes: Option<u64>,
+    pub(crate) private_bytes: Option<u64>,
 }
-pub struct MemoryMaps {
-    pub process_id: ProcessId,
-    pub maps: Vec<SmapsEntry>,
-    pub error: Option<String>,
-    pub captured_at: Option<u64>,
-    pub rollup: Option<MemoryRollup>,
+pub(crate) struct MemoryMaps {
+    pub(crate) process_id: ProcessId,
+    pub(crate) maps: Vec<SmapsEntry>,
+    pub(crate) error: Option<String>,
+    pub(crate) captured_at: Option<u64>,
+    pub(crate) rollup: Option<MemoryRollup>,
 }
 #[derive(Clone, Debug)]
-pub struct InstructionBytes {
-    pub address: u64,
-    pub bytes: Vec<u8>,
-    pub error: Option<String>,
+pub(crate) struct InstructionBytes {
+    pub(crate) address: u64,
+    pub(crate) bytes: Vec<u8>,
+    pub(crate) error: Option<String>,
 }
 /// Latest thread sample with loss and error diagnostics.
 /// `sampled_at` is Unix milliseconds; `sample_age_ms` uses monotonic time.
 #[derive(Clone, Debug)]
-pub struct LiveSample {
-    pub tid: i32,
+pub(crate) struct LiveSample {
+    pub(crate) tid: i32,
     /// Raw executable header; interpreted only by the HTTP server.
-    pub executable_header: Option<[u8; 20]>,
-    pub sampled_at: Option<u64>,
-    pub sample_time_ns: Option<u64>,
+    pub(crate) executable_header: Option<[u8; 20]>,
+    pub(crate) sampled_at: Option<u64>,
+    pub(crate) sample_time_ns: Option<u64>,
     #[cfg(test)]
-    pub sample_source: Option<SampleSource>,
-    pub sample_age_ms: Option<u64>,
-    pub cpu: Option<u32>,
-    pub lost_samples: u64,
-    pub registers: Vec<Register>,
-    pub raw_registers: Option<RegisterSet>,
-    pub stack_bytes: Vec<u8>,
-    pub map_epoch: Option<u64>,
-    pub context: Option<Arc<MappingSnapshot>>,
-    pub call_stack: Vec<StackFrame>,
-    pub disassembly: Option<InstructionBytes>,
-    pub unwind_stop: String,
-    pub error: Option<String>,
+    pub(crate) sample_source: Option<SampleSource>,
+    pub(crate) sample_age_ms: Option<u64>,
+    pub(crate) cpu: Option<u32>,
+    pub(crate) lost_samples: u64,
+    pub(crate) registers: Vec<Register>,
+    pub(crate) raw_registers: Option<RegisterSet>,
+    pub(crate) stack_bytes: Vec<u8>,
+    pub(crate) map_epoch: Option<u64>,
+    pub(crate) context: Option<Arc<MappingSnapshot>>,
+    pub(crate) call_stack: Vec<StackFrame>,
+    pub(crate) disassembly: Option<InstructionBytes>,
+    pub(crate) unwind_stop: String,
+    pub(crate) error: Option<String>,
 }
 /// SSE observation state with detailed maps and independently aged live samples.
 /// Map entries flatten structural mappings with optional RSS/PSS measurements.
 #[derive(Clone, Debug)]
-pub struct ProcessDetailSnapshot {
-    pub summary: ProcessSummary,
-    pub exited: bool,
-    pub error: Option<String>,
+pub(crate) struct ProcessDetailSnapshot {
+    pub(crate) summary: ProcessSummary,
+    pub(crate) exited: bool,
+    pub(crate) error: Option<String>,
     #[cfg(test)]
-    pub observation: Option<ProcessObservation>,
-    pub process_sample: ProcessSample,
+    pub(crate) observation: Option<ProcessObservation>,
+    pub(crate) process_sample: ProcessSample,
     #[cfg(test)]
-    pub history: VecDeque<HistoryPoint>,
-    pub maps: Vec<SmapsEntry>,
-    pub maps_error: Option<String>,
-    pub maps_captured_at: Option<u64>,
-    pub rollup: Option<MemoryRollup>,
-    pub live_samples: Vec<LiveSample>,
-    pub mapping_snapshots: Vec<MappingSnapshot>,
-    pub sampling_error: Option<String>,
+    pub(crate) history: VecDeque<HistoryPoint>,
+    pub(crate) maps: Vec<SmapsEntry>,
+    pub(crate) maps_error: Option<String>,
+    pub(crate) maps_captured_at: Option<u64>,
+    pub(crate) rollup: Option<MemoryRollup>,
+    pub(crate) live_samples: Vec<LiveSample>,
+    pub(crate) mapping_snapshots: Vec<MappingSnapshot>,
+    pub(crate) sampling_error: Option<String>,
 }
 #[derive(Clone)]
-pub struct SystemActivity {
-    pub captured_at: u64,
-    pub window_ms: u64,
-    pub files: Vec<FileActivity>,
-    pub ipc: Vec<IpcActivity>,
-    pub cpu: Vec<CpuActivity>,
-    pub signals: Vec<SignalEvent>,
-    pub status: SystemMonitorStatus,
-    pub raw_activity: Option<RawActivity>,
+pub(crate) struct SystemActivity {
+    pub(crate) captured_at: u64,
+    pub(crate) window_ms: u64,
+    pub(crate) files: Vec<FileActivity>,
+    pub(crate) ipc: Vec<IpcActivity>,
+    pub(crate) cpu: Vec<CpuActivity>,
+    pub(crate) signals: Vec<SignalEvent>,
+    pub(crate) status: SystemMonitorStatus,
+    pub(crate) raw_activity: Option<RawActivity>,
 }
 #[derive(Clone, Default)]
 /// State and collection health of the system monitoring sensors.
-pub struct SystemMonitorStatus {
-    pub active: bool,
-    pub ipc: SensorState,
-    pub cpu: SensorState,
-    pub files: SensorState,
-    pub signals: SensorState,
-    pub signals_lost: Option<u64>,
-    pub coverage: Option<String>,
-    pub files_coverage: Option<String>,
-    pub lost: Option<u64>,
-    pub unresolved: Option<u64>,
-    pub files_lost: Option<u64>,
+pub(crate) struct SystemMonitorStatus {
+    pub(crate) active: bool,
+    pub(crate) ipc: SensorState,
+    pub(crate) cpu: SensorState,
+    pub(crate) files: SensorState,
+    pub(crate) signals: SensorState,
+    pub(crate) signals_lost: Option<u64>,
+    pub(crate) coverage: Option<String>,
+    pub(crate) files_coverage: Option<String>,
+    pub(crate) lost: Option<u64>,
+    pub(crate) unresolved: Option<u64>,
+    pub(crate) files_lost: Option<u64>,
 }
 /// Health of an acquisition sensor; unavailable and error states carry a diagnostic.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub enum SensorState {
+pub(crate) enum SensorState {
     #[default]
     Idle,
     Observing,
@@ -148,30 +152,30 @@ pub enum SensorState {
     Error(String),
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SampleSource {
+pub(crate) enum SampleSource {
     CpuClock,
     Ptrace,
     ContextSwitch { preempted: bool },
 }
 
 #[derive(Clone, Debug)]
-pub struct ObservationData {
-    pub process_sample: ProcessSample,
-    pub threads_only: bool,
+pub(crate) struct ObservationData {
+    pub(crate) process_sample: ProcessSample,
+    pub(crate) threads_only: bool,
 }
 #[derive(Clone, Debug)]
-pub struct EnvironmentData {
-    pub process_id: ProcessId,
-    pub captured_at: u64,
-    pub raw_environment: Vec<u8>,
+pub(crate) struct EnvironmentData {
+    pub(crate) process_id: ProcessId,
+    pub(crate) captured_at: u64,
+    pub(crate) raw_environment: Vec<u8>,
 }
 #[derive(Clone, Debug)]
-pub struct AuxData {
-    pub process_id: ProcessId,
-    pub captured_at: u64,
-    pub word_bits: usize,
-    pub raw_auxv: Vec<u8>,
-    pub raw_aux_strings: Vec<(u64, Option<String>, Option<String>)>,
+pub(crate) struct AuxData {
+    pub(crate) process_id: ProcessId,
+    pub(crate) captured_at: u64,
+    pub(crate) word_bits: usize,
+    pub(crate) raw_auxv: Vec<u8>,
+    pub(crate) raw_aux_strings: Vec<(u64, Option<String>, Option<String>)>,
 }
 
 crate::ipc::codec::wire_struct!(ProcessSummary {

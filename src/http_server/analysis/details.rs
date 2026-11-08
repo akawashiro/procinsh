@@ -4,21 +4,19 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`EnvironmentEntry`] | `pub` | `struct EnvironmentEntry` |
-//! | [`parse_environment`] | `pub` | `fn parse_environment(bytes: &[u8]) -> Vec<EnvironmentEntry>` |
-//! | [`AuxEntry`] | `pub` | `struct AuxEntry` |
-//! | [`parse_auxv`] | `pub` | `fn parse_auxv(bytes: &[u8], word_bytes: usize) -> Result<Vec<AuxEntry>>` |
-//! | [`format_process_metadata`] | `pub` | `fn format_process_metadata(value: &mut serde_json::Value) -> Result<()>` |
+//! | [`EnvironmentEntry`] | `pub(crate)` | `struct EnvironmentEntry` |
+//! | [`AuxEntry`] | `pub(crate)` | `struct AuxEntry` |
+//! | [`format_process_metadata`] | `pub(in crate::http_server)` | `fn format_process_metadata(value: &mut `[`serde_json::Value`]`) -> `[`Result`]`<()>` |
 
 use anyhow::{Result, bail, ensure};
 use serde::Serialize;
 #[derive(Debug, Serialize, serde::Deserialize)]
-pub struct EnvironmentEntry {
-    pub name: String,
-    pub value: Option<String>,
+pub(crate) struct EnvironmentEntry {
+    pub(crate) name: String,
+    pub(crate) value: Option<String>,
 }
 
-pub fn parse_environment(bytes: &[u8]) -> Vec<EnvironmentEntry> {
+fn parse_environment(bytes: &[u8]) -> Vec<EnvironmentEntry> {
     bytes
         .split(|b| *b == 0)
         .filter(|entry| !entry.is_empty())
@@ -36,19 +34,19 @@ pub fn parse_environment(bytes: &[u8]) -> Vec<EnvironmentEntry> {
 }
 
 #[derive(Debug, Serialize, serde::Deserialize)]
-pub struct AuxEntry {
-    pub tag: String,
-    pub name: String,
+pub(crate) struct AuxEntry {
+    tag: String,
+    pub(crate) name: String,
     #[serde(
         serialize_with = "crate::http_server::model::memory::hex",
         deserialize_with = "crate::http_server::model::memory::deserialize_hex"
     )]
-    pub value: u64,
-    pub decimal: String,
-    pub kind: String,
-    pub description: String,
-    pub text: Option<String>,
-    pub text_error: Option<String>,
+    pub(crate) value: u64,
+    decimal: String,
+    kind: String,
+    description: String,
+    pub(crate) text: Option<String>,
+    text_error: Option<String>,
 }
 
 fn auxiliary_tag_metadata(tag: u64) -> (&'static str, &'static str, &'static str) {
@@ -91,7 +89,7 @@ fn auxiliary_tag_metadata(tag: u64) -> (&'static str, &'static str, &'static str
     }
 }
 
-pub fn parse_auxv(bytes: &[u8], word_bytes: usize) -> Result<Vec<AuxEntry>> {
+fn parse_auxv(bytes: &[u8], word_bytes: usize) -> Result<Vec<AuxEntry>> {
     ensure!(matches!(word_bytes, 4 | 8), "unsupported auxv word size");
     let mut entries = Vec::new();
     for pair in bytes.chunks_exact(word_bytes * 2) {
@@ -127,7 +125,7 @@ pub fn parse_auxv(bytes: &[u8], word_bytes: usize) -> Result<Vec<AuxEntry>> {
     bail!("Incomplete auxv (AT_NULL is missing).")
 }
 
-pub fn format_process_metadata(value: &mut serde_json::Value) -> Result<()> {
+pub(in crate::http_server) fn format_process_metadata(value: &mut serde_json::Value) -> Result<()> {
     if value.get("raw_environment").is_some() {
         let bytes: Vec<u8> = serde_json::from_value(
             value

@@ -4,15 +4,17 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`deserialize_hex`] | `pub` | `fn deserialize_hex<'de, D: `[`serde::Deserializer`]`<'de>>(deserializer: D) -> `[`Result`]`<u64, D::Error>` |
-//! | [`hex`] | `pub` | `fn hex<S: `[`serde::Serializer`]`>(value: &u64, serializer: S) -> `[`Result`]`<S::Ok, S::Error>` |
+//! | [`deserialize_hex`] | `pub(crate)` | `fn deserialize_hex<'de, D: `[`serde::Deserializer`]`<'de>>(deserializer: D) -> `[`Result`]`<u64, D::Error>` |
+//! | [`hex`] | `pub(crate)` | `fn hex<S: `[`serde::Serializer`]`>(value: &u64, serializer: S) -> `[`Result`]`<S::Ok, S::Error>` |
 
 use crate::ipc::model::memory::MemoryMap;
 use crate::{http_server::model::resource::decimal, ipc::model::resource::DeviceId};
 use anyhow::Result;
 use serde::Deserialize;
 
-pub fn deserialize_hex<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<u64, D::Error> {
+pub(crate) fn deserialize_hex<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<u64, D::Error> {
     let value = String::deserialize(deserializer)?;
     u64::from_str_radix(value.trim_start_matches("0x"), 16).map_err(serde::de::Error::custom)
 }
@@ -49,22 +51,22 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::model::memory::MemoryKind {
 #[serde(remote = "crate::ipc::model::memory::MemoryMap")]
 struct MemoryMapJson {
     #[serde(serialize_with = "hex", deserialize_with = "deserialize_hex")]
-    pub start: u64,
+    start: u64,
     #[serde(serialize_with = "hex", deserialize_with = "deserialize_hex")]
-    pub end: u64,
-    pub readable: bool,
-    pub writable: bool,
-    pub executable: bool,
-    pub private: bool,
+    end: u64,
+    readable: bool,
+    writable: bool,
+    executable: bool,
+    private: bool,
     #[serde(serialize_with = "hex", deserialize_with = "deserialize_hex")]
-    pub file_offset: u64,
-    pub device: DeviceId,
+    file_offset: u64,
+    device: DeviceId,
     #[serde(
         serialize_with = "decimal",
         deserialize_with = "crate::http_server::model::resource::deserialize_decimal"
     )]
-    pub inode: u64,
-    pub pathname: Option<String>,
+    inode: u64,
+    pathname: Option<String>,
 }
 impl serde::Serialize for crate::ipc::model::memory::MemoryMap {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -85,9 +87,9 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::model::memory::MemoryMap {
 #[serde(remote = "crate::ipc::model::memory::SmapsEntry")]
 struct SmapsEntryJson {
     #[serde(flatten)]
-    pub mapping: MemoryMap,
-    pub rss_bytes: Option<u64>,
-    pub pss_bytes: Option<u64>,
+    mapping: MemoryMap,
+    rss_bytes: Option<u64>,
+    pss_bytes: Option<u64>,
 }
 impl serde::Serialize for crate::ipc::model::memory::SmapsEntry {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -101,7 +103,7 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::model::memory::SmapsEntry {
     }
 }
 
-pub fn hex<S: serde::Serializer>(value: &u64, serializer: S) -> Result<S::Ok, S::Error> {
+pub(crate) fn hex<S: serde::Serializer>(value: &u64, serializer: S) -> Result<S::Ok, S::Error> {
     serializer.serialize_str(&format!("0x{value:016x}"))
 }
 
@@ -110,8 +112,8 @@ pub fn hex<S: serde::Serializer>(value: &u64, serializer: S) -> Result<S::Ok, S:
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::model::memory::MappingSnapshot")]
 struct MappingSnapshotJson {
-    pub epoch: u64,
-    pub maps: Vec<MemoryMap>,
+    epoch: u64,
+    maps: Vec<MemoryMap>,
 }
 impl serde::Serialize for crate::ipc::model::memory::MappingSnapshot {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {

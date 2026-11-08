@@ -1,71 +1,74 @@
 //! Native file descriptor observations, resource identities, peers and holders for IPC.
 //!
 //! # Interface
-//! - [`FileDescriptorInfo`] (`pub`): `struct FileDescriptorInfo`.
-//! - [`FileDescriptors`] (`pub`): `struct FileDescriptors`.
-//! - [`Endpoint`] (`pub`): `struct Endpoint`.
-//! - [`Key`] (`pub`): `struct Key`.
-//! - [`Owner`] (`pub`): `struct Owner`.
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`Owner`] | `pub(crate)` | `struct Owner` |
+//! | [`FileDescriptors`] | `pub(crate)` | `struct FileDescriptors` |
+//! | [`FileDescriptorInfo`] | `pub(crate)` | `struct FileDescriptorInfo` |
+//! | [`Endpoint`] | `pub(crate)` | `struct Endpoint` |
+//! | [`Key`] | `pub(crate)` | `struct Key` |
 
 use crate::ipc::{model::socket_types::*, schema::ProcessId};
 
 #[derive(Debug)]
-pub struct Owner {
-    pub endpoint: Endpoint,
-    pub mode: Option<u32>,
+pub(crate) struct Owner {
+    pub(crate) endpoint: Endpoint,
+    pub(crate) mode: Option<u32>,
 }
 
 #[derive(Debug)]
-pub struct FileDescriptors {
-    pub process_id: ProcessId,
-    pub captured_at: u64,
-    pub entries: Vec<FileDescriptorInfo>,
-    pub warnings: Vec<String>,
-    pub raw_fd_owners: Vec<(Key, Vec<Owner>)>,
-    pub raw_peer_keys: Vec<(u32, Vec<Key>)>,
+pub(crate) struct FileDescriptors {
+    pub(crate) process_id: ProcessId,
+    pub(crate) captured_at: u64,
+    pub(crate) entries: Vec<FileDescriptorInfo>,
+    pub(crate) warnings: Vec<String>,
+    pub(crate) raw_fd_owners: Vec<(Key, Vec<Owner>)>,
+    pub(crate) raw_peer_keys: Vec<(u32, Vec<Key>)>,
 }
 
 /// Metadata for one file descriptor, including its resource, peers and shared holders.
 /// `fd` is the descriptor number within the owning process.
 #[derive(Debug)]
-pub struct FileDescriptorInfo {
-    pub fd: u32,
-    pub kind: FdKind,
+pub(crate) struct FileDescriptorInfo {
+    pub(crate) fd: u32,
+    pub(crate) kind: FdKind,
     /// Native inode number, retained without decimal-string conversion.
-    pub inode: u64,
-    pub target: String,
-    pub access: FdAccess,
-    pub protocol: Option<SocketProtocol>,
-    pub state: Option<SocketState>,
+    pub(crate) inode: u64,
+    pub(crate) target: String,
+    pub(crate) access: FdAccess,
+    pub(crate) protocol: Option<SocketProtocol>,
+    pub(crate) state: Option<SocketState>,
     /// Socket listener/peer availability; null for non-socket descriptors.
-    pub connection_status: Option<SocketConnectionStatus>,
-    pub local: Option<InetAddress>,
-    pub remote: Option<InetAddress>,
-    pub path: Option<String>,
+    pub(crate) connection_status: Option<SocketConnectionStatus>,
+    pub(crate) local: Option<InetAddress>,
+    pub(crate) remote: Option<InetAddress>,
+    pub(crate) path: Option<String>,
     /// Peer inode number when the socket peer was observed.
-    pub peer_inode: Option<u64>,
-    pub peers: Vec<Endpoint>,
-    pub holders: Vec<Endpoint>,
-    pub note: String,
-    pub key: Key,
-    pub mode: Option<u32>,
-    pub socket_device: Option<u64>,
+    pub(crate) peer_inode: Option<u64>,
+    pub(crate) peers: Vec<Endpoint>,
+    pub(crate) holders: Vec<Endpoint>,
+    pub(crate) note: String,
+    pub(crate) key: Key,
+    pub(crate) mode: Option<u32>,
+    pub(crate) socket_device: Option<u64>,
 }
 
 #[derive(Clone, Debug)]
-pub struct Endpoint {
-    pub process_id: ProcessId,
-    pub name: String,
-    pub fd: u32,
-    pub access: FdAccess,
-    pub relation: String,
+pub(crate) struct Endpoint {
+    pub(crate) process_id: ProcessId,
+    pub(crate) name: String,
+    pub(crate) fd: u32,
+    pub(crate) access: FdAccess,
+    pub(crate) relation: String,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct Key {
-    pub kind: FdKind,
-    pub device: u64,
-    pub inode: u64,
+pub(crate) struct Key {
+    pub(crate) kind: FdKind,
+    pub(crate) device: u64,
+    pub(crate) inode: u64,
 }
 
 crate::ipc::codec::wire_struct!(Owner { endpoint, mode });

@@ -1,17 +1,18 @@
 //! Read bounded procfs data and decode process counters.
 //!
 //! # Interface
-//! All entries below have `pub(super)` visibility.
-//! - [`Stat`]: `struct Stat`.
-//! - [`page_size`]: `fn page_size() -> u64`.
-//! - [`ticks_per_second`]: `fn ticks_per_second() -> f64`.
-//! - [`parse_process_stat`]: `fn parse_process_stat(text: &str) -> `[`anyhow::Result`]`<`[`Stat`]`>`.
-//! - [`read_bounded_bytes`]: `fn read_bounded_bytes(reader: impl `[`std::io::Read`]`, limit: usize) -> `[`anyhow::Result`]`<`[`Vec`]`<u8>>`.
-//! - [`read_procfs_text`]: `fn read_procfs_text(path: &str) -> `[`anyhow::Result`]`<`[`String`]`>`.
-//! - [`read_process_stat`]: `fn read_process_stat(path: &str) -> `[`anyhow::Result`]`<`[`Stat`]`>`.
-//! - [`read_procfs_fields`]: `fn read_procfs_fields(path: &str) -> `[`anyhow::Result`]`<`[`HashMap`]`<`[`String`]`, `[`String`]`>>`.
-//! - [`parse_procfs_u64_field`]: `fn parse_procfs_u64_field(fields: &`[`HashMap`]`<`[`String`]`, `[`String`]`>, key: &str) -> `[`Option`]`<u64>`.
-//! - [`read_process_io_stats`]: `fn read_process_io_stats(pid: i32) -> `[`anyhow::Result`]`<`[`IoStats`]`>`.
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`Stat`] | `pub(super)` | `struct Stat` |
+//! | [`page_size`] | `pub(super)` | `fn page_size() -> u64` |
+//! | [`ticks_per_second`] | `pub(super)` | `fn ticks_per_second() -> f64` |
+//! | [`read_bounded_bytes`] | `pub(super)` | `fn read_bounded_bytes(reader: impl `[`Read`]`, limit: usize) -> `[`Result`]`<`[`Vec`]`<u8>>` |
+//! | [`read_procfs_text`] | `pub(super)` | `fn read_procfs_text(path: &str) -> `[`Result`]`<`[`String`]`>` |
+//! | [`read_process_stat`] | `pub(super)` | `fn read_process_stat(path: &str) -> `[`Result`]`<`[`Stat`]`>` |
+//! | [`read_procfs_fields`] | `pub(super)` | `fn read_procfs_fields(path: &str) -> `[`Result`]`<`[`HashMap`]`<`[`String`]`, `[`String`]`>>` |
+//! | [`parse_procfs_u64_field`] | `pub(super)` | `fn parse_procfs_u64_field(fields: &`[`HashMap`]`<`[`String`]`, `[`String`]`>, key: &str) -> `[`Option`]`<u64>` |
+//! | [`read_process_io_stats`] | `pub(super)` | `fn read_process_io_stats(pid: i32) -> `[`Result`]`<`[`IoStats`]`>` |
 
 use anyhow::{Context, Result, anyhow, ensure};
 use std::{collections::HashMap, fs, io::Read};
@@ -43,7 +44,7 @@ pub(super) fn ticks_per_second() -> f64 {
     unsafe { libc::sysconf(libc::_SC_CLK_TCK) }.max(1) as f64
 }
 
-pub(super) fn parse_process_stat(text: &str) -> Result<Stat> {
+fn parse_process_stat(text: &str) -> Result<Stat> {
     let open = text.find('(').context("stat: missing comm")?;
     let close = text.rfind(')').context("stat: missing comm end")?;
     ensure!(close > open, "stat: invalid comm");

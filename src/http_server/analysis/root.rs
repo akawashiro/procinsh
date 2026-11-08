@@ -4,26 +4,26 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`snapshot`] | `pub` | `mod snapshot` |
-//! | [`history`] | `pub` | `mod history` |
-//! | [`hardware`] | `pub` | `mod hardware` |
-//! | [`relations`] | `pub` | `mod relations` |
-//! | [`descriptors`] | `pub` | `mod descriptors` |
-//! | [`activity`] | `pub` | `mod activity` |
-//! | [`details`] | `pub` | `mod details` |
+//! | [`snapshot`] | `pub(crate)` | `mod snapshot` |
+//! | [`history`] | `pub(crate)` | `mod history` |
+//! | [`hardware`] | `pub(crate)` | `mod hardware` |
+//! | [`relations`] | `pub(crate)` | `mod relations` |
+//! | [`descriptors`] | `pub(crate)` | `mod descriptors` |
+//! | [`activity`] | `pub(crate)` | `mod activity` |
+//! | [`details`] | `pub(crate)` | `mod details` |
 
-pub mod snapshot;
+pub(crate) mod snapshot;
 
-pub mod history;
+pub(crate) mod history;
 
-pub mod hardware;
-pub mod relations;
+pub(crate) mod hardware;
+pub(crate) mod relations;
 
-pub mod descriptors;
+pub(crate) mod descriptors;
 
-pub mod activity;
+pub(crate) mod activity;
 
-pub mod details;
+pub(crate) mod details;
 
 #[cfg(test)]
 mod test_support;

@@ -4,15 +4,15 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`RegisterSet`] | `pub` | `struct RegisterSet` |
-//! | [`RegisterRole`] | `pub` | `enum RegisterRole` |
-//! | [`Register`] | `pub` | `struct Register` |
-//! | [`RegisterMapping`] | `pub` | `struct RegisterMapping` |
-//! | [`validate_register_set`] | `pub` | `fn validate_register_set(state: &`[`RegisterSet`]`) -> `[`anyhow::Result`]`<()>` |
-//! | [`pc_register_set`] | `pub` | `fn pc_register_set(state: &`[`RegisterSet`]`) -> u64` |
-//! | [`sp_register_set`] | `pub` | `fn sp_register_set(state: &`[`RegisterSet`]`) -> u64` |
-//! | [`fp_register_set`] | `pub` | `fn fp_register_set(state: &`[`RegisterSet`]`) -> u64` |
-//! | [`lr_register_set`] | `pub` | `fn lr_register_set(state: &`[`RegisterSet`]`) -> u64` |
+//! | [`RegisterSet`] | `pub(crate)` | `struct RegisterSet` |
+//! | [`RegisterRole`] | `pub(crate)` | `enum RegisterRole` |
+//! | [`Register`] | `pub(crate)` | `struct Register` |
+//! | [`RegisterMapping`] | `pub(crate)` | `struct RegisterMapping` |
+//! | [`validate_register_set`] | `pub(crate)` | `fn validate_register_set(state: &`[`RegisterSet`]`) -> `[`anyhow::Result`]`<()>` |
+//! | [`pc_register_set`] | `pub(crate)` | `fn pc_register_set(state: &`[`RegisterSet`]`) -> u64` |
+//! | [`sp_register_set`] | `pub(crate)` | `fn sp_register_set(state: &`[`RegisterSet`]`) -> u64` |
+//! | [`fp_register_set`] | `pub(crate)` | `fn fp_register_set(state: &`[`RegisterSet`]`) -> u64` |
+//! | [`lr_register_set`] | `pub(crate)` | `fn lr_register_set(state: &`[`RegisterSet`]`) -> u64` |
 
 use crate::ipc::model::memory::MemoryKind;
 
@@ -21,25 +21,25 @@ use crate::ipc::model::memory::MemoryKind;
 /// PAC metadata describes the target thread and may be retained across samples;
 /// register values themselves always come from one sample.
 #[derive(Clone, Debug)]
-pub struct RegisterSet {
-    pub values: Vec<u64>,
-    pub flags_available: bool,
+pub(crate) struct RegisterSet {
+    pub(crate) values: Vec<u64>,
+    pub(crate) flags_available: bool,
     /// Bits occupied by instruction-pointer authentication, as reported by Linux.
-    pub code_pac_mask: Option<u64>,
+    pub(crate) code_pac_mask: Option<u64>,
 }
 
 impl RegisterSet {
-    pub const COUNT: usize = if cfg!(target_arch = "aarch64") {
+    pub(crate) const COUNT: usize = if cfg!(target_arch = "aarch64") {
         34
     } else {
         24
     };
-    pub const PC: usize = if cfg!(target_arch = "aarch64") { 32 } else { 8 };
-    pub const SP: usize = if cfg!(target_arch = "aarch64") { 31 } else { 7 };
-    pub const FP: usize = if cfg!(target_arch = "aarch64") { 29 } else { 6 };
+    pub(crate) const PC: usize = if cfg!(target_arch = "aarch64") { 32 } else { 8 };
+    pub(crate) const SP: usize = if cfg!(target_arch = "aarch64") { 31 } else { 7 };
+    pub(crate) const FP: usize = if cfg!(target_arch = "aarch64") { 29 } else { 6 };
 }
 
-pub fn validate_register_set(state: &RegisterSet) -> anyhow::Result<()> {
+pub(crate) fn validate_register_set(state: &RegisterSet) -> anyhow::Result<()> {
     anyhow::ensure!(
         state.values.len() == RegisterSet::COUNT,
         "Invalid native register count"
@@ -47,19 +47,19 @@ pub fn validate_register_set(state: &RegisterSet) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn pc_register_set(state: &RegisterSet) -> u64 {
+pub(crate) fn pc_register_set(state: &RegisterSet) -> u64 {
     state.values[RegisterSet::PC]
 }
 
-pub fn sp_register_set(state: &RegisterSet) -> u64 {
+pub(crate) fn sp_register_set(state: &RegisterSet) -> u64 {
     state.values[RegisterSet::SP]
 }
 
-pub fn fp_register_set(state: &RegisterSet) -> u64 {
+pub(crate) fn fp_register_set(state: &RegisterSet) -> u64 {
     state.values[RegisterSet::FP]
 }
 
-pub fn lr_register_set(state: &RegisterSet) -> u64 {
+pub(crate) fn lr_register_set(state: &RegisterSet) -> u64 {
     if cfg!(target_arch = "aarch64") {
         state.values[30]
     } else {
@@ -79,7 +79,7 @@ impl Default for RegisterSet {
 
 /// Architecture-independent register purpose, separate from its memory mapping kind.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum RegisterRole {
+pub(crate) enum RegisterRole {
     Pc,
     Sp,
     Fp,
@@ -90,23 +90,23 @@ pub enum RegisterRole {
 crate::ipc::codec::wire_enum!(RegisterRole{0=>Pc,1=>Sp,2=>Fp,3=>Lr,4=>Flags,5=>General});
 
 #[derive(Clone, Debug)]
-pub struct Register {
-    pub name: String,
-    pub role: RegisterRole,
-    pub value: u64,
-    pub decimal: String,
-    pub kind: MemoryKind,
-    pub mapping: Option<RegisterMapping>,
-    pub offset: Option<u64>,
+pub(crate) struct Register {
+    pub(crate) name: String,
+    pub(crate) role: RegisterRole,
+    pub(crate) value: u64,
+    pub(crate) decimal: String,
+    pub(crate) kind: MemoryKind,
+    pub(crate) mapping: Option<RegisterMapping>,
+    pub(crate) offset: Option<u64>,
 }
 
 #[derive(Clone, Debug)]
-pub struct RegisterMapping {
-    pub pathname: Option<String>,
-    pub readable: bool,
-    pub writable: bool,
-    pub executable: bool,
-    pub private: bool,
+pub(crate) struct RegisterMapping {
+    pub(crate) pathname: Option<String>,
+    pub(crate) readable: bool,
+    pub(crate) writable: bool,
+    pub(crate) executable: bool,
+    pub(crate) private: bool,
 }
 
 impl crate::ipc::codec::Wire for RegisterSet {

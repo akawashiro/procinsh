@@ -4,8 +4,8 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`initial_observation`] | `pub` | `fn initial_observation(current: &`[`ProcessSample`]`) -> `[`ProcessObservation`] |
-//! | [`next_observation`] | `pub` | `fn next_observation(previous: &`[`ProcessSample`]`, current: &`[`ProcessSample`]`) -> `[`ProcessObservation`] |
+//! | [`initial_observation`] | `pub(crate)` | `fn initial_observation(current: &`[`ProcessSample`]`) -> `[`ProcessObservation`] |
+//! | [`next_observation`] | `pub(crate)` | `fn next_observation(previous: &`[`ProcessSample`]`, current: &`[`ProcessSample`]`) -> `[`ProcessObservation`] |
 
 use crate::ipc::model::process::{
     IoStats, ProcessObservation, ProcessSample, Rates, ticks_per_second,
@@ -19,8 +19,8 @@ use crate::ipc::{
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::model::process::IoStats")]
 struct IoStatsJson {
-    pub read_bytes: u64,
-    pub write_bytes: u64,
+    read_bytes: u64,
+    write_bytes: u64,
 }
 impl serde::Serialize for crate::ipc::model::process::IoStats {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -38,12 +38,12 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::model::process::IoStats {
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::model::process::Rates")]
 struct RatesJson {
-    pub minor_faults: Option<f64>,
-    pub major_faults: Option<f64>,
-    pub voluntary_context_switches: Option<f64>,
-    pub nonvoluntary_context_switches: Option<f64>,
-    pub read_bytes: Option<f64>,
-    pub write_bytes: Option<f64>,
+    minor_faults: Option<f64>,
+    major_faults: Option<f64>,
+    voluntary_context_switches: Option<f64>,
+    nonvoluntary_context_switches: Option<f64>,
+    read_bytes: Option<f64>,
+    write_bytes: Option<f64>,
 }
 impl serde::Serialize for crate::ipc::model::process::Rates {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -62,21 +62,21 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::model::process::Rates {
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::model::process::ProcessObservation")]
 struct ProcessObservationJson {
-    pub timestamp: u64,
-    pub process_id: ProcessId,
-    pub cpu_percent: Option<f64>,
-    pub rss_bytes: u64,
-    pub vms_bytes: u64,
-    pub minor_faults: u64,
-    pub major_faults: u64,
-    pub voluntary_context_switches: Option<u64>,
-    pub nonvoluntary_context_switches: Option<u64>,
-    pub io: Option<IoStats>,
-    pub rates: Rates,
-    pub threads: Vec<ThreadObservation>,
-    pub cpu: i32,
-    pub nice: i64,
-    pub priority: i64,
+    timestamp: u64,
+    process_id: ProcessId,
+    cpu_percent: Option<f64>,
+    rss_bytes: u64,
+    vms_bytes: u64,
+    minor_faults: u64,
+    major_faults: u64,
+    voluntary_context_switches: Option<u64>,
+    nonvoluntary_context_switches: Option<u64>,
+    io: Option<IoStats>,
+    rates: Rates,
+    threads: Vec<ThreadObservation>,
+    cpu: i32,
+    nice: i64,
+    priority: i64,
 }
 impl serde::Serialize for crate::ipc::model::process::ProcessObservation {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -95,21 +95,21 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::model::process::ProcessObserva
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::model::process::ProcessSample")]
 struct ProcessSampleJson {
-    pub timestamp: u64,
-    pub process_id: ProcessId,
-    pub rss_bytes: u64,
-    pub vms_bytes: u64,
-    pub minor_faults: u64,
-    pub major_faults: u64,
-    pub voluntary_context_switches: Option<u64>,
-    pub nonvoluntary_context_switches: Option<u64>,
-    pub io: Option<IoStats>,
-    pub threads: Vec<ThreadSample>,
-    pub cpu: i32,
-    pub nice: i64,
-    pub priority: i64,
-    pub ticks: u64,
-    pub measured_at: u64,
+    timestamp: u64,
+    process_id: ProcessId,
+    rss_bytes: u64,
+    vms_bytes: u64,
+    minor_faults: u64,
+    major_faults: u64,
+    voluntary_context_switches: Option<u64>,
+    nonvoluntary_context_switches: Option<u64>,
+    io: Option<IoStats>,
+    threads: Vec<ThreadSample>,
+    cpu: i32,
+    nice: i64,
+    priority: i64,
+    ticks: u64,
+    measured_at: u64,
 }
 impl serde::Serialize for crate::ipc::model::process::ProcessSample {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -124,7 +124,7 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::model::process::ProcessSample 
 }
 
 /// Produces an initial observation with absent CPU percentages and rates.
-pub fn initial_observation(current: &ProcessSample) -> ProcessObservation {
+pub(crate) fn initial_observation(current: &ProcessSample) -> ProcessObservation {
     use crate::http_server::model::threads::observation_thread_sample;
 
     ProcessObservation {
@@ -152,7 +152,10 @@ pub fn initial_observation(current: &ProcessSample) -> ProcessObservation {
 
 /// Derives rates from monotonic elapsed time for the same process identity.
 /// Thread rates match both TID and start time; missing or decreasing counters yield absent rates.
-pub fn next_observation(previous: &ProcessSample, current: &ProcessSample) -> ProcessObservation {
+pub(crate) fn next_observation(
+    previous: &ProcessSample,
+    current: &ProcessSample,
+) -> ProcessObservation {
     let mut result = initial_observation(current);
     if previous.process_id == current.process_id {
         let elapsed =

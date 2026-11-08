@@ -4,8 +4,7 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`classify_register_value`] | `pub` | `fn classify_register_value( name: &str, role: `[`RegisterRole`]`, value: u64, maps: &[`[`MemoryMap`]`], ) -> `[`Register`] |
-//! | [`classify_sample_registers`] | `pub` | `fn classify_sample_registers(r: &`[`RegisterSet`]`, maps: &[`[`MemoryMap`]`]) -> `[`Vec`]`<`[`Register`]`>` |
+//! | [`classify_sample_registers`] | `pub(crate)` | `fn classify_sample_registers(r: &`[`RegisterSet`]`, maps: &[`[`MemoryMap`]`]) -> `[`Vec`]`<`[`Register`]`>` |
 
 use crate::ipc::model::memory::{MemoryKind, MemoryMap};
 use crate::ipc::registers::{Register, RegisterMapping, RegisterRole, RegisterSet};
@@ -14,11 +13,11 @@ use crate::ipc::registers::{Register, RegisterMapping, RegisterRole, RegisterSet
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::registers::RegisterMapping")]
 struct RegisterMappingJson {
-    pub pathname: Option<String>,
-    pub readable: bool,
-    pub writable: bool,
-    pub executable: bool,
-    pub private: bool,
+    pathname: Option<String>,
+    readable: bool,
+    writable: bool,
+    executable: bool,
+    private: bool,
 }
 impl serde::Serialize for crate::ipc::registers::RegisterMapping {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -41,15 +40,15 @@ fn optional_hex<S: serde::Serializer>(
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::registers::Register")]
 struct RegisterJson {
-    pub name: String,
-    pub role: RegisterRole,
+    name: String,
+    role: RegisterRole,
     #[serde(serialize_with = "crate::http_server::model::memory::hex")]
-    pub value: u64,
-    pub decimal: String,
-    pub kind: MemoryKind,
-    pub mapping: Option<RegisterMapping>,
+    value: u64,
+    decimal: String,
+    kind: MemoryKind,
+    mapping: Option<RegisterMapping>,
     #[serde(serialize_with = "optional_hex")]
-    pub offset: Option<u64>,
+    offset: Option<u64>,
 }
 impl serde::Serialize for crate::ipc::registers::Register {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -57,7 +56,7 @@ impl serde::Serialize for crate::ipc::registers::Register {
     }
 }
 
-pub fn classify_register_value(
+fn classify_register_value(
     name: &str,
     role: RegisterRole,
     value: u64,
@@ -106,7 +105,7 @@ impl<'de> serde::Deserialize<'de> for RegisterSet {
     }
 }
 
-pub fn classify_sample_registers(r: &RegisterSet, maps: &[MemoryMap]) -> Vec<Register> {
+pub(crate) fn classify_sample_registers(r: &RegisterSet, maps: &[MemoryMap]) -> Vec<Register> {
     REGISTERS
         .iter()
         .filter(|&&(_, role, _)| role != RegisterRole::Flags || r.flags_available)

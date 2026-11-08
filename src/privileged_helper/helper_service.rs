@@ -6,9 +6,9 @@
 //! | --- | --- | --- |
 //! | [`CollectorManager`] | `pub(in crate::privileged_helper)` | `struct CollectorManager` |
 //! | [`HelperIpcService`] | `pub(super)` | `struct HelperIpcService` |
-//! | [`create_collector_manager`] | `pub(in crate::privileged_helper)` | `fn create_collector_manager( interval: `[`Duration`]`, ) -> `[`CollectorManager`] |
-//! | [`stop_collector_manager`] | `pub(in crate::privileged_helper)` | `fn stop_collector_manager(state: &`[`CollectorManager`]`)` |
-//! | [`join_collection_workers`] | `pub(in crate::privileged_helper)` | `fn join_collection_workers( state: &`[`CollectorManager`]`, ) -> `[`Result`]`<()>` |
+//! | [`create_collector_manager`] | `pub(super)` | `fn create_collector_manager( interval: `[`Duration`]`, ) -> `[`CollectorManager`] |
+//! | [`stop_collector_manager`] | `pub(super)` | `fn stop_collector_manager(state: &`[`CollectorManager`]`)` |
+//! | [`join_collection_workers`] | `pub(super)` | `fn join_collection_workers( state: &`[`CollectorManager`]`, ) -> `[`Result`]`<()>` |
 //! | [`create_helper_ipc_service`] | `pub(super)` | `fn create_helper_ipc_service(collectors: `[`Arc`]`<`[`CollectorManager`]`>) -> `[`HelperIpcService`] |
 //! | [`dispatch_helper_ipc_service`] | `pub(super)` | `fn dispatch_helper_ipc_service( state: &mut `[`HelperIpcService`]`, request: `[`MonitorRequest`]`, ) -> `[`Result`]`<`[`MonitorResponse`]`>` |
 //! | [`serve_helper_ipc_service`] | `pub(super)` | `fn serve_helper_ipc_service( mut state: `[`HelperIpcService`]`, mut socket: `[`UnixStream`]`, ) -> `[`Result`]`<()>` |
@@ -25,12 +25,10 @@ use std::{
 
 /// Owns all collection workers and privileged descriptors in the helper.
 pub(in crate::privileged_helper) struct CollectorManager {
-    pub(in crate::privileged_helper) system_monitor: Arc<system::SystemMonitor>,
-    pub(in crate::privileged_helper) monitoring: Arc<process::ProcessMonitor>,
+    system_monitor: Arc<system::SystemMonitor>,
+    pub(super) monitoring: Arc<process::ProcessMonitor>,
 }
-pub(in crate::privileged_helper) fn create_collector_manager(
-    interval: Duration,
-) -> CollectorManager {
+pub(super) fn create_collector_manager(interval: Duration) -> CollectorManager {
     use crate::privileged_helper::process::create_process_monitor;
 
     CollectorManager {
@@ -39,16 +37,14 @@ pub(in crate::privileged_helper) fn create_collector_manager(
     }
 }
 
-pub(in crate::privileged_helper) fn stop_collector_manager(state: &CollectorManager) {
+pub(super) fn stop_collector_manager(state: &CollectorManager) {
     use crate::privileged_helper::{process::stop_process_monitor, system::stop_system_monitor};
 
     stop_process_monitor(&state.monitoring);
     stop_system_monitor(&state.system_monitor);
 }
 
-pub(in crate::privileged_helper) fn join_collection_workers(
-    state: &CollectorManager,
-) -> Result<()> {
+pub(super) fn join_collection_workers(state: &CollectorManager) -> Result<()> {
     use crate::privileged_helper::{
         process::join_process_collectors, system::join_system_monitor_workers,
     };
@@ -70,7 +66,7 @@ struct ObservationLease {
 /// Serial dispatch bounds in-flight work to one operation. Long-lived sampling
 /// is owned by independently bounded monitor sessions, never by HTTP tasks.
 pub(super) struct HelperIpcService {
-    pub(super) collectors: Arc<CollectorManager>,
+    collectors: Arc<CollectorManager>,
     sessions: HashMap<u64, ObservationLease>,
     next_session: u64,
 }

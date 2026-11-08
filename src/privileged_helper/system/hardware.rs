@@ -1,11 +1,15 @@
 //! Sysfs location used by protected neighbor acquisition.
 //!
 //! # Interface
-//! [`HardwareSources`] (`pub(super)`): `struct HardwareSources` supplies the sysfs root.
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`HardwareSources`] | `pub(super)` | `struct HardwareSources` |
+
 #[cfg(not(test))]
 pub(super) struct HardwareSources {
-    pub sys: std::path::PathBuf,
-    pub proc: std::path::PathBuf,
+    pub(super) sys: std::path::PathBuf,
+    pub(super) proc: std::path::PathBuf,
 }
 #[cfg(not(test))]
 impl Default for HardwareSources {

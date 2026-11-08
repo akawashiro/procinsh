@@ -4,9 +4,9 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`ReverseDnsResolver`] | `pub` | `struct ReverseDnsResolver` |
-//! | [`create_reverse_dns_resolver`] | `pub` | `fn create_reverse_dns_resolver() -> `[`ReverseDnsResolver`] |
-//! | [`lookup_reverse_dns_resolver`] | `pub` | `fn lookup_reverse_dns_resolver(state: &`[`ReverseDnsResolver`]`, ip: `[`IpAddr`]`) -> `[`Option`]`<`[`String`]`>` |
+//! | [`ReverseDnsResolver`] | `pub(super)` | `struct ReverseDnsResolver` |
+//! | [`create_reverse_dns_resolver`] | `pub(super)` | `fn create_reverse_dns_resolver() -> `[`ReverseDnsResolver`] |
+//! | [`lookup_reverse_dns_resolver`] | `pub(super)` | `fn lookup_reverse_dns_resolver(state: &`[`ReverseDnsResolver`]`, ip: `[`IpAddr`]`) -> `[`Option`]`<`[`String`]`>` |
 
 use std::{
     collections::HashMap,
@@ -20,11 +20,11 @@ struct Entry {
     pending: bool,
 }
 /// Queues background reverse DNS lookups and caches their results.
-pub struct ReverseDnsResolver {
+pub(super) struct ReverseDnsResolver {
     cache: Arc<Mutex<HashMap<IpAddr, Entry>>>,
     tx: mpsc::SyncSender<IpAddr>,
 }
-pub fn create_reverse_dns_resolver() -> ReverseDnsResolver {
+pub(super) fn create_reverse_dns_resolver() -> ReverseDnsResolver {
     let cache = Arc::new(Mutex::new(HashMap::<IpAddr, Entry>::new()));
     let (tx, rx) = mpsc::sync_channel::<IpAddr>(4096);
     let rx = Arc::new(Mutex::new(rx));
@@ -52,7 +52,10 @@ pub fn create_reverse_dns_resolver() -> ReverseDnsResolver {
     ReverseDnsResolver { cache, tx }
 }
 
-pub fn lookup_reverse_dns_resolver(state: &ReverseDnsResolver, ip: IpAddr) -> Option<String> {
+pub(super) fn lookup_reverse_dns_resolver(
+    state: &ReverseDnsResolver,
+    ip: IpAddr,
+) -> Option<String> {
     let mut cache = state.cache.lock().unwrap();
     if let Some(entry) = cache.get(&ip)
         && (entry.pending || entry.expires > Instant::now())

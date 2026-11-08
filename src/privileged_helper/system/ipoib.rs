@@ -4,6 +4,13 @@
 //! QPN, then the remote port GID. `/proc/net/arp` truncates it, so neighbors are
 //! dumped with rtnetlink in the collector's network namespace. Only sockets of
 //! that namespace can use the result; other namespaces have their own tables.
+//!
+//! # Interface
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`has_ipoib_interface`] | `pub(super)` | `fn has_ipoib_interface(sys: &`[`Path`]`) -> bool` |
+//! | [`ipoib_gids`] | `pub(super)` | `fn ipoib_gids(deadline: `[`Instant`]`) -> `[`Result`]`<`[`HashMap`]`<`[`IpAddr`]`, `[`String`]`>>` |
 
 use crate::privileged_helper::netlink::{self, NetlinkDumpRequest};
 use anyhow::Result;
@@ -19,7 +26,7 @@ const IPOIB_HARDWARE_ADDRESS: usize = 20;
 const ARPHRD_INFINIBAND: &str = "32";
 
 /// A GID written like sysfs `gids/N`: eight groups of four hexadecimal digits.
-pub(super) fn format_gid(bytes: &[u8]) -> String {
+fn format_gid(bytes: &[u8]) -> String {
     bytes
         .chunks(2)
         .map(|pair| format!("{:02x}{:02x}", pair[0], pair[1]))

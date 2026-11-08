@@ -2,14 +2,12 @@
 //!
 //! # Interface
 //!
-//! | Definition | Visibility | Kind / signature |
-//! | --- | --- | --- |
-//! | [`unwind_frame_pointers`] | `pub(super)` | `fn unwind_frame_pointers( rip: u64, rsp: u64, rbp: u64, maps: &[`[`MemoryMap`]`], mut read: impl `[`FnMut`]`(u64) -> `[`Option`]`<[u8; 16]>, ) -> (`[`Vec`]`<`[`StackFrame`]`>, `[`String`]`)` |
+//! No named types or functions are exported.
 
 use crate::ipc::model::memory::MemoryMap;
 use crate::ipc::stack::StackFrame;
 
-pub(super) fn unwind_frame_pointers(
+fn unwind_frame_pointers(
     rip: u64,
     rsp: u64,
     rbp: u64,

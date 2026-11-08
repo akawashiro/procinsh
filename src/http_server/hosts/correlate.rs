@@ -6,12 +6,11 @@
 //! matches link, so NAT and duplicated tuples stay external.
 //!
 //! # Interface
-//! - [`LinkEnd`] (`pub(in crate::http_server)`): `struct LinkEnd`.
-//! - [`SocketLink`] (`pub(in crate::http_server)`): `struct SocketLink`.
-//! - [`RdmaEvidence`] (`pub(in crate::http_server)`): `struct RdmaEvidence`.
-//! - [`RdmaLink`] (`pub(in crate::http_server)`): `struct RdmaLink`.
-//! - [`CrossHostLinks`] (`pub(in crate::http_server)`): `struct CrossHostLinks`.
-//! - [`correlate_host_connections`] (`pub(in crate::http_server)`): `fn correlate_host_connections( hosts: &[(&str, &`[`Value`]`)], ) -> `[`CrossHostLinks`].
+//!
+//! | Definition | Visibility | Kind / signature |
+//! | --- | --- | --- |
+//! | [`CrossHostLinks`] | `pub(in crate::http_server)` | `struct CrossHostLinks` |
+//! | [`correlate_host_connections`] | `pub(in crate::http_server)` | `fn correlate_host_connections( hosts: &[(&str, &`[`Value`]`)], ) -> `[`CrossHostLinks`] |
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -19,36 +18,36 @@ use std::{collections::HashMap, net::IpAddr};
 
 /// One end of a cross-host link: a host and a relation ID in its snapshot.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
-pub(in crate::http_server) struct LinkEnd {
-    pub(in crate::http_server) host: String,
-    pub(in crate::http_server) relation: String,
+struct LinkEnd {
+    host: String,
+    relation: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub(in crate::http_server) struct SocketLink {
-    pub(in crate::http_server) a: LinkEnd,
-    pub(in crate::http_server) b: LinkEnd,
+struct SocketLink {
+    a: LinkEnd,
+    b: LinkEnd,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-pub(in crate::http_server) struct RdmaEvidence {
+struct RdmaEvidence {
     /// Each remote GID equals the other end's port GID.
-    pub(in crate::http_server) gid: bool,
+    gid: bool,
     /// The connection manager addresses are swapped.
-    pub(in crate::http_server) cm: bool,
+    cm: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub(in crate::http_server) struct RdmaLink {
-    pub(in crate::http_server) a: LinkEnd,
-    pub(in crate::http_server) b: LinkEnd,
-    pub(in crate::http_server) evidence: RdmaEvidence,
+struct RdmaLink {
+    a: LinkEnd,
+    b: LinkEnd,
+    evidence: RdmaEvidence,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 pub(in crate::http_server) struct CrossHostLinks {
-    pub(in crate::http_server) sockets: Vec<SocketLink>,
-    pub(in crate::http_server) rdma: Vec<RdmaLink>,
+    sockets: Vec<SocketLink>,
+    rdma: Vec<RdmaLink>,
 }
 
 #[derive(Deserialize)]

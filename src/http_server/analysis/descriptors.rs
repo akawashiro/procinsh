@@ -4,7 +4,7 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`resolve_descriptor_relations`] | `pub` | `fn resolve_descriptor_relations(data: &mut `[`FileDescriptors`]`)` |
+//! | [`resolve_descriptor_relations`] | `pub(crate)` | `fn resolve_descriptor_relations(data: &mut `[`FileDescriptors`]`)` |
 
 use crate::ipc::descriptors::{Endpoint, FileDescriptorInfo, FileDescriptors, Key, Owner};
 use crate::ipc::{
@@ -18,9 +18,9 @@ use std::collections::HashMap;
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::descriptors::Key")]
 struct KeyJson {
-    pub kind: FdKind,
-    pub device: u64,
-    pub inode: u64,
+    kind: FdKind,
+    device: u64,
+    inode: u64,
 }
 impl serde::Serialize for crate::ipc::descriptors::Key {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -38,11 +38,11 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::descriptors::Key {
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::descriptors::Endpoint")]
 struct EndpointJson {
-    pub process_id: ProcessId,
-    pub name: String,
-    pub fd: u32,
-    pub access: FdAccess,
-    pub relation: String,
+    process_id: ProcessId,
+    name: String,
+    fd: u32,
+    access: FdAccess,
+    relation: String,
 }
 impl serde::Serialize for crate::ipc::descriptors::Endpoint {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -79,34 +79,34 @@ fn deserialize_optional_inode<'de, D: serde::Deserializer<'de>>(
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::descriptors::FileDescriptorInfo")]
 struct FileDescriptorInfoJson {
-    pub fd: u32,
-    pub kind: FdKind,
+    fd: u32,
+    kind: FdKind,
     #[serde(
         serialize_with = "crate::http_server::model::resource::decimal",
         deserialize_with = "crate::http_server::model::resource::deserialize_decimal"
     )]
-    pub inode: u64,
-    pub target: String,
-    pub access: FdAccess,
-    pub protocol: Option<SocketProtocol>,
-    pub state: Option<SocketState>,
+    inode: u64,
+    target: String,
+    access: FdAccess,
+    protocol: Option<SocketProtocol>,
+    state: Option<SocketState>,
     /// Socket listener/peer availability; null for non-socket descriptors.
-    pub connection_status: Option<SocketConnectionStatus>,
-    pub local: Option<InetAddress>,
-    pub remote: Option<InetAddress>,
-    pub path: Option<String>,
+    connection_status: Option<SocketConnectionStatus>,
+    local: Option<InetAddress>,
+    remote: Option<InetAddress>,
+    path: Option<String>,
     #[serde(
         default,
         serialize_with = "serialize_optional_inode",
         deserialize_with = "deserialize_optional_inode"
     )]
-    pub peer_inode: Option<u64>,
-    pub peers: Vec<Endpoint>,
-    pub holders: Vec<Endpoint>,
-    pub note: String,
-    pub key: Key,
-    pub mode: Option<u32>,
-    pub socket_device: Option<u64>,
+    peer_inode: Option<u64>,
+    peers: Vec<Endpoint>,
+    holders: Vec<Endpoint>,
+    note: String,
+    key: Key,
+    mode: Option<u32>,
+    socket_device: Option<u64>,
 }
 impl serde::Serialize for crate::ipc::descriptors::FileDescriptorInfo {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -124,14 +124,14 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::descriptors::FileDescriptorInf
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::descriptors::FileDescriptors")]
 struct FileDescriptorsJson {
-    pub process_id: ProcessId,
-    pub captured_at: u64,
-    pub entries: Vec<FileDescriptorInfo>,
-    pub warnings: Vec<String>,
+    process_id: ProcessId,
+    captured_at: u64,
+    entries: Vec<FileDescriptorInfo>,
+    warnings: Vec<String>,
     #[serde(default)]
-    pub raw_fd_owners: Vec<(Key, Vec<Owner>)>,
+    raw_fd_owners: Vec<(Key, Vec<Owner>)>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub raw_peer_keys: Vec<(u32, Vec<Key>)>,
+    raw_peer_keys: Vec<(u32, Vec<Key>)>,
 }
 impl serde::Serialize for crate::ipc::descriptors::FileDescriptors {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -149,8 +149,8 @@ impl<'de> serde::Deserialize<'de> for crate::ipc::descriptors::FileDescriptors {
 #[allow(dead_code)]
 #[serde(remote = "crate::ipc::descriptors::Owner")]
 struct OwnerJson {
-    pub endpoint: Endpoint,
-    pub mode: Option<u32>,
+    endpoint: Endpoint,
+    mode: Option<u32>,
 }
 impl serde::Serialize for crate::ipc::descriptors::Owner {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -171,7 +171,7 @@ fn pipe_opposite(a: Option<u32>, b: Option<u32>) -> bool {
     )
 }
 
-pub fn resolve_descriptor_relations(data: &mut FileDescriptors) {
+pub(crate) fn resolve_descriptor_relations(data: &mut FileDescriptors) {
     let id = data.process_id;
     let owners: HashMap<_, _> = std::mem::take(&mut data.raw_fd_owners)
         .into_iter()

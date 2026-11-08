@@ -4,20 +4,16 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`memory`] | `pub` | `mod memory` |
-//! | [`resource`] | `pub` | `mod resource` |
-//! | [`socket_types`] | `pub` | `mod socket_types` |
-//! | [`process`] | `pub` | `mod process` |
-//! | [`threads`] | `pub` | `mod threads` |
-//! | [`sockets`] | `pub` | `mod sockets` |
-//! | [`system`] | `pub` | `mod system` |
+//! | [`memory`] | `pub(crate)` | `mod memory` |
+//! | [`resource`] | `pub(crate)` | `mod resource` |
+//! | [`process`] | `pub(crate)` | `mod process` |
 
-pub mod memory;
-pub mod resource;
-pub mod socket_types;
+pub(crate) mod memory;
+pub(crate) mod resource;
+mod socket_types;
 
-pub mod process;
-pub mod threads;
+pub(crate) mod process;
+mod threads;
 
-pub mod sockets;
-pub mod system;
+mod sockets;
+mod system;
