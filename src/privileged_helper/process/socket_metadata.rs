@@ -8,7 +8,7 @@
 //! | [`SocketMetadata`] | `pub(in crate::privileged_helper)` | `struct SocketMetadata` |
 //! | [`socket_metadata_has_observation`] | `pub(in crate::privileged_helper)` | `fn socket_metadata_has_observation( state: &`[`SocketMetadata`]`, ) -> bool` |
 //! | [`create_socket_metadata_reader`] | `pub(in crate::privileged_helper)` | `fn create_socket_metadata_reader( process_id: `[`ProcessId`]`, ) -> `[`SocketMetadataReader`] |
-//! | [`read_socket_metadata`] | `pub(in crate::privileged_helper)` | `fn read_socket_metadata( state: &mut `[`SocketMetadataReader`]`, fd: u32, device: u64, inode: u64, ) -> `[`Result`]`<`[`SocketMetadata`]`>` |
+//! | [`read_socket_metadata`] | `pub(in crate::privileged_helper)` | `fn read_socket_metadata( reader: &mut `[`SocketMetadataReader`]`, fd: u32, device: u64, inode: u64, ) -> `[`Result`]`<`[`SocketMetadata`]`>` |
 //! | [`additional_sockets`] | `pub(in crate::privileged_helper)` | `fn additional_sockets(pid: i32) -> `[`HashMap`]`<u64, `[`SocketInfo`]`>` |
 
 use crate::ipc::model::socket_types::{SocketConnectionStatus, SocketProtocol, SocketType};
@@ -66,35 +66,35 @@ pub(in crate::privileged_helper) fn create_socket_metadata_reader(
 }
 
 pub(in crate::privileged_helper) fn read_socket_metadata(
-    state: &mut SocketMetadataReader,
+    reader: &mut SocketMetadataReader,
     fd: u32,
     device: u64,
     inode: u64,
 ) -> Result<SocketMetadata> {
     use crate::ipc::model::socket_types::socket_protocol_from_codes;
 
-    if let Some(reason) = &state.unavailable {
+    if let Some(reason) = &reader.unavailable {
         bail!("{reason}");
     }
-    validate_process_identity(state.process_id)?;
-    if state.pidfd.is_none() {
-        let raw = unsafe { libc::syscall(libc::SYS_pidfd_open, state.process_id.pid, 0) };
+    validate_process_identity(reader.process_id)?;
+    if reader.pidfd.is_none() {
+        let raw = unsafe { libc::syscall(libc::SYS_pidfd_open, reader.process_id.pid, 0) };
         if raw < 0 {
-            return syscall_error_socket_metadata_reader(state);
+            return syscall_error_socket_metadata_reader(reader);
         }
-        state.pidfd = Some(unsafe { OwnedFd::from_raw_fd(raw as i32) });
-        validate_process_identity(state.process_id)?;
+        reader.pidfd = Some(unsafe { OwnedFd::from_raw_fd(raw as i32) });
+        validate_process_identity(reader.process_id)?;
     }
     let raw = unsafe {
         libc::syscall(
             libc::SYS_pidfd_getfd,
-            state.pidfd.as_ref().unwrap().as_raw_fd(),
+            reader.pidfd.as_ref().unwrap().as_raw_fd(),
             fd,
             0,
         )
     };
     if raw < 0 {
-        return syscall_error_socket_metadata_reader(state);
+        return syscall_error_socket_metadata_reader(reader);
     }
     let duplicate = unsafe { OwnedFd::from_raw_fd(raw as i32) };
     let mut stat: libc::stat = unsafe { std::mem::zeroed() };
@@ -135,7 +135,7 @@ pub(in crate::privileged_helper) fn read_socket_metadata(
         std::io::Error::last_os_error().raw_os_error()
     };
     let connection_status = connection_status(accepting, peer_error);
-    validate_process_identity(state.process_id)?;
+    validate_process_identity(reader.process_id)?;
     Ok(SocketMetadata {
         protocol,
         connection_status,
@@ -143,14 +143,14 @@ pub(in crate::privileged_helper) fn read_socket_metadata(
 }
 
 fn syscall_error_socket_metadata_reader(
-    state: &mut SocketMetadataReader,
+    reader: &mut SocketMetadataReader,
 ) -> Result<SocketMetadata> {
     let error = std::io::Error::last_os_error();
     if matches!(
         error.raw_os_error(),
         Some(libc::EPERM | libc::EACCES | libc::ENOSYS)
     ) {
-        state.unavailable = Some(format!("socket metadata: {error}"));
+        reader.unavailable = Some(format!("socket metadata: {error}"));
     }
     Err(error.into())
 }

@@ -34,7 +34,7 @@
 //! | [`reserve_process_monitor`] | `pub(in crate::privileged_helper)` | `fn reserve_process_monitor( monitor: &`[`Arc`](std::sync::Arc)`<`[`ProcessMonitor`]`>, ) -> `[`Result`](anyhow::Result)`<`[`ObservationPermit`](monitoring::service::ObservationPermit)`, `[`SubscribeError`]`>` |
 //! | [`stop_process_monitor`] | `pub(in crate::privileged_helper)` | `fn stop_process_monitor(state: &`[`ProcessMonitor`]`)` |
 //! | [`create_socket_metadata_reader`] | `pub(in crate::privileged_helper)` | `fn create_socket_metadata_reader( process_id: `[`ProcessId`]`, ) -> `[`SocketMetadataReader`](socket_metadata::SocketMetadataReader) |
-//! | [`read_socket_metadata`] | `pub(in crate::privileged_helper)` | `fn read_socket_metadata( state: &mut `[`SocketMetadataReader`](socket_metadata::SocketMetadataReader)`, fd: u32, device: u64, inode: u64, ) -> `[`Result`](anyhow::Result)`<`[`SocketMetadata`]`>` |
+//! | [`read_socket_metadata`] | `pub(in crate::privileged_helper)` | `fn read_socket_metadata( reader: &mut `[`SocketMetadataReader`](socket_metadata::SocketMetadataReader)`, fd: u32, device: u64, inode: u64, ) -> `[`Result`](anyhow::Result)`<`[`SocketMetadata`]`>` |
 //! | [`socket_metadata_has_observation`] | `pub(in crate::privileged_helper)` | `fn socket_metadata_has_observation( state: &`[`SocketMetadata`]`, ) -> bool` |
 //!
 //! Mapped ELF byte replies use [`MappedFileData`](crate::ipc::elf::MappedFileData).
