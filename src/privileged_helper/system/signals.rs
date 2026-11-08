@@ -29,7 +29,6 @@ const MAX_EVENTS: usize = 1024;
 #[cfg(test)]
 use crate::http_server::analysis::activity::resolve_signal;
 use crate::ipc::activity::SignalSample;
-use crate::privileged_helper::bpf_records::decode_signal;
 /// Owns the signal_generate hook and a bounded batch of process-level observations.
 /// At most 1024 events are retained between service drains. Excess events contribute
 /// to `lost`, independently of other sensors. Main matches process identities.
@@ -104,6 +103,22 @@ pub(super) fn lost_signal_collector(state: &SignalCollector) -> u64 {
         .map(u64::from_ne_bytes)
         .unwrap_or(0)
         .saturating_add(state.drops.load(Ordering::Relaxed))
+}
+
+fn decode_signal(bytes: &[u8]) -> Option<SignalSample> {
+    if bytes.len() != 40 {
+        return None;
+    }
+    let u64at = |i| u64::from_ne_bytes(bytes[i..i + 8].try_into().unwrap());
+    let u32at = |i| u32::from_ne_bytes(bytes[i..i + 4].try_into().unwrap());
+    Some(SignalSample {
+        timestamp_ns: u64at(0),
+        src_start: u64at(8),
+        dst_start: u64at(16),
+        src_pid: u32at(24),
+        dst_pid: u32at(28),
+        signal: u32at(32) as i32,
+    })
 }
 
 #[cfg(test)]

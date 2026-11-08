@@ -50,8 +50,6 @@ mod helper_tests;
 #[path = "../http_server/delivery.rs"]
 mod http_delivery;
 
-mod bpf_records;
-
 fn timestamp_ms() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
