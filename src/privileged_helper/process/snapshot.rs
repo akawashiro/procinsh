@@ -17,8 +17,6 @@ mod instruction_bytes;
 mod perf;
 mod ptrace;
 mod sample;
-#[cfg(test)]
-mod unwind_fp;
 
 pub(in crate::privileged_helper::process) use capture::{
     bootstrap_sampler, create_sampler, latest_sampler, mapping_snapshots_sampler, poll_sampler,
