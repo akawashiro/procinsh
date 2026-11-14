@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Subscription"],"fn":["create_collector_manager","create_helper_ipc_service","dispatch_helper_ipc_service","expire_helper_ipc_service","join_collection_workers","serve_helper_ipc_service","start_helper_ipc_service","stop_collector_manager"],"struct":["CollectorManager","HelperIpcService","ObservationLease"]};

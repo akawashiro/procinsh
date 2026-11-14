@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Module dependency graph — procinsh</title>
+<style>
+  body { font: 1rem/1.6 system-ui, sans-serif; color: #172033; margin: auto; padding: 1rem; max-width: 80rem; }
+  a { color: #164eaf; }
+  img { display: block; max-width: 100%; height: auto; }
+</style>
+<nav><a href="../index.html">Documentation home</a> · <a href="../procinsh/index.html">Rust API docs</a> · <a href="../typescript-architecture/">TypeScript architecture</a></nav>
+<h1>Module dependency graph</h1>
+<p>Includes both executables: <code>procinsh</code> (HTTP server) and
+<code>procinsh_privileged_helper</code> (privileged acquisition helper).
+Each executable has its own module tree, including its copy of the shared IPC modules.</p>
+<p>Arrows mean <strong>user → dependency</strong>.
+Opposite arrows show mutual dependencies; longer cycles can be followed along the arrows.</p>
+<h2>Overview</h2>
+<a href="module-dependencies.svg"><img src="module-dependencies.svg" alt="Dependencies between HTTP server and privileged helper subsystems"></a>
+<h2>Detail</h2>
+<a href="module-dependencies-detail.svg"><img src="module-dependencies-detail.svg" alt="Dependencies including child modules of both executables"></a>
+</html>

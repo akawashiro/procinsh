@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["capture_sample","collect_process_observation","collect_thread_observation"]};

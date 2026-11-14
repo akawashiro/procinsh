@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_AUXV","MAX_ENVIRONMENT"],"fn":["auxv","elf_word_bytes","environment","read_limited","read_string"]};

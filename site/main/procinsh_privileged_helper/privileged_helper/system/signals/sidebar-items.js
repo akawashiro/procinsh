@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_EVENTS"],"fn":["create_signal_collector","decode_signal","drain_signal_collector","lost_signal_collector","poll_signal_collector"],"struct":["SignalCollector"]};

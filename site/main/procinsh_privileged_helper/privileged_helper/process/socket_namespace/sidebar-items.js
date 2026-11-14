@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["open_namespace_diagnostic_socket","open_network_namespace"],"struct":["NetworkNamespace"]};

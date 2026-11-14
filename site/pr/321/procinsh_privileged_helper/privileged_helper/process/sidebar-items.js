@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["mapped_elf"],"mod":["details","discovery","elf","fds","identity","maps","memory","monitoring","procfs","resources","snapshot","socket_metadata","socket_namespace","sockets","threads"]};

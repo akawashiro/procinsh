@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["CACHE_LIMIT","WHOLE_FIELDS"],"fn":["configure_privacy","create_privacy","host_names","login_users","machine_ids","privacy_enabled","pseudonym","pseudonym_privacy","scan_privacy","scrub_privacy","scrub_response"],"static":["PRIVACY"],"struct":["Privacy"]};

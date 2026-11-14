@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["build_array_delta","encode_snapshot_encoder","field_identity_key","snapshot_array_entries"],"struct":["SnapshotEncoder"]};

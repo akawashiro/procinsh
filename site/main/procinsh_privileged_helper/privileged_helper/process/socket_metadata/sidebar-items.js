@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["additional_sockets","connection_status","create_socket_metadata_reader","option","parse_table","read_socket_metadata","socket_metadata_has_observation","syscall_error_socket_metadata_reader"],"struct":["SocketMetadata","SocketMetadataReader"]};

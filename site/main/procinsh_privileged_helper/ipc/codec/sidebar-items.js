@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["append_encoder","blob_decoder","blob_encoder","decode","encode","length_decoder","length_encoder","take_decoder"],"macro":[["number",1],["tuple",1],["wire_enum",1],["wire_struct",1]],"struct":["Decoder","Encoder","LimitExceeded"],"trait":["Wire"]};

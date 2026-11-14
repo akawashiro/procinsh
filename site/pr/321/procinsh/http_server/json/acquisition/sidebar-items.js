@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["SensorStateJson"],"fn":["serialize_architecture"],"struct":["InstructionBytesJson","LiveSampleJson","MemoryMapsJson","MemoryRollupJson","ProcessDetailSnapshotJson","ProcessSummaryJson","SystemActivityJson","SystemMonitorStatusJson"]};

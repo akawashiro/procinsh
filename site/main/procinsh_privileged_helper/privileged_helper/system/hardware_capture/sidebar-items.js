@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_BYTES","MAX_ENTRIES","MAX_TEXT"],"fn":["collect_hardware_files","link_hardware_reader","names_hardware_reader","node_hardware_reader","reserve_hardware_reader","text_hardware_reader"],"struct":["HardwareReader"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["monotonic_ns","ticks_per_second"],"struct":["IoStats","ProcessObservation","ProcessSample","Rates"]};

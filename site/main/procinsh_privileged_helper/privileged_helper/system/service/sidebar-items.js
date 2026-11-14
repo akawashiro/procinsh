@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["SubscribeError","SystemMonitorEvent"],"fn":["active_system_monitor","join_system_monitor_workers","monotonic_ns","run_activity_system_monitor","send_system_monitor","snapshot_system_monitor","spawn_worker","start_system_monitor","stop_system_monitor","stopped_system_monitor","subscribe_system_monitor"],"struct":["Subscription","SystemMonitor"]};

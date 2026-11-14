@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["acquire_process_elf_ranges","permission_help"],"mod":["auxv","collect_process","elf","env","fds","maps","memory","monitoring","procfs","snapshot","socket_metadata","socket_namespace","sockets","threads","validate_process_id"]};

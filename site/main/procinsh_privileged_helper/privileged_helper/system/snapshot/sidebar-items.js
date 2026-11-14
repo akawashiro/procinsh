@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["add_remote_gids","collect_system_snapshot","collect_system_snapshot_from_sources","process_from_summary"]};

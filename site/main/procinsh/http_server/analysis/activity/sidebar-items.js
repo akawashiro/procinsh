@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_AGGREGATES"],"fn":["add_file_batch","cpu_activity_processor","process_activity_processor","resolve_signal"],"struct":["ActivityBatch","ActivityProcessor","CpuActivityJson","CpuCountersJson","FileActivityJson","FileBatch","IpcActivityJson","IpcEventJson","RawActivityJson","SignalEventJson","SignalSampleJson"]};

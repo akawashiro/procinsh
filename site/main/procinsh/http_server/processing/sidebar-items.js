@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["close_observation_processor","process_observation_processor","snapshot_observation_processor"],"struct":["ObservationProcessor","ProcessHistory"]};

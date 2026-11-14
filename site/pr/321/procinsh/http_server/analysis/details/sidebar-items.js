@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["aux_info","complete","parse_auxv","parse_environment"],"struct":["AuxEntry","EnvironmentEntry"]};
