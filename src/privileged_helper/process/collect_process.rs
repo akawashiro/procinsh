@@ -1,10 +1,10 @@
-//! Enumerate processes and acquire process summaries and user names.
+//! Enumerate processes and acquire process summaries.
 //!
 //! # Interface
 //! - [`collect_process_summary`] (`pub(super)`): `fn collect_process_summary( stat: &`[`procfs::Stat`]`, users: &`[`HashMap`]`<u32, `[`String`]`>, ) -> `[`crate::ipc::acquisition::ProcessSummary`].
-//! - [`read_user_names`] (`pub(super)`): `fn read_user_names() -> `[`HashMap`]`<u32, `[`String`]`>`.
 //! - [`collect_processes`] (`pub(in crate::privileged_helper)`): `fn collect_processes() -> `[`Result`]`<`[`Vec`]`<`[`crate::ipc::acquisition::ProcessSummary`]`>>`.
 
+use crate::privileged_helper::users::read_user_names;
 use anyhow::Result;
 use std::{collections::HashMap, fs};
 use {super::procfs, crate::ipc::schema::ProcessId};
@@ -66,19 +66,6 @@ fn start_timestamp(boot_seconds: u64, ticks: u64, ticks_per_second: f64) -> Opti
     boot_seconds
         .checked_mul(1000)?
         .checked_add((ticks as f64 / ticks_per_second * 1000.0) as u64)
-}
-
-pub(super) fn read_user_names() -> HashMap<u32, String> {
-    {
-        fs::read_to_string("/etc/passwd")
-            .unwrap_or_default()
-            .lines()
-            .filter_map(|line| {
-                let p: Vec<_> = line.split(':').collect();
-                Some((p.get(2)?.parse().ok()?, p.first()?.to_string()))
-            })
-            .collect()
-    }
 }
 
 /// Scans protected procfs for process summaries and raw CPU counters.

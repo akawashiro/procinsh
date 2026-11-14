@@ -26,7 +26,10 @@ use {super::sampling::capture_sample, crate::ipc::model::process::ProcessSample}
 
 use crate::{
     ipc::{model::memory::MemoryMap, schema::ProcessId},
-    privileged_helper::process::{self, maps, procfs},
+    privileged_helper::{
+        process::{self, maps, procfs},
+        users::read_user_names,
+    },
 };
 use anyhow::{Result, ensure};
 use std::{
@@ -237,7 +240,7 @@ pub(in crate::privileged_helper) fn join_process_collectors(state: &ProcessMonit
 fn capture_target(id: ProcessId) -> Result<(ProcessDetailSnapshot, ProcessSample)> {
     process::validate_process_identity(id)?;
     let stat = procfs::read_process_stat(&format!("/proc/{}/stat", id.pid))?;
-    let summary = process::collect_process_summary(&stat, &process::read_user_names());
+    let summary = process::collect_process_summary(&stat, &read_user_names());
     ensure!(summary.identity == id, "Process exited (PID reused)");
     let sample = capture_sample(id)?;
     #[cfg(test)]

@@ -41,7 +41,7 @@
 
 pub(super) use monitoring::{ObservationSession, ProcessMonitor};
 mod auxv;
-mod discovery;
+mod collect_process;
 mod elf;
 mod env;
 mod fds;
@@ -56,8 +56,8 @@ mod socket_namespace;
 mod sockets;
 mod threads;
 use crate::ipc::schema::ProcessId;
-pub(super) use discovery::collect_processes;
-use discovery::{collect_process_summary, read_user_names};
+use collect_process::collect_process_summary;
+pub(super) use collect_process::collect_processes;
 #[cfg(test)]
 pub(super) use identity::read_process_identity;
 pub(super) use identity::validate_process_identity;
