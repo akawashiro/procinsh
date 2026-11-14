@@ -28,6 +28,7 @@ mod router;
 #[path = "test_http/state.rs"]
 mod state;
 mod system;
+mod users;
 #[cfg(test)]
 use state::AppState;
 #[cfg(test)]
