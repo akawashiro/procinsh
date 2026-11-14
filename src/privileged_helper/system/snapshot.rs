@@ -191,7 +191,7 @@ fn collect_system_snapshot_from_sources(sources: &HardwareSources) -> SystemSnap
             continue;
         }
         n.maps_epoch = super::monotonic_ns();
-        match process::read_maps(pid) {
+        match process::read_maps(n.identity) {
             Ok(mut m) => {
                 if m.len() > 4096 {
                     m.truncate(4096);
@@ -254,7 +254,7 @@ fn collect_system_snapshot_from_sources(sources: &HardwareSources) -> SystemSnap
                     infos.extend(table);
                 }
             }
-            infos.extend(process::additional_sockets(pid));
+            infos.extend(process::additional_sockets(n.identity));
         }
         let mut endpoints = Vec::new();
         match fs::read_dir(format!("/proc/{pid}/fd")) {
@@ -343,7 +343,7 @@ fn collect_system_snapshot_from_sources(sources: &HardwareSources) -> SystemSnap
                 }
             }
         }
-        if process::validate_process_identity(n.identity).is_ok() {
+        if process::validate_process_id(n.identity).is_ok() {
             for p in endpoints {
                 let list = owners.entry(p.resource).or_default();
                 if let Some(existing) = list

@@ -4,12 +4,13 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`read_mapped_file_ranges`] | `pub(super)` | `fn read_mapped_file_ranges( pid: i32, map: &`[`MemoryMap`]`, ranges: &[`[`FileRange`]`], ) -> `[`anyhow::Result`]`<`[`crate::ipc::schema::MonitorResponse`]`>` |
+//! | [`read_mapped_file_ranges`] | `pub(super)` | `fn read_mapped_file_ranges( id: `[`ProcessId`]`, map: &`[`MemoryMap`]`, ranges: &[`[`FileRange`]`], ) -> `[`anyhow::Result`]`<`[`crate::ipc::schema::MonitorResponse`]`>` |
 
 use crate::ipc::elf::{
     FileChunk, FileRange, MAX_FILE_SIZE, MAX_RANGES, MAX_READ_SIZE, MappedFileData,
 };
 use crate::ipc::model::memory::MemoryMap;
+use crate::ipc::schema::ProcessId;
 #[cfg(test)]
 use std::io::Read;
 use std::os::unix::fs::FileExt;
@@ -32,7 +33,8 @@ fn file_identity(meta: &fs::Metadata) -> (u64, u64, u64, i64, i64) {
     )
 }
 
-fn matching_file(pid: i32, map: &MemoryMap) -> Option<(fs::File, fs::Metadata)> {
+fn matching_file(id: ProcessId, map: &MemoryMap) -> Option<(fs::File, fs::Metadata)> {
+    let pid = id.pid;
     let mut paths = vec![
         PathBuf::from(format!(
             "/proc/{pid}/map_files/{:x}-{:x}",
@@ -70,12 +72,12 @@ fn matching_file(pid: i32, map: &MemoryMap) -> Option<(fs::File, fs::Metadata)> 
 }
 
 pub(super) fn read_mapped_file_ranges(
-    pid: i32,
+    id: ProcessId,
     map: &MemoryMap,
     ranges: &[FileRange],
 ) -> anyhow::Result<crate::ipc::schema::MonitorResponse> {
     use crate::ipc::schema::MonitorResponse;
-    let Some((descriptor, before)) = matching_file(pid, map) else {
+    let Some((descriptor, before)) = matching_file(id, map) else {
         return Ok(MonitorResponse::Elf(None));
     };
     if before.len() > MAX_FILE_SIZE {
@@ -117,11 +119,11 @@ pub(super) fn read_mapped_file_ranges(
 
 #[cfg(test)]
 pub(super) fn read_mapped_elf_file(
-    pid: i32,
+    id: ProcessId,
     map: &MemoryMap,
 ) -> Option<crate::http_server::analysis::snapshot::symbol::ElfFile> {
-    let length = matching_file(pid, map)?.1.len();
-    match read_mapped_file_ranges(pid, map, &[FileRange { offset: 0, length }]).ok()? {
+    let length = matching_file(id, map)?.1.len();
+    match read_mapped_file_ranges(id, map, &[FileRange { offset: 0, length }]).ok()? {
         crate::ipc::schema::MonitorResponse::Elf(Some(file)) => {
             Some(crate::http_server::analysis::snapshot::symbol::ElfFile {
                 identity: file.identity,
@@ -151,11 +153,11 @@ mod tests {
             path.display()
         ))
         .unwrap();
-        let pid = std::process::id() as i32;
-        let captured = read_mapped_elf_file(pid, &map).unwrap();
+        let id = super::super::read_process_id(std::process::id() as i32).unwrap();
+        let captured = read_mapped_elf_file(id, &map).unwrap();
         assert_eq!(captured.bytes, b"captured file");
         let crate::ipc::schema::MonitorResponse::Elf(Some(partial)) = read_mapped_file_ranges(
-            pid,
+            id,
             &map,
             &[FileRange {
                 offset: 2,
@@ -168,7 +170,7 @@ mod tests {
         assert_eq!(partial.chunks[0].bytes, b"ptur");
         assert!(
             read_mapped_file_ranges(
-                pid,
+                id,
                 &map,
                 &[FileRange {
                     offset: metadata.len(),
@@ -179,7 +181,7 @@ mod tests {
         );
         assert!(
             read_mapped_file_ranges(
-                pid,
+                id,
                 &map,
                 &vec![
                     FileRange {
@@ -191,16 +193,16 @@ mod tests {
             )
             .is_err()
         );
-        let (mut descriptor, _) = matching_file(pid, &map).unwrap();
+        let (mut descriptor, _) = matching_file(id, &map).unwrap();
         fs::rename(&path, root.join("pinned")).unwrap();
         fs::write(&path, b"replacement").unwrap();
-        assert!(read_mapped_elf_file(pid, &map).is_none());
+        assert!(read_mapped_elf_file(id, &map).is_none());
         let mut pinned = Vec::new();
         descriptor.read_to_end(&mut pinned).unwrap();
         assert_eq!(pinned, b"captured file");
         let mut wrong = map.clone();
         wrong.inode = 0;
-        assert!(read_mapped_elf_file(pid, &wrong).is_none());
+        assert!(read_mapped_elf_file(id, &wrong).is_none());
         let large = root.join("large");
         fs::File::create(&large)
             .unwrap()
@@ -215,7 +217,7 @@ mod tests {
             large.display()
         ))
         .unwrap();
-        assert!(read_mapped_elf_file(pid, &large_map).is_none());
+        assert!(read_mapped_elf_file(id, &large_map).is_none());
         fs::remove_dir_all(root).unwrap();
     }
 }

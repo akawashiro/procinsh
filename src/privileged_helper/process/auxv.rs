@@ -8,7 +8,7 @@ use crate::privileged_helper::timestamp_ms;
 use anyhow::{Context, Result, bail, ensure};
 use std::{fs::File, io::Read};
 use {
-    super::{memory, permission_help, validate_process_identity},
+    super::{memory, permission_help, validate_process_id},
     crate::ipc::schema::ProcessId,
 };
 
@@ -27,7 +27,8 @@ fn elf_word_bytes(ident: &[u8]) -> Result<usize> {
     }
 }
 
-fn read_string(pid: i32, address: u64) -> Result<String> {
+fn read_string(id: ProcessId, address: u64) -> Result<String> {
+    let pid = id.pid;
     let bytes = memory::read_process_memory(pid, address, 4096)?;
     let end = bytes
         .iter()
@@ -39,7 +40,7 @@ fn read_string(pid: i32, address: u64) -> Result<String> {
 pub(in crate::privileged_helper) fn read_auxiliary_vector(
     id: ProcessId,
 ) -> Result<crate::ipc::acquisition::AuxData> {
-    validate_process_identity(id)?;
+    validate_process_id(id)?;
     let mut ident = [0; 16];
     File::open(format!("/proc/{}/exe", id.pid))?.read_exact(&mut ident)?;
     let width = elf_word_bytes(&ident)?;
@@ -63,7 +64,7 @@ pub(in crate::privileged_helper) fn read_auxiliary_vector(
             break;
         }
         if matches!(tag, 15 | 24 | 31) && address != 0 {
-            let (text, error) = match read_string(id.pid, address) {
+            let (text, error) = match read_string(id, address) {
                 Ok(text) => (Some(text), None),
                 Err(error) => (None, Some(error.to_string())),
             };
@@ -71,7 +72,7 @@ pub(in crate::privileged_helper) fn read_auxiliary_vector(
         }
     }
     ensure!(terminated, "Incomplete auxv (AT_NULL is missing).");
-    validate_process_identity(id)?;
+    validate_process_id(id)?;
     Ok(crate::ipc::acquisition::AuxData {
         process_id: id,
         captured_at: timestamp_ms(),

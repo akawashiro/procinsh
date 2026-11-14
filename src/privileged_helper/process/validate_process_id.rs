@@ -1,15 +1,15 @@
 //! Validate process identity against procfs to detect exit and PID reuse.
 //!
 //! # Interface
-//! [`validate_process_identity`] (`pub(in crate::privileged_helper)`):
-//! `fn validate_process_identity(id: `[`ProcessId`]`) -> `[`anyhow::Result`]`<()>`.
+//! [`validate_process_id`](fn@validate_process_id) (`pub(in crate::privileged_helper)`):
+//! `fn validate_process_id(id: `[`ProcessId`]`) -> `[`anyhow::Result`]`<()>`.
 
 use super::procfs;
 use crate::ipc::schema::ProcessId;
 use anyhow::{Result, bail, ensure};
 
 #[cfg(test)]
-pub(in crate::privileged_helper) fn read_process_identity(pid: i32) -> Result<ProcessId> {
+pub(in crate::privileged_helper) fn read_process_id(pid: i32) -> Result<ProcessId> {
     ensure!(pid > 0, "PID must be positive");
     let stat = procfs::read_process_stat(&format!("/proc/{pid}/stat"))?;
     Ok(ProcessId {
@@ -18,7 +18,7 @@ pub(in crate::privileged_helper) fn read_process_identity(pid: i32) -> Result<Pr
     })
 }
 
-pub(in crate::privileged_helper) fn validate_process_identity(id: ProcessId) -> Result<()> {
+pub(in crate::privileged_helper) fn validate_process_id(id: ProcessId) -> Result<()> {
     ensure!(id.pid > 0, "PID must be positive");
     let stat = match procfs::read_process_stat(&format!("/proc/{}/stat", id.pid)) {
         Ok(stat) => stat,

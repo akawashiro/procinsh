@@ -12,8 +12,9 @@
 //! | [`read_process_stat`] | `pub(super)` | `fn read_process_stat(path: &str) -> `[`Result`]`<`[`Stat`]`>` |
 //! | [`read_procfs_fields`] | `pub(in crate::privileged_helper)` | `fn read_procfs_fields(path: &str) -> `[`Result`]`<`[`HashMap`]`<`[`String`]`, `[`String`]`>>` |
 //! | [`parse_procfs_u64_field`] | `pub(super)` | `fn parse_procfs_u64_field(fields: &`[`HashMap`]`<`[`String`]`, `[`String`]`>, key: &str) -> `[`Option`]`<u64>` |
-//! | [`read_process_io_stats`] | `pub(super)` | `fn read_process_io_stats(pid: i32) -> `[`Result`]`<`[`IoStats`]`>` |
+//! | [`read_process_io_stats`] | `pub(super)` | `fn read_process_io_stats(id: `[`ProcessId`]`) -> `[`Result`]`<`[`IoStats`]`>` |
 
+use crate::ipc::schema::ProcessId;
 use anyhow::{Context, Result, anyhow, ensure};
 use std::{collections::HashMap, fs, io::Read};
 
@@ -125,7 +126,8 @@ pub(super) fn parse_procfs_u64_field(fields: &HashMap<String, String>, key: &str
 
 use crate::ipc::model::process::IoStats;
 
-pub(super) fn read_process_io_stats(pid: i32) -> Result<IoStats> {
+pub(super) fn read_process_io_stats(id: ProcessId) -> Result<IoStats> {
+    let pid = id.pid;
     let f = read_procfs_fields(&format!("/proc/{pid}/io"))?;
     Ok(IoStats {
         read_bytes: parse_procfs_u64_field(&f, "read_bytes")

@@ -67,7 +67,7 @@ pub(super) async fn get_process_maps(Query(id): Query<ProcessId>) -> ApiResult {
 
 pub(super) async fn get_process_environment(Query(id): Query<ProcessId>) -> ApiResult {
     run_blocking_request(move || {
-        process::validate_process_identity(id)?;
+        process::validate_process_id(id)?;
         Ok(Json(json!(process::read_environment(id)?)))
     })
     .await
@@ -75,7 +75,7 @@ pub(super) async fn get_process_environment(Query(id): Query<ProcessId>) -> ApiR
 
 pub(super) async fn get_process_file_descriptors(Query(id): Query<ProcessId>) -> ApiResult {
     run_blocking_request(move || {
-        process::validate_process_identity(id)?;
+        process::validate_process_id(id)?;
         Ok(Json(json!(process::collect_file_descriptors(id)?)))
     })
     .await
@@ -83,7 +83,7 @@ pub(super) async fn get_process_file_descriptors(Query(id): Query<ProcessId>) ->
 
 pub(super) async fn get_process_auxiliary_vector(Query(id): Query<ProcessId>) -> ApiResult {
     run_blocking_request(move || {
-        process::validate_process_identity(id)?;
+        process::validate_process_id(id)?;
         Ok(Json(json!(process::read_auxiliary_vector(id)?)))
     })
     .await

@@ -62,7 +62,7 @@ fn netns_snapshot_resolves_multiple_namespaces_and_cross_namespace_holders() {
                 && connects(
                     relation,
                     (
-                        process::read_process_identity(std::process::id() as i32).unwrap(),
+                        process::read_process_id(std::process::id() as i32).unwrap(),
                         fixture.inherited.as_raw_fd() as u32,
                     ),
                     (fixture.target.id, 0),
@@ -129,7 +129,7 @@ fn snapshot_and_fd_list_keep_unconnected_socket_kinds() {
             unsafe { OwnedFd::from_raw_fd(raw) }
         })
         .collect();
-    let id = process::read_process_identity(std::process::id() as i32).unwrap();
+    let id = process::read_process_id(std::process::id() as i32).unwrap();
     process::require_socket_metadata(id, sockets[0].as_raw_fd());
     // Bind the Netlink socket so it has a peer-present connection status.
     let mut address: libc::sockaddr_nl = unsafe { std::mem::zeroed() };
@@ -195,7 +195,7 @@ fn socket_connection_status_is_retained_for_shared_listening_and_unconnected_fds
     let listener_duplicate = listener.try_clone().unwrap();
     let udp = UdpSocket::bind("127.0.0.1:0").unwrap();
     let udp_duplicate = udp.try_clone().unwrap();
-    let id = process::read_process_identity(std::process::id() as i32).unwrap();
+    let id = process::read_process_id(std::process::id() as i32).unwrap();
     process::require_socket_metadata(id, listener.as_raw_fd());
     let snapshot = super::collect_system_snapshot();
     let fds = serde_json::to_value(process::collect_file_descriptors(id).unwrap()).unwrap();

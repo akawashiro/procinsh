@@ -27,13 +27,13 @@ pub(in crate::privileged_helper) fn create_target(name: &str) -> Target {
         .nth(1)
         .and_then(|v| u64::from_str_radix(v.trim_start_matches("0x"), 16).ok())
         .unwrap_or(0);
-    let id = process::read_process_identity(child.id() as i32).unwrap();
+    let id = process::read_process_id(child.id() as i32).unwrap();
     std::thread::sleep(Duration::from_millis(30));
     Target { child, id, address }
 }
 
 pub(super) fn assert_detached_target(state: &Target) {
-    for tid in threads::collect_thread_ids(state.id.pid).unwrap() {
+    for tid in threads::collect_thread_ids(state.id).unwrap() {
         if let Ok(status) = process::procfs::read_procfs_fields(&format!(
             "/proc/{}/task/{tid}/status",
             state.id.pid
@@ -100,10 +100,9 @@ pub(in crate::privileged_helper) fn create_network_namespace_target(
     BufReader::new(child.stdout.take().unwrap())
         .read_line(&mut line)
         .unwrap();
-    let id = process::read_process_identity(child.id() as i32).unwrap();
+    let id = process::read_process_id(child.id() as i32).unwrap();
     let peer_id =
-        process::read_process_identity(line.split_whitespace().nth(1).unwrap().parse().unwrap())
-            .unwrap();
+        process::read_process_id(line.split_whitespace().nth(1).unwrap().parse().unwrap()).unwrap();
     NetworkNamespaceTarget {
         target: Target {
             child,

@@ -25,6 +25,8 @@ pub(in crate::privileged_helper) fn privacy_enabled() -> bool {
     PRIVACY.load(Ordering::Relaxed)
 }
 
+/// Read memory through a kernel task ID, including a non-leader thread TID.
+/// Callers validate the containing process identity around acquisition.
 pub(super) fn read_process_memory(pid: i32, address: u64, length: usize) -> Result<Vec<u8>> {
     ensure!(
         !privacy_enabled(),

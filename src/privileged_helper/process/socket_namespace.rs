@@ -18,7 +18,7 @@ use std::{
     thread,
     time::Instant,
 };
-use {super::validate_process_identity, crate::ipc::schema::ProcessId};
+use {super::validate_process_id, crate::ipc::schema::ProcessId};
 
 /// Owns a namespace FD so an exiting process or reused PID cannot retarget a query.
 pub(in crate::privileged_helper) struct NetworkNamespace {
@@ -33,11 +33,11 @@ pub(in crate::privileged_helper) struct NetworkNamespace {
 pub(in crate::privileged_helper) fn open_network_namespace(
     id: ProcessId,
 ) -> Result<NetworkNamespace> {
-    validate_process_identity(id)?;
+    validate_process_id(id)?;
     let namespace = File::open(format!("/proc/{}/ns/net", id.pid))
         .with_context(|| format!("network namespace for PID {}", id.pid))?;
     let metadata = namespace.metadata()?;
-    validate_process_identity(id)?;
+    validate_process_id(id)?;
     Ok(NetworkNamespace {
         namespace,
         device: metadata.dev(),
@@ -87,7 +87,7 @@ mod tests {
 
     #[test]
     fn netns_open_checks_identity_and_deadlines() {
-        let id = super::super::read_process_identity(std::process::id() as i32).unwrap();
+        let id = super::super::read_process_id(std::process::id() as i32).unwrap();
         let namespace = open_network_namespace(id).unwrap();
         assert_eq!((namespace.device, namespace.inode), current_namespace());
         let mut stale = id;

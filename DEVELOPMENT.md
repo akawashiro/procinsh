@@ -588,7 +588,7 @@ libc/NSS configuration reads. Neither operation runs in HTTP workers.
 
 | Helper modules | Privileged operations and resources |
 | --- | --- |
-| `process/{identity,procfs,collect_process,auxv,env,threads,maps}` | Protected procfs, PID/start-time checks, summaries/environment |
+| `process/{validate_process_id,procfs,collect_process,auxv,env,threads,maps}` | Protected procfs, PID/start-time checks, summaries/environment |
 | `process/{fds,socket_metadata,socket_namespace,sockets}`, `netlink` | pidfds, pidfd_getfd duplicates, namespace handles, setns and complete diagnostic socket queries |
 | `process/snapshot/{ptrace,registers,capture}`, `process/memory` | Ptrace guards, process_vm_readv, bounded register/stack/code capture |
 | `process/snapshot/{perf,sample}`, `process/elf` | Perf FDs/mmaps, raw samples and identity-verified ELF byte acquisition |

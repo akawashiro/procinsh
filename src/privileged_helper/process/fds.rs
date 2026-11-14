@@ -20,7 +20,7 @@ use std::{
     time::{Duration, Instant},
 };
 use {
-    super::{permission_help, procfs, validate_process_identity},
+    super::{permission_help, procfs, validate_process_id},
     crate::{
         ipc::{model::sockets::SocketInfo, schema::ProcessId},
         privileged_helper::process::sockets,
@@ -61,7 +61,8 @@ fn identify_descriptor_resource(path: &std::path::Path, link: &str, fifo: bool) 
     None
 }
 
-fn read_descriptor_access_mode(pid: i32, fd: u32) -> Option<u32> {
+fn read_descriptor_access_mode(id: ProcessId, fd: u32) -> Option<u32> {
+    let pid = id.pid;
     let fields = procfs::read_procfs_fields(&format!("/proc/{pid}/fdinfo/{fd}")).ok()?;
     // O_PATH descriptors cannot send or receive, even if O_ACCMODE is zero.
     let flags = u32::from_str_radix(fields.get("flags")?, 8).ok()?;
@@ -146,7 +147,7 @@ fn collect_descriptor_owners(
             else {
                 continue;
             };
-            let mode = read_descriptor_access_mode(pid, fd);
+            let mode = read_descriptor_access_mode(id, fd);
             found.push((
                 key,
                 Owner {
@@ -162,7 +163,7 @@ fn collect_descriptor_owners(
             ));
             matches += 1;
         }
-        if validate_process_identity(id).is_ok() {
+        if validate_process_id(id).is_ok() {
             for (key, owner) in found {
                 result.entry(key).or_default().push(owner);
             }
@@ -184,7 +185,7 @@ fn socket_table(
 ) -> HashMap<u64, SocketInfo> {
     let pid = id.pid;
     let mut result = HashMap::new();
-    result.extend(super::additional_sockets(pid));
+    result.extend(super::additional_sockets(id));
     for (file, protocol) in [
         (
             "tcp",
@@ -276,7 +277,7 @@ pub(in crate::privileged_helper) fn collect_file_descriptors(
         },
     };
 
-    validate_process_identity(id)?;
+    validate_process_id(id)?;
     let deadline = Instant::now() + Duration::from_secs(3);
     let mut warnings = Vec::new();
     let mut entries = Vec::new();
@@ -303,7 +304,7 @@ pub(in crate::privileged_helper) fn collect_file_descriptors(
         let Some(key) = identify_descriptor_resource(&entry.path(), &link, true) else {
             continue;
         };
-        let mode = read_descriptor_access_mode(id.pid, fd);
+        let mode = read_descriptor_access_mode(id, fd);
         entries.push(FileDescriptorInfo {
             fd,
             kind: key.kind,
@@ -463,7 +464,7 @@ pub(in crate::privileged_helper) fn collect_file_descriptors(
     } else {
         collect_descriptor_owners(&keys, deadline, &mut warnings)?
     };
-    validate_process_identity(id)?;
+    validate_process_id(id)?;
     let result = FileDescriptors {
         process_id: id,
         captured_at: timestamp_ms(),

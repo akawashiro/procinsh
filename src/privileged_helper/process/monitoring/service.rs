@@ -196,7 +196,7 @@ pub(in crate::privileged_helper) fn observe_process_monitor(
                             log::warn!("observation failed pid={}: {error}", id.pid);
                         }
                         target.error = Some(error);
-                        target.exited = process::validate_process_identity(id)
+                        target.exited = process::validate_process_id(id)
                             .err()
                             .is_some_and(|e| e.to_string().starts_with("Process exited"));
                     }
@@ -238,7 +238,7 @@ pub(in crate::privileged_helper) fn join_process_collectors(state: &ProcessMonit
 }
 
 fn capture_target(id: ProcessId) -> Result<(ProcessDetailSnapshot, ProcessSample)> {
-    process::validate_process_identity(id)?;
+    process::validate_process_id(id)?;
     let stat = procfs::read_process_stat(&format!("/proc/{}/stat", id.pid))?;
     let summary = process::collect_process_summary(&stat, &read_user_names());
     ensure!(summary.identity == id, "Process exited (PID reused)");
@@ -267,14 +267,14 @@ fn capture_target(id: ProcessId) -> Result<(ProcessDetailSnapshot, ProcessSample
         sampling_error: None,
     };
     refresh_maps(&mut target);
-    process::validate_process_identity(id)?;
+    process::validate_process_id(id)?;
     Ok((target, sample))
 }
 
 fn refresh_maps(target: &mut ProcessDetailSnapshot) {
     let id = target.summary.identity;
-    match maps::read_smaps(id.pid).and_then(|m| {
-        process::validate_process_identity(id)?;
+    match maps::read_smaps(id).and_then(|m| {
+        process::validate_process_id(id)?;
         Ok(m)
     }) {
         Ok(maps) => {
@@ -283,7 +283,7 @@ fn refresh_maps(target: &mut ProcessDetailSnapshot) {
                 log::info!("memory maps recovered pid={}", id.pid);
             }
             target.maps_captured_at = Some(crate::privileged_helper::timestamp_ms());
-            target.rollup = maps::read_memory_rollup(id.pid);
+            target.rollup = maps::read_memory_rollup(id);
         }
         Err(e) => {
             target.maps.clear();
