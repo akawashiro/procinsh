@@ -14,7 +14,7 @@ fn discovery_rates_history_and_process_exit() {
     let app = Arc::new(create_process_monitor(Duration::from_millis(100)));
     let session =
         observe_process_monitor(&app, target.id, reserve_process_monitor(&app).unwrap()).unwrap();
-    let other_id = process::read_process_identity(std::process::id() as i32).unwrap();
+    let other_id = process::read_process_id(std::process::id() as i32).unwrap();
     let other =
         observe_process_monitor(&app, other_id, reserve_process_monitor(&app).unwrap()).unwrap();
     std::thread::sleep(Duration::from_millis(350));

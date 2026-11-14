@@ -4,10 +4,11 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`capture_instruction_bytes`] | `pub(super)` | `fn capture_instruction_bytes( pid: i32, rip: u64, maps: &[`[`MemoryMap`]`], ) -> `[`InstructionBytes`] |
+//! | [`capture_instruction_bytes`] | `pub(super)` | `fn capture_instruction_bytes( id: `[`ProcessId`]`, rip: u64, maps: &[`[`MemoryMap`]`], ) -> `[`InstructionBytes`] |
 //!
 //! [`InstructionBytes`], defined in the shared acquisition module.
 
+use crate::ipc::schema::ProcessId;
 use crate::{ipc::model::memory::MemoryMap, privileged_helper::process::memory};
 
 const MAX_BYTES: usize = 256;
@@ -24,11 +25,13 @@ fn empty_instruction_bytes(address: u64) -> InstructionBytes {
 
 /// Best-effort read after sampling; mutable code may have changed.
 pub(super) fn capture_instruction_bytes(
-    pid: i32,
+    id: ProcessId,
     rip: u64,
     maps: &[MemoryMap],
 ) -> InstructionBytes {
     use crate::ipc::model::memory::memory_map_contains;
+
+    let pid = id.pid;
 
     let mut result = empty_instruction_bytes(rip);
     let Some(map) = maps.iter().find(|m| memory_map_contains(m, rip)) else {
@@ -63,14 +66,16 @@ mod tests {
             address + 2
         ))
         .unwrap();
-        let code = super::capture_instruction_bytes(std::process::id() as i32, address, &[map]);
+        let id =
+            crate::privileged_helper::process::read_process_id(std::process::id() as i32).unwrap();
+        let code = super::capture_instruction_bytes(id, address, &[map]);
         assert_eq!(code.bytes.len(), 2);
         bytes.fill(0x90);
         assert_eq!(code.bytes, [0x55, 0xc3]);
         let json = serde_json::to_value(&code).unwrap();
         assert!(json.get("instructions").is_none());
         assert!(
-            super::capture_instruction_bytes(std::process::id() as i32, address, &[])
+            super::capture_instruction_bytes(id, address, &[])
                 .error
                 .is_some()
         );

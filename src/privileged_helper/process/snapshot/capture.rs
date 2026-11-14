@@ -37,7 +37,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-fn executable_header(pid: i32) -> Option<[u8; 20]> {
+fn executable_header(id: ProcessId) -> Option<[u8; 20]> {
+    let pid = id.pid;
     use std::io::Read;
     let mut header = [0; 20];
     std::fs::File::open(format!("/proc/{pid}/exe"))
@@ -95,7 +96,7 @@ pub(in crate::privileged_helper::process) struct Sampler {
 pub(in crate::privileged_helper::process) fn create_sampler(id: ProcessId) -> Sampler {
     Sampler {
         id,
-        executable_header: executable_header(id.pid),
+        executable_header: executable_header(id),
         threads: BTreeMap::new(),
         #[cfg(test)]
         symbols: ElfCache::default(),
@@ -127,7 +128,7 @@ fn capture_ptrace_sampler(state: &mut Sampler, maps: &[MemoryMap]) -> Result<()>
         thread.latest.error = thread.setup_error.clone();
         match super::ptrace::capture_thread_snapshot(tid, maps) {
             Ok(sample) => process_sample(
-                state.id.pid,
+                state.id,
                 #[cfg(test)]
                 &mut state.unwind,
                 #[cfg(test)]
@@ -149,7 +150,7 @@ fn capture_ptrace_sampler(state: &mut Sampler, maps: &[MemoryMap]) -> Result<()>
     }
     // Schedule from completion, including failed attempts; never catch up in a burst.
     state.next_ptrace = Some(Instant::now() + PTRACE_INTERVAL);
-    process::validate_process_identity(state.id)
+    process::validate_process_id(state.id)
 }
 
 /// Drains perf samples and captures current threads when the ptrace deadline is due.
@@ -169,7 +170,7 @@ pub(in crate::privileged_helper::process) fn poll_sampler(
         crate::privileged_helper::process::snapshot::perf::open_perf_event_reader,
     };
 
-    process::validate_process_identity(state.id)?;
+    process::validate_process_id(state.id)?;
     if state.context.maps.as_slice() != maps {
         state.context = Arc::new(MappingSnapshot {
             epoch: state.context.epoch + 1,
@@ -180,7 +181,7 @@ pub(in crate::privileged_helper::process) fn poll_sampler(
     {
         for map in maps.iter().filter(|map| map.executable && map.inode != 0) {
             if lookup_elf_symbols(&state.symbols, map).is_none()
-                && let Some(file) = process::elf::read_mapped_elf_file(state.id.pid, map)
+                && let Some(file) = process::elf::read_mapped_elf_file(state.id, map)
             {
                 cache_elf_symbols_from_bytes(&mut state.symbols, map, file);
             }
@@ -188,7 +189,7 @@ pub(in crate::privileged_helper::process) fn poll_sampler(
         refresh_stack_unwinder(&mut state.unwind, maps, &state.symbols);
     }
     let mut alive = BTreeSet::new();
-    for tid in super::super::threads::collect_thread_ids(state.id.pid)? {
+    for tid in super::super::threads::collect_thread_ids(state.id)? {
         let Ok(stat) =
             procfs::read_process_stat(&format!("/proc/{}/task/{tid}/stat", state.id.pid))
         else {
@@ -262,7 +263,7 @@ pub(in crate::privileged_helper::process) fn poll_sampler(
             && thread.sampled_ns.is_none_or(|time| sample.time_ns > time)
         {
             process_sample(
-                state.id.pid,
+                state.id,
                 #[cfg(test)]
                 &mut state.unwind,
                 #[cfg(test)]
@@ -281,7 +282,7 @@ pub(in crate::privileged_helper::process) fn poll_sampler(
     {
         capture_ptrace_sampler(state, maps)?;
     }
-    process::validate_process_identity(state.id)?;
+    process::validate_process_id(state.id)?;
     Ok(())
 }
 
@@ -317,7 +318,7 @@ pub(in crate::privileged_helper::process) fn latest_sampler(state: &Sampler) -> 
 }
 
 fn process_sample(
-    pid: i32,
+    id: ProcessId,
     #[cfg(test)] unwind: &mut StackUnwinder,
     #[cfg(test)] symbols: &mut ElfCache,
     thread: &mut Thread,
@@ -364,7 +365,7 @@ fn process_sample(
     };
     #[cfg(not(test))]
     let (frames, reason) = (Vec::new(), String::new());
-    let code = capture_instruction_bytes(pid, pc_register_set(r), maps);
+    let code = capture_instruction_bytes(id, pc_register_set(r), maps);
     let age = monotonic_ns().saturating_sub(sample.time_ns) / 1_000_000;
     thread.sampled_ns = Some(sample.time_ns);
     thread.latest = LiveSample {
@@ -478,7 +479,7 @@ mod live_tests {
             .stdout(Stdio::from(stdout))
             .spawn()
             .unwrap();
-        let id = process::read_process_identity(child.id() as i32).unwrap();
+        let id = process::read_process_id(child.id() as i32).unwrap();
         let mut controller = ThreadController {
             target: Target {
                 child,
@@ -528,7 +529,7 @@ mod live_tests {
         };
 
         let target = create_target("sleeping");
-        let maps = process::maps::read_maps(target.id.pid).unwrap();
+        let maps = process::maps::read_maps(target.id).unwrap();
         let mut sampler = super::create_sampler(target.id);
         super::bootstrap_sampler(&mut sampler, &maps).unwrap();
         let first = super::latest_sampler(&sampler)[0].clone();
@@ -590,7 +591,7 @@ mod live_tests {
         };
 
         let target = create_target("sleeping");
-        let maps = process::maps::read_maps(target.id.pid).unwrap();
+        let maps = process::maps::read_maps(target.id).unwrap();
         let mut sampler = super::create_sampler(target.id);
         super::bootstrap_sampler(&mut sampler, &maps).unwrap();
         let deadline = sampler.next_ptrace.unwrap();
@@ -626,7 +627,7 @@ mod live_tests {
         };
 
         let target = create_target("threads");
-        let maps = process::maps::read_maps(target.id.pid).unwrap();
+        let maps = process::maps::read_maps(target.id).unwrap();
         let mut sampler = super::create_sampler(target.id);
         super::bootstrap_sampler(&mut sampler, &maps).unwrap();
         // This fixture also churns short-lived threads; only its main and four
@@ -674,7 +675,7 @@ mod live_tests {
         };
 
         let target = create_target("sleeping");
-        let maps = process::maps::read_maps(target.id.pid).unwrap();
+        let maps = process::maps::read_maps(target.id).unwrap();
         let mut sampler = super::create_sampler(target.id);
         super::bootstrap_sampler(&mut sampler, &maps).unwrap();
         let thread = sampler.threads.get_mut(&target.id.pid).unwrap();
@@ -736,7 +737,7 @@ mod live_tests {
         };
 
         let target = create_target("sleeping");
-        let maps = process::maps::read_maps(target.id.pid).unwrap();
+        let maps = process::maps::read_maps(target.id).unwrap();
         let mut sampler = super::create_sampler(target.id);
         super::bootstrap_sampler(&mut sampler, &maps).unwrap();
         let thread = sampler.threads.get_mut(&target.id.pid).unwrap();
@@ -750,7 +751,7 @@ mod live_tests {
             source: SampleSource::CpuClock,
         };
         process_sample(
-            target.id.pid,
+            target.id,
             &mut sampler.unwind,
             &mut sampler.symbols,
             thread,
@@ -769,7 +770,7 @@ mod live_tests {
             source: SampleSource::CpuClock,
         };
         process_sample(
-            target.id.pid,
+            target.id,
             &mut sampler.unwind,
             &mut sampler.symbols,
             thread,
@@ -795,7 +796,7 @@ mod live_tests {
         open_perf_event_reader(target.id.pid)
             .expect("perf access is required in the Docker test container");
         context_switch_perf_event_reader(target.id.pid).unwrap();
-        let maps = process::maps::read_maps(target.id.pid).unwrap();
+        let maps = process::maps::read_maps(target.id).unwrap();
         let mut sampler = super::create_sampler(target.id);
         let mut complete = false;
         let mut truncated = false;
@@ -866,7 +867,7 @@ mod live_tests {
             let target = create_target(name);
             open_perf_event_reader(target.id.pid)
                 .expect("perf access is required in the Docker test container");
-            let maps = process::maps::read_maps(target.id.pid).unwrap();
+            let maps = process::maps::read_maps(target.id).unwrap();
             let mut sampler = super::create_sampler(target.id);
             poll_until(&mut sampler, &maps, |s| {
                 super::latest_sampler(s)
@@ -934,7 +935,7 @@ mod live_tests {
         open_perf_event_reader(target.id.pid)
             .expect("perf access is required in the Docker test container");
         context_switch_perf_event_reader(target.id.pid).unwrap();
-        let maps = process::maps::read_maps(target.id.pid).unwrap();
+        let maps = process::maps::read_maps(target.id).unwrap();
         let mut sampler = super::create_sampler(target.id);
         poll_until(&mut sampler, &maps, |s| {
             let latest = super::latest_sampler(s);
@@ -969,7 +970,7 @@ mod live_tests {
 
         let mut controller = create_thread_controller();
         let id = controller.target.id;
-        let maps = process::maps::read_maps(id.pid).unwrap();
+        let maps = process::maps::read_maps(id).unwrap();
         let mut sampler = super::create_sampler(id);
         super::poll_sampler(&mut sampler, &maps).unwrap();
         for _ in 0..3 {
@@ -1002,7 +1003,7 @@ mod live_tests {
 
         let controller = create_thread_controller();
         let id = controller.target.id;
-        let maps = process::maps::read_maps(id.pid).unwrap();
+        let maps = process::maps::read_maps(id).unwrap();
         let stale = ProcessId {
             start_time_ticks: id.start_time_ticks + 1,
             ..id
@@ -1019,7 +1020,7 @@ mod live_tests {
 
         let mut controller = create_thread_controller();
         let id = controller.target.id;
-        let maps = process::maps::read_maps(id.pid).unwrap();
+        let maps = process::maps::read_maps(id).unwrap();
         let mut sampler = super::create_sampler(id);
         super::poll_sampler(&mut sampler, &maps).unwrap();
         assert_detached_target(&controller.target);

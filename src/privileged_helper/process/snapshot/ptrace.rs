@@ -165,7 +165,7 @@ mod tests {
         };
 
         let target = create_target("sleeping");
-        let maps = process::maps::read_maps(target.id.pid).unwrap();
+        let maps = process::maps::read_maps(target.id).unwrap();
         perform_ptrace_request(libc::PTRACE_SEIZE, target.id.pid, 0, 0).unwrap();
         let attachment = PtraceGuard {
             tid: target.id.pid,

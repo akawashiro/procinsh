@@ -8,7 +8,7 @@
 //! | [`ObservationSession`] | `pub(super)` | `struct ObservationSession` |
 //! | [`ProcessMonitor`] | `pub(super)` | `struct ProcessMonitor` |
 //! | [`collect_processes`] | `pub(super)` | `fn collect_processes() -> `[`Result`](anyhow::Result)`<`[`Vec`]`<`[`ProcessSummary`](crate::ipc::acquisition::ProcessSummary)`>>` |
-//! | [`validate_process_identity`] | `pub(super)` | `fn validate_process_identity(id: `[`ProcessId`]`) -> `[`Result`](anyhow::Result)`<()>` |
+//! | [`validate_process_id`] | `pub(super)` | `fn validate_process_id(id: `[`ProcessId`]`) -> `[`Result`](anyhow::Result)`<()>` |
 //! | [`enable_privacy`] | `pub(super)` | `fn enable_privacy()` |
 //! | [`privacy_enabled`] | `pub(super)` | `fn privacy_enabled() -> bool` |
 //! | [`SubscribeError`] | `pub(super)` | `enum SubscribeError` |
@@ -17,7 +17,7 @@
 //! | [`collect_process_observation`] | `pub(super)` | `fn collect_process_observation( id: `[`ProcessId`]`, ) -> `[`Result`](anyhow::Result)`<`[`crate::ipc::acquisition::ObservationData`]`>` |
 //! | [`collect_thread_observation`] | `pub(super)` | `fn collect_thread_observation( id: `[`ProcessId`]`, ) -> `[`Result`](anyhow::Result)`<`[`crate::ipc::acquisition::ObservationData`]`>` |
 //! | [`parse_inet_socket_table`] | `pub(super)` | `fn parse_inet_socket_table( text: &str, protocol: `[`crate::ipc::model::socket_types::SocketProtocol`]`, ) -> `[`std::collections::HashMap`]`<u64, `[`SocketInfo`](crate::ipc::model::sockets::SocketInfo)`>` |
-//! | [`read_maps`] | `pub(super)` | `fn read_maps(pid: i32) -> `[`Result`](anyhow::Result)`<`[`Vec`]`<`[`MemoryMap`](crate::ipc::model::memory::MemoryMap)`>>` |
+//! | [`read_maps`] | `pub(super)` | `fn read_maps(id: `[`ProcessId`]`) -> `[`Result`](anyhow::Result)`<`[`Vec`]`<`[`MemoryMap`](crate::ipc::model::memory::MemoryMap)`>>` |
 //! | [`read_auxiliary_vector`] | `pub(super)` | `fn read_auxiliary_vector( id: `[`ProcessId`]`, ) -> `[`Result`](anyhow::Result)`<`[`crate::ipc::acquisition::AuxData`]`>` |
 //! | [`read_environment`] | `pub(super)` | `fn read_environment( id: `[`ProcessId`]`, ) -> `[`Result`](anyhow::Result)`<`[`crate::ipc::acquisition::EnvironmentData`]`>` |
 //! | [`read_procfs_fields`] | `pub(super)` | `fn read_procfs_fields( path: &str, ) -> `[`Result`](anyhow::Result)`<`[`std::collections::HashMap`]`<`[`String`]`, `[`String`]`>>` |
@@ -25,7 +25,7 @@
 //! | [`collect_unix_socket_peers`] | `pub(super)` | `fn collect_unix_socket_peers( namespace: &`[`NetworkNamespace`](socket_namespace::NetworkNamespace)`, deadline: `[`std::time::Instant`]`, ) -> `[`Result`](anyhow::Result)`<`[`std::collections::HashMap`]`<u64, `[`SocketInfo`](crate::ipc::model::sockets::SocketInfo)`>>` |
 //! | [`parse_unix_socket_table`] | `pub(super)` | `fn parse_unix_socket_table( text: &str, ) -> `[`std::collections::HashMap`]`<u64, `[`SocketInfo`](crate::ipc::model::sockets::SocketInfo)`>` |
 //! | [`SocketMetadata`] | `pub(super)` | `struct SocketMetadata` |
-//! | [`additional_sockets`] | `pub(super)` | `fn additional_sockets(pid: i32) -> `[`HashMap`](std::collections::HashMap)`<u64, `[`SocketInfo`](crate::ipc::model::sockets::SocketInfo)`>` |
+//! | [`additional_sockets`] | `pub(super)` | `fn additional_sockets(id: `[`ProcessId`]`) -> `[`HashMap`](std::collections::HashMap)`<u64, `[`SocketInfo`](crate::ipc::model::sockets::SocketInfo)`>` |
 //! | [`open_network_namespace`] | `pub(super)` | `fn open_network_namespace( id: `[`ProcessId`]`, ) -> `[`Result`](anyhow::Result)`<`[`NetworkNamespace`](socket_namespace::NetworkNamespace)`>` |
 //! | [`create_process_monitor`] | `pub(in crate::privileged_helper)` | `fn create_process_monitor(interval: `[`Duration`](std::time::Duration)`) -> `[`ProcessMonitor`] |
 //! | [`join_process_collectors`] | `pub(in crate::privileged_helper)` | `fn join_process_collectors(state: &`[`ProcessMonitor`]`) -> `[`Result`](anyhow::Result)`<()>` |
@@ -45,7 +45,6 @@ mod collect_process;
 mod elf;
 mod env;
 mod fds;
-mod identity;
 mod maps;
 mod memory;
 mod monitoring;
@@ -55,13 +54,14 @@ mod socket_metadata;
 mod socket_namespace;
 mod sockets;
 mod threads;
+mod validate_process_id;
 use crate::ipc::schema::ProcessId;
 use collect_process::collect_process_summary;
 pub(super) use collect_process::collect_processes;
-#[cfg(test)]
-pub(super) use identity::read_process_identity;
-pub(super) use identity::validate_process_identity;
 pub(super) use memory::{enable_privacy, privacy_enabled};
+#[cfg(test)]
+pub(super) use validate_process_id::read_process_id;
+pub(super) use validate_process_id::validate_process_id;
 
 pub(super) use auxv::read_auxiliary_vector;
 pub(super) use env::read_environment;
@@ -93,16 +93,16 @@ pub(super) fn acquire_process_elf_ranges(
     mapping_start: u64,
     ranges: Vec<crate::ipc::elf::FileRange>,
 ) -> anyhow::Result<crate::ipc::schema::MonitorResponse> {
-    validate_process_identity(id)?;
-    let maps = maps::read_maps(id.pid)?;
+    validate_process_id(id)?;
+    let maps = maps::read_maps(id)?;
     let result = match maps
         .iter()
         .find(|map| map.start == mapping_start && map.executable && map.inode != 0)
     {
-        Some(map) => elf::read_mapped_file_ranges(id.pid, map, &ranges),
+        Some(map) => elf::read_mapped_file_ranges(id, map, &ranges),
         None => Ok(crate::ipc::schema::MonitorResponse::Elf(None)),
     };
-    validate_process_identity(id)?;
+    validate_process_id(id)?;
     result
 }
 

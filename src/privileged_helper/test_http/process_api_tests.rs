@@ -281,7 +281,7 @@ async fn closing_a_session_stops_its_collector() {
     };
 
     let state = Arc::new(create_app_state(Duration::from_millis(100)));
-    let id = super::process::read_process_identity(std::process::id() as i32).unwrap();
+    let id = super::process::read_process_id(std::process::id() as i32).unwrap();
     let session = observe_process_monitor(
         &state.monitoring,
         id,

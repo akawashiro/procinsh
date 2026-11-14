@@ -4,15 +4,17 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`collect_thread_ids`] | `pub(super)` | `fn collect_thread_ids(pid: i32) -> `[`Result`]`<`[`Vec`]`<i32>>` |
-//! | [`read_thread_sample`] | `pub(super)` | `fn read_thread_sample(pid: i32, tid: i32) -> `[`Result`]`<`[`ThreadSample`]`>` |
+//! | [`collect_thread_ids`] | `pub(super)` | `fn collect_thread_ids(id: `[`ProcessId`]`) -> `[`Result`]`<`[`Vec`]`<i32>>` |
+//! | [`read_thread_sample`] | `pub(super)` | `fn read_thread_sample(id: `[`ProcessId`]`, tid: i32) -> `[`Result`]`<`[`ThreadSample`]`>` |
 
 use super::procfs::{self, Stat};
 use crate::ipc::model::threads::{ThreadSample, parse_cpu_affinity};
+use crate::ipc::schema::ProcessId;
 use anyhow::{Result, ensure};
 use std::fs;
 
-pub(super) fn collect_thread_ids(pid: i32) -> Result<Vec<i32>> {
+pub(super) fn collect_thread_ids(id: ProcessId) -> Result<Vec<i32>> {
+    let pid = id.pid;
     let mut tids: Vec<_> = fs::read_dir(format!("/proc/{pid}/task"))?
         .flatten()
         .filter_map(|e| e.file_name().to_str()?.parse().ok())
@@ -26,8 +28,10 @@ pub(super) fn collect_thread_ids(pid: i32) -> Result<Vec<i32>> {
     Ok(tids)
 }
 
-pub(super) fn read_thread_sample(pid: i32, tid: i32) -> Result<ThreadSample> {
+pub(super) fn read_thread_sample(id: ProcessId, tid: i32) -> Result<ThreadSample> {
     use crate::ipc::model::threads::scheduler_policy_from_code;
+
+    let pid = id.pid;
 
     let path = format!("/proc/{pid}/task/{tid}");
     let s: Stat = procfs::read_process_stat(&format!("{path}/stat"))?;

@@ -220,16 +220,16 @@ mod tests {
             "recursive_debug_frame",
         ] {
             let target = create_test_target(name);
-            let maps = process::maps::read_maps(target.id.pid).unwrap();
+            let maps = process::maps::read_maps(target.id).unwrap();
             let mut symbols = ElfCache::default();
             for map in maps.iter().filter(|map| map.executable && map.inode != 0) {
-                let _ = process::load(&mut symbols, target.id.pid, map);
+                let _ = process::load(&mut symbols, target.id, map);
             }
             let map = maps
                 .iter()
                 .find(|m| m.executable && m.pathname.as_deref().is_some_and(|p| p.ends_with(name)))
                 .unwrap();
-            let elf = process::load(&mut symbols, target.id.pid, map).unwrap();
+            let elf = process::load(&mut symbols, target.id, map).unwrap();
             let base = map.start - elf_address(map.start, map, &elf, procfs::page_size()).unwrap();
             let bytes = std::fs::read(format!("tests/targets/bin/{name}")).unwrap();
             let file = object::File::parse(bytes.as_slice()).unwrap();

@@ -51,7 +51,7 @@ fn netns_fd_list_resolves_peers_separately_from_shared_holders() {
                 .any(|holder| holder.process_id == fixture.peer_id && holder.fd == 63)
         );
         let inherited = details.entries.iter().find(|entry| entry.fd == 0).unwrap();
-        let self_id = process::read_process_identity(std::process::id() as i32).unwrap();
+        let self_id = process::read_process_id(std::process::id() as i32).unwrap();
         assert!(
             inherited
                 .holders
@@ -75,7 +75,7 @@ fn memory_partial_reads_and_map_statistics() {
     let data = memory::read_process_memory(target.id.pid, target.address + page - 8, 16).unwrap();
     assert_eq!(data.len(), 8);
     assert!(memory::read_process_memory(target.id.pid, target.address + page, 16).is_err());
-    let maps = maps::read_smaps(target.id.pid).unwrap();
+    let maps = maps::read_smaps(target.id).unwrap();
     assert!(
         maps.iter()
             .any(|m| memory_map_contains(&m.mapping, target.address) && m.rss_bytes.is_some())
@@ -173,7 +173,7 @@ fn pipe_unix_tcp_udp_peers_are_distinct_from_shared_descriptors() {
     .unwrap()
     .parse()
     .unwrap();
-    let child_id = process::read_process_identity(child).unwrap();
+    let child_id = process::read_process_id(child).unwrap();
     let details = process::fds::collect_file_descriptors(target.id).unwrap();
     for fd in [60, 61, 62, 64] {
         let entry = details.entries.iter().find(|e| e.fd == fd).unwrap();
@@ -209,7 +209,7 @@ fn pipe_unix_tcp_udp_peers_are_distinct_from_shared_descriptors() {
         libc::kill(child, libc::SIGTERM);
     }
     for _ in 0..100 {
-        if process::validate_process_identity(child_id).is_err() {
+        if process::validate_process_id(child_id).is_err() {
             break;
         }
         std::thread::sleep(Duration::from_millis(5));

@@ -21,9 +21,9 @@ pub(super) mod process {
     pub(in crate::http_server::analysis) mod maps {
         use crate::ipc::model::memory::parse_map;
         pub(in crate::http_server::analysis) fn read_maps(
-            pid: i32,
+            id: crate::ipc::schema::ProcessId,
         ) -> anyhow::Result<Vec<crate::ipc::model::memory::MemoryMap>> {
-            fs::read_to_string(format!("/proc/{pid}/maps"))?
+            fs::read_to_string(format!("/proc/{}/maps", id.pid))?
                 .lines()
                 .map(parse_map)
                 .collect()
@@ -32,12 +32,12 @@ pub(super) mod process {
     }
     pub(in crate::http_server::analysis) fn load(
         cache: &mut ElfCache,
-        pid: i32,
+        id: crate::ipc::schema::ProcessId,
         map: &MemoryMap,
     ) -> Option<Arc<ElfSymbols>> {
         use crate::http_server::analysis::snapshot::symbol::cache_elf_symbols_from_bytes;
 
-        let path = format!("/proc/{pid}/root{}", map.pathname.as_deref()?);
+        let path = format!("/proc/{}/root{}", id.pid, map.pathname.as_deref()?);
         let meta = fs::metadata(&path).ok()?;
         cache_elf_symbols_from_bytes(
             &mut *cache,

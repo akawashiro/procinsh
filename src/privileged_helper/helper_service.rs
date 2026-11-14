@@ -132,7 +132,7 @@ pub(super) fn dispatch_helper_ipc_service(
             process::collect_processes()?,
         ))),
         MonitorRequest::Process { id, resource } => {
-            process::validate_process_identity(id)?;
+            process::validate_process_id(id)?;
             let data = match resource {
                 ProcessResource::Observation => {
                     AcquiredData::Observation(process::collect_process_observation(id)?)
@@ -147,11 +147,11 @@ pub(super) fn dispatch_helper_ipc_service(
                 ProcessResource::Auxv => AcquiredData::Auxv(process::read_auxiliary_vector(id)?),
                 ProcessResource::Fds => AcquiredData::Fds(process::collect_file_descriptors(id)?),
             };
-            process::validate_process_identity(id)?;
+            process::validate_process_id(id)?;
             Ok(MonitorResponse::Data(data))
         }
         MonitorRequest::ObserveProcess { id } => {
-            process::validate_process_identity(id)?;
+            process::validate_process_id(id)?;
             let permit = reserve_process_monitor(&state.collectors.monitoring).map_err(|e| {
                 anyhow::anyhow!(
                     "{}",

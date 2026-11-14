@@ -9,7 +9,7 @@
 //! | [`socket_metadata_has_observation`] | `pub(in crate::privileged_helper)` | `fn socket_metadata_has_observation( state: &`[`SocketMetadata`]`, ) -> bool` |
 //! | [`create_socket_metadata_reader`] | `pub(in crate::privileged_helper)` | `fn create_socket_metadata_reader( process_id: `[`ProcessId`]`, ) -> `[`SocketMetadataReader`] |
 //! | [`read_socket_metadata`] | `pub(in crate::privileged_helper)` | `fn read_socket_metadata( reader: &mut `[`SocketMetadataReader`]`, fd: u32, device: u64, inode: u64, ) -> `[`Result`]`<`[`SocketMetadata`]`>` |
-//! | [`additional_sockets`] | `pub(in crate::privileged_helper)` | `fn additional_sockets(pid: i32) -> `[`HashMap`]`<u64, `[`SocketInfo`]`>` |
+//! | [`additional_sockets`] | `pub(in crate::privileged_helper)` | `fn additional_sockets(id: `[`ProcessId`]`) -> `[`HashMap`]`<u64, `[`SocketInfo`]`>` |
 
 use crate::ipc::model::socket_types::{SocketConnectionStatus, SocketProtocol, SocketType};
 use anyhow::{Result, bail, ensure};
@@ -18,7 +18,7 @@ use std::{
     os::fd::{AsRawFd, FromRawFd, OwnedFd},
 };
 use {
-    super::validate_process_identity,
+    super::validate_process_id,
     crate::{
         ipc::{model::sockets::SocketInfo, schema::ProcessId},
         privileged_helper::process::sockets,
@@ -76,14 +76,14 @@ pub(in crate::privileged_helper) fn read_socket_metadata(
     if let Some(reason) = &reader.unavailable {
         bail!("{reason}");
     }
-    validate_process_identity(reader.process_id)?;
+    validate_process_id(reader.process_id)?;
     if reader.pidfd.is_none() {
         let raw = unsafe { libc::syscall(libc::SYS_pidfd_open, reader.process_id.pid, 0) };
         if raw < 0 {
             return syscall_error_socket_metadata_reader(reader);
         }
         reader.pidfd = Some(unsafe { OwnedFd::from_raw_fd(raw as i32) });
-        validate_process_identity(reader.process_id)?;
+        validate_process_id(reader.process_id)?;
     }
     let raw = unsafe {
         libc::syscall(
@@ -135,7 +135,7 @@ pub(in crate::privileged_helper) fn read_socket_metadata(
         std::io::Error::last_os_error().raw_os_error()
     };
     let connection_status = connection_status(accepting, peer_error);
-    validate_process_identity(reader.process_id)?;
+    validate_process_id(reader.process_id)?;
     Ok(SocketMetadata {
         protocol,
         connection_status,
@@ -190,7 +190,8 @@ fn option(fd: &OwnedFd, name: i32) -> Result<u32> {
 /// Procfs fallback for socket kinds not present in TCP/UDP/UNIX tables.
 /// Missing/unsupported tables are ignored. No peer or connection state is
 /// inferred from these tables; Netlink does not expose the socket's SO_TYPE.
-pub(in crate::privileged_helper) fn additional_sockets(pid: i32) -> HashMap<u64, SocketInfo> {
+pub(in crate::privileged_helper) fn additional_sockets(id: ProcessId) -> HashMap<u64, SocketInfo> {
+    let pid = id.pid;
     let mut result = HashMap::new();
     for name in ["netlink", "raw", "raw6", "packet"] {
         if let Ok(text) = sockets::read_socket_table(&format!("/proc/{pid}/net/{name}")) {
@@ -284,7 +285,7 @@ mod tests {
 
     fn reader() -> SocketMetadataReader {
         super::create_socket_metadata_reader(
-            super::super::read_process_identity(std::process::id() as i32).unwrap(),
+            super::super::read_process_id(std::process::id() as i32).unwrap(),
         )
     }
 
@@ -323,7 +324,7 @@ mod tests {
     fn socket_path_descriptors_allow_a_later_usable_descriptor() {
         use std::{ffi::CString, net::UdpSocket};
         let socket = UdpSocket::bind("127.0.0.1:0").unwrap();
-        let id = super::super::read_process_identity(std::process::id() as i32).unwrap();
+        let id = super::super::read_process_id(std::process::id() as i32).unwrap();
         require_socket_metadata(id, socket.as_raw_fd());
         let usable = socket.try_clone().unwrap();
         let name = CString::new(format!("/proc/self/fd/{}", socket.as_raw_fd())).unwrap();
@@ -365,7 +366,7 @@ mod tests {
         };
         let udp = UdpSocket::bind("127.0.0.1:0").unwrap();
         require_socket_metadata(
-            super::super::read_process_identity(std::process::id() as i32).unwrap(),
+            super::super::read_process_id(std::process::id() as i32).unwrap(),
             udp.as_raw_fd(),
         );
         let mut reader = reader();
@@ -442,7 +443,7 @@ mod tests {
         assert!(tcp >= 0);
         let tcp = unsafe { OwnedFd::from_raw_fd(tcp) };
         require_socket_metadata(
-            super::super::read_process_identity(std::process::id() as i32).unwrap(),
+            super::super::read_process_id(std::process::id() as i32).unwrap(),
             tcp.as_raw_fd(),
         );
         let udp = unsafe { libc::socket(libc::AF_INET, libc::SOCK_DGRAM | libc::SOCK_CLOEXEC, 0) };
@@ -519,7 +520,7 @@ mod tests {
     fn changed_process_and_descriptor_identities_are_rejected() {
         let socket = UnixDatagram::unbound().unwrap();
         require_socket_metadata(
-            super::super::read_process_identity(std::process::id() as i32).unwrap(),
+            super::super::read_process_id(std::process::id() as i32).unwrap(),
             socket.as_raw_fd(),
         );
         let meta = fs::metadata(format!("/proc/self/fd/{}", socket.as_raw_fd())).unwrap();

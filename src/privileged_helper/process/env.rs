@@ -8,7 +8,7 @@ use crate::privileged_helper::timestamp_ms;
 use anyhow::{Result, ensure};
 use std::fs::File;
 use {
-    super::{memory, permission_help, validate_process_identity},
+    super::{memory, permission_help, validate_process_id},
     crate::ipc::schema::ProcessId,
 };
 
@@ -21,13 +21,13 @@ pub(in crate::privileged_helper) fn read_environment(
         !memory::privacy_enabled(),
         "Environment variables are not read in privacy mode."
     );
-    validate_process_identity(id)?;
+    validate_process_id(id)?;
     let bytes = read_bounded_bytes(
         File::open(format!("/proc/{}/environ", id.pid))?,
         MAX_ENVIRONMENT,
     )
     .map_err(|e| anyhow::anyhow!(permission_help("/proc/PID/environ", e)))?;
-    validate_process_identity(id)?;
+    validate_process_id(id)?;
     Ok(crate::ipc::acquisition::EnvironmentData {
         process_id: id,
         captured_at: timestamp_ms(),
