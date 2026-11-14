@@ -8,7 +8,7 @@
 //! | [`PerfEventReader`] | `pub(super)` | `struct PerfEventReader` |
 //! | [`open_perf_event_reader`] | `pub(super)` | `fn open_perf_event_reader(tid: i32) -> `[`Result`]`<`[`PerfEventReader`]`>` |
 //! | [`context_switch_perf_event_reader`] | `pub(super)` | `fn context_switch_perf_event_reader(tid: i32) -> `[`Result`]`<`[`PerfEventReader`]`>` |
-//! | [`drain_perf_event_reader`] | `pub(super)` | `fn drain_perf_event_reader(state: &mut `[`PerfEventReader`]`) -> `[`Result`]`<`[`Option`]`<`[`RawSample`]`>>` |
+//! | [`drain_perf_event_reader`] | `pub(super)` | `fn drain_perf_event_reader(reader: &mut `[`PerfEventReader`]`) -> `[`Result`]`<`[`Option`]`<`[`RawSample`]`>>` |
 
 use anyhow::{Context, Result, bail, ensure};
 use std::{
@@ -171,55 +171,55 @@ fn open_attr_perf_event_reader(
     })
 }
 
-fn copy_perf_event_reader(state: &PerfEventReader, position: u64, length: usize) -> Vec<u8> {
+fn copy_perf_event_reader(reader: &PerfEventReader, position: u64, length: usize) -> Vec<u8> {
     (0..length)
         .map(|i| unsafe {
-            std::ptr::read_volatile(state.mapping.add(
-                state.offset + (position.wrapping_add(i as u64) % state.capacity as u64) as usize,
+            std::ptr::read_volatile(reader.mapping.add(
+                reader.offset + (position.wrapping_add(i as u64) % reader.capacity as u64) as usize,
             ))
         })
         .collect()
 }
 
-pub(super) fn drain_perf_event_reader(state: &mut PerfEventReader) -> Result<Option<RawSample>> {
-    let head = unsafe { &*state.mapping.add(1024).cast::<AtomicU64>() }.load(Ordering::Acquire);
+pub(super) fn drain_perf_event_reader(reader: &mut PerfEventReader) -> Result<Option<RawSample>> {
+    let head = unsafe { &*reader.mapping.add(1024).cast::<AtomicU64>() }.load(Ordering::Acquire);
     let mut latest = None;
     let result = (|| {
         ensure!(
-            head.wrapping_sub(state.tail) <= state.capacity as u64,
+            head.wrapping_sub(reader.tail) <= reader.capacity as u64,
             "perf ring overrun"
         );
-        while state.tail != head {
+        while reader.tail != head {
             ensure!(
-                head.wrapping_sub(state.tail) >= PERF_EVENT_HEADER_SIZE as u64,
+                head.wrapping_sub(reader.tail) >= PERF_EVENT_HEADER_SIZE as u64,
                 "truncated perf header"
             );
-            let header = copy_perf_event_reader(state, state.tail, PERF_EVENT_HEADER_SIZE);
+            let header = copy_perf_event_reader(reader, reader.tail, PERF_EVENT_HEADER_SIZE);
             let kind = u32::from_ne_bytes(header[..4].try_into()?);
             let size = u16::from_ne_bytes(header[6..PERF_EVENT_HEADER_SIZE].try_into()?) as usize;
             ensure!(
                 size >= PERF_EVENT_HEADER_SIZE
-                    && size <= state.capacity
-                    && size as u64 <= head.wrapping_sub(state.tail),
+                    && size <= reader.capacity
+                    && size as u64 <= head.wrapping_sub(reader.tail),
                 "invalid perf record size"
             );
             let bytes = copy_perf_event_reader(
-                state,
-                state.tail.wrapping_add(PERF_EVENT_HEADER_SIZE as u64),
+                reader,
+                reader.tail.wrapping_add(PERF_EVENT_HEADER_SIZE as u64),
                 size - PERF_EVENT_HEADER_SIZE,
             );
-            state.tail = state.tail.wrapping_add(size as u64);
+            reader.tail = reader.tail.wrapping_add(size as u64);
             let misc = u16::from_ne_bytes(header[4..6].try_into()?);
             match kind {
                 PERF_RECORD_SAMPLE => {
                     let sample = parse_perf_sample(&bytes)?;
-                    if state.context_switch {
-                        state.pending = sample;
+                    if reader.context_switch {
+                        reader.pending = sample;
                     } else if sample.is_some() {
                         latest = sample;
                     }
                 }
-                PERF_RECORD_SWITCH if state.context_switch => {
+                PERF_RECORD_SWITCH if reader.context_switch => {
                     // sample_id_all trailer: TID, TIME, CPU. A switch-in,
                     // missing sample, or loss must never classify an old sample.
                     let mut c = Cursor(&bytes);
@@ -227,7 +227,7 @@ pub(super) fn drain_perf_event_reader(state: &mut PerfEventReader) -> Result<Opt
                     let tid = i32::from_ne_bytes(tids[4..].try_into()?);
                     let time = u64_cursor(&mut c)?;
                     let cpu = u64_cursor(&mut c)? as u32;
-                    if let Some(mut sample) = state.pending.take()
+                    if let Some(mut sample) = reader.pending.take()
                         && misc & PERF_RECORD_MISC_SWITCH_OUT != 0
                         && sample.tid == tid
                         && sample.time_ns <= time
@@ -239,14 +239,14 @@ pub(super) fn drain_perf_event_reader(state: &mut PerfEventReader) -> Result<Opt
                         latest = Some(sample);
                     }
                 }
-                PERF_RECORD_THROTTLE | PERF_RECORD_UNTHROTTLE if state.context_switch => {
-                    state.pending = None;
+                PERF_RECORD_THROTTLE | PERF_RECORD_UNTHROTTLE if reader.context_switch => {
+                    reader.pending = None;
                 }
                 PERF_RECORD_LOST => {
-                    state.pending = None;
+                    reader.pending = None;
                     let mut cursor = Cursor(&bytes);
                     u64_cursor(&mut cursor)?;
-                    state.lost = state.lost.saturating_add(u64_cursor(&mut cursor)?);
+                    reader.lost = reader.lost.saturating_add(u64_cursor(&mut cursor)?);
                 }
                 _ => {}
             }
@@ -254,11 +254,11 @@ pub(super) fn drain_perf_event_reader(state: &mut PerfEventReader) -> Result<Opt
         Ok(latest)
     })();
     if result.is_err() {
-        state.lost = state.lost.saturating_add(1);
-        state.tail = head;
-        state.pending = None;
+        reader.lost = reader.lost.saturating_add(1);
+        reader.tail = head;
+        reader.pending = None;
     }
-    unsafe { &*state.mapping.add(1032).cast::<AtomicU64>() }.store(state.tail, Ordering::Release);
+    unsafe { &*reader.mapping.add(1032).cast::<AtomicU64>() }.store(reader.tail, Ordering::Release);
     result
 }
 impl Drop for PerfEventReader {
