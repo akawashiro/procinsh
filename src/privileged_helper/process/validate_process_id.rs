@@ -1,7 +1,7 @@
 //! Validate process identity against procfs to detect exit and PID reuse.
 //!
 //! # Interface
-//! [`validate_process_id`] (`pub(in crate::privileged_helper)`):
+//! [`validate_process_id`](fn@validate_process_id) (`pub(in crate::privileged_helper)`):
 //! `fn validate_process_id(id: `[`ProcessId`]`) -> `[`anyhow::Result`]`<()>`.
 
 use super::procfs;

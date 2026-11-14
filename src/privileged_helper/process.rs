@@ -8,7 +8,7 @@
 //! | [`ObservationSession`] | `pub(super)` | `struct ObservationSession` |
 //! | [`ProcessMonitor`] | `pub(super)` | `struct ProcessMonitor` |
 //! | [`collect_processes`] | `pub(super)` | `fn collect_processes() -> `[`Result`](anyhow::Result)`<`[`Vec`]`<`[`ProcessSummary`](crate::ipc::acquisition::ProcessSummary)`>>` |
-//! | [`validate_process_id`] | `pub(super)` | `fn validate_process_id(id: `[`ProcessId`]`) -> `[`Result`](anyhow::Result)`<()>` |
+//! | [`validate_process_id`](fn@validate_process_id) | `pub(super)` | `fn validate_process_id(id: `[`ProcessId`]`) -> `[`Result`](anyhow::Result)`<()>` |
 //! | [`enable_privacy`] | `pub(super)` | `fn enable_privacy()` |
 //! | [`privacy_enabled`] | `pub(super)` | `fn privacy_enabled() -> bool` |
 //! | [`SubscribeError`] | `pub(super)` | `enum SubscribeError` |
