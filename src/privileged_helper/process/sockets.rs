@@ -14,7 +14,6 @@ use super::socket_namespace::{NetworkNamespace, open_namespace_diagnostic_socket
 
 use crate::ipc::model::socket_types::SocketProtocol;
 use crate::privileged_helper::netlink;
-// Visibility is scoped to the consumers of the parent process façade.
 use anyhow::{Context, Result, bail, ensure};
 use std::{
     collections::HashMap,

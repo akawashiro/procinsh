@@ -5,7 +5,6 @@
 //! - [`read_user_names`] (`pub(super)`): `fn read_user_names() -> `[`HashMap`]`<u32, `[`String`]`>`.
 //! - [`collect_processes`] (`pub(in crate::privileged_helper)`): `fn collect_processes() -> `[`Result`]`<`[`Vec`]`<`[`crate::ipc::acquisition::ProcessSummary`]`>>`.
 
-// Visibility is scoped to the consumers of the parent process façade.
 use anyhow::Result;
 use std::{collections::HashMap, fs};
 use {super::procfs, crate::ipc::schema::ProcessId};
