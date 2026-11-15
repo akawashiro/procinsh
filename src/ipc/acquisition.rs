@@ -149,6 +149,17 @@ pub(crate) enum SensorState {
     Unavailable(String),
     Error(String),
 }
+impl std::fmt::Display for SensorState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Idle => f.write_str("idle"),
+            Self::Observing => f.write_str("observing"),
+            Self::Unavailable(message) => write!(f, "unavailable: {message}"),
+            Self::Error(message) => write!(f, "error: {message}"),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum SampleSource {
     CpuClock,

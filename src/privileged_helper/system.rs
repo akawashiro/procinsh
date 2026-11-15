@@ -28,7 +28,6 @@ mod hardware_capture;
 use crate::http_server::analysis::hardware::acquisition;
 mod ipc;
 mod ipoib;
-mod model;
 mod rdma;
 mod resolver;
 mod sched;
