@@ -95,7 +95,7 @@ pub(super) fn drain_activity_collector(
     snapshot: &SystemSnapshot,
 ) -> ActivityBatch {
     use crate::privileged_helper::system::{
-        files::{drain_file_activity_collector, lost_file_activity_collector},
+        files::{count_lost_file_activity_events, drain_file_activity_collector},
         ipc::{
             drain_ipc_activity_collector, lost_ipc_activity_collector,
             unresolved_ipc_activity_collector,
@@ -130,7 +130,12 @@ pub(super) fn drain_activity_collector(
             .as_ref()
             .map_or(0, unresolved_ipc_activity_collector),
     );
-    state.status.files_lost = Some(state.files.as_ref().map_or(0, lost_file_activity_collector));
+    state.status.files_lost = Some(
+        state
+            .files
+            .as_ref()
+            .map_or(0, count_lost_file_activity_events),
+    );
     let files = state
         .files
         .as_ref()
