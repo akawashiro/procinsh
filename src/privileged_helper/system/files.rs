@@ -4,12 +4,12 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`COVERAGE`] | `pub(super)` | `const COVERAGE: &str` | //! | [`FileActivityCollector`] | `pub(super)` | `struct FileActivityCollector` | //! | [`create_file_activity_collector`] | `pub(super)` | `fn create_file_activity_collector() -> `[`Result`]`<`[`FileActivityCollector`]`>` | //! | [`poll_file_activity_collector`] | `pub(super)` | `fn poll_file_activity_collector(state: &`[`FileActivityCollector`]`) -> `[`Result`]`<()>` | //! | [`drain_file_activity_collector`] | `pub(super)` | `fn drain_file_activity_collector(state: &`[`FileActivityCollector`]`) -> `[`Vec`]`<`[`FileActivity`]`>` | //! | [`lost_file_activity_collector`] | `pub(super)` | `fn lost_file_activity_collector(state: &`[`FileActivityCollector`]`) -> u64` | //! //! [`FileActivityCollector`] (`pub(super)`): `struct FileActivityCollector`. #[cfg(test)] use crate::ipc::model::resource::{DeviceId, FileIdentity}` | //! | [`FileActivityCollector`] | `pub(super)` | `struct FileActivityCollector` | //! | [`create_file_activity_collector`] | `pub(super)` | `fn create_file_activity_collector() -> `[`Result`]`<`[`FileActivityCollector`]`>` | //! | [`poll_file_activity_collector`] | `pub(super)` | `fn poll_file_activity_collector(state: &`[`FileActivityCollector`]`) -> `[`Result`]`<()>` | //! | [`drain_file_activity_collector`] | `pub(super)` | `fn drain_file_activity_collector(state: &`[`FileActivityCollector`]`) -> `[`Vec`]`<`[`FileActivity`]`>` | //! | [`lost_file_activity_collector`] | `pub(super)` | `fn lost_file_activity_collector(state: &`[`FileActivityCollector`]`) -> u64` | //! //! [`FileActivityCollector`] (`pub(super)`): `struct FileActivityCollector`. #[cfg(test)] use crate::ipc::model::resource::{DeviceId, FileIdentity}` | //! | [`FileActivityCollector`] | `pub(super)` | `struct FileActivityCollector` | //! | [`create_file_activity_collector`] | `pub(super)` | `fn create_file_activity_collector() -> `[`Result`]`<`[`FileActivityCollector`]`>` | //! | [`poll_file_activity_collector`] | `pub(super)` | `fn poll_file_activity_collector(state: &`[`FileActivityCollector`]`) -> `[`Result`]`<()>` | //! | [`drain_file_activity_collector`] | `pub(super)` | `fn drain_file_activity_collector(state: &`[`FileActivityCollector`]`) -> `[`Vec`]`<`[`FileActivity`]`>` | //! | [`lost_file_activity_collector`] | `pub(super)` | `fn lost_file_activity_collector(state: &`[`FileActivityCollector`]`) -> u64` | //! //! [`FileActivityCollector`] (`pub(super)`): `struct FileActivityCollector`. #[cfg(test)] use crate::ipc::model::resource::{DeviceId, FileIdentity}` |
+//! | [`COVERAGE`] | `pub(super)` | `const COVERAGE: &str` |
 //! | [`FileActivityCollector`] | `pub(super)` | `struct FileActivityCollector` |
 //! | [`create_file_activity_collector`] | `pub(super)` | `fn create_file_activity_collector() -> `[`Result`]`<`[`FileActivityCollector`]`>` |
 //! | [`poll_file_activity_collector`] | `pub(super)` | `fn poll_file_activity_collector(state: &`[`FileActivityCollector`]`) -> `[`Result`]`<()>` |
 //! | [`drain_file_activity_collector`] | `pub(super)` | `fn drain_file_activity_collector(state: &`[`FileActivityCollector`]`) -> `[`Vec`]`<`[`FileActivity`]`>` |
-//! | [`lost_file_activity_collector`] | `pub(super)` | `fn lost_file_activity_collector(state: &`[`FileActivityCollector`]`) -> u64` |
+//! | [`count_lost_file_activity_events`] | `pub(super)` | `fn count_lost_file_activity_events(state: &`[`FileActivityCollector`]`) -> u64` |
 //!
 
 #[cfg(test)]
@@ -89,7 +89,7 @@ pub(super) fn drain_file_activity_collector(state: &FileActivityCollector) -> Ve
     std::mem::take(&mut state.batch.lock().unwrap().events)
 }
 
-pub(super) fn lost_file_activity_collector(state: &FileActivityCollector) -> u64 {
+pub(super) fn count_lost_file_activity_events(state: &FileActivityCollector) -> u64 {
     state
         .obj
         .maps()
