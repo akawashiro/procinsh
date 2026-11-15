@@ -6,8 +6,6 @@
 //! | --- | --- | --- |
 //! | [`collect_system_snapshot`] | `pub(super)` | `fn collect_system_snapshot() -> `[`SystemSnapshot`] |
 
-#[cfg(not(test))]
-use super::hardware::HardwareSources;
 use super::rdma;
 #[cfg(test)]
 use crate::http_server::analysis::hardware::observation::HardwareSources;
@@ -31,6 +29,21 @@ use std::{
     os::unix::fs::{FileTypeExt, MetadataExt},
     time::{Duration, Instant},
 };
+
+#[cfg(not(test))]
+struct HardwareSources {
+    sys: std::path::PathBuf,
+    proc: std::path::PathBuf,
+}
+#[cfg(not(test))]
+impl Default for HardwareSources {
+    fn default() -> Self {
+        Self {
+            sys: "/sys".into(),
+            proc: "/proc".into(),
+        }
+    }
+}
 
 /// Adds IPoIB remote GIDs to network destinations of the collector's own network
 /// namespace. Neighbors are read only when an IPoIB interface exists.

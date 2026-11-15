@@ -22,7 +22,6 @@ mod delivery;
 #[cfg(test)]
 pub(super) use delivery::SnapshotEncoder;
 mod files;
-mod hardware;
 #[cfg(not(test))]
 mod hardware_capture;
 #[cfg(test)]
