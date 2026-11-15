@@ -4,7 +4,6 @@
 //!
 //! | Definition | Visibility | Kind / signature |
 //! | --- | --- | --- |
-//! | [`COVERAGE`] | `pub(super)` | `const COVERAGE: &str` |
 //! | [`FileActivityCollector`] | `pub(super)` | `struct FileActivityCollector` |
 //! | [`create_file_activity_collector`] | `pub(super)` | `fn create_file_activity_collector() -> `[`Result`]`<`[`FileActivityCollector`]`>` |
 //! | [`poll_file_activity_collector`] | `pub(super)` | `fn poll_file_activity_collector(state: &`[`FileActivityCollector`]`) -> `[`Result`]`<()>` |
@@ -19,7 +18,6 @@ use anyhow::{Context, Result};
 use libbpf_rs::{MapCore, MapFlags, ObjectBuilder, RingBufferBuilder};
 use std::sync::{Arc, Mutex};
 
-pub(super) const COVERAGE: &str = "Regular-file read/write, pread/pwrite and vectored I/O, including page cache. Not physical disk traffic. mmap, io_uring, splice/sendfile and kernel workers are not observed.";
 const MAX_AGGREGATES: usize = 8192;
 use crate::ipc::activity::FileActivity;
 #[derive(Default)]

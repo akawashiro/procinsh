@@ -69,20 +69,20 @@ mod tests {
                 ipc: SensorState::Observing,
                 cpu: SensorState::Unavailable("permission denied".into()),
                 files: SensorState::Error("poll failed".into()),
-                coverage: Some("ipc coverage".into()),
-                files_coverage: Some("file coverage".into()),
                 lost: Some(0),
                 unresolved: Some(1),
                 files_lost: Some(2),
             },
         };
+        let bytes = crate::ipc::codec::encode(&activity, crate::ipc::schema::MAX_RESPONSE).unwrap();
+        let activity = crate::ipc::codec::decode::<SystemActivity>(&bytes).unwrap();
         assert_eq!(
             to_value(activity).unwrap(),
             json!({
                 "captured_at":1000,"window_ms":100,"files":[],"signals":[],
                 "ipc":[{"process_id":{"pid":42,"start_time_ticks":123},"resource":{"kind":"pipe","device":{"major":0,"minor":1},"inode":"2"},"write":true,"bytes":256,"count":2}],
                 "cpu":[{"process_id":{"pid":42,"start_time_ticks":123},"runtime_ns":500,"switches":3,"running_threads":2,"cpus":[0,2]}],
-                "status":{"active":true,"signals":{"state":"observing"},"signals_lost":3,"ipc":{"state":"observing"},"cpu":{"state":"unavailable","message":"permission denied"},"files":{"state":"error","message":"poll failed"},"coverage":"ipc coverage","files_coverage":"file coverage","lost":0,"unresolved":1,"files_lost":2}
+                "status":{"active":true,"signals":{"state":"observing"},"signals_lost":3,"ipc":{"state":"observing"},"cpu":{"state":"unavailable","message":"permission denied"},"files":{"state":"error","message":"poll failed"},"lost":0,"unresolved":1,"files_lost":2}
             })
         );
     }

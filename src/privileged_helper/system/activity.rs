@@ -53,16 +53,12 @@ pub(super) fn create_activity_collector() -> ActivityCollector {
         initialize(create_signal_collector())
     };
     let status = SystemMonitorStatus {
-            ipc: ipc_state,
-            cpu: cpu_state,
-            files: files_state,
-            signals: signals_state,
-            coverage: Some(
-                "pipe read/write; socket send/recv. splice, sendfile and some io_uring paths are not observed; worker attribution is excluded.".into(),
-            ),
-            files_coverage: Some(super::files::COVERAGE.into()),
-            ..SystemMonitorStatus::default()
-        };
+        ipc: ipc_state,
+        cpu: cpu_state,
+        files: files_state,
+        signals: signals_state,
+        ..SystemMonitorStatus::default()
+    };
     ActivityCollector {
         signals,
         ipc,
