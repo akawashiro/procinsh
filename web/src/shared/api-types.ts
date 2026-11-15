@@ -8,8 +8,6 @@ export interface SystemMonitorStatus {
   files: SensorState;
   signals?: SensorState;
   signals_lost?: number;
-  coverage?: string;
-  files_coverage?: string;
   lost?: number;
   unresolved?: number;
   files_lost?: number;

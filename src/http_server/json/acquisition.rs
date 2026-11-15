@@ -198,10 +198,6 @@ struct SystemMonitorStatusJson {
     #[serde(skip_serializing_if = "Option::is_none")]
     signals_lost: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    coverage: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    files_coverage: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     lost: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     unresolved: Option<u64>,

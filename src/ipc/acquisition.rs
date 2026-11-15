@@ -136,8 +136,6 @@ pub(crate) struct SystemMonitorStatus {
     pub(crate) files: SensorState,
     pub(crate) signals: SensorState,
     pub(crate) signals_lost: Option<u64>,
-    pub(crate) coverage: Option<String>,
-    pub(crate) files_coverage: Option<String>,
     pub(crate) lost: Option<u64>,
     pub(crate) unresolved: Option<u64>,
     pub(crate) files_lost: Option<u64>,
@@ -314,8 +312,6 @@ crate::ipc::codec::wire_struct!(SystemMonitorStatus {
     files,
     signals,
     signals_lost,
-    coverage,
-    files_coverage,
     lost,
     unresolved,
     files_lost
