@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["PENDING_LIMIT","REQUEST_TIMEOUT"],"fn":["close_agent_link","close_session_agent_link","complete_agent_link","create_agent_link","forget_agent_link","request_agent_link","send_agent_link"],"struct":["AgentLink"]};

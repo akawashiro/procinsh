@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["IpcKind"],"fn":["device_id_from_kernel","device_id_from_stat"],"struct":["DeviceId","FileIdentity","IpcIdentity"]};

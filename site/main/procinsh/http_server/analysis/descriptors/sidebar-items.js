@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["deserialize_optional_inode","pipe_opposite","resolve_descriptor_relations","serialize_optional_inode"],"struct":["EndpointJson","FileDescriptorInfoJson","FileDescriptorsJson","KeyJson","OwnerJson"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PathClassJson"],"fn":["chain","paths"],"struct":["HardwarePathJson"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["agent_token","default_config_path","load_config","main","merge_cli_configuration","run_application"],"mod":["http_server","ipc"],"struct":["Cli","ConfigFile"]};

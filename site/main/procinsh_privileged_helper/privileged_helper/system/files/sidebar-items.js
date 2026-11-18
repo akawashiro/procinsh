@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_AGGREGATES"],"fn":["add_batch","count_lost_file_activity_events","create_file_activity_collector","decode_file","drain_file_activity_collector","poll_file_activity_collector"],"struct":["Batch","FileActivityCollector"]};

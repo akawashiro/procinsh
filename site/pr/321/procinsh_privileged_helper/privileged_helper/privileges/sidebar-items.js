@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["capabilities","check","effective_capabilities","prctl","restrict_helper_privileges","set_capabilities"],"struct":["CapabilityHeader","CapabilitySet"]};

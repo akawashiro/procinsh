@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["BLOCKING_ABOVE","COMPRESS_ABOVE","GZIP","MAX_FRAME_BYTES","PLAIN","PROTOCOL"],"enum":["Message"],"fn":["decode_host_message","encode_host_message","read_host_message","same_secret","write_host_message"],"type":["AgentResponse"]};

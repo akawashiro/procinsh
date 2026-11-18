@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["create_activity_collector","drain_activity_collector","initialize","poll_activity_collector","status_activity_collector","update_state"],"struct":["ActivityBatch","ActivityCollector"]};

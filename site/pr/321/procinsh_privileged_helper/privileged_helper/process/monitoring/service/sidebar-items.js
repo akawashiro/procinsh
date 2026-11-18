@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["capture_target","refresh_maps"],"struct":["ObservationPermit","ObservationSession","ProcessMonitor"]};

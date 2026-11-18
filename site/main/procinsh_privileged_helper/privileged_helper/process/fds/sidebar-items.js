@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["collect_descriptor_owners","collect_file_descriptors","connected_socket_key","descriptor_access_from_mode","identify_descriptor_resource","parse_link_inode","read_descriptor_access_mode","socket_table"],"type":["InetKey"]};

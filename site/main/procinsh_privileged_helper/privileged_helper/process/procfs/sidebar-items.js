@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["page_size","parse_process_stat","parse_procfs_u64_field","read_bounded_bytes","read_process_io_stats","read_process_stat","read_procfs_fields","read_procfs_text","ticks_per_second"],"struct":["Stat"]};

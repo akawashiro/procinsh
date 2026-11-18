@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["HardwareKindJson","HardwareRoleJson"],"fn":["bars","hex","is_function_address","is_host_bridge","kind","link","link_speed","node","online_numa_nodes","read_topology"],"struct":["BarInfoJson","PciNode","PcieLinkInfoJson","PcieLinkJson"]};

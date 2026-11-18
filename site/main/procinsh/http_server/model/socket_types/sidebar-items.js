@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AddressFamilyJson","FdAccessJson","FdKindJson","SocketConnectionStatusJson","SocketProtocolJson","SocketStateJson","SocketTypeJson"],"struct":["InetAddressJson"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["activity","files","hardware_capture","ipc","ipoib","rdma","resolver","sched","service","signals","snapshot","status"]};

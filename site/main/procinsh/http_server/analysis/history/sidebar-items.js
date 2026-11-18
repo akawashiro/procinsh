@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["append_history_observation"],"struct":["HistoryPointJson"]};

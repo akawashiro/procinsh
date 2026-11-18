@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["build_html","embedded_asset","router","versioned_html"],"struct":["WebAssets"]};

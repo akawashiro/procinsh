@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DeviceHandleKindJson"],"fn":["create_device_handle_collector","finish_device_handle_collector","function_address","observe_device_handle_collector","resolve_device_handle_collector"],"struct":["DeviceHandleCollector","DeviceHandleJson"]};

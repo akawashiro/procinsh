@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["device","nvidia_information","short"],"struct":["GpuInfoJson","HardwareDeviceJson","RdmaDeviceInfoJson"]};

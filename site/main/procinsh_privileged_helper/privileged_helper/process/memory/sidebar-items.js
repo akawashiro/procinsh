@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_READ"],"fn":["enable_privacy","privacy_enabled","read_process_memory"],"static":["PRIVACY"]};

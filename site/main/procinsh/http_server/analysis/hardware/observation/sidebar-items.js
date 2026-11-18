@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["acquired_hardware_sources","at_hardware_sources","handles_hardware_observation","hardware_sources_is_dir","link_hardware_sources","names_hardware_sources","observe_hardware_observation","text_hardware_sources"],"struct":["HardwareObservation","HardwareSources"]};

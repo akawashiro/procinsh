@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["collect_cpu_activity_collector","create_cpu_activity_collector"],"struct":["CpuActivityCollector"]};

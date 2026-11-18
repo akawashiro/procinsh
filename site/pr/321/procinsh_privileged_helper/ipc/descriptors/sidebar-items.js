@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Descriptor","Endpoint","FileDescriptors","Key","Owner"]};

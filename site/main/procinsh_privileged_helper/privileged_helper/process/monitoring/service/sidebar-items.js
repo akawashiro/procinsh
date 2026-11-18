@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["SubscribeError"],"fn":["capture_target","create_process_monitor","join_process_collectors","observe_process_monitor","process_monitor_is_stopped","refresh_maps","reserve_process_monitor","stop_process_monitor"],"struct":["ObservationPermit","ObservationSession","ProcessMonitor"]};

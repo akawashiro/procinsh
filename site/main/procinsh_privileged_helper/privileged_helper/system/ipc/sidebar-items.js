@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["create_ipc_activity_collector","decode_ipc","drain_ipc_activity_collector","lost_ipc_activity_collector","pipe_attach_target","poll_ipc_activity_collector","unresolved_ipc_activity_collector"],"struct":["IpcActivityCollector"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_CACHE_BYTES","MAX_EXPANDED_SIZE","MAX_FILES","MAX_FILE_SIZE","MAX_SECTION_SIZE","MAX_SYMBOLS","MAX_UNITS"],"fn":["cache_elf_symbols_from_image","insert_reader_elf_cache","lookup_cached_elf_file_identity","lookup_elf_symbols","parse_reader_elf_symbols"],"struct":["ElfCache","ElfSymbols"],"type":["DwarfReader","MappedFileId"]};
