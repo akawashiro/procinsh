@@ -4,7 +4,7 @@
 //! - [`collect_process_summary`] (`pub(super)`): `fn collect_process_summary( stat: &`[`procfs::Stat`]`, users: &`[`HashMap`]`<u32, `[`String`]`>, ) -> `[`crate::ipc::acquisition::ProcessSummary`].
 //! - [`collect_processes`] (`pub(in crate::privileged_helper)`): `fn collect_processes() -> `[`Result`]`<`[`Vec`]`<`[`crate::ipc::acquisition::ProcessSummary`]`>>`.
 
-use crate::privileged_helper::users::read_user_names;
+use crate::privileged_helper::users::read_uid_to_username_map;
 use anyhow::Result;
 use std::{collections::HashMap, fs};
 use {super::procfs, crate::ipc::schema::ProcessId};
@@ -70,7 +70,7 @@ fn start_timestamp(boot_seconds: u64, ticks: u64, ticks_per_second: f64) -> Opti
 
 /// Scans protected procfs for process summaries and raw CPU counters.
 pub(in crate::privileged_helper) fn collect_processes() -> Result<Vec<ProcessSummary>> {
-    let users = read_user_names();
+    let users = read_uid_to_username_map();
     let mut result = Vec::new();
     for entry in fs::read_dir("/proc")?.flatten() {
         let Some(pid) = entry
